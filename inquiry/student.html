@@ -483,7 +483,8 @@ let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
   const raw = lsGet(LS_KEY);
   if (raw) { try { const d = JSON.parse(raw); if (validState(d)) S = d; } catch (e) {} }
   curWeek = Number(lsGet(LS_KEY + "-week")) || 0;
-  if (curWeek >= CONTENT.weeks.length) curWeek = 0;
+  const hm = /^#w(\d)$/.exec(location.hash); if (hm) curWeek = Number(hm[1]) - 1;   // 첫 화면의 주차 카드에서 바로 들어오기
+  if (!(curWeek >= 0 && curWeek < CONTENT.weeks.length)) curWeek = 0;
   initTheme();
   bindTop();
   render();
