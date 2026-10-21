@@ -1,0 +1,6 @@
+[
+  {"id": "class-explosion", "aliases_add": [], "aliases_remove": [], "short_new": "서로 독립적으로 바뀌는 차원 여러 개를 상속으로 조합할 때 클래스 수가 각 차원의 종류 수를 곱한 만큼 늘어나는 현상.", "drop": false, "reason": "기존 short가 쓰는 '변이의 축'(axis-of-change)이 10장 시점에 아직 정의되지 않은 등록 용어라, 원고 정의와 같은 표현으로 맞춘다."},
+  {"id": "operational-transformation-crdt", "aliases_add": [], "aliases_remove": [], "short_new": "OT(Operational Transformation)와 CRDT(Conflict-free Replicated Data Type). 여러 사용자의 동시 편집 충돌을 자동으로 맞추는 알고리즘 계열.", "drop": false, "reason": "약어 풀이가 없다는 감사 메모 반영. 원고 정의에도 풀이를 넣었다."},
+  {"id": "inspect-ismethod", "aliases_add": [], "aliases_remove": ["inspect"], "short_new": "", "drop": false, "reason": "'inspect'는 모듈 이름이자 일반 영어 단어라 다른 장의 무관한 'inspect' 언급(예: inspect.signature)에 첫 등장이 잘못 잡힐 수 있다. 'inspect.ismethod'만으로 충분하다."},
+  {"id": "macro-2", "aliases_add": [], "aliases_remove": [], "short_new": "", "drop": false, "reason": "확인용: 12장 #context의 '\"매크로\"로 녹화' 표기를 그대로 <dfn>으로 감쌌다. 변경 불필요."}
+]

@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10장 전략 (Strategy) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="행위 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">10장 · 전략 (Strategy)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">10장 · 행위 패턴</span><h1>전략 (Strategy)</h1><p class="subtitle">교체 가능한 알고리즘을 객체로, 그리고 함수로</p></header>
+    <section id="goals">
+<h2>학습 목표</h2>
+<ul>
+  <li>교체 가능한 알고리즘 계열을 캡슐화하고, 컨텍스트가 런타임에 그것을 보유·교체하도록 설계할 수 있다.</li>
+  <li>전략을 클래스로 둘 때와 함수로 둘 때의 기준(설정 상태, 메서드 수, 로그·직렬화 필요성)을 판단할 수 있다.</li>
+  <li>조건문 기반 선택을 등록부·설정 기반 선택으로 바꾸되, <em>선택 로직 자체</em>가 어디에 있어야 하는지 설명할 수 있다.</li>
+</ul>
+</section>
+
+<section id="context">
+<h2>1. 상황</h2>
+<p>음식 배달 플랫폼 '한끼배달'의 백엔드 개발자 민재는 서비스 초기, 배달비를 가장 단순하게 정했다. 기본 3,000원에 km당 500원. 계산은 <code>Order.delivery_fee()</code> 메서드 다섯 줄이면 충분했고, 실제로 반년 동안 아무 문제가 없었다.</p>
+<p>문제는 사업이 커지면서 생겼다. 비 오는 날 라이더가 부족해지자 우천 할증 1,000원이 붙었고, 밤 10시 이후 주문에는 심야 할증이 붙었다. 월 구독 상품 '한끼패스'가 출시되면서 구독 회원은 배달비가 무료가 되었고, 일부 가게는 배달비 일부를 자기 돈으로 대신 내 주는 프로모션을 시작했다. 민재는 그때마다 <code>delivery_fee()</code>에 <code>if</code>를 하나씩 더했다.</p>
+<p>결정타는 운영팀의 요청이었다. "부산 해운대에서는 거리 비례 대신 <strong><dfn class="term" id="term-tiered-pricing" data-term="tiered-pricing" title="거리 구간마다 정해진 요금을 매기는 방식.">구간제</dfn> 요금표</strong>를 실험해 보고 싶어요. 결과가 좋으면 다른 지역에도 넓히고, 나쁘면 다음 주에 되돌릴 거예요. 제주에서는 이번 주만 정액 1,900원 이벤트를 하고요. 매번 배포를 기다리긴 어렵습니다." 구간제란 거리를 몇 구간으로 나눠 구간마다 정해진 요금을 매기는 방식이다. 운영팀이 하려는 것은 <dfn class="term" id="term-a-b-test" data-term="a-b-test" title="사용자(또는 지역)를 무작위로 나눠 두 안을 동시에 적용하고 결과를 비교하는 실험.">A/B 테스트</dfn> — 지역(또는 사용자)을 나눠 두 요금안을 동시에 적용하고 주문 수·이탈률을 비교하는 실험 — 였다. 요금 정책이 <em>지역별로, 주 단위로</em> 바뀌는 대상이 된 것이다.</p>
+<p>민재가 급하게 해운대용 분기를 추가하면서 서울 쪽 할증 코드를 복사해 붙였고, 몇 주 뒤 <dfn class="term" id="term-customer-service" data-term="customer-service" title="고객 문의를 처리하는 고객 서비스 팀.">CS 팀</dfn>(고객 문의를 처리하는 고객 서비스 팀)에서 "새벽 5시대 주문인데 서울은 심야 할증이 붙고 부산은 안 붙는다"는 문의가 들어왔다. 복사하면서 심야 기준이 한쪽만 바뀐 것이다. 정책 하나를 단위 테스트하려 해도 고객·가게·메뉴까지 갖춘 <code>Order</code>를 통째로 만들어야 해서 테스트도 거의 없었다.</p>
+<p>민재가 느끼는 고통을 정리하면 이렇다. 첫째, 정책이 하나 생길 때마다 같은 메서드를 고친다. 둘째, '어떤 요금표를 쓸지'와 '요금표가 어떻게 계산되는지'가 한 덩어리라 복제가 생긴다. 셋째, 정책이 주문 <dfn class="term" id="term-entity" data-term="entity" title="값이 바뀌어도 같은 대상으로 추적되는 정체성(ID)을 가진 도메인 객체(예: 주문).">엔티티</dfn> 깊숙이 박혀 있어 따로 떼어 시험할 수 없다. 엔티티는 필드 값이 바뀌어도 고유 ID로 같은 대상으로 추적되는 도메인 객체(여기서는 주문)로, 대개 시스템에서 가장 오래 살고 가장 많은 코드가 의존하는 객체다 — 그래서 자주 바뀌는 정책이 여기에 박혀 있으면 변경 비용이 크다. 넷째, 정책 변경이 곧 코드 변경이라 운영팀의 속도를 따라갈 수 없다.</p>
+</section>
+
+<section id="naive">
+<h2>2. 순진한 설계와 그 한계</h2>
+<p class="lead-in">아래는 민재의 <code>Order.delivery_fee()</code>가 반년 동안 자란 모습이다. 지역 분기 안에 할증 분기가 중첩되어 있다는 점, 그리고 B안 블록이 A안 블록의 복사본이라는 점에 주목하라. <code># ⚠ 문제:</code> 주석이 각 고통 지점을 가리킨다.</p>
+<figure class="code"><figcaption>src/10_strategy/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 배달비 계산이 Order 안의 거대한 if 문으로 자란 상태.
+
+상황: 음식 배달 플랫폼 &#x27;한끼배달&#x27;의 백엔드 개발자 민재는 처음에 거리 기반 배달비
+(기본 3,000원 + km당 500원)를 Order.delivery_fee()에 넣었다. 이후 우천·심야 할증,
+구독 회원 무료 배달, 가게 부담 프로모션이 붙었고, 운영팀이 지역별 A/B 테스트를
+요구하자 &#x27;실험군 B용 요금표&#x27;가 같은 메서드 안에 복제되었다.
+
+이 파일은 그 결과물이다. 읽으면서 다음 세 가지 고통에 주목하라.
+  1) 새 정책 하나가 이 메서드를 &#x27;수정&#x27;하게 만든다(OCP 위반).
+  2) A/B 실험군마다 할증 로직이 복제되어, 한쪽만 고치는 버그가 생긴다.
+  3) 정책 하나를 테스트하려면 메뉴·가게·고객까지 갖춘 Order 전체가 필요하다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Customer:
+    &quot;&quot;&quot;주문 고객. 배달비에는 구독 여부만 쓰이지만 Order가 통째로 들고 있다.&quot;&quot;&quot;
+
+    name: str
+    is_subscriber: bool = False
+
+
+@dataclass
+class Store:
+    &quot;&quot;&quot;가게. 배달비와 관련된 것은 &#x27;가게 부담 할인액&#x27; 하나뿐이다.&quot;&quot;&quot;
+
+    name: str
+    promo_discount: int = 0  # 가게가 대신 내주는 배달비(원)
+
+
+@dataclass
+class Order:
+    &quot;&quot;&quot;주문 엔티티. 원래 책임은 &#x27;무엇을 누구에게 보내는가&#x27;인데 요금 정책까지 떠안았다.&quot;&quot;&quot;
+
+    customer: Customer
+    store: Store
+    items: list[tuple[str, int]] = field(default_factory=list)
+    distance_km: float = 0.0
+    region: str = &quot;seoul-gangnam&quot;
+    hour: int = 12               # 주문 시각(0~23)
+    is_raining: bool = False
+
+    def delivery_fee(self) -&gt; int:
+        &quot;&quot;&quot;배달비를 계산한다. 이 메서드가 &#x27;변하는 것&#x27; 전부를 한곳에 쌓고 있다.&quot;&quot;&quot;
+        # ⚠ 문제: 구독 무료 규칙이 맨 앞에 있어서, 실험군 B에서 &#x27;구독자도 1,000원&#x27;을
+        #   시험하고 싶어지면 이 줄 자체를 지역별 if로 다시 쪼개야 한다.
+        if self.customer.is_subscriber:
+            return 0
+
+        # ⚠ 문제: &#x27;어떤 요금표를 쓸지&#x27;(선택)와 &#x27;요금표가 어떻게 계산하는지&#x27;(알고리즘)가
+        #   한 메서드에 섞여 있다. 지역이 늘 때마다 이 분기가 자란다.
+        if self.region in (&quot;seoul-gangnam&quot;, &quot;seoul-mapo&quot;):
+            # A안: 거리 비례
+            fee = 3000 + int(self.distance_km * 500)
+            if self.is_raining:
+                fee += 1000
+            if self.hour &gt;= 22 or self.hour &lt; 6:
+                fee += 1500
+        elif self.region in (&quot;busan-haeundae&quot;,):
+            # B안(실험군): 거리 구간제 — A안의 할증 코드를 복사해 왔다.
+            if self.distance_km &lt;= 2:
+                fee = 2500
+            elif self.distance_km &lt;= 5:
+                fee = 4000
+            else:
+                fee = 6000
+            if self.is_raining:
+                fee += 500  # 금액 차이(500 vs 1000)는 의도된 정책이다. ⚠ 문제: 그러나 할증 &#x27;구조&#x27;가 복제되어 A안 규칙 변경이 여기엔 반영되지 않는다.
+            if self.hour &gt;= 22 or self.hour &lt; 5:  # ⚠ 문제: 심야 기준이 A안(6시)과 미묘하게 다르다 — 의도인가, 복사 실수인가?
+                fee += 1500
+        else:
+            # ⚠ 문제: 새 지역의 &#x27;이벤트 정액제&#x27;를 넣으려면 또 elif를 추가하고 재배포해야 한다.
+            fee = 3000
+
+        # 가게 부담 할인은 어떤 요금표든 공통이다. 하지만 위 분기와 같은 메서드에 있어서
+        # &#x27;공통 규칙&#x27;인지 &#x27;정책의 일부&#x27;인지 코드만 봐서는 구분되지 않는다.
+        return max(0, fee - self.store.promo_discount)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 정책 하나(B안의 우천 할증)를 확인하려는 것뿐인데, Customer·Store·메뉴까지 만들어야 한다.
+    print(&quot;[1] 강남(A안) 3.2km, 맑음, 낮&quot;)
+    o1 = Order(Customer(&quot;지우&quot;), Store(&quot;마라탕집&quot;), [(&quot;마라탕&quot;, 12000)], distance_km=3.2)
+    print(&quot;    배달비:&quot;, o1.delivery_fee())
+
+    print(&quot;[2] 해운대(B안) 3.2km, 비, 밤 11시&quot;)
+    o2 = Order(Customer(&quot;도윤&quot;), Store(&quot;국밥집&quot;, promo_discount=1000), [(&quot;국밥&quot;, 9000)],
+               distance_km=3.2, region=&quot;busan-haeundae&quot;, hour=23, is_raining=True)
+    print(&quot;    배달비:&quot;, o2.delivery_fee())
+
+    print(&quot;[3] 새벽 5시대 주문 — 두 지역의 심야 기준이 다르다&quot;)
+    for region in (&quot;seoul-gangnam&quot;, &quot;busan-haeundae&quot;):
+        o = Order(Customer(&quot;서아&quot;), Store(&quot;분식집&quot;), distance_km=1.0, region=region, hour=5)
+        print(f&quot;    {region:15s} 배달비: {o.delivery_fee()}&quot;)
+    print(&quot;    → 같은 &#x27;심야 할증&#x27;인데 한쪽만 붙는다. 복제된 분기가 어긋난 흔적이다.&quot;)
+
+    print(&quot;[4] 운영팀: &#x27;제주 지역은 이번 주만 정액 1,900원&#x27; → 코드 수정 + 재배포가 필요&quot;)
+    o4 = Order(Customer(&quot;하준&quot;), Store(&quot;흑돼지집&quot;), distance_km=4.0, region=&quot;jeju&quot;)
+    print(&quot;    지금 제주 배달비:&quot;, o4.delivery_fee(), &quot;(else 분기의 임시값)&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력의 [3]이 CS 문의의 재현이다. 같은 '심야 할증'인데 서울(<code>hour &lt; 6</code>)과 부산(<code>hour &lt; 5</code>)의 기준이 다르다. 이것이 의도된 정책 차이인지 복사 실수인지는 코드만 봐서는 알 수 없다 — 할증 판정이라는 <em>공통 규칙</em>과 요금표라는 <em>가변 규칙</em>이 같은 블록에 섞여 있기 때문이다.</p>
+<p>이 코드가 위반하는 원칙은 서론(00장)의 세 원칙 그대로다.</p>
+<ul>
+  <li><strong>변하는 것을 분리하지 않았다.</strong> 요금 알고리즘은 주 단위로 바뀌는데, 1년에 한 번도 안 바뀌는 <code>Order</code>의 다른 필드와 같은 클래스에 산다. <code>Order</code>가 변경될 이유가 둘이 된다(SRP).</li>
+  <li><strong>구현에 프로그래밍했다.</strong> <code>delivery_fee()</code>를 부르는 쪽은 "요금 알고리즘"이라는 개념에 의존할 방법이 없고, 오직 이 거대한 메서드에 의존한다.</li>
+  <li><strong>새 정책 = 기존 코드 수정.</strong> 제주 정액제를 넣으려면 <code>elif</code>를 추가하고 재배포해야 한다(OCP 위반).</li>
+</ul>
+<p>그리고 하나 더, 눈에 덜 띄지만 중요한 문제가 있다. <strong>선택</strong>(<code>if self.region in ...</code>)과 <strong>알고리즘</strong>(요금 계산식)이 같은 자리에 있다. 이 둘을 떼어 놓지 않으면 알고리즘을 아무리 잘 캡슐화해도 지역이 늘 때마다 같은 메서드가 다시 자란다.</p>
+</section>
+
+<section id="structure">
+<h2>3. 패턴의 구조</h2>
+<p>GoF는 전략 패턴의 의도를 이렇게 적는다. <em>"알고리즘군을 정의하고 각각을 캡슐화하여 교체 가능하게 만든다. 전략을 쓰면 알고리즘을 사용하는 클라이언트와 독립적으로 알고리즘을 바꿀 수 있다."</em> 핵심 단어는 '교체 가능'이다. 컨텍스트는 알고리즘을 <em>상속받지</em> 않고 <em>보유한다</em>. 그래서 컨텍스트 객체를 새로 만들지 않고도 알고리즘만 갈아 끼울 수 있다.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 720 400" role="img" aria-label="배달비 전략 패턴 구조: DeliveryFeeService가 FeePolicy를 보유하고, DistancePolicy·TieredPolicy·FlatPolicy가 FeePolicy를 구현한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <g class="uml-class" transform="translate(20,30)">
+      <rect width="210" height="84"/>
+      <text class="uml-name" x="105" y="22">DeliveryFeeService</text>
+      <line x1="0" y1="32" x2="210" y2="32"/>
+      <text class="uml-member" x="10" y="52">- policy: FeePolicy</text>
+      <text class="uml-member" x="10" y="72">+ quote(order): int</text>
+    </g>
+    <text class="uml-note" x="20" y="134">Context</text>
+
+    <g class="uml-class highlight" transform="translate(400,30)">
+      <rect width="230" height="100"/>
+      <text class="uml-name uml-abstract" x="115" y="22">FeePolicy</text>
+      <line x1="0" y1="32" x2="230" y2="32"/>
+      <text class="uml-member" x="10" y="52">+ name: str</text>
+      <text class="uml-member" x="10" y="72">+ calculate(q: FeeInput): int</text>
+      <text class="uml-member" x="10" y="90">+ describe(): str</text>
+    </g>
+    <text class="uml-note" x="640" y="60">Strategy</text>
+
+    <path class="uml-assoc" d="M230 72 H398" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="300" y="64">policy</text>
+
+    <g class="uml-class" transform="translate(250,210)">
+      <rect width="140" height="60"/>
+      <text class="uml-name" x="70" y="22">DistancePolicy</text>
+      <line x1="0" y1="32" x2="140" y2="32"/>
+      <text class="uml-member" x="10" y="50">+ calculate(q)</text>
+    </g>
+    <g class="uml-class" transform="translate(410,210)">
+      <rect width="140" height="60"/>
+      <text class="uml-name" x="70" y="22">TieredPolicy</text>
+      <line x1="0" y1="32" x2="140" y2="32"/>
+      <text class="uml-member" x="10" y="50">+ calculate(q)</text>
+    </g>
+    <g class="uml-class" transform="translate(570,210)">
+      <rect width="130" height="60"/>
+      <text class="uml-name" x="65" y="22">FlatPolicy</text>
+      <line x1="0" y1="32" x2="130" y2="32"/>
+      <text class="uml-member" x="10" y="50">+ calculate(q)</text>
+    </g>
+    <text class="uml-note" x="570" y="292">Concrete Strategy</text>
+    <path class="uml-inherit" d="M320 210 V172 H515 V132" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M480 210 V172 H515"/>
+    <path class="uml-inherit" d="M635 210 V172 H515"/>
+
+    <g class="uml-class" transform="translate(20,210)">
+      <rect width="190" height="88"/>
+      <text class="uml-stereo" x="95" y="16">«frozen dataclass»</text>
+      <text class="uml-name" x="95" y="34">FeeInput</text>
+      <line x1="0" y1="42" x2="190" y2="42"/>
+      <text class="uml-member" x="10" y="60">distance_km, hour,</text>
+      <text class="uml-member" x="10" y="78">is_raining</text>
+    </g>
+    <path class="uml-dep" d="M400 104 L212 230" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="268" y="160">«uses»</text>
+
+    <g class="uml-class" transform="translate(250,330)">
+      <rect width="200" height="50"/>
+      <text class="uml-stereo" x="100" y="18">«function»</text>
+      <text class="uml-name" x="100" y="38">build_policy(spec)</text>
+    </g>
+    <path class="uml-dep" d="M350 330 V272" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="356" y="306">«create»</text>
+    <text class="uml-note" x="462" y="360">선택 로직: Context 바깥(조립 지점)</text>
+  </svg>
+  <figcaption>그림 10-1. 배달비 전략 패턴의 참여자. 선택(build_policy)과 위임(DeliveryFeeService)이 분리되어 있다.</figcaption>
+</figure>
+<div class="table-wrap"><table>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr><td>전략(Strategy)</td><td><code>FeePolicy</code></td><td>요금 알고리즘의 공통 인터페이스. 추상 메서드는 <code>calculate(q)</code> 하나뿐이다(<code>describe()</code>는 로그용 기본 구현).</td></tr>
+    <tr><td>구체 전략(Concrete Strategy)</td><td><code>DistancePolicy</code>, <code>TieredPolicy</code>, <code>FlatPolicy</code></td><td>알고리즘 하나씩. 요율은 생성자 매개변수로 받는다.</td></tr>
+    <tr><td>컨텍스트(Context)</td><td><code>DeliveryFeeService</code></td><td>전략을 보유하고 위임한다. 모든 정책에 공통인 규칙(구독 무료, 가게 할인)만 직접 처리한다.</td></tr>
+    <tr><td>(<dfn class="term" id="term-contract-2" data-term="contract-2" title="메서드가 무엇을 받고 무엇을 보장하는지에 대한 약속. 10장은 시그니처뿐 아니라 &#x27;넘기는 인자의 폭&#x27;까지 계약이라 한다.">입력 계약</dfn>)</td><td><code>FeeInput</code></td><td>전략이 알아야 하는 사실만 담은 좁은 입력. 입력 계약이란 메서드가 무엇을 받는지에 대한 약속으로, 이 장에서는 시그니처뿐 아니라 넘기는 인자의 폭까지 계약에 포함한다.</td></tr>
+    <tr><td>(선택 로직)</td><td><code>build_policy()</code></td><td>설정을 구체 전략으로 바꾼다. GoF의 '클라이언트'가 맡는 일이다.</td></tr>
+  </tbody>
+</table></div>
+<p>GoF 구조도에는 <code>FeeInput</code>과 <code>build_policy()</code>가 없다. 그러나 실전에서 전략 패턴의 품질을 가르는 것은 대개 이 두 곳이다. 전략에게 무엇을 넘기는가(인터페이스의 폭), 그리고 누가 전략을 고르는가(선택 책임의 위치).</p>
+</section>
+
+<section id="implementation">
+<h2>4. 패턴 적용</h2>
+<p>민재가 먼저 한 일은 코드가 아니라 분류였다. <code>delivery_fee()</code>의 각 줄을 "운영팀이 실험하고 싶어 하는가?"로 나눴다. 요금표와 할증 금액은 실험 대상이므로 <em>변하는 것</em>이다. 구독 무료는 회원 약관이고 가게 할인은 가게와의 계약이므로, 어떤 요금표를 쓰든 똑같이 적용되는 <em>변하지 않는 것</em>이다. 이 판단이 곧 전략과 컨텍스트의 경계가 된다.</p>
+<p class="lead-in">첫 부분은 전략이 받는 입력과 전략 클래스들이다. <code>FeeInput</code>이 <code>Order</code>가 아니라는 점, 그리고 심야 판정이 <code>is_night()</code> 하나로 모여 복제가 사라졌다는 점을 확인하라. 전체 파일은 <code>02_strategy.py</code>이고, 여기서는 세 부분으로 나눠 본다.</p>
+<figure class="code"><figcaption>src/10_strategy/02_strategy.py  (23–154행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 전략에게 넘길 &#x27;좁은 입력&#x27;
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class FeeInput:
+    &quot;&quot;&quot;요금 정책이 알아야 하는 사실만 담은 값 객체.
+
+    전략에게 Order 전체를 넘기면 전략이 Order의 내부 구조(customer.is_subscriber,
+    store.promo_discount …)에 결합된다. 필요한 사실만 뽑아 넘기면
+      - 정책 테스트에 FeeInput(3.2, 12, False) 한 줄이면 충분하고,
+      - Order 구조가 바뀌어도 정책 클래스는 영향을 받지 않는다.
+    frozen=True: 정책이 입력을 고쳐서 다음 계산에 영향을 주는 일을 원천 차단한다.
+    &quot;&quot;&quot;
+
+    distance_km: float
+    hour: int          # 0~23
+    is_raining: bool
+
+
+def is_night(hour: int, start: int, end: int) -&gt; bool:
+    &quot;&quot;&quot;심야 시간대 판정. 자정을 넘기는 구간(22시~6시)을 한 곳에서 처리한다.
+
+    naive 코드에서 A안·B안이 각자 &#x27;hour &gt;= 22 or hour &lt; 6&#x27;을 복제하다 기준이
+    어긋났다. 판정을 함수로 빼 두면 정책은 &#x27;몇 시부터&#x27;라는 매개변수만 다르게 갖는다.
+    &quot;&quot;&quot;
+    return hour &gt;= start or hour &lt; end
+
+
+# ---------------------------------------------------------------------------
+# [Strategy] 와 [Concrete Strategy]
+# ---------------------------------------------------------------------------
+class FeePolicy(ABC):
+    &quot;&quot;&quot;[Strategy] 배달비 산정 알고리즘의 공통 인터페이스.
+
+    DeliveryFeeService(Context)는 이 추상 타입에만 의존한다(인터페이스에 프로그래밍).
+    Protocol 대신 ABC를 쓴 이유: 운영 설정으로 정책을 &#x27;생성&#x27;하는 코드가 있어서,
+    calculate()를 빠뜨린 정책 클래스를 인스턴스화 시점에 바로 실패시키는 편이 안전하다.
+    &quot;&quot;&quot;
+
+    #: 로그·A/B 리포트에 남길 정책 이름. 함수가 아닌 클래스로 둔 이유 중 하나다.
+    name: str = &quot;abstract&quot;
+
+    @abstractmethod
+    def calculate(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;할증까지 포함한 &#x27;정책 요금&#x27;(원)을 돌려준다. 구독·가게 할인은 여기서 다루지 않는다.&quot;&quot;&quot;
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;정책 설정을 사람이 읽는 문자열로. A/B 실험 로그에 그대로 남긴다.&quot;&quot;&quot;
+        return self.name
+
+
+class DistancePolicy(FeePolicy):
+    &quot;&quot;&quot;[Concrete Strategy] A안: 기본료 + km당 요금 + 우천/심야 할증.
+
+    상태(요율)를 생성자 매개변수로 받는다. 같은 클래스로 &#x27;강남 요율&#x27;과 &#x27;마포 요율&#x27;을
+    서로 다른 인스턴스로 만들 수 있으므로 지역이 늘어도 클래스는 늘지 않는다.
+    &quot;&quot;&quot;
+
+    name = &quot;distance&quot;
+
+    def __init__(self, base: int = 3000, per_km: int = 500, rain: int = 1000,
+                 night: int = 1500, night_start: int = 22, night_end: int = 6) -&gt; None:
+        &quot;&quot;&quot;요율을 보관한다. 기본값은 민재의 최초 요구사항(3,000원 + km당 500원)이다.&quot;&quot;&quot;
+        self.base, self.per_km = base, per_km
+        self.rain, self.night = rain, night
+        self.night_start, self.night_end = night_start, night_end
+
+    def calculate(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;거리 비례 요금에 할증을 더한다. Order도, 지역도 모른다 — 알 필요가 없다.&quot;&quot;&quot;
+        fee = self.base + int(q.distance_km * self.per_km)
+        if q.is_raining:
+            fee += self.rain
+        if is_night(q.hour, self.night_start, self.night_end):
+            fee += self.night
+        return fee
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;실험 로그용 요약.&quot;&quot;&quot;
+        return f&quot;distance(base={self.base}, per_km={self.per_km})&quot;
+
+
+class TieredPolicy(FeePolicy):
+    &quot;&quot;&quot;[Concrete Strategy] B안: 거리 구간제 요금.
+
+    naive 코드에서는 A안의 할증 분기를 복사해 왔지만, 여기서는 할증 판단이
+    is_night()를 공유하고 금액만 매개변수로 다르다. 복제가 사라졌다.
+    &quot;&quot;&quot;
+
+    name = &quot;tiered&quot;
+
+    def __init__(self, tiers: list[tuple[float, int]], over_fee: int,
+                 rain: int = 500, night: int = 1500) -&gt; None:
+        &quot;&quot;&quot;tiers는 (최대 km, 요금) 목록. 정렬해 두어 설정 순서 실수에 강하게 한다.&quot;&quot;&quot;
+        self.tiers = sorted(tiers)
+        self.over_fee = over_fee     # 마지막 구간을 넘는 거리의 요금
+        self.rain, self.night = rain, night
+
+    def calculate(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;구간 요금표에서 첫 번째로 맞는 구간을 찾는다.&quot;&quot;&quot;
+        fee = next((f for max_km, f in self.tiers if q.distance_km &lt;= max_km), self.over_fee)
+        if q.is_raining:
+            fee += self.rain
+        if is_night(q.hour, 22, 6):   # 심야 기준을 A안과 통일했다(구간제 실험의 대상은 요금표지 심야 기준이 아니므로)
+            fee += self.night
+        return fee
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;실험 로그용 요약.&quot;&quot;&quot;
+        return f&quot;tiered({len(self.tiers)} tiers)&quot;
+
+
+class FlatPolicy(FeePolicy):
+    &quot;&quot;&quot;[Concrete Strategy] 이벤트 정액제. 할증도 없다.
+
+    &#x27;정책마다 할증이 있다&#x27;고 가정해 상위 클래스에 할증 로직을 넣었다면 이 클래스는
+    그것을 무시하도록 오버라이드해야 했을 것이다. 전략 인터페이스를 calculate() 하나로
+    좁게 둔 덕분에 정액제는 그냥 정액을 돌려준다.
+    &quot;&quot;&quot;
+
+    name = &quot;flat&quot;
+
+    def __init__(self, fee: int) -&gt; None:
+        &quot;&quot;&quot;정액 요금을 보관한다.&quot;&quot;&quot;
+        self.fee = fee
+
+    def calculate(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;입력과 무관하게 정액. 인터페이스를 맞추려고 q를 받지만 쓰지 않는다.&quot;&quot;&quot;
+        return self.fee
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;실험 로그용 요약.&quot;&quot;&quot;
+        return f&quot;flat({self.fee})&quot;</code></pre></figure>
+<p><code>FeeInput</code>을 따로 둔 것이 이 설계에서 가장 중요한 결정이다. 전략에게 <code>Order</code>를 통째로 넘기면 편하지만, 그 순간 전략은 <code>order.customer.is_subscriber</code> 같은 내부 구조에 결합되고 테스트에도 <code>Order</code> 전체가 필요해진다. 좁은 입력은 전략 인터페이스의 일부다. <code>calculate()</code>의 시그니처만이 아니라 <em>인자의 폭</em>까지가 계약이다.</p>
+<p><code>FlatPolicy</code>의 docstring도 눈여겨보자. 전략 인터페이스를 넓게(예: <code>base_fee()</code>, <code>rain_surcharge()</code>, <code>night_surcharge()</code> 세 메서드) 잡았다면 정액제는 할증 메서드를 "0을 돌려주도록" 억지로 구현해야 했다. 인터페이스는 컨텍스트가 실제로 필요로 하는 것만큼만 좁게 둔다.</p>
+
+<p class="lead-in">다음은 컨텍스트와, 정책을 모르게 된 <code>Order</code>다. <code>quote()</code> 안에 정책 종류를 묻는 분기가 하나도 없다는 것이 전략 패턴이 제대로 적용되었는지 판별하는 가장 간단한 기준이다.</p>
+<figure class="code"><figcaption>src/10_strategy/02_strategy.py  (157–200행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 도메인 객체 — 이제 요금 정책을 모른다
+# ---------------------------------------------------------------------------
+@dataclass
+class Order:
+    &quot;&quot;&quot;주문 엔티티. delivery_fee()가 사라졌다 — 요금 정책은 Order의 변경 이유가 아니다(SRP).&quot;&quot;&quot;
+
+    customer_name: str
+    is_subscriber: bool
+    store_promo_discount: int
+    distance_km: float
+    region: str
+    hour: int = 12
+    is_raining: bool = False
+
+    def fee_input(self) -&gt; FeeInput:
+        &quot;&quot;&quot;주문에서 정책이 필요로 하는 사실만 추출한다. 결합 지점이 이 한 메서드로 모인다.&quot;&quot;&quot;
+        return FeeInput(self.distance_km, self.hour, self.is_raining)
+
+
+# ---------------------------------------------------------------------------
+# [Context]
+# ---------------------------------------------------------------------------
+class DeliveryFeeService:
+    &quot;&quot;&quot;[Context] 정책 객체를 보유하고 요금 계산을 위임한다.
+
+    상속이 아닌 합성: 정책을 런타임에 바꿔 끼울 수 있어야 하므로(A/B 실험, 이벤트 기간)
+    DeliveryFeeService의 서브클래스를 정책마다 만드는 대신 정책 객체를 &#x27;갖는다&#x27;.
+
+    여기에 남겨 둔 것은 &#x27;모든 정책에 공통인 규칙&#x27;뿐이다 — 구독 무료와 가게 부담 할인.
+    이것들은 실험 대상이 아니라 회원 약관·가게 계약이므로 변하는 것이 아니라고 판단했다.
+    만약 운영팀이 구독 혜택까지 실험하겠다고 하면, 그때 이 규칙을 정책 쪽으로 옮긴다.
+    &quot;&quot;&quot;
+
+    def __init__(self, policy: FeePolicy) -&gt; None:
+        &quot;&quot;&quot;시작 정책을 주입받는다. 서비스는 어떤 구체 정책인지 묻지 않는다.&quot;&quot;&quot;
+        self.policy = policy
+
+    def quote(self, order: Order) -&gt; int:
+        &quot;&quot;&quot;최종 배달비. 주목: 여기에는 정책 종류를 묻는 if가 하나도 없다.&quot;&quot;&quot;
+        if order.is_subscriber:
+            return 0
+        fee = self.policy.calculate(order.fee_input())
+        return max(0, fee - order.store_promo_discount)</code></pre></figure>
+<p><code>DeliveryFeeService</code>는 정책을 상속하지 않고 <code>self.policy</code>로 보유한다. 정책마다 <code>DistanceFeeService</code>, <code>TieredFeeService</code> 같은 서브클래스를 만들었다면 정책 교체는 곧 서비스 객체 교체가 되고, 요금표와 할증처럼 변하는 축이 둘이 되면 서브클래스가 곱으로 늘어난다(이것이 14장 템플릿 메서드와 갈라지는 지점이다). 합성은 "실행 중에 바꿀 수 있다"는 성질을 공짜로 준다.</p>
+
+<p class="lead-in">마지막 부분이 선택 로직이다. 순진한 코드의 <code>if self.region in ...</code>이 어디로 갔는지 찾아보라. 사라진 것이 아니라 Context 바깥의 등록부와 설정으로 옮겨졌다.</p>
+<figure class="code"><figcaption>src/10_strategy/02_strategy.py  (203–238행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 선택 로직: 설정 → 정책 객체 (Context 바깥, 조립 지점)
+# ---------------------------------------------------------------------------
+# 이름 → 정책 클래스 등록부. 새 정책은 클래스 하나 + 이 dict 한 줄로 끝난다(OCP).
+# if/elif가 완전히 사라진 것은 아니다 — &#x27;선택&#x27;이라는 행위는 남는다. 다만 그 선택이
+# Context가 아닌 한 곳(여기)으로 모였고, 데이터(dict 조회)로 바뀌었다.
+POLICY_TYPES: dict[str, type[FeePolicy]] = {
+    &quot;distance&quot;: DistancePolicy,
+    &quot;tiered&quot;: TieredPolicy,
+    &quot;flat&quot;: FlatPolicy,
+}
+
+
+def build_policy(spec: dict[str, Any]) -&gt; FeePolicy:
+    &quot;&quot;&quot;운영팀 설정 한 항목을 정책 객체로 만든다. 사실상 작은 팩토리다(01장 참고).
+
+    spec 예: {&quot;type&quot;: &quot;flat&quot;, &quot;fee&quot;: 1900}. &#x27;type&#x27; 외의 키는 생성자 인자로 전달한다.
+    알 수 없는 type은 조용히 기본값으로 넘기지 않고 즉시 실패시킨다 — 잘못된 설정으로
+    배달비가 엉뚱하게 매겨지는 것보다 배포 전에 터지는 편이 낫다.
+    &quot;&quot;&quot;
+    kwargs = dict(spec)
+    kind = kwargs.pop(&quot;type&quot;)
+    try:
+        cls = POLICY_TYPES[kind]
+    except KeyError:
+        raise ValueError(f&quot;알 수 없는 정책 type: {kind!r}&quot;) from None
+    return cls(**kwargs)
+
+
+# 운영팀이 관리하는 지역별 설정(실제로는 JSON 파일이나 설정 서버에서 읽는다).
+# 코드가 아니므로 &#x27;이번 주 제주 정액제&#x27; 같은 변경이 재배포 없이 가능해진다.
+REGION_CONFIG: dict[str, dict[str, Any]] = {
+    &quot;seoul-gangnam&quot;: {&quot;type&quot;: &quot;distance&quot;},
+    &quot;busan-haeundae&quot;: {&quot;type&quot;: &quot;tiered&quot;, &quot;tiers&quot;: [(2, 2500), (5, 4000)], &quot;over_fee&quot;: 6000},
+    &quot;jeju&quot;: {&quot;type&quot;: &quot;flat&quot;, &quot;fee&quot;: 1900},
+}</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_strategy.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력을 순서대로 읽어 보자. [1]은 <code>Order</code> 없이 정책 셋을 같은 입력으로 비교한다 — 순진한 설계에서는 불가능했던 단위 테스트다. [3]에서 새벽 5시대 주문의 심야 할증이 두 지역 모두에 붙는다. 심야 판정이 한 곳에 모이자 '의도하지 않은 차이'가 사라졌다. [4]는 실행 중인 서비스의 정책을 대입 한 번으로 바꾼다. 운영팀이 설정을 바꾸면 서버가 <code>build_policy()</code>를 다시 부르기만 하면 된다.</p>
+<div class="callout">
+  <span class="label">선택 로직은 어디에 두는가</span>
+  <p>전략 패턴은 조건문을 <em>없애는</em> 패턴이 아니다. "어느 지역에 어느 정책"이라는 결정은 어딘가에 반드시 남는다. 패턴이 하는 일은 그 결정을 (1) 컨텍스트 밖으로, (2) 한 곳으로, (3) 가능하면 코드가 아닌 데이터로 옮기는 것이다. 선택이 컨텍스트 안에 남으면(<code>if region == ...: self.policy = ...</code>) 컨텍스트는 모든 구체 전략을 알게 되고 OCP는 다시 깨진다. 선택은 객체 그래프를 조립하는 지점 — 애플리케이션 시작, 요청 핸들러, 의존성 주입 설정 — 에 둔다.</p>
+</div>
+<div class="callout">
+  <span class="label">13장 예고: 같은 모양, 다른 질문</span>
+  <p>컨텍스트가 인터페이스 뒤의 객체를 보유하고 위임한다는 구조는 13장의 상태 패턴과 똑같다. 차이는 "누가 교체를 결정하는가"다. 전략은 <em>바깥</em>(운영 설정, 클라이언트)이 고르고 전략끼리는 서로를 모른다. 상태 패턴에서는 상태 객체가 스스로 다음 상태로 교체를 일으킨다. 자세한 비교는 13장에서 다룬다.</p>
+</div>
+</section>
+
+<section id="pythonic">
+<h2>5. 파이썬다운 변형</h2>
+<p><code>FeePolicy</code>의 본질은 메서드 하나다. GoF가 전략을 클래스로 표현한 것은 1994년의 C++·Smalltalk 환경에서 "호출 가능한 무언가를 변수에 담아 넘기는" 가장 자연스러운 방법이 객체였기 때문이다. 파이썬에서 함수는 일급 객체이므로 메서드 하나짜리 인터페이스는 <code>Callable[[FeeInput], int]</code>로 충분하다. <strong>파이썬에서 전략의 상당수는 그냥 함수다.</strong> 그러면 질문이 바뀐다. 클래스는 언제 여전히 필요한가?</p>
+<p class="lead-in">민재는 정책을 함수로 다시 쓰면서, 요율 같은 매개변수가 있는 정책을 표현하는 세 가지 방법(클로저, <code>functools.partial</code>, 호출 가능한 <code>dataclass</code>)을 나란히 두었다. 모두 같은 <code>FeePolicy</code> <dfn class="term" id="term-type-alias" data-term="type-alias" title="복잡한 타입 힌트에 이름을 붙인 것(FeePolicy = Callable[[FeeInput], int]).">타입 별칭</dfn>을 만족한다는 점에 주목하라. 타입 별칭은 복잡한 타입 힌트에 이름을 붙인 것이다(<code>FeePolicy = Callable[[FeeInput], int]</code>). <code>SurgePricing</code>의 docstring에 나오는 <code><dfn class="term" id="term-dataclasses-asdict" data-term="dataclasses-asdict" title="dataclass 인스턴스를 필드 이름→값 dict로 바꾸는 함수.">dataclasses.asdict()</dfn></code>는 dataclass 인스턴스를 필드 이름 → 값 dict로 바꾸는 함수로, 설정을 다시 JSON으로 내보낼 때 쓴다.</p>
+<figure class="code"><figcaption>src/10_strategy/03_pythonic.py  (20–109행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 공통 재료 (파일 단독 실행을 위해 02와 같은 정의를 다시 둔다)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FeeInput:
+    &quot;&quot;&quot;정책이 알아야 하는 사실만 담은 좁은 입력. 함수 전략에서도 이 경계는 그대로 유효하다.&quot;&quot;&quot;
+
+    distance_km: float
+    hour: int
+    is_raining: bool
+
+
+def is_night(hour: int, start: int = 22, end: int = 6) -&gt; bool:
+    &quot;&quot;&quot;자정을 넘기는 심야 구간 판정.&quot;&quot;&quot;
+    return hour &gt;= start or hour &lt; end
+
+
+# [Strategy] 인터페이스가 ABC 대신 &#x27;타입 별칭&#x27;이 되었다. 구조적 타이핑이므로
+# 함수든, 람다든, __call__을 가진 객체든 이 모양이면 모두 전략이다.
+FeePolicy = Callable[[FeeInput], int]
+
+
+# ---------------------------------------------------------------------------
+# 방법 ① 매개변수 없는 정책 = 그냥 함수
+# ---------------------------------------------------------------------------
+def standard_distance(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy] A안 기본 요율. 설정이 없으니 클래스로 감쌀 이유도 없다.&quot;&quot;&quot;
+    fee = 3000 + int(q.distance_km * 500)
+    fee += 1000 if q.is_raining else 0
+    fee += 1500 if is_night(q.hour) else 0
+    return fee
+
+
+# ---------------------------------------------------------------------------
+# 방법 ② 클로저 — 요율을 &#x27;캡처&#x27;한 함수를 만들어 돌려준다
+# ---------------------------------------------------------------------------
+def make_distance(base: int = 3000, per_km: int = 500, rain: int = 1000, night: int = 1500) -&gt; FeePolicy:
+    &quot;&quot;&quot;요율이 다른 거리 정책을 만든다. 클로저가 생성자 역할, 캡처 변수가 필드 역할을 한다.
+
+    단점: 만들어진 함수의 repr은 &#x27;&lt;function make_distance.&lt;locals&gt;.policy ...&gt;&#x27;라서
+    A/B 로그에 &#x27;어떤 요율이었는지&#x27;가 남지 않는다. 데모 [2]에서 확인하라.
+    &quot;&quot;&quot;
+
+    def policy(q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;캡처한 base/per_km/rain/night로 계산한다.&quot;&quot;&quot;
+        fee = base + int(q.distance_km * per_km)
+        fee += rain if q.is_raining else 0
+        fee += night if is_night(q.hour) else 0
+        return fee
+
+    return policy
+
+
+# ---------------------------------------------------------------------------
+# 방법 ③ functools.partial — 키워드 인자를 미리 채운 함수
+# ---------------------------------------------------------------------------
+def tiered(q: FeeInput, *, tiers: list[tuple[float, int]], over_fee: int,
+           rain: int = 500, night: int = 1500) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy] B안 구간제. 설정을 키워드 전용 인자로 받는 &#x27;평범한 함수&#x27;다.
+
+    partial(tiered, tiers=..., over_fee=...)로 q만 남은 FeePolicy를 만든다.
+    클로저와 달리 partial 객체의 repr에는 채운 인자가 보이므로 로그 가독성이 낫다.
+    &quot;&quot;&quot;
+    fee = next((f for max_km, f in sorted(tiers) if q.distance_km &lt;= max_km), over_fee)
+    fee += rain if q.is_raining else 0
+    fee += night if is_night(q.hour) else 0
+    return fee
+
+
+# ---------------------------------------------------------------------------
+# 방법 ④ 호출 가능한 frozen dataclass — &#x27;함수처럼 쓰이는 값 객체&#x27;
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class SurgePricing:
+    &quot;&quot;&quot;[Concrete Strategy] 수요 급증 배율제. 함수처럼 호출되지만 필드와 repr을 가진다.
+
+    클래스를 택한 이유: (1) repr이 &#x27;SurgePricing(base=3000, multiplier=1.5)&#x27;로 자동 생성돼
+    로그·디버깅에 그대로 쓰인다, (2) frozen이므로 해시 가능 → 캐시 키나 집합 원소가 된다,
+    (3) dataclasses.asdict()로 설정을 다시 JSON으로 직렬화할 수 있다.
+    ABC를 상속하지 않아도 __call__ 시그니처만 맞으면 FeePolicy로 통한다(덕 타이핑).
+    &quot;&quot;&quot;
+
+    base: int
+    multiplier: float
+
+    def __call__(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;기본료 + 거리 요금에 배율을 곱한다. 비·심야는 배율에 이미 반영됐다고 본다.&quot;&quot;&quot;
+        return int((self.base + q.distance_km * 500) * self.multiplier)</code></pre></figure>
+<p>인터페이스가 <code>ABC</code>에서 타입 별칭으로 바뀌었다. 이제 전략 여부는 상속 관계가 아니라 <em>호출 모양</em>으로 결정된다(구조적 타이핑). <code>SurgePricing</code>은 <code>FeePolicy</code>를 상속하지 않지만 <code>__call__(q)</code>가 있으므로 같은 자리에 꽂힌다.</p>
+
+<p class="lead-in">이어서 운영팀의 JSON 설정과 함수 정책을 연결하는 부분이다. 등록부의 값이 '정책'이 아니라 '정책을 만드는 팩토리'라는 점, 그리고 <code>@register</code> 데코레이터가 새 정책 추가를 한 곳의 수정으로 줄인다는 점을 보라.</p>
+<figure class="code"><figcaption>src/10_strategy/03_pythonic.py  (112–196행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 설정 연결: 이름 → &#x27;정책 팩토리&#x27; 등록부 + 등록 데코레이터
+# ---------------------------------------------------------------------------
+# 값이 FeePolicy가 아니라 &#x27;FeePolicy를 만드는 함수&#x27;인 이유: 설정에 요율 같은 인자가
+# 들어 있으므로, 등록부는 인자를 받아 정책을 조립하는 쪽이어야 한다.
+POLICY_FACTORIES: dict[str, Callable[..., FeePolicy]] = {}
+
+
+def register(kind: str) -&gt; Callable[[Callable[..., FeePolicy]], Callable[..., FeePolicy]]:
+    &quot;&quot;&quot;정책 팩토리를 등록부에 올리는 데코레이터.
+
+    새 정책을 추가할 때 등록부 dict를 직접 편집하지 않고, 정책 정의 옆에 @register를
+    붙이면 끝난다. &#x27;정책을 추가하는 사람&#x27;이 수정하는 파일이 하나로 줄어든다(OCP).
+    중복 이름은 조용히 덮어쓰지 않고 실패시킨다 — 두 팀이 같은 이름을 쓰는 사고 방지.
+    &quot;&quot;&quot;
+
+    def deco(factory: Callable[..., FeePolicy]) -&gt; Callable[..., FeePolicy]:
+        &quot;&quot;&quot;실제 등록. 팩토리를 그대로 돌려주므로 직접 호출도 여전히 가능하다.&quot;&quot;&quot;
+        if kind in POLICY_FACTORIES:
+            raise ValueError(f&quot;이미 등록된 정책: {kind}&quot;)
+        POLICY_FACTORIES[kind] = factory
+        return factory
+
+    return deco
+
+
+@register(&quot;distance&quot;)
+def _distance_factory(**cfg: Any) -&gt; FeePolicy:
+    &quot;&quot;&quot;설정 → 클로저 정책.&quot;&quot;&quot;
+    return make_distance(**cfg)
+
+
+@register(&quot;tiered&quot;)
+def _tiered_factory(tiers: list[list[float]], over_fee: int, **cfg: Any) -&gt; FeePolicy:
+    &quot;&quot;&quot;설정 → partial 정책. JSON에는 튜플이 없으므로 리스트를 튜플로 바꿔 둔다.&quot;&quot;&quot;
+    return partial(tiered, tiers=[(t[0], int(t[1])) for t in tiers], over_fee=over_fee, **cfg)
+
+
+@register(&quot;flat&quot;)
+def _flat_factory(fee: int) -&gt; FeePolicy:
+    &quot;&quot;&quot;설정 → 람다 정책. 한 줄짜리 알고리즘에 클래스를 만드는 것은 과잉이다.&quot;&quot;&quot;
+    return lambda q: fee
+
+
+@register(&quot;surge&quot;)
+def _surge_factory(base: int, multiplier: float) -&gt; FeePolicy:
+    &quot;&quot;&quot;설정 → dataclass 정책.&quot;&quot;&quot;
+    return SurgePricing(base, multiplier)
+
+
+def build_policy(spec: dict[str, Any]) -&gt; FeePolicy:
+    &quot;&quot;&quot;설정 한 항목을 정책으로. 선택 로직은 여전히 Context 바깥, 이 함수 한 곳에 있다.&quot;&quot;&quot;
+    cfg = dict(spec)
+    kind = cfg.pop(&quot;type&quot;)
+    if kind not in POLICY_FACTORIES:
+        raise ValueError(f&quot;알 수 없는 정책 type: {kind!r} (가능: {sorted(POLICY_FACTORIES)})&quot;)
+    return POLICY_FACTORIES[kind](**cfg)
+
+
+# ---------------------------------------------------------------------------
+# [Context] — 전략이 함수가 되어도 Context의 모양은 거의 같다
+# ---------------------------------------------------------------------------
+@dataclass
+class DeliveryFeeService:
+    &quot;&quot;&quot;[Context] 정책 콜러블을 보유하고 위임한다. 필드 하나 교체로 정책이 바뀐다.&quot;&quot;&quot;
+
+    policy: FeePolicy
+
+    def quote(self, q: FeeInput, *, is_subscriber: bool = False, store_discount: int = 0) -&gt; int:
+        &quot;&quot;&quot;공통 규칙(구독 무료·가게 할인)만 여기서, 요금 산정은 policy(q)에 맡긴다.&quot;&quot;&quot;
+        if is_subscriber:
+            return 0
+        return max(0, self.policy(q) - store_discount)
+
+
+# 운영팀이 내려 주는 JSON. 02에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
+REGION_CONFIG_JSON = &quot;&quot;&quot;
+{
+  &quot;seoul-gangnam&quot;:  {&quot;type&quot;: &quot;distance&quot;},
+  &quot;seoul-mapo&quot;:     {&quot;type&quot;: &quot;distance&quot;, &quot;per_km&quot;: 400},
+  &quot;busan-haeundae&quot;: {&quot;type&quot;: &quot;tiered&quot;, &quot;tiers&quot;: [[2, 2500], [5, 4000]], &quot;over_fee&quot;: 6000},
+  &quot;jeju&quot;:           {&quot;type&quot;: &quot;flat&quot;, &quot;fee&quot;: 1900},
+  &quot;incheon&quot;:        {&quot;type&quot;: &quot;surge&quot;, &quot;base&quot;: 3000, &quot;multiplier&quot;: 1.5}
+}
+&quot;&quot;&quot;</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [2]가 이 절의 핵심 질문에 대한 단서다. 클로저 정책의 repr은 <code>make_distance.&lt;locals&gt;.policy</code>뿐이라 A/B 실험 로그에서 "마포는 km당 얼마였지?"에 답할 수 없다. <code>partial</code>은 채운 인자가 보이지만 장황하다. <code>dataclass</code>는 <code>SurgePricing(base=3000, multiplier=1.5)</code>를 공짜로 준다. [3]은 반대 방향의 이점이다. 테스트에서 <code>lambda _: 4000</code> 하나로 정책을 대체할 수 있어 가짜 클래스를 만들 필요가 없다.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>전략의 성격</th><th>권하는 형태</th><th>이유</th></tr></thead>
+  <tbody>
+    <tr><td>매개변수 없음, <dfn class="term" id="term-pure-function" data-term="pure-function" title="같은 입력에 항상 같은 출력을 내고, 바깥 상태를 바꾸는 부수 효과가 없는 함수.">순수 계산</dfn>(같은 입력에 늘 같은 결과를 내고 바깥 상태를 바꾸지 않는 계산)</td><td>모듈 수준 함수</td><td>클래스로 감싸면 소음만 는다. <code>standard_distance</code></td></tr>
+    <tr><td>매개변수 몇 개, 로그 불필요</td><td>클로저 또는 <code>partial</code></td><td>가볍다. 다만 repr·동등 비교·직렬화가 약하다.</td></tr>
+    <tr><td>매개변수가 있고 로그·캐시·직렬화 필요</td><td><code>frozen dataclass</code> + <code>__call__</code></td><td>repr, <code>==</code>, 해시, <code>asdict()</code>가 자동으로 생긴다.</td></tr>
+    <tr><td>메서드가 둘 이상(<code>calculate</code> + <code>describe</code> + <code>validate</code>…)</td><td>ABC 또는 Protocol 클래스</td><td>함수 하나로는 계약을 표현할 수 없다. 메서드 하나를 빠뜨리면 즉시 실패하게 하려면 ABC.</td></tr>
+    <tr><td>전략이 호출 사이에 상태를 쌓음(캐시, 통계)</td><td>일반 클래스</td><td>가변 상태는 클로저의 <code><dfn class="term" id="term-nonlocal" data-term="nonlocal" title="안쪽 함수에서 바깥 함수의 지역 변수에 다시 대입할 수 있게 하는 선언.">nonlocal</dfn></code>(안쪽 함수가 바깥 함수의 지역 변수에 다시 대입하게 해 주는 선언)보다 필드가 정직하다.</td></tr>
+  </tbody>
+</table></div>
+<p>마지막으로 표준 라이브러리 자체를 둘러보면 전략 패턴은 이미 곳곳에 있다. <code>sorted(key=...)</code>, <code>max(key=...)</code>, <code>json.dumps(default=...)</code>, <code>re.sub(repl=함수)</code>, <code><dfn class="term" id="term-concurrent-futures-threadpoolexecutor" data-term="concurrent-futures-threadpoolexecutor" title="작업 함수를 스레드 풀에 나눠 실행하는 표준 라이브러리 클래스.">ThreadPoolExecutor</dfn>.map</code>(작업 함수를 여러 스레드에 나눠 실행하는 표준 라이브러리 클래스의 메서드)에 넘기는 함수가 모두 "알고리즘을 주입받는 자리"다. 파이썬 개발자는 대개 이름을 붙이지 않고 전략 패턴을 쓰고 있다.</p>
+</section>
+
+<section id="tradeoffs">
+<h2>6. 트레이드오프와 관련 패턴</h2>
+<p><strong>얻는 것.</strong> 알고리즘별 단위 테스트, 런타임 교체, 새 알고리즘 추가 시 기존 코드 무수정(OCP), 그리고 설정 기반 선택의 길이 열린다. 순진한 설계의 거대한 조건문이 "각자 한 가지 일만 하는 작은 단위"로 쪼개진다.</p>
+<p><strong>치르는 것.</strong> 객체(또는 함수)의 수가 늘고, 요금이 어떻게 계산되는지 한눈에 보려면 설정·등록부·정책 클래스를 오가야 한다. 클라이언트(선택 로직)는 전략들 사이의 차이를 알아야 고를 수 있다. 그리고 전략 인터페이스는 한번 정하면 바꾸기 어렵다 — 어떤 전략에 새 입력(예: 날씨 등급)이 필요해지면 <code>FeeInput</code>을 넓혀야 하고 모든 전략이 그 영향을 받는다.</p>
+<div class="callout warn">
+  <span class="label">이 패턴을 쓰지 말아야 할 때</span>
+  <ul>
+    <li><strong>변형이 둘 이하이고 늘어날 계획이 없을 때.</strong> <code>if</code> 하나가 추상 클래스 + 구체 클래스 둘 + 선택 로직보다 읽기 쉽다. 세 번째 변형이 실제로 생길 때 리팩터링해도 늦지 않다.</li>
+    <li><strong>알고리즘이 바뀌는 것이 아니라 숫자만 바뀔 때.</strong> 제주 정액이 1,900원에서 2,500원이 되는 것은 전략 교체가 아니라 설정값 변경이다. "요율 표"로 충분한 문제를 클래스 계층으로 풀지 말 것.</li>
+    <li><strong>전략이 컨텍스트 내부를 많이 알아야 할 때.</strong> 전략이 컨텍스트의 필드 여러 개를 읽고 쓰려 한다면 경계를 잘못 그은 것이다. 그 로직은 컨텍스트의 메서드이거나, 상속(14장)이 더 맞는 구조일 수 있다.</li>
+    <li><strong>언어가 이미 자리를 주고 있을 때.</strong> <code>key=</code> 인자에 함수를 넘기면 되는 곳에 <code>SortStrategy</code> 계층을 만드는 것은 파이썬에서 대표적인 <dfn class="term" id="term-over-engineering" data-term="over-engineering" title="현재 문제에 필요한 것보다 많은 추상화·구조를 미리 넣는 것.">과잉 설계</dfn>다. 과잉 설계란 지금 문제에 필요한 것보다 많은 추상화·구조를 미리 넣는 것으로, 읽고 고칠 코드만 늘리고 실제로 오지 않을 변경에 대비한다.</li>
+  </ul>
+</div>
+<div class="table-wrap"><table>
+  <thead><tr><th>관련 패턴</th><th>관계</th></tr></thead>
+  <tbody>
+    <tr><td>상태 (13장)</td><td>구조가 같다. 전략은 바깥이 고르고, 상태는 상태 객체가 스스로 다음 상태를 정한다.</td></tr>
+    <tr><td>템플릿 메서드 (14장)</td><td>알고리즘 변이를 다루는 두 방법. 템플릿 메서드는 상속으로 <em>일부 단계</em>를, 전략은 합성으로 <em>알고리즘 전체</em>를 바꾼다. 런타임 교체가 필요하면 전략.</td></tr>
+    <tr><td>데코레이터 (06장)</td><td>데코레이터는 객체의 <em>겉</em>을 덧입히고, 전략은 객체의 <em>속</em>(알고리즘)을 교체한다. 할증을 "기본 요금을 감싸는 층"으로 만들면 데코레이터가 된다.</td></tr>
+    <tr><td>커맨드 (12장)</td><td>둘 다 파이썬에서는 흔히 함수 객체다. 전략은 "<em>어떻게</em> 할 것인가"를, 커맨드는 "<em>무엇을</em> 할 것인가"를 객체로 만든다.</td></tr>
+    <tr><td>팩토리 메서드 (01장)</td><td><code>build_policy()</code>처럼 전략 객체를 누가 만들 것인가에 대한 답이 된다.</td></tr>
+  </tbody>
+</table></div>
+</section>
+
+<section id="exercises">
+<h2>7. 연습문제</h2>
+
+<div class="exercise" id="ex1">
+  <h3><span class="ex-tag">판단</span> 문제 1. 전략이 너무 많이 알 때</h3>
+  <p>동료가 새 정책 <code>LoyaltyPolicy.calculate(self, order: Order)</code>를 만들었다. 안에서 <code>order.customer.order_count</code>, <code>order.store.category</code>, <code>order.items</code>를 읽고, 계산 후 <code>order.applied_policy = "loyalty"</code>를 기록한다. 이 설계에서 무엇이 잘못된 신호인지, 그리고 인자 설계로 어떻게 고칠지 설명하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>잘못된 신호는 두 가지다. 첫째, 전략이 <code>Order</code>의 <em>내부 구조 경로</em>(<code>order.customer.order_count</code>)를 알고 있다. 이제 <code>Customer</code>의 필드 이름을 바꾸면 요금 정책이 깨지고, 이 정책을 테스트하려면 고객·가게·메뉴를 갖춘 <code>Order</code>가 필요하다. 이는 순진한 설계의 결합을 클래스 경계 너머로 옮겨 놓았을 뿐이다. 둘째, 전략이 컨텍스트 쪽 객체에 <em>쓰기</em>를 한다. 전략은 "입력 → 결과"인 계산이어야 교체·병렬 실행·재시도가 안전하다. 기록은 결과를 받은 컨텍스트가 할 일이다.</p>
+    <p>고치는 방법은 <code>FeeInput</code>을 넓히는 것이다. 필요한 사실(<code>order_count</code>, <code>store_category</code>)만 필드로 추가하고, <code>Order.fee_input()</code>이 그것을 추출한다. 결합 지점이 <code>fee_input()</code> 한 메서드로 모이므로 <code>Order</code> 구조가 바뀌어도 그 한 곳만 고친다. 정책 이름 기록은 <code>DeliveryFeeService.quote()</code>가 <code>self.policy.describe()</code>로 한다.</p>
+    <p>흔한 오답은 "<code>Order</code> 대신 <code>**kwargs</code>로 다 넘기면 된다"이다. 결합은 줄어든 것처럼 보이지만 계약이 타입에서 사라져 어떤 키가 필요한지 아무도 모르게 된다. 좁은 입력은 <em>명시적인</em> 값 객체여야 한다. 반대로 "<code>FeeInput</code>이 계속 넓어지면 어떡하나"라는 걱정은 타당하다. 필드가 10개를 넘고 대부분의 정책이 그중 둘만 쓴다면 정책 군을 나눠야 한다는 신호다.</p>
+  </details>
+</div>
+
+<div class="exercise" id="ex2">
+  <h3><span class="ex-tag">리팩터링</span> 문제 2. 이미지 리사이즈 방식 고르기</h3>
+  <p>사진 편집 서비스의 리사이즈 함수다(이해를 쉽게 하려고 이미지를 <dfn class="term" id="term-grayscale" data-term="grayscale" title="색 없이 밝기 하나로만 픽셀을 나타내는 이미지 형식.">회색조</dfn> — 색 없이 밝기 하나로 픽셀을 나타내는 형식 — 픽셀 한 줄로 줄였다). 리사이즈는 원본 픽셀 사이의 값을 추정해 채우는 <dfn class="term" id="term-interpolation" data-term="interpolation" title="알려진 값들 사이의 값을 추정해 채우는 계산(이미지 리사이즈에 쓰임).">보간</dfn> 계산이고, 그 추정 방법이 여럿이다. 새 보간 방식이 추가될 때마다 이 함수를 고쳐야 한다. 함수 전략 + 등록부로 바꾸되, <code>resize(row, size, mode="linear")</code>라는 공개 API는 유지하라.</p>
+<pre><code class="language-python"># 보간 방식이 늘 때마다 이 함수에 elif가 추가된다.
+def resize(row: list[int], size: int, mode: str = "linear") -> list[int]:
+    out = []
+    for i in range(size):
+        x = i * (len(row) - 1) / max(1, size - 1)  # 원본 위 실수 좌표
+        if mode == "nearest":
+            out.append(row[round(x)])
+        elif mode == "linear":
+            lo = int(x); hi = min(lo + 1, len(row) - 1); t = x - lo
+            out.append(round(row[lo] * (1 - t) + row[hi] * t))
+        elif mode == "box":
+            # 구간 평균 — 위 두 방식과 계산 단위(구간)가 달라 루프 안에서 어색하다
+            step = len(row) / size
+            seg = row[int(i * step):max(int(i * step) + 1, int((i + 1) * step))]
+            out.append(round(sum(seg) / len(seg)))
+        else:
+            raise ValueError(mode)
+    return out
+</code></pre>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>보간 방식은 설정 상태가 없는 순수 계산이므로 클래스가 아니라 함수가 알맞다. 다섯 번째 절의 표에서 "매개변수 없음, 순수 계산" 행에 해당한다. 각 방식을 <code>(row, size) -&gt; row</code> 함수로 분리하고, <code>@interpolator("이름")</code> 데코레이터로 등록부에 올린다. <code>resize()</code>는 등록부 조회 후 위임만 하므로 분기가 사라진다.</p>
+    <div class="callout"><span class="label">용어</span><p>해설 코드의 세 방식은 다음과 같다. <dfn class="term" id="term-nearest-neighbor-interpolation" data-term="nearest-neighbor-interpolation" title="목표 위치에 가장 가까운 원본 픽셀 값을 그대로 쓰는 보간.">최근접 이웃 보간</dfn>은 목표 위치에 가장 가까운 원본 픽셀 값을 그대로 쓴다. 가장 빠르지만 확대하면 경계가 계단처럼 각지는 <dfn class="term" id="term-jaggies" data-term="jaggies" title="확대·축소한 이미지의 경계가 계단처럼 각지는 현상.">계단 현상</dfn>이 생긴다. <dfn class="term" id="term-linear-interpolation" data-term="linear-interpolation" title="이웃 두 값을 거리 비율로 섞는 보간.">선형 보간</dfn>은 이웃 두 픽셀을 거리 비율로 섞는다. 구간 평균(box)은 축소할 때 여러 픽셀을 평균하므로, 픽셀을 듬성듬성 뽑아 원래 없던 무늬·톱니가 생기는 <dfn class="term" id="term-aliasing" data-term="aliasing" title="표본을 너무 듬성하게 뽑아 원래 없던 무늬·톱니가 생기는 왜곡.">앨리어싱</dfn>이 적다.</p></div>
+    <p>원래 코드에서 <code>box</code>가 어색했던 이유도 드러난다. 원래 함수는 "픽셀 하나씩 루프를 돌며 그 안에서 분기"하는 구조를 강요했는데, 구간 평균은 계산 단위가 다르다. 전략으로 분리하면 각 알고리즘이 자기에게 맞는 반복 구조를 가질 수 있다 — 조건문 안에 알고리즘을 두면 알고리즘들이 하나의 골격을 공유하도록 억지로 맞춰진다.</p>
+    <figure class="code"><figcaption>src/10_strategy/solutions/ex2_resize_registry.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: if mode == ... 로 고르던 보간 방식을 함수 전략 + 등록부로.
+
+상황: 사진 편집 서비스의 리사이즈 함수가 mode 문자열로 보간 알고리즘을 고르고 있었다.
+보간 방식은 &#x27;입력(픽셀 행, 목표 길이) → 출력(픽셀 행)&#x27;만 있는 순수 계산이고 설정
+상태가 없다. 그래서 클래스 계층이 아니라 함수 전략이 가장 알맞다.
+
+설명을 단순하게 하려고 이미지를 &#x27;회색조 픽셀 한 줄(list[int])&#x27;로 줄였다. 2차원으로
+가도 전략의 구조는 같다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from typing import Callable
+
+# [Strategy] 보간 함수의 모양. 원본 행과 목표 길이를 받아 새 행을 돌려준다.
+Interpolator = Callable[[list[int], int], list[int]]
+
+# 이름 → 보간 함수 등록부. 원래 함수의 if/elif 사슬이 이 dict 조회 한 번으로 바뀐다.
+INTERPOLATORS: dict[str, Interpolator] = {}
+
+
+def interpolator(name: str) -&gt; Callable[[Interpolator], Interpolator]:
+    &quot;&quot;&quot;보간 함수를 등록부에 올리는 데코레이터. 새 방식 추가 = 함수 하나 + 이 줄 하나.&quot;&quot;&quot;
+
+    def deco(fn: Interpolator) -&gt; Interpolator:
+        &quot;&quot;&quot;등록 후 원래 함수를 그대로 돌려준다(직접 호출·단위 테스트 가능).&quot;&quot;&quot;
+        INTERPOLATORS[name] = fn
+        return fn
+
+    return deco
+
+
+@interpolator(&quot;nearest&quot;)
+def nearest(row: list[int], size: int) -&gt; list[int]:
+    &quot;&quot;&quot;[Concrete Strategy] 최근접 이웃. 가장 빠르고, 계단 현상이 생긴다.&quot;&quot;&quot;
+    # 목표 좌표 i를 원본 좌표로 되돌려 가장 가까운 픽셀을 고른다.
+    return [row[min(len(row) - 1, round(i * (len(row) - 1) / max(1, size - 1)))] for i in range(size)]
+
+
+@interpolator(&quot;linear&quot;)
+def linear(row: list[int], size: int) -&gt; list[int]:
+    &quot;&quot;&quot;[Concrete Strategy] 선형 보간. 이웃 두 픽셀을 거리 비율로 섞는다.&quot;&quot;&quot;
+    out = []
+    for i in range(size):
+        x = i * (len(row) - 1) / max(1, size - 1)   # 원본 위의 실수 좌표
+        lo = int(x)
+        hi = min(lo + 1, len(row) - 1)
+        t = x - lo                                   # lo에서 hi 쪽으로 간 비율
+        out.append(round(row[lo] * (1 - t) + row[hi] * t))
+    return out
+
+
+@interpolator(&quot;box&quot;)
+def box(row: list[int], size: int) -&gt; list[int]:
+    &quot;&quot;&quot;[Concrete Strategy] 구간 평균. 축소할 때 앨리어싱이 적다.&quot;&quot;&quot;
+    step = len(row) / size
+    return [round(sum(row[int(i * step):max(int(i * step) + 1, int((i + 1) * step))])
+                  / max(1, int((i + 1) * step) - int(i * step))) for i in range(size)]
+
+
+def resize(row: list[int], size: int, mode: str = &quot;linear&quot;) -&gt; list[int]:
+    &quot;&quot;&quot;[Context] 보간 방식을 이름으로 받아 위임한다. 이 함수에는 더 이상 분기가 없다.
+
+    mode를 문자열로 받는 공개 API는 그대로 유지했다 — 호출하는 쪽 코드를 깨지 않기 위해서다.
+    등록된 보간 함수(nearest, linear, box)는 모듈 함수로 남아 있어 직접 호출·단위 테스트할 수 있다.
+    &quot;&quot;&quot;
+    try:
+        algo = INTERPOLATORS[mode]
+    except KeyError:
+        raise ValueError(f&quot;지원하지 않는 mode: {mode!r} (가능: {sorted(INTERPOLATORS)})&quot;) from None
+    return algo(row, size)
+
+
+if __name__ == &quot;__main__&quot;:
+    row = [0, 100, 200, 100, 0, 50, 250, 50]
+    print(&quot;원본       :&quot;, row)
+    for mode in INTERPOLATORS:
+        print(f&quot;{mode:8s} 4칸:&quot;, resize(row, 4, mode))
+    print(&quot;linear  11칸:&quot;, resize(row, 11, &quot;linear&quot;))
+
+    # 새 방식을 추가해도 resize()는 손대지 않는다(OCP). 런타임 등록도 가능하다.
+    interpolator(&quot;max&quot;)(lambda r, n: [max(r[i * len(r) // n:(i + 1) * len(r) // n]) for i in range(n)])
+    print(&quot;max     4칸:&quot;, resize(row, 4, &quot;max&quot;), &quot;← resize() 수정 없이 추가된 전략&quot;)
+
+    try:
+        resize(row, 4, &quot;bicubic&quot;)
+    except ValueError as e:
+        print(&quot;ValueError:&quot;, e)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_resize_registry.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <p>흔한 오답은 <code>Interpolator</code> ABC와 구체 클래스 셋을 만드는 것이다. 틀렸다기보다 과하다. 각 클래스에는 상태도, 두 번째 메서드도 없으므로 클래스가 주는 이점(repr, 필드, 여러 메서드의 계약)이 하나도 쓰이지 않는다. 또 하나의 오답은 공개 API를 <code>resize(row, size, algo=linear)</code>로 바꿔 버리는 것이다. 문자열 <code>mode</code>는 HTTP 요청 파라미터처럼 바깥에서 들어오는 값이므로 이름 → 함수 매핑이 어딘가에는 필요하고, 기존 호출자를 깨지 않는 편이 낫다.</p>
+  </details>
+</div>
+
+<div class="exercise" id="ex3">
+  <h3><span class="ex-tag">판단</span> 문제 3. 정렬 기준 두 가지</h3>
+  <p>가맹점 월간 리포트는 "매출순"과 "가게명순" 두 가지 정렬만 지원한다. 신입 개발자가 <code>SortStrategy</code> ABC와 <code>RevenueSort</code>, <code>NameSort</code> 클래스를 만들자고 제안했다. 전략 패턴을 쓸 것인가, <code>sorted(key=...)</code>로 충분한가? 판단 근거를 쓰고 코드로 보여라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><code>sorted(key=...)</code>로 충분하다. 이유는 패턴을 쓰지 말자는 것이 아니라 <em>이미 쓰고 있기</em> 때문이다. <code>sorted()</code>는 정렬 알고리즘(Timsort)이라는 컨텍스트이고, <code>key</code>는 비교 기준이라는 전략을 주입받는 자리다. 우리가 할 일은 key 함수 두 개에 이름을 붙이는 것뿐이고, <code><dfn class="term" id="term-operator-attrgetter" data-term="operator-attrgetter" title="객체에서 지정한 속성을 꺼내는 함수를 만들어 주는 도구(정렬 key 등에 사용).">operator.attrgetter</dfn></code>(지정한 속성을 꺼내는 함수를 만들어 주는 도구)가 그것마저 한 줄로 만들어 준다. 리포트 한 줄은 <code><dfn class="term" id="term-typing-namedtuple" data-term="typing-namedtuple" title="필드 이름으로 접근할 수 있는 불변 튜플을 만드는 클래스.">NamedTuple</dfn></code>로 표현했다 — 필드 이름으로 접근할 수 있는 불변 튜플을 만드는 클래스라, <code>attrgetter("revenue")</code>를 바로 key로 쓸 수 있다.</p>
+    <figure class="code"><figcaption>src/10_strategy/solutions/ex3_sort_key.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 3 해설: 정렬 기준 2가지뿐인 리포트에는 sorted(key=...)로 충분하다.
+
+상황: 가맹점 월간 리포트를 &#x27;매출순&#x27;과 &#x27;가게명순&#x27; 두 가지로 정렬해 보여 준다.
+SortStrategy 추상 클래스와 구체 클래스 두 개를 만들 것인가? sorted()의 key 인자가
+이미 &#x27;교체 가능한 비교 알고리즘을 주입받는 자리&#x27; — 즉 표준 라이브러리에 내장된
+전략 패턴이다. 우리가 할 일은 key 함수 두 개에 이름을 붙이는 것뿐이다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from operator import attrgetter
+from typing import NamedTuple
+
+
+class StoreSales(NamedTuple):
+    &quot;&quot;&quot;리포트 한 줄. NamedTuple이라 attrgetter로 필드를 바로 key로 쓸 수 있다.&quot;&quot;&quot;
+
+    name: str
+    revenue: int
+
+
+# 정렬 기준 = key 함수 + 방향. 이름 → (key, reverse) 매핑이 전부다.
+# 클래스 계층을 만들었다면 이 3줄이 추상 클래스 1개 + 구체 클래스 2개 + 선택 로직이 된다.
+SORT_OPTIONS = {
+    &quot;revenue&quot;: (attrgetter(&quot;revenue&quot;), True),   # 매출 높은 순
+    &quot;name&quot;: (attrgetter(&quot;name&quot;), False),        # 가나다순
+}
+
+
+def report(rows: list[StoreSales], sort_by: str) -&gt; list[str]:
+    &quot;&quot;&quot;리포트 문자열 목록. sort_by는 화면의 드롭다운 값이 그대로 들어온다.&quot;&quot;&quot;
+    key, reverse = SORT_OPTIONS[sort_by]
+    return [f&quot;{r.name:6s} {r.revenue:&gt;9,}원&quot; for r in sorted(rows, key=key, reverse=reverse)]
+
+
+if __name__ == &quot;__main__&quot;:
+    rows = [StoreSales(&quot;마라탕집&quot;, 8_200_000), StoreSales(&quot;국밥집&quot;, 12_500_000),
+            StoreSales(&quot;분식집&quot;, 15_100_000)]
+    for opt in SORT_OPTIONS:
+        print(f&quot;[{opt} 순]&quot;)
+        for line in report(rows, opt):
+            print(&quot;   &quot;, line)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_sort_key.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <p>판단 근거를 일반화하면 세 가지다. (1) 변형의 수와 증가 가능성: 두 개이고 리포트 화면의 드롭다운이 갑자기 열 개로 늘 일은 드물다. (2) 변형의 복잡도: 각 기준이 속성 하나 읽기다. (3) 언어가 제공하는 자리: <code>key</code>가 있다. 클래스 계층이 정당화되는 경우는 정렬 기준마다 "화면 표시 이름, 기본 방향, 권한 검사" 같은 <em>여러 속성</em>이 붙을 때다. 그때도 먼저 <code>SORT_OPTIONS</code>의 값을 작은 <code>NamedTuple</code>로 키우는 것을 고려하라.</p>
+    <p>흔한 오답은 "나중에 늘어날 수 있으니 미리 패턴을 적용한다"이다. 늘어날 때 <code>SORT_OPTIONS</code>에 한 줄을 추가하면 된다. 이 구조도 이미 OCP를 만족한다.</p>
+  </details>
+</div>
+
+<div class="exercise" id="ex4">
+  <h3><span class="ex-tag">확장</span> 문제 4. 할증을 따로 실험하기</h3>
+  <p>운영팀이 새 요청을 했다. "요금표(A안 거리 비례 / B안 구간제)와 우천 할증(정액 1,000원 / km당 200원)을 독립적으로 조합해 2×2 실험을 하고 싶어요." 본문 <code>02_strategy.py</code>처럼 할증이 각 요금표 클래스 안에 있으면 어떤 문제가 생기는지 설명하고, 조합을 클래스 정의 없이 조립만으로 표현하는 구조를 만들어라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>할증이 요금표 클래스 안에 있으면 조합 하나가 클래스 하나다. 2×2면 4개, 요금표 3개와 할증 3개면 9개로 <em>곱</em>이 된다. 이것은 변하는 축이 둘인데 전략 슬롯이 하나뿐이라서 생기는 문제다. 축마다 슬롯을 하나씩 두면 클래스 수는 <em>합</em>(N+M)이 되고 조합은 생성 시점의 조립으로 표현된다.</p>
+    <figure class="code"><figcaption>src/10_strategy/solutions/ex4_surcharge_slot.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 4 해설: 할증을 요금표와 독립적으로 실험하기 — 전략 &#x27;슬롯&#x27;을 둘로 나눈다.
+
+상황: 운영팀이 &quot;요금표(A안/B안)와 우천 할증(정액 1,000원 / 거리 비례)을 따로 조합해
+2×2 실험을 하고 싶다&quot;고 한다. 02_strategy.py처럼 할증이 각 요금표 클래스 안에 들어
+있으면 조합마다 클래스가 필요해 2×2=4개, 3×3이면 9개로 곱해진다.
+
+해결: 변하는 축이 둘이면 전략도 둘이다. Context가 base 전략 하나와 surcharge 전략
+목록을 따로 보유하면 조합은 &#x27;클래스 정의&#x27;가 아니라 &#x27;조립&#x27;으로 표현된다(N×M → N+M).
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable
+
+
+@dataclass(frozen=True)
+class FeeInput:
+    &quot;&quot;&quot;정책에 넘기는 좁은 입력.&quot;&quot;&quot;
+
+    distance_km: float
+    hour: int
+    is_raining: bool
+
+
+# 두 개의 전략 축. 둘 다 함수 모양으로 충분하다(상태 없음 또는 클로저로 캡처).
+BaseFee = Callable[[FeeInput], int]        # [Strategy 1] 기본 요금표
+Surcharge = Callable[[FeeInput], int]      # [Strategy 2] 할증 규칙 하나(해당 없으면 0)
+
+
+def distance_base(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy 1] A안 기본 요금: 3,000원 + km당 500원.&quot;&quot;&quot;
+    return 3000 + int(q.distance_km * 500)
+
+
+def tiered_base(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy 1] B안 기본 요금: 2km 2,500 / 5km 4,000 / 초과 6,000.&quot;&quot;&quot;
+    return 2500 if q.distance_km &lt;= 2 else 4000 if q.distance_km &lt;= 5 else 6000
+
+
+def flat_rain(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy 2] 우천 정액 할증 1,000원.&quot;&quot;&quot;
+    return 1000 if q.is_raining else 0
+
+
+def per_km_rain(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy 2] 우천 거리 비례 할증: km당 200원. 먼 배달일수록 라이더 부담이 크다는 가설.&quot;&quot;&quot;
+    return int(q.distance_km * 200) if q.is_raining else 0
+
+
+def night(q: FeeInput) -&gt; int:
+    &quot;&quot;&quot;[Concrete Strategy 2] 심야 할증 1,500원. 실험 대상은 아니지만 같은 슬롯에 꽂힌다.&quot;&quot;&quot;
+    return 1500 if q.hour &gt;= 22 or q.hour &lt; 6 else 0
+
+
+@dataclass
+class DeliveryFeeService:
+    &quot;&quot;&quot;[Context] 기본 요금 전략 1개 + 할증 전략 N개를 보유한다.
+
+    할증을 리스트로 둔 이유: 할증은 서로 &#x27;더해지는&#x27; 관계라 순서·개수가 자유롭다.
+    만약 할증이 기본 요금을 &#x27;감싸며 변형&#x27;(예: 배율 곱하기)한다면 그것은 06장의
+    데코레이터에 가까워진다 — 전략은 알고리즘을 &#x27;교체&#x27;, 데코레이터는 &#x27;덧입힘&#x27;.
+    &quot;&quot;&quot;
+
+    base: BaseFee
+    surcharges: list[Surcharge] = field(default_factory=list)
+
+    def quote(self, q: FeeInput) -&gt; int:
+        &quot;&quot;&quot;기본 요금 + 모든 할증의 합. 어떤 조합인지 묻는 if가 없다.&quot;&quot;&quot;
+        return self.base(q) + sum(s(q) for s in self.surcharges)
+
+
+if __name__ == &quot;__main__&quot;:
+    q = FeeInput(distance_km=4.5, hour=21, is_raining=True)
+    print(&quot;4.5km, 비, 21시 주문 — 2×2 실험 조합&quot;)
+    # 조합 4개를 &#x27;클래스 4개&#x27;가 아니라 &#x27;조립 4번&#x27;으로 만든다.
+    for base in (distance_base, tiered_base):
+        for rain in (flat_rain, per_km_rain):
+            svc = DeliveryFeeService(base, [rain, night])
+            print(f&quot;    {base.__name__:14s} + {rain.__name__:12s} → {svc.quote(q):&gt;5}원&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex4_surcharge_slot.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <p>할증 슬롯을 <em>리스트</em>로 둔 것은 할증끼리 서로 더해지는 독립적 관계이기 때문이다. 만약 할증이 "기본 요금에 1.2배" 같은 <em>변형</em>이라면 순서가 중요해지고, 그때는 기본 요금 전략을 감싸는 06장의 데코레이터 구조가 더 자연스럽다. 흔한 오답은 <code>DistancePolicy</code>를 상속해 <code>DistancePerKmRainPolicy</code>를 만드는 것인데, 이는 정확히 전략 패턴이 피하려 한 "상속으로 인한 <dfn class="term" id="term-class-explosion" data-term="class-explosion" title="합성 가능한 변이(예: 모양 × 색상 × 재질)마다 하위 클래스를 만들면, 조합 수만큼 클래스가 곱절로 늘어나는 현상.">클래스 폭발</dfn>"을 되살린다. 클래스 폭발이란 서로 독립적으로 바뀌는 차원(여기서는 요금표와 할증) 여러 개를 상속으로 조합할 때, 클래스 수가 각 차원의 종류 수를 곱한 만큼 늘어나는 현상이다.</p>
+  </details>
+</div>
+</section>
+
+<!--
+설계서 대비 변경 사항:
+- 연습문제 4(확장: 할증 슬롯 분리)를 추가했다. 설계서의 3문제는 그대로 유지했다.
+- 구독 무료·가게 할인을 Context의 공통 규칙으로 남겨 '전략과 컨텍스트의 경계를 어디에 긋는가'를 판단 대상으로 삼았다.
+- Strategy↔State 비교는 13장 담당이므로 4절 callout의 짧은 예고로만 두었다.
+-->
+    <nav class="pager"><a class="prev" href="09-proxy.html"><small>← 이전 · 9장</small>프록시 (Proxy)</a><a class="next" href="11-observer.html"><small>다음 · 11장 →</small>옵저버 (Observer)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15장 반복자 (Iterator) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="행위 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">15장 · 반복자 (Iterator)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">15장 · 행위 패턴</span><h1>반복자 (Iterator)</h1><p class="subtitle">내부 표현을 감춘 채 순서대로 꺼내기, 그리고 언어가 흡수한 패턴</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ul>
+    <li>컬렉션의 내부 표현을 드러내지 않고 요소에 순차 접근하게 하는 반복자의 의도를 설명할 수 있다. 여러 순회 방식(순차·셔플·반복 재생)을 서로 독립된 반복자로 제공하는 구조도 설계할 수 있다.</li>
+    <li>파이썬 반복자 프로토콜(<code>__iter__</code>/<code>__next__</code>, <code>StopIteration</code>)과 이터러블/이터레이터의 구분을 정확히 구현하고, 반복자 고갈 버그를 진단할 수 있다.</li>
+    <li>제너레이터, <code>yield from</code>, <code>itertools</code>로 지연 평가 반복자를 만들어 원격 페이지네이션 같은 대용량·무한 시퀀스를 다룰 수 있다.</li>
+  </ul>
+</section>
+
+<section id="context">
+  <h2>1. 상황</h2>
+  <p>음악 스트리밍 앱 '멜로디'의 클라이언트 개발자 지안은 첫 버전에서 서버가 준 플레이리스트를 <code>list[Track]</code>으로 받았다. 그리고 <code>for i in range(len(tracks))</code>로 차례대로 재생했다. 재생기가 곧 인덱스였고, 그것으로 충분했다.</p>
+  <p>두 번째 분기에는 재생 모드가 추가되었다. 셔플, 한 곡 반복, 전체 반복이다. 기획자는 한 가지 조건을 강조했다. <em>"재생 중에 모드를 바꿔도 지금 듣는 곡은 끊기면 안 돼요."</em> 지안은 재생기에 <code>mode</code> 문자열, 셔플 순서 리스트, 셔플 위치 변수를 추가했고, <code>next_track()</code>은 모드 분기로 가득 찼다.</p>
+  <p>세 번째 요구는 성격이 달랐다. 헤비 유저의 '좋아요 표시한 곡'은 2만 곡이 넘고, 서버는 이를 50곡씩 <dfn class="term" id="term-pagination" data-term="pagination" title="큰 목록을 페이지 단위로 나눠 주고, 다음 페이지를 토큰으로 요청하게 하는 API 방식.">페이지 토큰</dfn>과 함께 준다. 큰 목록을 페이지로 나눠 주고 "다음 페이지는 이 토큰으로 요청하라"고 알려 주는 이런 방식을 페이지네이션이라 한다. 리스트만 다룰 줄 아는 재생기에 맞추려고 지안은 모든 페이지를 받아 리스트로 합쳤다. 그 결과 첫 곡이 나오기까지 요청이 400번 오갔고, 앱 시작이 눈에 띄게 느려졌다. 사용자는 대개 앞의 몇 곡만 듣고 앱을 닫는데도 말이다.</p>
+  <p>마지막 사고는 화면에서 났다. 디자이너가 "다음에 재생될 곡" 미리보기를 추가했는데, 미리보기가 다음 곡을 계산하려고 재생기의 <dfn class="term" id="term-cursor" data-term="cursor" title="순회 중 &#x27;어디까지 왔는가&#x27;를 가리키는 위치 상태.">커서</dfn>(순회 중 "어디까지 왔는가"를 가리키는 위치 상태)를 실제로 움직였다. 사용자가 미리보기를 열 때마다 곡이 건너뛰어졌다. 지안이 물어야 할 질문은 이것이다. <em>"재생기가 '어디에 어떻게 저장되어 있는지'와 '어떤 순서로 도는지'를 몰라도 되게 하려면, 그리고 여러 화면이 각자 순회하게 하려면 무엇을 분리해야 하는가?"</em></p>
+</section>
+
+<section id="naive">
+  <h2>2. 순진한 설계와 그 한계</h2>
+  <p class="lead-in">아래는 세 요구를 모두 <code>Player</code> 한 클래스에 밀어 넣은 코드다. 재생기가 들고 있는 상태가 무엇인지(커서, 모드, 셔플 순서, 셔플 위치) 세어 보라. <code>from_api()</code>가 첫 곡 전에 무엇을 하는지, <code>UpNextPreview.<dfn class="term" id="term-peek" data-term="peek" title="다음 값을 소비하지 않고 미리 보기만 하는 연산.">peek</dfn>()</code>가 왜 <code>next_track()</code>을 부를 수밖에 없는지도 살펴라. peek은 다음 값을 소비하지 않고 미리 보기만 하는 연산을 가리키는 관용적 이름인데, 이 코드에는 소비 없이 볼 방법이 없다.</p>
+  <figure class="code"><figcaption>src/15_iterator/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 순진한 설계] 플레이어가 인덱스·셔플 순서·페이지 토큰을 모두 직접 관리한다.
+
+상황: 음악 스트리밍 앱 &#x27;멜로디&#x27;의 클라이언트 개발자 지안은 처음에 플레이리스트를 `list[Track]`으로
+받아 `for i in range(len(tracks))`로 재생했다. 이후 셔플·한 곡 반복·전체 반복 모드가 생겼고
+(모드를 바꿔도 지금 듣는 곡은 유지), 수만 곡짜리 &#x27;좋아요 표시한 곡&#x27;은 서버가 50곡씩 페이지로 준다.
+이 파일은 그 요구를 모두 `Player` 한 클래스에 밀어 넣은 결과다.
+
+데모가 보여 주는 문제:
+  [2] &#x27;좋아요 표시한 곡&#x27;은 첫 곡을 틀기 전에 모든 페이지를 받아야 한다(요청 수로 측정).
+  [3] &#x27;다음 곡 미리보기&#x27; 화면이 같은 인덱스를 움직여 재생 위치가 밀린다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import random
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Track:
+    &quot;&quot;&quot;곡 하나. frozen: 재생 순서 로직이 곡 데이터를 바꿀 일은 없어야 한다.&quot;&quot;&quot;
+
+    title: str
+
+
+class FakeLikedSongsAPI:
+    &quot;&quot;&quot;서버의 페이지네이션 API 흉내. 요청 수를 세어 &#x27;얼마나 받아 왔는가&#x27;를 측정한다.&quot;&quot;&quot;
+
+    PAGE_SIZE = 50
+
+    def __init__(self, total: int) -&gt; None:
+        &quot;&quot;&quot;total곡짜리 &#x27;좋아요&#x27; 목록.&quot;&quot;&quot;
+        self.total = total
+        self.requests = 0
+
+    def fetch_page(self, token: int | None) -&gt; tuple[list[Track], int | None]:
+        &quot;&quot;&quot;(이번 페이지 곡들, 다음 페이지 토큰). 마지막 페이지면 토큰이 None.&quot;&quot;&quot;
+        self.requests += 1
+        start = token or 0
+        end = min(start + self.PAGE_SIZE, self.total)
+        items = [Track(f&quot;좋아요 #{i}&quot;) for i in range(start, end)]
+        return items, (end if end &lt; self.total else None)
+
+
+class Player:
+    &quot;&quot;&quot;재생기. 재생·순서 정책·데이터 출처를 모두 안다 — 세 가지 이유로 바뀌는 클래스(SRP 위반).&quot;&quot;&quot;
+
+    def __init__(self, tracks: list[Track]) -&gt; None:
+        &quot;&quot;&quot;리스트를 그대로 받는다.&quot;&quot;&quot;
+        # ⚠ 문제: 플레이어가 컬렉션의 내부 표현(list)에 묶여 있다. 페이지 API가 오면
+        #   전부 받아 list로 바꿔야만 이 클래스를 쓸 수 있다(아래 from_api).
+        self.tracks = tracks
+        self.index = 0                          # 현재 위치 — 이 &#x27;커서&#x27;가 Player의 공개 필드다
+        self.mode = &quot;normal&quot;
+        self.shuffle_order: list[int] = []      # 셔플 모드에서만 의미 있는 상태
+        self.shuffle_pos = 0
+
+    @classmethod
+    def from_api(cls, api: FakeLikedSongsAPI) -&gt; Player:
+        &quot;&quot;&quot;페이지 API에서 만들기.&quot;&quot;&quot;
+        tracks: list[Track] = []
+        token: int | None = None
+        # ⚠ 문제: 첫 곡을 틀기 전에 모든 페이지를 받는다. 2만 곡이면 요청 400번.
+        #   사용자는 대개 앞의 몇 곡만 듣고 끈다.
+        while True:
+            page, token = api.fetch_page(token)
+            tracks.extend(page)
+            if token is None:
+                break
+        return cls(tracks)
+
+    def current(self) -&gt; Track:
+        &quot;&quot;&quot;지금 곡.&quot;&quot;&quot;
+        return self.tracks[self.index]
+
+    def set_mode(self, mode: str) -&gt; None:
+        &quot;&quot;&quot;모드 변경. 현재 곡은 유지해야 한다.&quot;&quot;&quot;
+        self.mode = mode
+        if mode == &quot;shuffle&quot;:
+            # ⚠ 문제: 순서 정책마다 별도의 상태(shuffle_order, shuffle_pos)가 Player에 쌓인다.
+            rest = [i for i in range(len(self.tracks)) if i != self.index]
+            random.Random(7).shuffle(rest)
+            self.shuffle_order = [self.index] + rest
+            self.shuffle_pos = 0
+
+    def next_track(self) -&gt; Track | None:
+        &quot;&quot;&quot;다음 곡으로 이동. 끝이면 None.&quot;&quot;&quot;
+        # ⚠ 문제: 순회 정책이 모드 분기로 한 메서드에 엉켜 있다. 모드 하나 추가 = 이 메서드 수정.
+        if self.mode == &quot;normal&quot;:
+            if self.index + 1 &gt;= len(self.tracks):
+                return None
+            self.index += 1
+        elif self.mode == &quot;repeat_one&quot;:
+            pass
+        elif self.mode == &quot;repeat_all&quot;:
+            self.index = (self.index + 1) % len(self.tracks)
+        elif self.mode == &quot;shuffle&quot;:
+            if self.shuffle_pos + 1 &gt;= len(self.shuffle_order):
+                return None
+            self.shuffle_pos += 1
+            self.index = self.shuffle_order[self.shuffle_pos]
+        return self.current()
+
+
+class UpNextPreview:
+    &quot;&quot;&quot;&#x27;다음에 재생될 곡&#x27; 미리보기 화면 — 같은 Player를 공유한다.&quot;&quot;&quot;
+
+    def __init__(self, player: Player) -&gt; None:
+        &quot;&quot;&quot;재생기 참조.&quot;&quot;&quot;
+        self.player = player
+
+    def peek(self, n: int) -&gt; list[str]:
+        &quot;&quot;&quot;다음 n곡 제목.&quot;&quot;&quot;
+        # ⚠ 문제: &#x27;다음 곡 계산&#x27;이 next_track()에만 있으니 그걸 불러 볼 수밖에 없다.
+        #   그 순간 공유 커서(index)가 움직인다. 순회 상태가 컬렉션/재생기와 분리되지 않아
+        #   두 화면이 동시에 순회할 수 없다.
+        return [t.title for _ in range(n) if (t := self.player.next_track())]
+
+
+if __name__ == &quot;__main__&quot;:
+    album = [Track(t) for t in (&quot;Intro&quot;, &quot;Blue&quot;, &quot;Run&quot;, &quot;Echo&quot;, &quot;Outro&quot;)]
+
+    print(&quot;[1] 모드 전환: Blue에서 셔플로 바꿔도 Blue가 유지된다 — 동작은 한다&quot;)
+    p = Player(album)
+    p.next_track()
+    p.set_mode(&quot;shuffle&quot;)
+    print(&quot;    &quot;, p.current().title, &quot;→&quot;, [p.next_track().title for _ in range(3)])
+
+    print(&quot;[2] 2만 곡 &#x27;좋아요&#x27; 목록: 첫 곡 재생까지 필요한 요청 수&quot;)
+    api = FakeLikedSongsAPI(total=20_000)
+    liked = Player.from_api(api)
+    print(f&quot;    첫 곡 &#x27;{liked.current().title}&#x27; 재생 전 요청 {api.requests}번, 메모리에 {len(liked.tracks):,}곡&quot;)
+
+    print(&quot;[3] 미리보기 화면이 재생 위치를 밀어낸다&quot;)
+    q = Player(album)
+    print(&quot;    재생 중:&quot;, q.current().title)
+    print(&quot;    미리보기:&quot;, UpNextPreview(q).peek(2))
+    print(&quot;    미리보기 후 재생 중:&quot;, q.current().title, &quot;← 사용자는 아무것도 누르지 않았다&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]은 동작한다. 하지만 [2]에서 첫 곡을 틀기 위해 요청이 400번 오가고, [3]에서는 미리보기를 연 것만으로 재생 중인 곡이 Intro에서 Run으로 바뀐다. 원인을 정리하면 이렇다.</p>
+  <ul>
+    <li><strong>순회 상태가 하나뿐이고, 그것이 재생기의 필드다.</strong> 커서(<code>index</code>)가 하나이므로 두 소비자가 동시에 순회할 수 없다. 미리보기는 커서를 복사할 방법이 없어 공유 커서를 움직인다.</li>
+    <li><strong>재생기가 컬렉션의 내부 표현에 묶여 있다.</strong> <code>self.tracks[self.index]</code>는 "인덱스로 접근 가능한 리스트"를 전제한다. 그래서 페이지 API는 리스트로 바꾼 뒤에야, 곧 모든 페이지를 받은 뒤에야 쓸 수 있다.</li>
+    <li><strong>순회 정책이 모드 분기로 엉켜 있다.</strong> 모드별 상태(셔플 순서)가 재생기에 쌓이고, 새 모드가 생길 때마다 <code>next_track()</code>을 고쳐야 한다.</li>
+  </ul>
+</section>
+
+<section id="structure">
+  <h2>3. 패턴의 구조</h2>
+  <p>GoF의 의도(intent)는 이렇다. <em>"집합 객체의 내부 표현을 노출하지 않고 그 원소에 순차적으로 접근하는 방법을 제공한다."</em> 구현의 핵심은 <strong>순회 상태(커서)를 컬렉션에서 떼어 내 별도 객체에 담는 것</strong>이다. 컬렉션은 반복자를 <em>만들기만</em> 한다. 이렇게 하면 반복자를 몇 개든 동시에 만들 수 있고, 순회 방식마다 다른 반복자 클래스를 둘 수 있다.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 720 330" role="img" aria-label="반복자 패턴 구조: Playlist가 PlaylistIterator를 생성하고 Player가 반복자를 사용한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <g class="uml-class" transform="translate(20,20)">
+        <rect width="190" height="80"/>
+        <text class="uml-stereo" x="95" y="16">«Client»</text>
+        <text class="uml-name" x="95" y="34">Player</text>
+        <line x1="0" y1="44" x2="190" y2="44"/>
+        <text class="uml-member" x="10" y="62">- _it: PlaylistIterator</text>
+        <text class="uml-member" x="10" y="76">+ set_mode(mode) / skip()</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(20,170)">
+        <rect width="190" height="100"/>
+        <text class="uml-stereo" x="95" y="16">«Aggregate»</text>
+        <text class="uml-name" x="95" y="34">Playlist</text>
+        <line x1="0" y1="44" x2="190" y2="44"/>
+        <text class="uml-member" x="10" y="62">- _tracks: tuple</text>
+        <text class="uml-member" x="10" y="78">+ __iter__()</text>
+        <text class="uml-member" x="10" y="94">+ iterator(mode, start)</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(370,20)">
+        <rect width="230" height="100"/>
+        <text class="uml-stereo" x="115" y="16">«Iterator»</text>
+        <text class="uml-name uml-abstract" x="115" y="34">PlaylistIterator</text>
+        <line x1="0" y1="44" x2="230" y2="44"/>
+        <text class="uml-member" x="10" y="62">+ index: int</text>
+        <text class="uml-member" x="10" y="78">+ __iter__() → self</text>
+        <text class="uml-member" x="10" y="94">+ __next__() → Track {abstract}</text>
+      </g>
+      <path class="uml-assoc" d="M210 60 H368" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="240" y="52">_it (순회 상태 보유)</text>
+      <path class="uml-assoc" d="M100 100 V168" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="108" y="140">playlist</text>
+      <path class="uml-dep" d="M210 220 H300 V90 H368" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="220" y="212">«create»</text>
+      <path class="uml-inherit" d="M485 175 V122" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M300 175 H690"/>
+      <path class="uml-inherit" d="M300 200 V175 M430 200 V175 M560 200 V175 M690 200 V175"/>
+      <g class="uml-class" transform="translate(245,200)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">Sequential…</text></g>
+      <g class="uml-class" transform="translate(372,200)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">Shuffle…</text></g>
+      <g class="uml-class" transform="translate(502,200)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">RepeatAll…</text></g>
+      <g class="uml-class" transform="translate(630,200)"><rect width="85" height="40"/><text class="uml-name" x="42" y="25">RepeatOne…</text></g>
+      <text class="uml-note" x="245" y="270">«Concrete Iterator»: 각자 커서·셔플 순서를 소유한다.</text>
+      <text class="uml-note" x="245" y="288">Playlist는 순회 상태를 하나도 갖지 않는다.</text>
+      <text class="uml-note" x="20" y="300">__iter__()는 반복자를 만드는 팩토리 메서드(1장)다.</text>
+    </svg>
+    <figcaption>그림 15-1. 플레이리스트 반복자의 참여자. 클래스 이름의 '…'은 <code>Iterator</code> 접미사를 줄인 것이다.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>역할</th><th>이 장의 클래스</th><th>파이썬 프로토콜과의 대응</th></tr></thead>
+    <tbody>
+      <tr><td>집합체(Aggregate)</td><td><code>Playlist</code></td><td><strong>이터러블(iterable)</strong>: <code>__iter__()</code>가 <em>새</em> 반복자를 돌려준다.</td></tr>
+      <tr><td>반복자(Iterator)</td><td><code>PlaylistIterator</code></td><td><strong>이터레이터(iterator)</strong>: <code>__next__()</code>로 다음 값을 주고, 끝나면 <code>StopIteration</code>을 던진다. <code>__iter__()</code>는 <code>self</code>를 돌려준다.</td></tr>
+      <tr><td>구체 반복자(Concrete Iterator)</td><td><code>SequentialIterator</code> 외 3개</td><td>순회 방식별 커서 상태</td></tr>
+      <tr><td>클라이언트(Client)</td><td><code>Player</code></td><td><code>for</code>, <code>next()</code>, <code>itertools</code> — 반복자의 구체 타입을 모른다</td></tr>
+    </tbody>
+  </table></div>
+  <p>GoF 원전의 반복자는 <code>first()</code>, <code>next()</code>, <code>is_done()</code>, <code>current_item()</code> 네 메서드를 가진다. 파이썬은 이를 <code>__next__()</code> 하나와 예외 하나로 압축했고, <code>for</code> 문이 이 프로토콜을 직접 호출한다. 다른 언어에서는 반복자가 "적용하는 패턴"이지만, 파이썬에서는 언어의 일부다. 이 장의 질문은 그래서 "반복자를 쓸 것인가"가 아니라 "<strong>어디까지를 직접 만들고 어디부터 언어에 맡길 것인가</strong>"다.</p>
+</section>
+
+<section id="implementation">
+  <h2>4. 패턴 적용</h2>
+  <p class="lead-in">먼저 반복자를 클래스로 직접 쓴 교과서 버전이다. 세 가지에 주목하라. ① 반복자마다 커서(<code>index</code>, <code>_next</code>, <code>_order</code>)를 따로 가진다. ② <code>Playlist.__iter__()</code>는 호출될 때마다 <em>새</em> 반복자를 만든다. ③ <code>Player.set_mode()</code>는 반복자를 갈아 끼우되, 현재 위치를 새 반복자에 넘긴다. <code>ShuffleIterator</code>의 docstring에 나오는 <dfn class="term" id="term-big-o-notation" data-term="big-o-notation" title="입력 크기에 따라 비용이 늘어나는 정도를 나타내는 표기.">O(n)</dfn>은 빅오 표기로, 입력 크기 n에 따라 비용이 늘어나는 정도를 나타낸다(여기서는 곡 수에 비례).</p>
+  <figure class="code"><figcaption>src/15_iterator/02_iterator.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 패턴 적용] 순회 정책을 반복자 객체로 분리한다 — GoF 구조를 파이썬 프로토콜 위에.
+
+상황: 01_naive.py에서 지안의 `Player`는 인덱스·셔플 순서·반복 모드를 모두 직접 관리했고,
+미리보기 화면이 같은 커서를 움직여 재생 위치가 밀렸다. 이 파일은 GoF 반복자 패턴으로 다시 짠다.
+
+  - `Playlist`(Aggregate)는 곡을 보관하고, 순회 방식별 반복자를 &#x27;만들어 주기만&#x27; 한다.
+    반복자를 만드는 메서드(`__iter__`, `iterator()`)는 1장의 팩토리 메서드와 같은 자리다.
+  - 반복자(Iterator)는 &#x27;어디까지 갔는가&#x27;라는 커서 상태를 각자 소유한다. 그래서 같은
+    플레이리스트를 재생기와 미리보기가 동시에 순회해도 서로 간섭하지 않는다.
+  - 파이썬 반복자 프로토콜(`__iter__`/`__next__`, `StopIteration`)을 구현하므로 모든 반복자가
+    `for`, `list()`, `itertools`와 그대로 맞물린다. GoF의 first()/next()/is_done()/current_item()
+    네 메서드가 파이썬에서는 `__next__` 하나와 예외 하나로 압축된다.
+
+이 파일은 &#x27;클래스로 쓴 반복자&#x27;가 무엇을 하는지 드러내려는 교과서적 버전이다. 같은 일을
+제너레이터로 하면 얼마나 짧아지는지는 03_pythonic.py에서 본다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import random
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Track:
+    &quot;&quot;&quot;곡 하나.&quot;&quot;&quot;
+
+    title: str
+
+
+class PlaylistIterator(ABC):
+    &quot;&quot;&quot;[Iterator] 플레이리스트 순회기의 공통 인터페이스.
+
+    파이썬 반복자 프로토콜의 규칙 두 가지를 지킨다.
+      1) `__iter__`는 self를 반환한다 — 반복자도 이터러블이어야 `for x in it:`이 동작한다.
+      2) 끝나면 `StopIteration`을 던지고, 그 뒤로도 계속 던진다(한 번 끝난 반복자는 끝난 상태).
+    `index`를 공개하는 이유: 모드를 바꿀 때 &#x27;지금 몇 번째 곡인가&#x27;를 새 반복자에 넘겨야 하기 때문.
+    &quot;&quot;&quot;
+
+    def __init__(self, playlist: Playlist, start: int) -&gt; None:
+        &quot;&quot;&quot;start는 &#x27;이미 재생 중인 곡&#x27;의 위치. 첫 next()는 start 곡을 돌려준다.&quot;&quot;&quot;
+        self._playlist = playlist
+        self.index = start
+
+    def __iter__(self) -&gt; PlaylistIterator:
+        &quot;&quot;&quot;반복자는 자기 자신을 반환한다(프로토콜 규칙 1).&quot;&quot;&quot;
+        return self
+
+    @abstractmethod
+    def __next__(self) -&gt; Track:
+        &quot;&quot;&quot;다음 곡. 끝이면 StopIteration.&quot;&quot;&quot;
+
+
+class SequentialIterator(PlaylistIterator):
+    &quot;&quot;&quot;[Concrete Iterator] 순서대로 한 번.&quot;&quot;&quot;
+
+    def __init__(self, playlist: Playlist, start: int = 0) -&gt; None:
+        &quot;&quot;&quot;첫 next()가 start를 내도록 &#x27;다음에 낼 위치&#x27;를 따로 둔다.&quot;&quot;&quot;
+        super().__init__(playlist, start)
+        self._next = start
+
+    def __next__(self) -&gt; Track:
+        &quot;&quot;&quot;끝에 도달하면 StopIteration — 이후 호출도 계속 같은 예외(프로토콜 규칙 2).&quot;&quot;&quot;
+        if self._next &gt;= len(self._playlist):
+            raise StopIteration
+        self.index = self._next
+        self._next += 1
+        return self._playlist[self.index]
+
+
+class RepeatAllIterator(PlaylistIterator):
+    &quot;&quot;&quot;[Concrete Iterator] 끝나면 처음으로 — 무한 반복자. list()로 감싸면 영원히 돈다(주의).&quot;&quot;&quot;
+
+    def __init__(self, playlist: Playlist, start: int = 0) -&gt; None:
+        &quot;&quot;&quot;첫 next()가 start를 내도록.&quot;&quot;&quot;
+        super().__init__(playlist, start)
+        self._next = start
+
+    def __next__(self) -&gt; Track:
+        &quot;&quot;&quot;빈 플레이리스트에서는 무한 루프 대신 즉시 종료해야 한다 — 무한 반복자의 흔한 함정.&quot;&quot;&quot;
+        if len(self._playlist) == 0:
+            raise StopIteration
+        self.index = self._next % len(self._playlist)
+        self._next = self.index + 1
+        return self._playlist[self.index]
+
+
+class RepeatOneIterator(PlaylistIterator):
+    &quot;&quot;&quot;[Concrete Iterator] 한 곡 반복 — 커서가 움직이지 않는 무한 반복자.&quot;&quot;&quot;
+
+    def __next__(self) -&gt; Track:
+        &quot;&quot;&quot;같은 곡을 계속. 빈 목록 가드는 RepeatAllIterator와 같은 이유(IndexError 대신 종료).&quot;&quot;&quot;
+        if len(self._playlist) == 0:
+            raise StopIteration
+        return self._playlist[self.index]
+
+
+class ShuffleIterator(PlaylistIterator):
+    &quot;&quot;&quot;[Concrete Iterator] 지금 곡을 맨 앞에 두고 나머지를 섞은 순서로 한 번씩.
+
+    셔플 순서(_order)는 이 반복자만의 상태다. 01에서는 Player의 shuffle_order 필드였다.
+    seed를 받는 이유: 테스트와 교재 출력이 실행마다 같아야 하기 때문(실서비스는 None).
+    &quot;&quot;&quot;
+
+    def __init__(self, playlist: Playlist, start: int = 0, seed: int | None = None) -&gt; None:
+        &quot;&quot;&quot;순서를 미리 섞어 둔다. O(n)이지만 플레이리스트는 메모리에 있는 컬렉션이다.&quot;&quot;&quot;
+        super().__init__(playlist, start)
+        rest = [i for i in range(len(playlist)) if i != start]
+        random.Random(seed).shuffle(rest)
+        # 빈 목록이면 순서도 비운다 — [start]를 넣으면 첫 next()가 IndexError를 낸다.
+        self._order = [start] + rest if len(playlist) else []
+        self._pos = 0
+
+    def __next__(self) -&gt; Track:
+        &quot;&quot;&quot;섞인 순서를 따라간다.&quot;&quot;&quot;
+        if self._pos &gt;= len(self._order):
+            raise StopIteration
+        self.index = self._order[self._pos]
+        self._pos += 1
+        return self._playlist[self.index]
+
+
+class Playlist:
+    &quot;&quot;&quot;[Aggregate] 곡을 보관하고 반복자를 만든다. 내부 표현(tuple)은 바깥에 드러나지 않는다.
+
+    `__iter__`는 호출될 때마다 &#x27;새&#x27; 반복자를 만든다. 이것이 이터러블과 이터레이터의 분리다.
+    그래서 같은 Playlist를 두 번 for 돌려도, 두 화면이 동시에 돌려도 서로 영향이 없다.
+    &quot;&quot;&quot;
+
+    MODES = {
+        &quot;normal&quot;: SequentialIterator,
+        &quot;repeat_all&quot;: RepeatAllIterator,
+        &quot;repeat_one&quot;: RepeatOneIterator,
+    }
+
+    def __init__(self, tracks: list[Track]) -&gt; None:
+        &quot;&quot;&quot;tuple로 복사해 보관한다 — 순회 중 컬렉션이 바뀌는 문제를 원천 차단.&quot;&quot;&quot;
+        self._tracks = tuple(tracks)
+
+    def __len__(self) -&gt; int:
+        &quot;&quot;&quot;곡 수.&quot;&quot;&quot;
+        return len(self._tracks)
+
+    def __getitem__(self, i: int) -&gt; Track:
+        &quot;&quot;&quot;반복자들이 쓰는 접근자.&quot;&quot;&quot;
+        return self._tracks[i]
+
+    def __iter__(self) -&gt; PlaylistIterator:
+        &quot;&quot;&quot;[팩토리 메서드] 기본 순회 = 순서대로. for track in playlist: 가 이것을 부른다.&quot;&quot;&quot;
+        return SequentialIterator(self)
+
+    def iterator(self, mode: str, start: int = 0, seed: int | None = None) -&gt; PlaylistIterator:
+        &quot;&quot;&quot;모드별 반복자 생성. 새 모드는 반복자 클래스 하나 + 이 등록 한 줄.&quot;&quot;&quot;
+        if mode == &quot;shuffle&quot;:
+            return ShuffleIterator(self, start, seed)
+        return self.MODES[mode](self, start)
+
+
+class Player:
+    &quot;&quot;&quot;[Client] 이제 커서를 직접 다루지 않는다. 반복자 하나를 들고 next()만 부른다.&quot;&quot;&quot;
+
+    def __init__(self, playlist: Playlist) -&gt; None:
+        &quot;&quot;&quot;기본 모드로 시작하고 첫 곡을 꺼내 둔다.&quot;&quot;&quot;
+        self.playlist = playlist
+        self._it = playlist.iterator(&quot;normal&quot;)
+        self.current: Track | None = next(self._it, None)
+
+    def set_mode(self, mode: str, seed: int | None = 7) -&gt; None:
+        &quot;&quot;&quot;모드 변경 = 반복자 교체. 현재 위치(index)를 넘겨 &#x27;지금 곡 유지&#x27;를 보장한다.&quot;&quot;&quot;
+        new_it = self.playlist.iterator(mode, start=self._it.index, seed=seed)
+        next(new_it, None)      # 새 반복자의 첫 곡은 지금 곡이므로 소비해 둔다(빈 목록이면 None)
+        self._it = new_it
+
+    def skip(self) -&gt; Track | None:
+        &quot;&quot;&quot;다음 곡. next()의 기본값 인자로 StopIteration을 None으로 바꾼다.&quot;&quot;&quot;
+        self.current = next(self._it, None)
+        return self.current
+
+
+if __name__ == &quot;__main__&quot;:
+    album = Playlist([Track(t) for t in (&quot;Intro&quot;, &quot;Blue&quot;, &quot;Run&quot;, &quot;Echo&quot;, &quot;Outro&quot;)])
+
+    print(&quot;[1] Playlist는 이터러블이다: for와 list()가 그대로 동작하고, 두 번 돌려도 된다&quot;)
+    print(&quot;    &quot;, [t.title for t in album])
+    print(&quot;    &quot;, [t.title for t in album], &quot;← 매번 새 반복자&quot;)
+
+    print(&quot;[2] 재생기와 미리보기가 같은 플레이리스트를 &#x27;독립적으로&#x27; 순회한다&quot;)
+    player = Player(album)
+    preview = iter(album)                       # 미리보기 화면만의 반복자
+    print(&quot;    재생 중:&quot;, player.current.title)
+    print(&quot;    다른 화면의 독립 순회(앨범 앞 3곡):&quot;, [next(preview).title for _ in range(3)])
+    print(&quot;    그 뒤 재생 중:&quot;, player.current.title, &quot;← 01의 버그가 사라졌다&quot;)
+
+    print(&quot;[3] 모드 전환: Blue에서 셔플 → 전체 반복으로 바꿔도 현재 곡이 유지된다&quot;)
+    player.skip()
+    player.set_mode(&quot;shuffle&quot;)
+    print(&quot;    셔플:&quot;, player.current.title, &quot;→&quot;, [player.skip().title for _ in range(2)])
+    player.set_mode(&quot;repeat_all&quot;)
+    print(&quot;    전체 반복:&quot;, player.current.title, &quot;→&quot;, [player.skip().title for _ in range(5)])
+
+    print(&quot;[4] 한 곡 반복과 순서대로 재생의 종료&quot;)
+    player.set_mode(&quot;repeat_one&quot;)
+    print(&quot;    한 곡 반복:&quot;, [player.skip().title for _ in range(3)])
+    seq = album.iterator(&quot;normal&quot;, start=3)
+    print(&quot;    Echo부터 순서대로:&quot;, [t.title for t in seq], &quot;/ 끝난 뒤 next:&quot;, next(seq, &quot;StopIteration&quot;))</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_iterator.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>출력 [2]가 01의 미리보기 버그에 대한 답이다. 다른 화면은 <code>iter(album)</code>으로 자기만의 반복자를 얻는다(여기서는 앨범 앞부분을 훑을 뿐이고, '다음 곡부터' 미리 보려면 재생 위치 다음에서 시작하는 반복자를 만들면 된다). 그래서 재생기의 반복자와 커서를 공유하지 않는다. [1]에서는 같은 <code>Playlist</code>를 두 번 <code>for</code>로 돌려도 매번 처음부터 시작한다. [3]에서는 모드 전환이 "반복자 교체"가 되었고, <code>Player</code>에 모드 분기가 사라졌다.</p>
+  <p>프로토콜의 두 규칙이 코드에 드러나 있다. 반복자의 <code>__iter__</code>는 <code>self</code>를 반환한다. 반복자도 이터러블이어야 <code>for x in it:</code>이 동작하기 때문이다. 그리고 한 번 끝난 반복자는 계속 <code>StopIteration</code>을 던진다([4]). 이터러블과 이터레이터를 구분하는 일은 단순한 용어 문제가 아니다. "몇 번이든 처음부터 돌 수 있는 것"과 "한 번 쓰면 닳는 커서"라는, 생명주기가 다른 두 객체를 구분하는 일이다.</p>
+  <div class="callout ok"><span class="label">핵심 정리</span>
+    <p>반복자 패턴이 분리한 것은 <strong>컬렉션(무엇이 있는가)</strong>과 <strong>순회 상태(어디까지 갔는가)</strong>다. 그 결과 ① 여러 순회가 동시에 존재할 수 있고, ② 순회 방식이 컬렉션과 클라이언트 모두에서 독립된다. 마지막으로 ③ 클라이언트는 내부 표현을 모르게 된다. 이 세 번째 이득은 5절의 페이지네이션에서 결정적이다.</p>
+  </div>
+</section>
+
+<section id="pythonic">
+  <h2>5. 파이썬다운 변형</h2>
+  <h3>5.1 제너레이터와 itertools: 반복자 클래스가 사라진다</h3>
+  <p>코드 리뷰에서 태오가 지안에게 말했다. "반복자 클래스 네 개, 전부 제너레이터 함수 한두 줄씩이에요." <code>yield</code>가 있는 함수를 호출하면 반복자 객체가 나온다. 커서 상태는 지역 변수와 "멈춘 실행 위치"로 표현되고, 함수가 끝나면 <code>StopIteration</code>은 파이썬이 대신 던진다. 02의 클래스를 옮기면서 <code>raise StopIteration</code>을 그대로 쓰면 안 된다. 제너레이터 안에서 그렇게 하면 PEP 479에 따라 <code>RuntimeError</code>로 바뀐다. 제너레이터를 끝낼 때는 <code>return</code>을 쓴다.</p>
+  <p class="lead-in">아래 코드를 02와 나란히 놓고 보라. <code>SequentialIterator</code> 클래스 전체가 <code>sequential()</code>의 두 줄이 되었다. 전체 반복은 <code>cycle</code>+<code>islice</code>, 한 곡 반복은 <code>repeat</code>, 미리보기는 <code>chain</code>+<code>islice</code>로 조립된다. <code>Playlist</code>가 <dfn class="term" id="term-collections-abc" data-term="collections-abc" title="Iterator·Sequence 같은 컨테이너 추상 기반 클래스를 모은 표준 모듈. 필수 메서드만 구현하면 나머지를 믹스인으로 제공한다."><code>Sequence</code></dfn>를 상속하면서 <code>__iter__</code>를 직접 쓰지 않게 된 점, 그리고 컴포지트 구조의 폴더를 <code>yield from</code> 한 줄로 재귀 순회하는 점도 확인하라.</p>
+  <div class="callout"><span class="label">용어</span>
+    <p><code>Sequence</code>는 표준 모듈 <code>collections.abc</code>에 있는 컨테이너 추상 기반 클래스 가운데 하나다. 이 모듈의 클래스들은 필수 메서드 몇 개만 구현하면 나머지 메서드를 공짜로 채워 준다. 이렇게 단독으로 쓰기보다 상속해서 메서드 묶음을 얻으려고 만든 클래스를 <dfn class="term" id="term-mixin" data-term="mixin" title="단독으로 쓰기보다 상속해서 메서드 묶음을 얻기 위해 만든 클래스(예: collections.abc.Sequence가 __iter__·__contains__ 등을 제공).">믹스인</dfn>(mixin)이라 한다. 코드 주석의 <dfn class="term" id="term-lazy-evaluation" data-term="lazy-evaluation" title="값이 실제로 요구될 때까지 계산(또는 요청)을 미루는 평가 방식. 제너레이터는 소비자가 next()를 부를 때만 다음 값까지 진행한다.">지연 평가</dfn>(지연성)는 값이 실제로 요구될 때까지 계산을 미루는 평가 방식이다. 제너레이터는 소비자가 <code>next()</code>를 부를 때만 다음 <code>yield</code>까지 진행하므로, 아무도 묻지 않은 값은 계산하지 않는다(5.2절에서 이것이 요청 수를 줄인다).</p>
+  </div>
+  <figure class="code"><figcaption>src/15_iterator/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 파이썬다운 변형] 제너레이터와 itertools가 반복자 클래스를 흡수한다.
+
+상황: 02_iterator.py의 반복자 클래스 네 개는 각자 커서 필드, `__iter__`, `__next__`,
+`StopIteration`을 손으로 관리했다. 리뷰어 태오가 지안에게 말한다. &quot;그거 전부 제너레이터
+함수 한두 줄씩이에요.&quot; 파이썬은 반복자 패턴을 언어 차원에서 흡수했다.
+
+  - 제너레이터 함수: `yield`가 있는 함수를 부르면 반복자 객체가 나온다. 커서 상태는
+    지역 변수와 &#x27;멈춘 실행 위치&#x27;로 표현되고, 함수가 끝나면 StopIteration이 자동으로 난다.
+  - itertools: 반복자를 조립하는 부품 상자. cycle(전체 반복), repeat(한 곡 반복),
+    islice(앞 n개 미리보기), chain(사용자 대기열 + 플레이리스트).
+  - yield from: 하위 반복자에 순회를 위임한다. 폴더 안에 폴더가 있는 재생목록(7장 컴포지트)을
+    재귀 순회하는 코드가 몇 줄이 된다.
+  - collections.abc: `Sequence`를 상속하고 `__getitem__`/`__len__`만 구현하면 `__iter__`,
+    `__contains__`, `__reversed__`, `index`, `count`를 믹스인으로 얻는다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import random
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from itertools import chain, cycle, islice, repeat
+
+
+@dataclass(frozen=True)
+class Track:
+    &quot;&quot;&quot;곡 하나.&quot;&quot;&quot;
+
+    title: str
+
+
+class Playlist(Sequence[Track]):
+    &quot;&quot;&quot;[Aggregate] Sequence 믹스인: 두 메서드만 쓰고 나머지 순회 관련 연산을 물려받는다.
+
+    02에서 손으로 썼던 __iter__가 없다는 점에 주목하라. Sequence가 __getitem__을 0부터
+    IndexError가 날 때까지 부르는 __iter__를 제공한다. &#x27;in&#x27;도, reversed()도 공짜다.
+    &quot;&quot;&quot;
+
+    def __init__(self, tracks: list[Track]) -&gt; None:
+        &quot;&quot;&quot;tuple로 보관 — 순회 중 변경 방지.&quot;&quot;&quot;
+        self._tracks = tuple(tracks)
+
+    def __getitem__(self, i):  # type: ignore[override]
+        &quot;&quot;&quot;정수와 slice를 모두 받는다(Sequence 계약).&quot;&quot;&quot;
+        return self._tracks[i]
+
+    def __len__(self) -&gt; int:
+        &quot;&quot;&quot;곡 수.&quot;&quot;&quot;
+        return len(self._tracks)
+
+
+# ---------------------------------------------------------------------------
+# 모드별 반복자 = 제너레이터 함수. 반환값은 (위치, 곡) 쌍 — 모드 전환 시 위치를 넘기기 위해.
+# ---------------------------------------------------------------------------
+
+def sequential(pl: Playlist, start: int = 0) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;02 SequentialIterator 전체가 이 두 줄이다. 커서는 range가, 종료는 함수의 끝이 맡는다.&quot;&quot;&quot;
+    for i in range(start, len(pl)):
+        yield i, pl[i]
+
+
+def repeat_all(pl: Playlist, start: int = 0) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;cycle로 무한 반복하되 start에서 시작하도록 islice로 앞을 잘라 낸다.&quot;&quot;&quot;
+    if not pl:                                   # 빈 목록이면 cycle도 즉시 끝나지만 의도를 명시한다
+        return
+    yield from islice(cycle(enumerate(pl)), start, None)
+
+
+def repeat_one(pl: Playlist, start: int = 0) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;itertools.repeat: 같은 값을 무한히. 클래스가 필요 없는 가장 극적인 예.&quot;&quot;&quot;
+    return repeat((start, pl[start]))
+
+
+def shuffled(pl: Playlist, start: int = 0, seed: int | None = None) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;지금 곡을 먼저, 나머지를 섞어서. 섞는 시점이 &#x27;첫 next()&#x27; 이후라는 점이 제너레이터의 지연성이다.&quot;&quot;&quot;
+    yield start, pl[start]
+    rest = [i for i in range(len(pl)) if i != start]
+    random.Random(seed).shuffle(rest)
+    for i in rest:
+        yield i, pl[i]
+
+
+MODES = {&quot;normal&quot;: sequential, &quot;repeat_all&quot;: repeat_all, &quot;repeat_one&quot;: repeat_one}
+
+
+class Player:
+    &quot;&quot;&quot;[Client] 02와 같은 역할. 반복자 클래스 대신 제너레이터 객체를 들고 있다.&quot;&quot;&quot;
+
+    def __init__(self, pl: Playlist) -&gt; None:
+        &quot;&quot;&quot;기본 모드로 시작.&quot;&quot;&quot;
+        self.pl = pl
+        self._it = sequential(pl)
+        self.index, self.current = next(self._it)
+
+    def set_mode(self, mode: str) -&gt; None:
+        &quot;&quot;&quot;현재 위치에서 새 제너레이터를 시작하고, 첫 값(=지금 곡)은 소비해 둔다.&quot;&quot;&quot;
+        factory = (lambda p, s: shuffled(p, s, seed=7)) if mode == &quot;shuffle&quot; else MODES[mode]
+        self._it = factory(self.pl, self.index)
+        next(self._it)
+
+    def skip(self) -&gt; Track | None:
+        &quot;&quot;&quot;다음 곡. 끝이면 None.&quot;&quot;&quot;
+        pair = next(self._it, None)
+        if pair is None:
+            return None
+        self.index, self.current = pair
+        return self.current
+
+    def up_next(self, queue: list[Track], n: int) -&gt; list[str]:
+        &quot;&quot;&quot;&#x27;다음에 재생&#x27; 미리보기: 사용자 대기열 뒤에 플레이리스트 나머지를 이어 붙인다.
+
+        chain과 islice는 어느 쪽도 끝까지 펼치지 않는다. 재생 중인 반복자(self._it)를
+        건드리지 않기 위해 같은 위치에서 &#x27;새&#x27; 반복자를 만들어 미리 본다 — 01의 버그를 피하는 방법.
+        한계: &#x27;순서대로&#x27; 모드 기준이다. 셔플·한 곡 반복의 실제 다음 곡과는 다를 수 있다. 현재 반복자를
+        itertools.tee로 복제하거나 peek를 지원하는 반복자 클래스(5.1절 끝)가 필요한 이유다.
+        &quot;&quot;&quot;
+        rest = (t for _, t in sequential(self.pl, self.index + 1))
+        return [t.title for t in islice(chain(queue, rest), n)]
+
+
+# ---------------------------------------------------------------------------
+# yield from과 컴포지트: 폴더 안의 폴더
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Folder:
+    &quot;&quot;&quot;[Composite] 재생목록 폴더. 하위 항목은 Playlist 또는 Folder.&quot;&quot;&quot;
+
+    name: str
+    children: list[Playlist | Folder]
+
+    def __iter__(self) -&gt; Iterator[Track]:
+        &quot;&quot;&quot;깊이 우선 순회. 하위 항목이 무엇이든 &#x27;이터러블&#x27;이라는 사실 하나에만 의존한다.
+
+        yield from은 하위 반복자의 값을 그대로 흘려보낸다. 재귀 깊이만큼 스택을 쓰지만,
+        스택을 직접 관리하는 클래스형 반복자(__next__ 안에서 &#x27;어느 폴더의 몇 번째&#x27;를 쌓아 두는 코드)보다 훨씬 읽기 쉽다.
+        &quot;&quot;&quot;
+        for child in self.children:
+            yield from child
+
+
+if __name__ == &quot;__main__&quot;:
+    album = Playlist([Track(t) for t in (&quot;Intro&quot;, &quot;Blue&quot;, &quot;Run&quot;, &quot;Echo&quot;, &quot;Outro&quot;)])
+
+    print(&quot;[1] Sequence 믹스인: __iter__·in·reversed를 직접 쓰지 않았다&quot;)
+    print(&quot;    &quot;, [t.title for t in album], Track(&quot;Run&quot;) in album,
+          [t.title for t in reversed(album)][:2])
+
+    print(&quot;[2] 02와 같은 시나리오를 제너레이터로&quot;)
+    p = Player(album)
+    p.skip()
+    p.set_mode(&quot;shuffle&quot;)
+    print(&quot;    셔플:&quot;, p.current.title, &quot;→&quot;, [p.skip().title for _ in range(2)])
+    p.set_mode(&quot;repeat_all&quot;)
+    print(&quot;    전체 반복:&quot;, p.current.title, &quot;→&quot;, [p.skip().title for _ in range(5)])
+    p.set_mode(&quot;repeat_one&quot;)
+    print(&quot;    한 곡 반복:&quot;, [p.skip().title for _ in range(3)])
+
+    print(&quot;[3] 다음 곡 미리보기: 대기열 + 나머지, 재생 위치는 그대로&quot;)
+    q = Player(album)
+    print(&quot;    &quot;, q.up_next([Track(&quot;친구가 추천한 곡&quot;)], 3), &quot;/ 재생 중:&quot;, q.current.title)
+
+    print(&quot;[4] yield from: 폴더 안의 폴더를 하나의 for로&quot;)
+    lib = Folder(&quot;내 음악&quot;, [Playlist([Track(&quot;A1&quot;), Track(&quot;A2&quot;)]),
+                            Folder(&quot;드라이브&quot;, [Playlist([Track(&quot;D1&quot;)]), Playlist([Track(&quot;D2&quot;)])])])
+    print(&quot;    &quot;, [t.title for t in lib])
+
+    print(&quot;[5] 제너레이터 객체는 이터레이터다 — 한 번 쓰면 끝난다&quot;)
+    gen = sequential(album, 3)
+    print(&quot;    첫 순회:&quot;, [t.title for _, t in gen], &quot;/ 두 번째:&quot;, [t.title for _, t in gen])</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <ul>
+    <li><strong>[2]의 동작이 02와 같다.</strong> 반복자 클래스 계층이 함수 넷과 dict 하나로 바뀌었지만, <code>Player</code>가 보는 인터페이스(<code>next()</code>)는 그대로다. 패턴의 <em>구조</em>는 사라졌어도 <em>의도</em>(순회 상태의 분리)는 그대로 남아 있다.</li>
+    <li><strong>[3]의 미리보기</strong>는 재생 중인 반복자를 건드리지 않는다. 같은 위치에서 새 반복자를 만들어 <code>chain</code>과 <code>islice</code>로 앞부분만 본다. 두 함수 모두 입력을 끝까지 펼치지 않는다. 다만 이 미리보기는 '순서대로' 모드 기준이라, 셔플이나 한 곡 반복의 실제 다음 곡과는 다를 수 있다. 모드에 맞게 정확히 미리 보려면 현재 반복자를 <code>itertools.tee</code>로 복제하거나 <code>peek</code>를 지원하는 반복자가 필요하다(아래 문단).</li>
+    <li><strong>[4]의 <code>yield from</code></strong>은 7장 컴포지트의 순회를 몇 줄로 줄인다. <code>Folder.__iter__</code>는 자식이 <code>Playlist</code>인지 <code>Folder</code>인지 모른다. 둘 다 이터러블이라는 사실 하나에만 의존한다.</li>
+    <li><strong>[5]가 함정이다.</strong> 제너레이터 <em>객체</em>는 이터레이터다. 두 번째 순회는 예외 없이 빈 결과를 낸다.</li>
+  </ul>
+  <p>그렇다면 반복자 클래스는 언제 여전히 필요한가? 순회 도중 바깥에서 들여다볼 상태가 있을 때다(02의 <code>index</code>처럼 모드 전환에 필요한 위치). <code>seek()</code>나 <code>peek()</code> 같은 추가 연산이 필요할 때, 그리고 반복자를 직렬화하거나 복제해야 할 때도 그렇다. 제너레이터의 상태는 <dfn class="term" id="term-frame" data-term="frame" title="함수 실행 중의 지역 변수와 현재 위치를 담은 객체. 제너레이터의 상태가 여기에 갇혀 있다.">실행 프레임</dfn>(함수 실행 중의 지역 변수와 현재 실행 위치를 담은 객체) 안에 갇혀 있어서 공개 인터페이스로는 바깥에서 읽을 수 없다(<code>gi_frame</code> 같은 디버깅용 내부 속성은 예외다). 03이 <code>(위치, 곡)</code> 쌍을 내보내는 것은 그 한계를 우회하는 방법이다.</p>
+
+  <h3>5.2 지연 평가: 페이지 API를 그냥 이터러블로</h3>
+  <p class="lead-in">이제 2만 곡짜리 '좋아요' 목록이다. <code>pages()</code> 제너레이터가 01의 <code>from_api()</code>와 거의 같은 while 루프라는 점에 주목하라. 차이는 <code>extend</code>가 <code>yield from</code>으로 바뀐 한 단어뿐이다. 후반 데모 [5]와 [6]은 <dfn class="term" id="term-exhaustion" data-term="exhaustion" title="이터레이터(제너레이터 객체)를 끝까지 소비해 더 이상 값이 나오지 않는 상태. 두 번째 순회는 예외 없이 빈 결과가 된다.">고갈</dfn> 버그와 <code>in</code> 연산자의 함정을 재현한다. 고갈이란 이터레이터를 끝까지 소비해 더 이상 값이 나오지 않는 상태다. 고갈된 이터레이터를 다시 순회하면 예외 없이 빈 결과가 나온다.</p>
+  <figure class="code"><figcaption>src/15_iterator/04_lazy_pagination.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 지연 평가] 서버의 페이지 API를 &#x27;그냥 이터러블&#x27;로 보이게 한다.
+
+상황: &#x27;좋아요 표시한 곡&#x27;은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 01에서는
+첫 곡을 틀기 전에 400번 요청해 2만 곡을 메모리에 올렸다. 사용자는 대개 앞의 몇 곡만 듣는다.
+
+이 파일의 설계:
+  - `pages()`: 페이지 토큰 루프를 감춘 제너레이터. 다음 페이지는 &#x27;필요해진 순간&#x27;에만 요청한다.
+  - `LikedSongs`: `__iter__`가 제너레이터인 이터러블. for를 돌 때마다 처음부터 새로 순회한다.
+    Player는 이것이 리스트인지 페이지 API인지 모른다 — 반복자 패턴의 원래 목적(내부 표현 은닉).
+  - 데모 후반은 &#x27;제너레이터 객체를 변수에 담아 두 번 쓰는&#x27; 고갈(exhaustion) 버그와
+    `in` 연산자가 반복자를 소비하는 함정을 재현한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+from itertools import islice
+from typing import Iterable, Iterator
+
+
+@dataclass(frozen=True)
+class Track:
+    &quot;&quot;&quot;곡 하나.&quot;&quot;&quot;
+
+    title: str
+
+
+class FakeLikedSongsAPI:
+    &quot;&quot;&quot;서버 페이지네이션 API 흉내. 요청 수를 센다.&quot;&quot;&quot;
+
+    PAGE_SIZE = 50
+
+    def __init__(self, total: int) -&gt; None:
+        &quot;&quot;&quot;total곡짜리 목록.&quot;&quot;&quot;
+        self.total = total
+        self.requests = 0
+
+    def fetch_page(self, token: int | None) -&gt; tuple[list[Track], int | None]:
+        &quot;&quot;&quot;(곡들, 다음 토큰). 마지막이면 토큰 None.&quot;&quot;&quot;
+        self.requests += 1
+        start = token or 0
+        end = min(start + self.PAGE_SIZE, self.total)
+        return [Track(f&quot;좋아요 #{i}&quot;) for i in range(start, end)], (end if end &lt; self.total else None)
+
+
+def pages(api: FakeLikedSongsAPI) -&gt; Iterator[Track]:
+    &quot;&quot;&quot;페이지 토큰 루프를 감춘 제너레이터. 01의 while 루프와 거의 같은 모양이다.
+
+    차이는 &#x27;모으기(extend)&#x27; 대신 &#x27;흘려보내기(yield from)&#x27;라는 한 단어다. 그 한 단어 덕분에
+    소비자가 멈추면 생산도 멈춘다 — 다음 페이지 요청은 이전 페이지를 다 소비한 뒤에야 일어난다.
+    &quot;&quot;&quot;
+    token: int | None = None
+    while True:
+        items, token = api.fetch_page(token)
+        yield from items
+        if token is None:
+            return                      # 함수가 끝나면 StopIteration은 파이썬이 대신 던진다
+
+
+class LikedSongs:
+    &quot;&quot;&quot;[Aggregate] 재사용 가능한 이터러블. __iter__가 매번 새 제너레이터를 만든다.
+
+    제너레이터 함수 pages()를 바로 넘기지 않고 이 클래스로 감싸는 이유: 제너레이터 &#x27;객체&#x27;는
+    이터레이터라서 한 번만 순회할 수 있다. 재생 화면과 &#x27;전체 재생 시간 계산&#x27; 같은 두 소비자가
+    각자 처음부터 돌 수 있어야 한다면, 반복자를 &#x27;만드는 것&#x27;을 넘겨야 한다.
+    &quot;&quot;&quot;
+
+    def __init__(self, api: FakeLikedSongsAPI) -&gt; None:
+        &quot;&quot;&quot;API 클라이언트를 보관한다. 데이터는 보관하지 않는다.&quot;&quot;&quot;
+        self.api = api
+
+    def __iter__(self) -&gt; Iterator[Track]:
+        &quot;&quot;&quot;[팩토리 메서드] 호출마다 새 순회 — 그래서 for를 몇 번 돌려도 된다.&quot;&quot;&quot;
+        return pages(self.api)
+
+
+def play_first(tracks: Iterable[Track], n: int) -&gt; list[str]:
+    &quot;&quot;&quot;[Client] 이 함수는 tracks가 list인지, 페이지 API인지, 제너레이터인지 모른다.
+
+    타입 힌트가 list가 아니라 Iterable이라는 점이 곧 설계다. 01의 Player가 list에 묶였던 것과 대비.
+    &quot;&quot;&quot;
+    return [t.title for t in islice(tracks, n)]
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 지연 평가: 앞의 3곡만 들으면 요청은 1번&quot;)
+    api = FakeLikedSongsAPI(total=20_000)
+    liked = LikedSongs(api)
+    print(&quot;    &quot;, play_first(liked, 3), f&quot;/ 요청 {api.requests}번 (01에서는 400번)&quot;)
+
+    print(&quot;[2] 120곡까지 들으면 그때 필요한 만큼만 더 받는다&quot;)
+    api.requests = 0
+    play_first(liked, 120)
+    print(f&quot;     요청 {api.requests}번 (50곡 × 3페이지)&quot;)
+
+    print(&quot;[3] 같은 클라이언트 함수가 리스트에도 그대로 동작한다 — 내부 표현 은닉&quot;)
+    print(&quot;    &quot;, play_first([Track(&quot;Intro&quot;), Track(&quot;Blue&quot;)], 3))
+
+    print(&quot;[4] LikedSongs는 이터러블: 두 번 돌려도 매번 처음부터&quot;)
+    small = LikedSongs(FakeLikedSongsAPI(total=3))
+    print(&quot;    &quot;, [t.title for t in small], [t.title for t in small])
+
+    print(&quot;[5] 고갈 버그: 제너레이터 &#x27;객체&#x27;를 담아 두고 두 번 쓰면 두 번째는 비어 있다&quot;)
+    gen = pages(FakeLikedSongsAPI(total=3))
+    total = sum(1 for _ in gen)                  # 첫 소비자: 곡 수 세기
+    titles = [t.title for t in gen]              # 두 번째 소비자: 이미 고갈됨
+    print(f&quot;     곡 수 {total}, 제목 목록 {titles} ← 예외 없이 조용히 빈 결과&quot;)
+
+    print(&quot;[6] 함정: &#x27;in&#x27;도 반복자를 소비한다&quot;)
+    gen = pages(FakeLikedSongsAPI(total=5))
+    found = Track(&quot;좋아요 #1&quot;) in gen            # #0, #1을 소비하며 찾는다
+    print(f&quot;     #1 포함? {found} → 남은 곡: {[t.title for t in gen]} (#0, #1은 사라졌다)&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_lazy_pagination.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]에서 요청이 400번에서 1번으로 줄었다. 제너레이터는 소비자가 값을 요구할 때만 진행하므로, 소비자가 멈추면 다음 페이지 요청도 일어나지 않는다. [3]은 반복자 패턴의 원래 약속이다. <code>play_first()</code>의 매개변수 타입은 <code>list</code>가 아니라 <code>Iterable</code>이고, 그래서 리스트와 원격 API를 구분하지 않는다. 01의 <code>Player</code>가 리스트에 묶였던 것과 정확히 대비된다.</p>
+  <p>[4]와 [5]의 차이가 이 절의 핵심이다. <code>LikedSongs</code>는 <code>__iter__</code>가 매번 새 제너레이터를 만드는 <em>이터러블</em>이라서 몇 번이든 돌 수 있다. 반면 <code>pages(api)</code>가 돌려준 제너레이터 객체는 <em>이터레이터</em>라서, 먼저 <code>sum()</code>이 소비하고 나면 다음 소비자는 빈 결과를 받는다. 예외도 없이 조용히 틀린다는 점이 고약하다. [6]의 <code>in</code>도 찾을 때까지 원소를 소비한다. 함수 인자로 이터러블을 받는 API라면 "이 값을 두 번 순회해도 되는가"를 문서화하거나, 필요하면 <code>list()</code>로 한 번 <dfn class="term" id="term-materialization" data-term="materialization" title="지연된 이터러블을 list() 등으로 끝까지 펼쳐 메모리에 실제 컬렉션으로 만드는 것.">구체화</dfn>하라. 구체화란 지연된 이터러블을 끝까지 펼쳐 메모리에 실제 컬렉션으로 만드는 것이다. 그 뒤로는 몇 번이든 순회할 수 있지만, 지연성이 주던 이득(요청·메모리 절약)은 포기한다.</p>
+</section>
+
+<section id="tradeoffs">
+  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h3>설계 선택지</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>방법</th><th>쓸 때</th><th>대가</th></tr></thead>
+    <tbody>
+      <tr><td><code>__iter__</code>에서 <code>iter(self._items)</code> 반환</td><td>순회 방식이 하나이고 내부가 이미 이터러블일 때</td><td>거의 없다. 대부분의 경우 정답이다</td></tr>
+      <tr><td><code>__iter__</code>를 제너레이터로</td><td>순회 중 변환·필터·지연 로딩이 필요할 때</td><td>순회 상태를 공개 인터페이스로 읽을 수 없다</td></tr>
+      <tr><td>반복자 클래스(<code>collections.abc.Iterator</code> 상속)</td><td>위치 조회, <code>peek</code>, 복제처럼 프로토콜 밖의 연산이 필요할 때</td><td>코드량, 커서 관리 버그 가능성</td></tr>
+      <tr><td><code>Sequence</code> 믹스인</td><td>인덱스 접근이 자연스러운 컬렉션</td><td><dfn class="term" id="term-random-access" data-term="random-access" title="임의 위치의 원소에 바로 접근하는 것(인덱스 접근).">무작위 접근</dfn>(임의 위치의 원소에 인덱스로 바로 접근하는 것)이 불가능한 원천(페이지 API)에는 맞지 않는다</td></tr>
+    </tbody>
+  </table></div>
+  <h3>이 패턴을(직접) 구현하지 말아야 할 때</h3>
+  <ul>
+    <li><strong>내부 리스트를 감싸기만 할 때.</strong> 별도 반복자 클래스를 만들면 커서 버그를 직접 떠안을 뿐이다. <code>return iter(self._items)</code> 한 줄로 충분하다(연습문제 3).</li>
+    <li><strong>소비자가 무작위 접근이나 길이를 필요로 할 때.</strong> 반복자는 "앞으로 한 칸씩"만 약속한다. 클라이언트가 <code>len()</code>이나 <code>[i]</code>를 쓴다면, 반복자로 감추는 것은 정보를 버리는 일이다. <code>Sequence</code>를 노출하라.</li>
+    <li><strong>데이터가 작고 여러 번 순회할 때.</strong> 지연 평가는 공짜가 아니다. 매 순회마다 다시 계산하거나 다시 요청한다. 작은 데이터는 그냥 리스트로 받는 편이 단순하고 빠르다.</li>
+    <li><strong>순회 도중 컬렉션이 바뀔 수 있을 때.</strong> 반복자는 이 문제를 해결하지 않는다. 파이썬의 <code>dict</code>는 크기가 바뀌면 <code>RuntimeError</code>를 내고 <code>list</code>는 조용히 이상하게 동작한다. 스냅샷(이 장의 <code>tuple</code> 복사)이나 버전 검사가 별도로 필요하다.</li>
+  </ul>
+  <h3>관련 패턴</h3>
+  <ul>
+    <li><strong>컴포지트(7장)</strong>: 트리 순회는 반복자의 대표 용례다. <code>yield from</code>이 재귀 순회를 가장 짧게 만든다.</li>
+    <li><strong>옵저버(11장)</strong>: 반복자는 소비자가 당기는 <em>풀(pull)</em> 모델이고, 옵저버는 생산자가 미는 <em>푸시(push)</em> 모델이다. 실시간 시세는 푸시, 페이지 목록은 풀이 자연스럽다.</li>
+    <li><strong>팩토리 메서드(1장)</strong>: <code>__iter__</code>는 반복자를 만드는 팩토리 메서드다. 어떤 구체 반복자를 만들지는 컬렉션이 결정한다.</li>
+    <li><strong>프록시(9장)</strong>: <code>LikedSongs</code>는 실제 데이터 없이 필요할 때 가져오는 가상 프록시와 같은 발상이다.</li>
+  </ul>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. self를 반환하는 컬렉션</h3>
+    <p>멜로디의 '<dfn class="term" id="term-crossfade" data-term="crossfade" title="앞 곡이 작아지며 다음 곡이 커지도록 겹쳐 전환하는 재생 효과.">크로스페이드</dfn> 추천' 기능(크로스페이드: 앞 곡이 작아지며 다음 곡이 커지도록 겹쳐 전환하는 효과)은 앨범의 모든 곡 쌍을 중첩 <code>for</code>로 만든다. 아래 <code>BrokenAlbum</code>으로 3곡짜리 앨범의 쌍을 만들면 몇 쌍이 나오는가? 왜 그런지 설명하고, 이터러블과 이터레이터를 분리해 고쳐라. <code>collections.abc.Iterator</code>를 쓴 버전도 만들어 보라.</p>
+    <pre><code class="language-python">class BrokenAlbum:
+    def __init__(self, titles):
+        self._titles, self._pos = titles, 0   # 커서가 컬렉션에 하나뿐
+
+    def __iter__(self):
+        self._pos = 0                           # 순회 시작마다 커서를 되감고
+        return self                             # 자기 자신을 반복자로 내준다
+
+    def __next__(self):
+        if self._pos &gt;= len(self._titles):
+            raise StopIteration
+        self._pos += 1
+        return self._titles[self._pos - 1]
+
+# 서로 다른 곡 쌍 — 3곡이면 6쌍이어야 한다
+pairs = [(a, b) for a in album for b in album if a != b]</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>2쌍만 나온다. 바깥 <code>for</code>가 <code>iter(album)</code>을 호출해 커서를 0으로 두고 첫 곡 Intro를 꺼낸다. 이어서 안쪽 <code>for</code>도 <code>iter(album)</code>을 호출하는데, <em>같은 객체</em>가 반환되면서 커서가 다시 0으로 되감긴다. 안쪽 루프가 커서를 끝까지 밀어 버리므로, 바깥 루프의 다음 <code>next()</code>는 곧바로 <code>StopIteration</code>을 받는다. 결국 바깥 루프는 한 번만 돌고 (Intro, Blue), (Intro, Run)만 남는다.</p>
+      <p>고치는 방법은 커서를 컬렉션에서 떼어 내는 것이다. <code>__iter__</code>를 제너레이터로 만들거나, 별도의 반복자 클래스를 둔다. <code>collections.abc.Iterator</code>를 상속하면 <code>__next__</code>만 구현해도 "<code>__iter__</code>는 self 반환"을 믹스인으로 얻는다. <strong>흔한 오답</strong>은 "<code>__iter__</code>가 self를 반환하면 안 된다"고 일반화하는 것이다. 반복자의 <code>__iter__</code>는 반드시 self를 반환해야 한다. 틀린 것은 <em>컬렉션</em>이 반복자 역할까지 겸한 것이다. 같은 <code>return self</code>가 어느 클래스에 있느냐에 따라 정답이 되기도 하고 버그가 되기도 한다.</p>
+      <figure class="code"><figcaption>src/15_iterator/solutions/ex1_iter_returns_self.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 연습문제 1 해설] `__iter__`가 self를 반환하는 컬렉션 — 중첩 순회에서 무엇이 깨지는가.
+
+상황: 멜로디의 &#x27;크로스페이드 추천&#x27; 기능은 앨범의 모든 곡 쌍(a, b)을 비교해 어울리는 전환을 찾는다.
+신입 개발자가 만든 `BrokenAlbum`은 커서(_pos)를 컬렉션 자신이 들고 `__iter__`에서 self를 반환한다.
+바깥 for와 안쪽 for가 &#x27;같은 반복자&#x27;를 공유하게 되어, 안쪽 루프가 커서를 끝까지 밀어 버린다.
+
+해결은 이터러블(컬렉션)과 이터레이터(커서)를 분리하는 것이다. 두 가지 방법을 보인다.
+  1) `__iter__`를 제너레이터로 — 가장 짧다.
+  2) 별도 반복자 클래스 — `collections.abc.Iterator`를 상속해 `__next__`만 쓰고 `__iter__`는 믹스인으로.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from collections.abc import Iterator
+
+
+class BrokenAlbum:
+    &quot;&quot;&quot;[잘못된 Aggregate] 컬렉션이 곧 반복자다. 순회 상태가 컬렉션에 하나뿐이다.&quot;&quot;&quot;
+
+    def __init__(self, titles: list[str]) -&gt; None:
+        &quot;&quot;&quot;곡 목록과 &#x27;하나뿐인&#x27; 커서.&quot;&quot;&quot;
+        self._titles = titles
+        self._pos = 0
+
+    def __iter__(self) -&gt; BrokenAlbum:
+        &quot;&quot;&quot;⚠ self 반환 + 커서 초기화. 중첩 순회 시 안쪽 for가 바깥의 커서를 덮어쓴다.&quot;&quot;&quot;
+        self._pos = 0
+        return self
+
+    def __next__(self) -&gt; str:
+        &quot;&quot;&quot;공유 커서를 전진.&quot;&quot;&quot;
+        if self._pos &gt;= len(self._titles):
+            raise StopIteration
+        self._pos += 1
+        return self._titles[self._pos - 1]
+
+
+class GeneratorAlbum:
+    &quot;&quot;&quot;[Aggregate] 해결 1: __iter__가 제너레이터. 호출마다 독립된 커서(지역 변수)가 생긴다.&quot;&quot;&quot;
+
+    def __init__(self, titles: list[str]) -&gt; None:
+        &quot;&quot;&quot;곡 목록만 보관. 커서 필드가 없다는 것이 핵심.&quot;&quot;&quot;
+        self._titles = tuple(titles)
+
+    def __iter__(self) -&gt; Iterator[str]:
+        &quot;&quot;&quot;yield가 있으므로 이 메서드를 부르면 새 제너레이터 객체가 나온다.&quot;&quot;&quot;
+        for t in self._titles:
+            yield t
+
+
+class AlbumIterator(Iterator[str]):
+    &quot;&quot;&quot;[Iterator] 해결 2: collections.abc.Iterator 상속 — __next__만 구현하면 __iter__(self 반환)는 믹스인.
+
+    &#x27;반복자의 __iter__는 self&#x27;가 맞는 규칙이다. 틀린 것은 BrokenAlbum처럼 &#x27;컬렉션&#x27;이 self를
+    반환한 것이다. 같은 return self가 어느 클래스에 있느냐에 따라 정답도 버그도 된다.
+    &quot;&quot;&quot;
+
+    def __init__(self, titles: tuple[str, ...]) -&gt; None:
+        &quot;&quot;&quot;반복자마다 자기 커서.&quot;&quot;&quot;
+        self._titles = titles
+        self._pos = 0
+
+    def __next__(self) -&gt; str:
+        &quot;&quot;&quot;전진.&quot;&quot;&quot;
+        if self._pos &gt;= len(self._titles):
+            raise StopIteration
+        self._pos += 1
+        return self._titles[self._pos - 1]
+
+
+class ClassicAlbum:
+    &quot;&quot;&quot;[Aggregate] 해결 2의 컬렉션: __iter__가 매번 새 AlbumIterator를 만든다(팩토리 메서드).&quot;&quot;&quot;
+
+    def __init__(self, titles: list[str]) -&gt; None:
+        &quot;&quot;&quot;곡 목록.&quot;&quot;&quot;
+        self._titles = tuple(titles)
+
+    def __iter__(self) -&gt; AlbumIterator:
+        &quot;&quot;&quot;새 커서.&quot;&quot;&quot;
+        return AlbumIterator(self._titles)
+
+
+def all_pairs(album) -&gt; list[str]:
+    &quot;&quot;&quot;중첩 순회로 서로 다른 곡 쌍을 모두 만든다. 3곡이면 6쌍이 나와야 한다.&quot;&quot;&quot;
+    return [f&quot;{a}→{b}&quot; for a in album for b in album if a != b]
+
+
+if __name__ == &quot;__main__&quot;:
+    titles = [&quot;Intro&quot;, &quot;Blue&quot;, &quot;Run&quot;]
+    print(&quot;[1] BrokenAlbum:&quot;, all_pairs(BrokenAlbum(titles)), &quot;← 6쌍이어야 하는데 2쌍뿐&quot;)
+    print(&quot;[2] GeneratorAlbum:&quot;, len(all_pairs(GeneratorAlbum(titles))), &quot;쌍&quot;)
+    print(&quot;[3] ClassicAlbum:&quot;, len(all_pairs(ClassicAlbum(titles))), &quot;쌍&quot;)
+    it = iter(ClassicAlbum(titles))
+    print(&quot;[4] 믹스인으로 얻은 __iter__: iter(it) is it →&quot;, iter(it) is it)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex1_iter_returns_self.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 커서 토큰 루프</h3>
+    <p>멜로디 팟캐스트 탭의 아래 코드는 "안 들은 에피소드 n개 찾기"를 위해 커서 토큰 루프를 직접 돈다. 같은 루프가 '전체 재생 시간 합계'와 '검색' 기능에도 복제되어 있다. 제너레이터 기반 반복자로 바꾸고, 요청 수가 어떻게 달라지는지 확인하라.</p>
+    <pre><code class="language-python">def unplayed(client, n):
+    result, cursor = [], None
+    while True:
+        resp = client.list_episodes(cursor)          # 페이지 하나 요청
+        for ep in resp["items"]:
+            if not ep.played:                         # 업무 로직이 루프 안에 섞여 있다
+                result.append(ep.title)
+                if len(result) == n:
+                    return result                     # 조기 종료도 손으로
+        cursor = resp["next_cursor"]
+        if cursor is None:                            # 토큰 종료 조건
+            return result</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>토큰 루프를 <code>episodes(client)</code> 제너레이터 한 곳으로 옮긴다. 그러면 업무 로직은 "필터 + 앞에서 n개"가 되어, <dfn class="term" id="term-generator-expression" data-term="generator-expression" title="(x for x in ...) 꼴로 쓰는, 리스트를 만들지 않고 값을 하나씩 내는 표현식.">제너레이터 식</dfn>과 <code>islice</code>로 표현된다. 제너레이터 식(제너레이터 표현식)은 <code>(e for e in ... if ...)</code>처럼 괄호로 쓰는 표현식으로, 리스트를 만들지 않고 값을 하나씩 내는 이터레이터를 만든다. 앞 장들의 <code>sum(... for ...)</code> 같은 코드에서 이미 이름 없이 써 왔다. 조기 종료를 손으로 처리할 필요도 없다. <code>islice</code>가 n개를 받으면 더 이상 <code>next()</code>를 부르지 않으므로 다음 페이지 요청도 일어나지 않는다. 출력 [1]에서 3페이지 중 2페이지만 요청한 것이 그 증거다. 원래 코드도 조기 <code>return</code>으로 같은 효율을 냈지만, 그 효율은 루프마다 손으로 다시 구현해야 했다. 이제는 구조가 보장한다.</p>
+      <p><strong>흔한 오답</strong>은 <code>episodes()</code>가 리스트를 반환하게 하는 것이다(<code>return all_items</code>). 루프 중복은 사라지지만 지연성이 사라져서, 안 들은 에피소드 3개를 찾으려고 모든 페이지를 받게 된다. 반대로 <code>total_minutes()</code>처럼 정말로 전부가 필요한 소비자는 끝까지 소비하면 된다. 생산자는 그 차이를 알 필요가 없다.</p>
+      <figure class="code"><figcaption>src/15_iterator/solutions/ex2_page_token_generator.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 연습문제 2 해설] 페이지 토큰 while 루프를 제너레이터 기반 반복자로 바꾼다.
+
+상황: 멜로디의 팟캐스트 탭은 &#x27;구독 중인 에피소드&#x27; API를 커서 토큰으로 페이지 단위로 받는다.
+원래 코드(원고의 문제)는 토큰 루프 안에서 &#x27;안 들은 에피소드 5개 찾기&#x27;라는 업무 로직까지 처리했다.
+그래서 같은 토큰 루프가 &#x27;전체 재생 시간 합계&#x27;, &#x27;검색&#x27; 기능마다 복제되었다.
+
+리팩터링 원칙: 순회(어떻게 가져오는가)와 소비(무엇을 할 것인가)를 분리한다.
+  - `episodes(client)`: 토큰 루프만 아는 제너레이터.
+  - 업무 로직: 평범한 for / itertools / 내장 함수. 토큰이라는 단어가 등장하지 않는다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+from itertools import islice
+from typing import Iterator
+
+
+@dataclass(frozen=True)
+class Episode:
+    &quot;&quot;&quot;에피소드.&quot;&quot;&quot;
+
+    title: str
+    minutes: int
+    played: bool
+
+
+class FakePodcastClient:
+    &quot;&quot;&quot;커서 기반 API 흉내. 페이지당 4개, 총 10개.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;에피소드 데이터와 요청 카운터.&quot;&quot;&quot;
+        self._data = [Episode(f&quot;EP{i}&quot;, 30 + i, played=(i % 3 == 0)) for i in range(10)]
+        self.calls = 0
+
+    def list_episodes(self, cursor: str | None) -&gt; dict:
+        &quot;&quot;&quot;{&#x27;items&#x27;: [...], &#x27;next_cursor&#x27;: str | None} 형태의 응답.&quot;&quot;&quot;
+        self.calls += 1
+        start = int(cursor or 0)
+        end = start + 4
+        return {&quot;items&quot;: self._data[start:end],
+                &quot;next_cursor&quot;: str(end) if end &lt; len(self._data) else None}
+
+
+def episodes(client: FakePodcastClient) -&gt; Iterator[Episode]:
+    &quot;&quot;&quot;[Iterator] 토큰 루프는 프로그램 전체에서 여기 한 곳에만 있다.&quot;&quot;&quot;
+    cursor: str | None = None
+    while True:
+        resp = client.list_episodes(cursor)
+        # 소비자가 이 페이지를 다 당겨 가기 전에는 아래 줄로 내려가지 않는다 → 다음 요청도 없다.
+        yield from resp[&quot;items&quot;]
+        cursor = resp[&quot;next_cursor&quot;]
+        if cursor is None:
+            return
+
+
+def unplayed(client: FakePodcastClient, n: int) -&gt; list[str]:
+    &quot;&quot;&quot;업무 로직 1: 안 들은 에피소드 n개. 필터는 제너레이터 식, 개수 제한은 islice.&quot;&quot;&quot;
+    return [e.title for e in islice((e for e in episodes(client) if not e.played), n)]
+
+
+def total_minutes(client: FakePodcastClient) -&gt; int:
+    &quot;&quot;&quot;업무 로직 2: 전체 재생 시간. sum()이 반복자를 끝까지 소비한다 — 이 경우엔 모든 페이지가 필요하다.&quot;&quot;&quot;
+    return sum(e.minutes for e in episodes(client))
+
+
+if __name__ == &quot;__main__&quot;:
+    # 두 소비자가 같은 생산자(episodes)를 쓴다. 요청 수 차이는 소비자가 &#x27;얼마나 당겼는가&#x27;에서만 나온다.
+    c = FakePodcastClient()
+    print(&quot;[1] 안 들은 에피소드 3개:&quot;, unplayed(c, 3), f&quot;/ API 호출 {c.calls}번 (전체 3페이지 중)&quot;)
+    c.calls = 0
+    print(&quot;[2] 전체 재생 시간:&quot;, total_minutes(c), f&quot;분 / API 호출 {c.calls}번&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_page_token_generator.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 내부 리스트 하나를 감쌀 때</h3>
+    <p>멜로디의 <code>RecentlyPlayed</code> 클래스는 최근 재생한 곡 20개를 <code>self._items: list[Track]</code>에 보관한다. 화면은 이것을 순서대로 한 번 보여 줄 뿐이고, 다른 순회 방식은 계획에 없다. 팀원이 GoF 구조를 따라 <code>RecentlyPlayedIterator</code> 클래스를 만들자고 한다. 별도 반복자 클래스를 만들겠는가, <code>__iter__</code>에서 <code>iter(self._items)</code>를 반환하겠는가? 판단을 바꿀 조건은 무엇인가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><code>def __iter__(self): return iter(self._items)</code> 한 줄을 택한다. 리스트의 반복자는 이미 반복자 패턴의 모든 의도를 충족한다. 내부 표현은 감춰지고(클라이언트는 <code>list</code>라는 사실을 모른다), 호출마다 새 반복자가 생기며, 커서 버그가 생길 여지도 없다. 별도 클래스는 이 한 줄이 이미 하는 일을 손으로 다시 구현하면서 커서 관리 버그(연습문제 1)의 위험만 들여온다.</p>
+      <p>판단을 바꿀 조건은 다음과 같다. ① 순회 방식이 둘 이상이 될 때. 이때도 먼저 제너레이터 메서드(<code>def newest_first(self): yield from reversed(self._items)</code>)를 검토한다. ② 순회 상태를 바깥에서 읽거나 조작해야 할 때(<code>peek</code>, 위치 조회). ③ 내부 표현이 원격·지연 원천으로 바뀔 때. 이때는 제너레이터가 맞다. <strong>흔한 오답</strong>은 "패턴 구조를 따라야 나중에 확장하기 쉽다"이다. 바깥 인터페이스는 어느 쪽이든 똑같이 <code>__iter__</code>이므로, 나중에 내부를 반복자 클래스로 바꿔도 클라이언트는 영향을 받지 않는다. 미리 만들어 둘 이유가 없다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex4">
+    <h3><span class="ex-tag">확장</span> 문제 4. 스마트 셔플</h3>
+    <p>사용자 설문에서 "셔플인데 같은 가수 노래가 연속으로 나온다"는 불만이 1위였다. 같은 아티스트가 연달아 나오지 않는 셔플 순회를 추가하라. 남은 곡이 모두 같은 아티스트라 규칙을 지킬 수 없을 때는 어떻게 하겠는가? 기존 <code>Playlist</code>와 <code>Player</code>는 몇 줄을 고쳐야 하는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>제너레이터 함수 하나로 충분하다. 다만 03의 모드 계약을 정확히 지켜야 한다. 계약은 <code>(pl, start) -&gt; Iterator[tuple[int, Track]]</code>이다. 즉 지금 곡(<code>start</code>)을 첫 값으로 내서 모드를 바꿔도 곡이 끊기지 않게 하고, 곡이 아니라 <em>(위치, 곡)</em> 쌍을 내야 다음 모드 전환 때 <code>Player</code>가 위치를 넘길 수 있다. 선택 규칙은 이렇다. 남은 곡 가운데 한 아티스트가 과반이면 지금 그 아티스트를 낸다(미루면 뒤에서 연속이 강제된다). 그렇지 않으면 섞어 둔 풀에서 직전 아티스트와 다른 첫 곡을 꺼낸다. 남은 곡이 모두 같은 아티스트라 연속을 피할 수 없으면 그냥 꺼낸다. 규칙을 고집해 멈추거나 예외를 던지면 재생 중에 음악이 끊기는 더 나쁜 경험이 된다. 상태(남은 풀, 직전 아티스트)는 지역 변수이고, 다음 곡은 <code>next()</code>가 불릴 때 고른다.</p>
+      <p>03에 실제로 넣을 때 고칠 곳은 세 가지다. ① 03의 <code>Track</code>에는 <code>artist</code> 필드가 없으므로 기본값과 함께 추가한다(<code>artist: str = ""</code>). 기본값이 없으면 03의 기존 <code>Track("Intro")</code> 호출이 모두 깨진다. ② <code>MODES</code>에 한 줄 등록한다. ③ 03의 <code>set_mode</code>는 <code>shuffle</code>만 seed를 넘기는 lambda로 특수 처리하므로, seed가 필요하면 <code>MODES</code> 값에 <code>partial(smart_shuffle, seed=...)</code>을 넣는다. 재생 로직(<code>skip</code>, <code>set_mode</code>의 위치 전달)과 <code>Playlist</code>는 고치지 않는다. 해설 코드는 03의 <code>Player</code>와 <code>MODES</code>를 축약해 재현한다. 03의 <code>set_mode</code>에 있는 shuffle 특수 처리(lambda)는 빼고 모든 모드를 <code>partial</code>로 등록했다. 이렇게 재현한 코드로 등록 한 줄로 동작하는 것을 보이고([1]), 100가지 seed에서 연속이 생긴 순서의 수를 비교한다([2]). docstring의 <dfn class="term" id="term-exhaustive-search" data-term="exhaustive-search" title="가능한 모든 경우를 빠짐없이 확인하는 방법.">전수 탐색</dfn>은 가능한 모든 재생 순서를 빠짐없이 나열해 최솟값을 구하는 방법으로, 규칙이 최선인지 확인하는 데만 썼다. 순회 방식이 클라이언트와 독립되어 있다는 것은 이런 의미다. 계약만 지키면 새 순회가 기존 재생 코드에 그대로 꽂힌다.</p>
+      <p><strong>흔한 오답</strong>은 두 가지다. 하나는 곡만 내는 제너레이터(<code>yield track</code>)를 만들어 계약을 깨는 것이고, 다른 하나는 리스트 전체를 먼저 섞은 뒤 "연속이 없어질 때까지 다시 섞는" 방식이다. 한 아티스트가 절반을 넘으면 영원히 끝나지 않고, 그렇지 않더라도 첫 곡을 틀기 전에 전체를 확정해야 하므로 지연성을 잃는다.</p>
+      <figure class="code"><figcaption>src/15_iterator/solutions/ex4_smart_shuffle.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 연습문제 4 해설] 새 순회 방식 추가: 같은 아티스트가 연달아 나오지 않는 &#x27;스마트 셔플&#x27;.
+
+상황: 멜로디 사용자 설문에서 &quot;셔플인데 같은 가수 노래가 연속으로 나온다&quot;는 불만이 1위였다.
+기획자는 &#x27;같은 아티스트 연속 금지&#x27; 셔플을 요구한다. 반복자 패턴 덕분에 순회 방식(제너레이터 함수)
+하나만 추가하면 된다 — 단, 03_pythonic.py의 모드 계약을 정확히 지켜야 한다.
+
+03의 MODES 계약: `(pl, start) -&gt; Iterator[tuple[int, Track]]`
+  - start(지금 듣는 곡의 위치)를 받아 그 곡을 &#x27;첫 값&#x27;으로 낸다(모드를 바꿔도 지금 곡 유지).
+  - 곡이 아니라 (위치, 곡) 쌍을 낸다(다음 모드 전환 때 Player가 위치를 넘겨야 하므로).
+이 파일은 그 계약을 지키는 smart_shuffle을 만들고, 03의 Player·MODES를 축약 재현해(03 set_mode의 shuffle 특수 처리 lambda는 빼고 모든 모드를 partial로 등록)
+&#x27;등록 한 줄&#x27;로 동작하는 것을 보인다(교재 규칙상 파일끼리 import하지 않는다).
+
+03에 실제로 넣을 때 필요한 변경: ① 03의 Track에 artist 필드를 기본값과 함께 추가한다(artist: str = &quot;&quot;
+— 기본값이 없으면 03의 기존 Track(&quot;Intro&quot;) 호출이 깨진다).
+② MODES에 한 줄 등록한다. ③ 03의 set_mode는 shuffle만 seed를 넘기는 lambda로 특수 처리하므로,
+seed가 필요하면 같은 처리를 하나 더 하거나 MODES 값에 partial(smart_shuffle, seed=7)을 넣는다.
+Player의 재생 로직과 Playlist는 고치지 않는다.
+
+알고리즘(지연 평가, 매 next()마다 한 곡 선택):
+  - 남은 곡 중 가장 많은 아티스트가 &#x27;남은 곡의 과반&#x27;이면, 지금 그 아티스트를 내야 나중에
+    연속이 강제되지 않는다 → 직전 아티스트와 다르다면 그 곡을 고른다.
+  - 그렇지 않으면 섞어 둔 풀에서 직전 아티스트와 다른 첫 곡을 고른다.
+  - 그런 곡이 없으면(남은 곡이 전부 같은 아티스트) 연속은 피할 수 없으므로 그냥 꺼낸다.
+이 규칙은 시작 곡이 정해진 조건에서 가능한 최소 연속 횟수를 낸다(2~7곡 무작위 1,500회를
+전수 탐색 결과와 대조해 확인). 단 시작 곡이 이미 과반 아티스트라면 0회는 불가능할 수 있다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import random
+from collections import Counter
+from dataclasses import dataclass
+from functools import partial
+from typing import Iterator, Sequence
+
+
+@dataclass(frozen=True)
+class Track:
+    &quot;&quot;&quot;곡과 아티스트. 03의 Track에 artist 필드를 더한 형태(변경 ①).&quot;&quot;&quot;
+
+    title: str
+    artist: str
+
+
+def sequential(pl: Sequence[Track], start: int = 0) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;03의 sequential과 같은 계약 — 비교용 기존 모드.&quot;&quot;&quot;
+    for i in range(start, len(pl)):
+        yield i, pl[i]
+
+
+def smart_shuffle(pl: Sequence[Track], start: int = 0,
+                  seed: int | None = None) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;[Concrete Iterator] 03의 모드 계약을 지키는 스마트 셔플. 상태(풀, 직전 아티스트)는 지역 변수다.&quot;&quot;&quot;
+    yield start, pl[start]                       # 계약: 지금 곡을 먼저 — 모드 전환 시 곡이 끊기지 않는다
+    last = pl[start].artist
+    pool = [i for i in range(len(pl)) if i != start]
+    random.Random(seed).shuffle(pool)
+    while pool:
+        top, count = Counter(pl[i].artist for i in pool).most_common(1)[0]
+        if top != last and 2 * count &gt; len(pool):
+            # 과반 아티스트를 지금 소진하지 않으면 뒤에서 연속이 강제된다.
+            idx = next(k for k, i in enumerate(pool) if pl[i].artist == top)
+        else:
+            # 직전과 다른 첫 곡. 없으면 0(피할 수 없는 연속).
+            idx = next((k for k, i in enumerate(pool) if pl[i].artist != last), 0)
+        i = pool.pop(idx)
+        last = pl[i].artist
+        yield i, pl[i]
+
+
+def plain_shuffle(pl: Sequence[Track], start: int = 0,
+                  seed: int | None = None) -&gt; Iterator[tuple[int, Track]]:
+    &quot;&quot;&quot;비교용 평범한 셔플(03의 shuffled와 같은 동작).&quot;&quot;&quot;
+    yield start, pl[start]
+    rest = [i for i in range(len(pl)) if i != start]
+    random.Random(seed).shuffle(rest)
+    for i in rest:
+        yield i, pl[i]
+
+
+# 03의 MODES와 같은 모양의 등록표. seed가 필요한 모드는 partial로 묶어 (pl, start) 모양을 맞춘다.
+MODES = {&quot;normal&quot;: sequential, &quot;shuffle&quot;: partial(plain_shuffle, seed=5)}
+MODES[&quot;smart_shuffle&quot;] = partial(smart_shuffle, seed=5)      # ← 변경 ②: 추가는 이 한 줄
+
+
+class Player:
+    &quot;&quot;&quot;[Client] 03의 Player를 축약 재현. 모드 이름으로 MODES에서 제너레이터를 골라 쓸 뿐이다.&quot;&quot;&quot;
+
+    def __init__(self, pl: Sequence[Track]) -&gt; None:
+        &quot;&quot;&quot;순서대로 재생으로 시작.&quot;&quot;&quot;
+        self.pl = pl
+        self._it = MODES[&quot;normal&quot;](pl)
+        self.index, self.current = next(self._it)
+
+    def set_mode(self, mode: str) -&gt; None:
+        &quot;&quot;&quot;현재 위치에서 새 제너레이터를 시작하고 첫 값(=지금 곡)은 소비한다. 모드 종류를 모른다.&quot;&quot;&quot;
+        self._it = MODES[mode](self.pl, self.index)
+        next(self._it)
+
+    def skip(self) -&gt; Track | None:
+        &quot;&quot;&quot;다음 곡.&quot;&quot;&quot;
+        pair = next(self._it, None)
+        if pair is None:
+            return None
+        self.index, self.current = pair
+        return self.current
+
+
+def repeats(artists: list[str]) -&gt; int:
+    &quot;&quot;&quot;같은 아티스트가 연달아 나온 횟수.&quot;&quot;&quot;
+    return sum(a == b for a, b in zip(artists, artists[1:]))
+
+
+if __name__ == &quot;__main__&quot;:
+    # 한 아티스트가 절반을 차지하는 편향된 목록 — 평범한 셔플이 연속을 만들기 쉬운 조건.
+    artists = (&quot;아이유&quot;, &quot;잔나비&quot;, &quot;아이유&quot;, &quot;새소년&quot;, &quot;아이유&quot;, &quot;잔나비&quot;)
+    lib = [Track(f&quot;{a}-{n}&quot;, a) for n, a in enumerate(artists)]
+
+    print(&quot;[1] 등록 한 줄 뒤 Player.set_mode로 동작한다 — 지금 곡(2번째 곡)이 유지된다&quot;)
+    for mode in (&quot;shuffle&quot;, &quot;smart_shuffle&quot;):
+        p = Player(lib)
+        p.skip()                                 # 잔나비-1 재생 중
+        p.set_mode(mode)
+        order = [p.current.artist] + [t.artist for t in iter(p.skip, None)]
+        print(f&quot;    {mode:&lt;13}: {order} / 연속 {repeats(order)}회&quot;)
+
+    print(&quot;[2] 여러 seed로 비교: 연속이 생긴 재생 순서의 수(시작 곡 0번, 100가지 seed)&quot;)
+    for name, fn in ((&quot;평범한 셔플&quot;, plain_shuffle), (&quot;스마트 셔플&quot;, smart_shuffle)):
+        bad = sum(repeats([t.artist for _, t in fn(lib, 0, seed=s)]) &gt; 0 for s in range(100))
+        print(f&quot;    {name}: {bad}/100&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex4_smart_shuffle.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+</section>
+<!--
+설계서 대비 변경:
+- 연습문제 4(확장: 스마트 셔플)를 추가해, 순회 방식 추가가 컬렉션·클라이언트 수정 없이 끝나는 것을 직접 확인하게 했다.
+- 연습문제 3은 판단 문제라 해설 코드 파일 없이 본문 해설만 두었다.
+- 연습문제 2의 도메인은 같은 앱의 팟캐스트 탭으로 정해, 본문 '좋아요' 페이지네이션과 겹치지 않게 했다.
+- collections.abc.Iterator 믹스인은 연습문제 1 해설 코드에서, Sequence 믹스인은 본문 03_pythonic.py에서 다룬다.
+-->
+    <nav class="pager"><a class="prev" href="14-template-method.html"><small>← 이전 · 14장</small>템플릿 메서드 (Template Method)</a><a class="next" href="99-summary.html"><small>다음 · 종합 →</small>종합: 패턴 비교와 조합</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

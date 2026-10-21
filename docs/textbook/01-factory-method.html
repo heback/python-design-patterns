@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1장 팩토리 메서드 (Factory Method) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="생성 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">1장 · 팩토리 메서드 (Factory Method)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">1장 · 생성 패턴</span><h1>팩토리 메서드 (Factory Method)</h1><p class="subtitle">'언제 만들지'는 프레임워크가, '무엇을 만들지'는 하위 클래스가</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ol>
+    <li>상위 클래스(프레임워크)가 객체를 <strong>언제</strong> 만들지 결정하고 하위 클래스가 <strong>무엇을</strong> 만들지 결정하는 역할 분담을 설명할 수 있다.</li>
+    <li>단순 팩토리(Simple Factory, 조건문으로 고르는 함수)와 팩토리 메서드(상속 기반 생성 훅)를 구별하고, 각각에서 "새 종류 추가"의 비용을 누가 치르는지 비교할 수 있다.</li>
+    <li>파이썬에서 생성 함수 주입, <code>classmethod</code> 대체 생성자, <code>__init_subclass__</code> 자동 등록으로 같은 의도를 구현하고, 각각이 GoF 의도에서 얼마나 멀어지는지 판단할 수 있다.</li>
+  </ol>
+</section>
+
+<section id="context">
+  <h2>1. 상황</h2>
+  <p>한빛대학교 화학과 분석화학 연구실의 박사과정생 서윤은 실험 자동화를 맡았다. 첫 과제는 단순했다. 연구실의 <dfn class="term" id="term-uv-vis-spectrophotometer" data-term="uv-vis-spectrophotometer" title="자외선·가시광선을 시료에 비춰 파장별 흡광도를 측정하는 분석 장비.">UV-Vis 분광광도계</dfn>(자외선·가시광선을 시료에 비춰 파장별 흡광도를 재는 분석 장비)는 측정이 끝나면 <dfn class="term" id="term-comma-separated-values" data-term="comma-separated-values" title="쉼표로 필드를 구분하고 한 줄에 한 레코드를 적는 텍스트 표 형식.">CSV</dfn>(쉼표로 필드를 구분하고 한 줄에 한 레코드를 적는 텍스트 표 형식) 파일을 내보내는데, 그것을 읽어 세기를 <dfn class="term" id="term-normalization" data-term="normalization" title="단위가 다른 측정값을 비교하려고 일정 기준(여기서는 최대 세기 = 1.0)에 맞춰 크기를 조정하는 것.">정규화</dfn>하고(장비마다 다른 세기 단위를 비교할 수 있게 최댓값을 1.0에 맞추는 것) 연구실 데이터 아카이브에 저장하는 작업을 매번 손으로 하고 있었다. 서윤은 <code>AcquisitionJob</code>이라는 클래스를 만들고, <code>run()</code> 하나에 "장비 연결 → 측정 데이터 읽기 → 정규화 → 저장"을 순서대로 넣었다. 읽기는 <code>run()</code> 안에서 <code>CsvSpectrumReader()</code>를 직접 만들어 처리했다. 장비가 하나뿐이니 이것으로 충분했다.</p>
+  <p>석 달 뒤 공동 연구를 하는 생화학 연구실에서 <dfn class="term" id="term-mass-spectrometer" data-term="mass-spectrometer" title="시료를 이온화해 질량 대 전하비(m/z)별 세기를 측정하는 분석 장비.">질량분석기</dfn>(시료를 이온화해 질량 대 전하비 m/z별 세기를 재는 장비)를 들여왔다. 이 장비는 CSV가 아니라 제조사 고유의 바이너리 포맷을 쓴다. 같은 시기에 새로 산 장비는 <dfn class="term" id="term-serial-port" data-term="serial-port" title="데이터를 한 비트씩 순서대로 주고받는 장비 연결 단자(COM3, /dev/ttyUSB0 등).">시리얼 포트</dfn>(장비를 연결해 데이터를 한 비트씩 차례로 주고받는 단자)로 <dfn class="term" id="term-javascript-object-notation" data-term="javascript-object-notation" title="키-값 객체와 배열을 텍스트로 표현하는 데이터 교환 형식.">JSON</dfn>(키와 값의 쌍으로 된 객체와 배열을 텍스트로 적는 데이터 형식) 프레임을 흘려보낸다. 서윤은 가장 빠른 길을 택했다. <code>run()</code> 안에 <code>if device == "uv-vis"</code> / <code>elif device == "mass-spec"</code> / <code>elif device == "serial-json"</code> 분기를 넣었고, 시리얼 장비에만 필요한 <code>port</code> 인자를 <code>AcquisitionJob</code>의 생성자에 추가했다.</p>
+  <p>문제는 그다음에 왔다. 학과가 이 코드를 공용 저장소로 옮겨 다섯 개 연구실이 함께 쓰기로 한 것이다. 재료공학 연구실은 <dfn class="term" id="term-x-ray-diffractometer" data-term="x-ray-diffractometer" title="X선을 시료에 쏘아 회절 각도(2θ)별 세기로 결정 구조를 분석하는 장비.">X선 회절계(XRD)</dfn>(X선을 쏘아 회절 각도별 세기로 결정 구조를 분석하는 장비)를 붙이고 싶어 했지만, 그러려면 공용 <dfn class="term" id="term-framework" data-term="framework" title="전체 흐름을 쥐고 사용자 코드를 정해진 자리에서 불러 주는 재사용 골격 코드.">프레임워크</dfn>(전체 흐름을 쥐고 각 연구실의 코드를 정해진 자리에서 불러 주는 공용 골격 코드)의 <code>run()</code>을 고치는 <dfn class="term" id="term-pull-request" data-term="pull-request" title="풀 리퀘스트 — 공유 저장소에 변경을 합쳐 달라고 리뷰와 함께 요청하는 단위.">PR</dfn>(pull request: 공유 저장소에 변경을 합쳐 달라고 리뷰와 함께 요청하는 단위)을 보내야 했다. 다른 연구실의 장비 분기와 같은 메서드를 건드리니 리뷰는 늘 늦었고, 한 번은 다른 연구실의 PR이 분기 조건 문자열을 잘못 고쳐, 질량분석 작업이 <code>else</code>로 떨어져 야간 측정 전체가 멈추는 사고도 났다. 게다가 정규화 로직에 대한 <dfn class="term" id="term-unit-test" data-term="unit-test" title="함수·클래스 같은 작은 단위를 외부 의존 없이 따로 검증하는 테스트.">단위 테스트</dfn>(함수·클래스 같은 작은 단위를 실제 장비 없이 따로 검증하는 테스트)를 쓰려던 학부 연구생은 <code>run()</code>이 실제 리더를 이름으로 직접 만드는 탓에, 모듈 전역 이름을 <dfn class="term" id="term-monkeypatch" data-term="monkeypatch" title="실행 중에 모듈·클래스의 이름이 가리키는 대상을 다른 것으로 바꿔치기하는 기법; 테스트에서 의존 대상을 갈아 끼우는 데 쓰이지만 전역 상태를 오염시킨다.">바꿔치기(monkeypatch)</dfn>하는 것 외에는 가짜 리더를 끼울 방법을 찾지 못했다. 몽키패치는 실행 중에 모듈이나 클래스의 이름이 가리키는 대상을 다른 것으로 갈아 끼우는 기법으로, 테스트에서 의존 대상을 바꾸는 데 쓰이지만 같은 이름을 쓰는 다른 코드까지 영향을 받는다.</p>
+  <p>정리하면 아픈 곳은 세 군데다. 측정 <em>흐름</em>과 리더 <em>생성</em>이 한 메서드에 엉켜 있어서 (1) 새 장비마다 공용 코드를 수정해야 하고, (2) 장비별 생성 인자가 모든 작업의 생성자로 새어 나오며, (3) 테스트가 끼어들 <dfn class="term" id="term-seam" data-term="seam" title="코드를 고치지 않고도 테스트나 확장이 다른 구현을 끼워 넣을 수 있는 지점.">이음새(seam)</dfn>, 곧 코드를 고치지 않고도 다른 구현을 끼워 넣을 수 있는 지점이 없다. 흐름은 모든 장비에 공통이고 변하지 않는다. 변하는 것은 "어떤 리더를 만드는가" 단 하나다.</p>
+</section>
+
+<section id="naive">
+  <h2>2. 순진한 설계와 그 한계</h2>
+  <p class="lead-in">서윤이 분기를 추가한 직후의 코드다. 리더 클래스들 자체는 멀쩡하다. 주목할 곳은 <code>AcquisitionJob.__init__</code>의 <code>port</code>와 <code>run()</code> 맨 앞의 분기, 그리고 데모 [3]에서 테스트가 전역 이름을 바꿔치기하는 대목이다. 코드에 처음 나오는 표준 라이브러리 도구 몇 가지를 짚어 둔다. <code><dfn class="term" id="term-io-stringio" data-term="io-stringio" title="문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼 객체(파일 대신 쓰는 테스트·파싱용 대역).">io.StringIO</dfn></code>는 문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼이고, <code><dfn class="term" id="term-struct" data-term="struct" title="파이썬 값과 C 구조체 형식의 바이트열을 형식 문자열(예: `&lt;6d`)에 따라 서로 변환하는 표준 모듈.">struct.pack</dfn></code>은 파이썬 값을 형식 문자열(예: <code>"&lt;6d"</code>)에 따라 바이트열로 바꾸는 <code>struct</code> 모듈의 함수다. 질량분석기 포맷의 <dfn class="term" id="term-little-endian" data-term="little-endian" title="여러 바이트 수를 낮은 자리 바이트부터 메모리에 저장하는 순서.">리틀엔디언</dfn>은 여러 바이트로 된 수를 낮은 자리 바이트부터 저장하는 순서이고, <dfn class="term" id="term-double-precision-float" data-term="double-precision-float" title="8바이트(64비트) 배정밀도 부동소수점 수 형식.">float64</dfn>는 8바이트 배정밀도 부동소수점 수다. 데모의 <code><dfn class="term" id="term-globals" data-term="globals" title="현재 모듈의 전역 이름공간 딕셔너리를 돌려주는 내장 함수; 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.">globals()</dfn></code>는 현재 모듈의 전역 이름공간을 딕셔너리로 돌려주는 내장 함수로, 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.</p>
+  <figure class="code"><figcaption>src/01_factory_method/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 측정 흐름 안에서 장비 리더를 직접 만드는 AcquisitionJob.
+
+상황: 화학과 박사과정 서윤은 UV-Vis 분광광도계 한 대의 CSV 출력을 읽어
+정규화하고 저장하는 AcquisitionJob을 만들었다. 공동 연구실에서 질량분석기(바이너리
+포맷)와 신형 장비(시리얼로 JSON 전송)가 들어오자, 서윤은 가장 빠른 방법으로
+run() 안에 `if device == ...` 분기를 추가했다. 이 파일은 그 결과를 보여준다.
+
+읽을 때 주목할 점:
+- &quot;언제 만들 것인가(흐름)&quot;와 &quot;무엇을 만들 것인가(구체 클래스 선택)&quot;가 run() 한 메서드에 엉켜 있다.
+- 새 장비를 지원하려면 공용 프레임워크 파일(이 파일)을 열어 고쳐야 한다.
+- 테스트에서 가짜 리더를 끼울 이음새(seam)가 없어 모듈 전역을 바꿔치기해야 한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import csv
+import io
+import json
+import struct
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Sample:
+    &quot;&quot;&quot;측정점 하나. x는 장비에 따라 파장(nm)·질량 대 전하비(m/z)·시간(s)이다.
+
+    frozen=True로 둔 이유: 정규화 단계가 원본 측정점을 제자리에서 바꾸면
+    &quot;원시 데이터 보존&quot;이라는 연구실 데이터 관리 원칙이 깨지기 때문이다.
+    &quot;&quot;&quot;
+
+    x: float
+    intensity: float
+
+
+# ---------------------------------------------------------------------------
+# 장비별 리더. 이 부분 자체는 문제가 아니다 — 문제는 이들을 &#x27;누가, 어디서&#x27; 만드는가다.
+# ---------------------------------------------------------------------------
+
+class CsvSpectrumReader:
+    &quot;&quot;&quot;UV-Vis 분광광도계가 내보내는 CSV(파장, 흡광도)를 읽는다.&quot;&quot;&quot;
+
+    # 실제 장비 대신 장비가 내보낼 법한 원시 출력을 상수로 둔다(예제를 단독 실행 가능하게).
+    RAW = &quot;wavelength_nm,absorbance\n220,0.12\n260,0.87\n280,0.45\n&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비 연결을 흉내 내고 연결 설명을 돌려준다.&quot;&quot;&quot;
+        return &quot;UV-Vis 분광광도계(USB, CSV 내보내기)&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;CSV 텍스트를 Sample 목록으로 바꾼다.&quot;&quot;&quot;
+        rows = csv.DictReader(io.StringIO(self.RAW))
+        return [Sample(float(r[&quot;wavelength_nm&quot;]), float(r[&quot;absorbance&quot;])) for r in rows]
+
+
+class MassSpecBinaryReader:
+    &quot;&quot;&quot;질량분석기 고유 바이너리 포맷(리틀엔디언 float64 쌍: m/z, counts)을 읽는다.&quot;&quot;&quot;
+
+    RAW = struct.pack(&quot;&lt;6d&quot;, 18.0, 1200.0, 44.0, 5300.0, 92.0, 800.0)
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비 연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;질량분석기(이더넷, 고유 바이너리)&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;8바이트 float64를 모두 풀어 두 개씩 묶어 (m/z, counts) 쌍으로 해석한다.&quot;&quot;&quot;
+        values = struct.unpack(f&quot;&lt;{len(self.RAW) // 8}d&quot;, self.RAW)
+        return [Sample(values[i], values[i + 1]) for i in range(0, len(values), 2)]
+
+
+class SerialJsonReader:
+    &quot;&quot;&quot;신형 장비가 시리얼 포트로 보내는 JSON 프레임을 읽는다.&quot;&quot;&quot;
+
+    RAW = &#x27;{&quot;points&quot;: [{&quot;t&quot;: 0.0, &quot;v&quot;: 3.2}, {&quot;t&quot;: 0.5, &quot;v&quot;: 6.4}, {&quot;t&quot;: 1.0, &quot;v&quot;: 1.6}]}&#x27;
+
+    def __init__(self, port: str) -&gt; None:
+        &quot;&quot;&quot;시리얼 장비는 포트 이름이 필요하다 — 리더마다 생성 인자가 다르다는 점에 주목.&quot;&quot;&quot;
+        self.port = port
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비 연결을 흉내 낸다.&quot;&quot;&quot;
+        return f&quot;시리얼 JSON 장비({self.port})&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;JSON 프레임의 points 배열을 Sample 목록으로 바꾼다.&quot;&quot;&quot;
+        frame = json.loads(self.RAW)
+        return [Sample(p[&quot;t&quot;], p[&quot;v&quot;]) for p in frame[&quot;points&quot;]]
+
+
+# ---------------------------------------------------------------------------
+# 공용 프레임워크 — 모든 연구실이 함께 쓰는 저장소의 코드라고 가정한다.
+# ---------------------------------------------------------------------------
+
+class AcquisitionJob:
+    &quot;&quot;&quot;측정 작업: 연결 → 읽기 → 정규화 → 저장. 흐름 자체는 모든 장비에 공통이다.&quot;&quot;&quot;
+
+    def __init__(self, sample_id: str, device: str, port: str = &quot;COM3&quot;) -&gt; None:
+        &quot;&quot;&quot;device 문자열로 장비 종류를 고른다.
+
+        ⚠ 문제: port는 시리얼 장비에만 의미가 있는데 모든 작업의 생성자에 붙어 있다.
+        장비별 생성 인자가 늘어날수록 이 생성자는 &#x27;모든 장비의 합집합&#x27;이 된다.
+        &quot;&quot;&quot;
+        self.sample_id = sample_id
+        self.device = device
+        self.port = port
+
+    def run(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;측정 흐름 전체를 실행하고 정규화된 측정점을 돌려준다.&quot;&quot;&quot;
+        # ⚠ 문제: 흐름(run)과 생성(어떤 리더인가)이 한 메서드에 엉켜 있다.
+        #   새 장비가 생길 때마다 이 분기를 고쳐야 한다 → OCP 위반.
+        #   또 run()이 구체 클래스 세 개를 이름으로 직접 안다 → DIP 위반.
+        if self.device == &quot;uv-vis&quot;:
+            reader = CsvSpectrumReader()
+        elif self.device == &quot;mass-spec&quot;:
+            reader = MassSpecBinaryReader()
+        elif self.device == &quot;serial-json&quot;:
+            reader = SerialJsonReader(self.port)
+        else:
+            # ⚠ 문제: 다른 연구실의 XRD 장비는 여기서 막힌다. 그 연구실은
+            #   공용 저장소에 이 분기를 추가하는 PR을 보내는 것 외에는 방법이 없다.
+            raise ValueError(f&quot;지원하지 않는 장비: {self.device!r} (프레임워크 수정 필요)&quot;)
+
+        print(f&quot;  연결: {reader.connect()}&quot;)
+        samples = reader.read_samples()
+        normalized = self.normalize(samples)
+        self.save(normalized)
+        return normalized
+
+    def normalize(self, samples: list[Sample]) -&gt; list[Sample]:
+        &quot;&quot;&quot;최대 세기를 1.0으로 맞춘다(장비마다 세기 단위가 달라 비교하려면 필요).&quot;&quot;&quot;
+        peak = max(s.intensity for s in samples)
+        return [Sample(s.x, round(s.intensity / peak, 3)) for s in samples]
+
+    def save(self, samples: list[Sample]) -&gt; None:
+        &quot;&quot;&quot;저장을 흉내 낸다. 실제로는 연구실 데이터 아카이브에 기록한다.&quot;&quot;&quot;
+        print(f&quot;  저장: {self.sample_id} → {len(samples)}개 측정점, 첫 점 {samples[0]}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 세 장비 모두 &#x27;일단은&#x27; 잘 돌아간다&quot;)
+    for device in (&quot;uv-vis&quot;, &quot;mass-spec&quot;, &quot;serial-json&quot;):
+        AcquisitionJob(f&quot;S-{device}&quot;, device).run()
+
+    print(&quot;\n[2] 옆 연구실이 XRD 회절계를 붙이려 하면&quot;)
+    try:
+        AcquisitionJob(&quot;S-xrd&quot;, &quot;xrd&quot;).run()
+    except ValueError as e:
+        print(f&quot;  실패: {e}&quot;)
+
+    print(&quot;\n[3] 정규화 로직만 테스트하고 싶은데, 실제 리더를 피할 방법이 없다&quot;)
+    # ⚠ 문제: run()이 CsvSpectrumReader를 &#x27;이름으로&#x27; 직접 생성하므로,
+    #   가짜 리더를 넣으려면 모듈 전역 이름 자체를 바꿔치기(monkeypatch)해야 한다.
+    #   이 방식은 같은 모듈을 쓰는 다른 테스트와 간섭하고, 복원을 잊으면 오염이 남는다.
+    class FakeReader:
+        &quot;&quot;&quot;테스트용 가짜 리더: 결과를 손으로 계산할 수 있는 고정 데이터.&quot;&quot;&quot;
+
+        def connect(self) -&gt; str:
+            &quot;&quot;&quot;가짜 연결.&quot;&quot;&quot;
+            return &quot;가짜 장비&quot;
+
+        def read_samples(self) -&gt; list[Sample]:
+            &quot;&quot;&quot;세기 2와 4 → 정규화하면 0.5와 1.0이어야 한다.&quot;&quot;&quot;
+            return [Sample(1, 2.0), Sample(2, 4.0)]
+
+    original = CsvSpectrumReader
+    globals()[&quot;CsvSpectrumReader&quot;] = FakeReader  # 전역 바꿔치기 — 냄새가 나는 지점
+    try:
+        result = AcquisitionJob(&quot;S-test&quot;, &quot;uv-vis&quot;).run()
+        print(f&quot;  정규화 결과: {[s.intensity for s in result]}  (기대값 [0.5, 1.0])&quot;)
+    finally:
+        globals()[&quot;CsvSpectrumReader&quot;] = original
+    print(&quot;  → 테스트는 통과했지만, 전역 상태를 건드려야만 가능했다&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>데모 [1]만 보면 아무 문제가 없다. 이 설계가 "틀린" 것이 아니라 <strong>변경에 대해 닫혀 있지 않다</strong>는 점이 핵심이다. [2]의 실패 메시지는 확장의 주체가 누구인지를 드러낸다. 재료공학 연구실은 자기 장비를 붙이는 데 필요한 모든 지식(포맷, 연결 방식)을 갖고 있지만, 그 지식을 꽂을 자리가 공용 코드의 <code>if</code> 사슬 안에만 있다. 확장할 능력이 있는 쪽과 확장할 권한이 있는 쪽이 어긋난 것이다.</p>
+  <p>[3]은 더 은밀한 문제다. 테스트는 통과했지만 <code>globals()</code>를 직접 고쳐야 했다. <code>run()</code>이 <code>CsvSpectrumReader</code>라는 <em>이름</em>에 정적으로 묶여 있으므로, 다른 리더를 쓰게 하려면 그 이름이 가리키는 대상을 바꾸는 수밖에 없다. DIP 관점에서 보면 상위 정책(측정 흐름)이 하위 세부(CSV <dfn class="term" id="term-parser" data-term="parser" title="텍스트·바이트 입력을 해석해 구조화된 데이터로 바꾸는 코드(그 작업이 파싱).">파싱</dfn> 클래스, 곧 텍스트를 해석해 구조화된 데이터로 바꾸는 코드)에 직접 의존하고 있다.</p>
+  <div class="callout warn">
+    <span class="label">흔한 첫 시도와 그 한계</span>
+    분기를 <code>make_reader(device)</code>라는 별도 함수로 빼내는 것은 좋은 첫걸음이다. 이것을 <strong><dfn class="term" id="term-simple-factory" data-term="simple-factory" title="생성 분기(if/elif 또는 표 조회)를 한 함수에 모아 둔 것; 생성 지식은 모이지만 새 제품을 더하려면 그 함수를 고쳐야 하므로 GoF 패턴으로 치지 않는다.">단순 팩토리(Simple Factory)</dfn></strong>라 부른다. 생성 지식이 한곳에 모이고 <code>run()</code>은 깨끗해진다. 그러나 새 장비를 추가하려면 여전히 그 함수를 고쳐야 한다. 생성 코드를 <em>옮겼을</em> 뿐, 확장의 주도권은 여전히 프레임워크 소유자에게 있다.
+  </div>
+</section>
+
+<section id="structure">
+  <h2>3. 패턴의 구조</h2>
+  <p>GoF는 팩토리 메서드의 의도를 이렇게 쓴다. "객체를 생성하기 위한 인터페이스를 정의하되, 어떤 클래스의 인스턴스를 만들지는 서브클래스가 결정하게 한다. 팩토리 메서드는 클래스의 인스턴스화를 서브클래스로 미룬다." 여기서 눈여겨볼 단어는 <em>미룬다(defer)</em>이다. 생성 자체는 여전히 상위 클래스의 흐름 안에서 일어난다. 상위 클래스는 생성이 필요한 <em>시점</em>을 알고, 하위 클래스는 만들 <em>대상</em>을 안다. 아래 그림에 나오는 <dfn class="term" id="term-uml-stereotype" data-term="uml-stereotype" title="UML 요소에 « » 꺾쇠로 붙이는 꼬리표. 그 요소의 종류나 관계의 의미(예: «create» = 생성 관계)를 표시한다.">UML 스테레오타입</dfn>, 곧 «create»처럼 꺾쇠로 붙인 꼬리표는 관계나 요소의 의미를 덧붙여 표시한다(«create»는 "이 클래스가 저 클래스를 생성한다").</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 340" role="img" aria-label="측정 프레임워크에 적용한 팩토리 메서드 구조"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">[Creator]</text>
+      <g class="uml-class" transform="translate(20,30)">
+        <rect width="240" height="92"/>
+        <text class="uml-name uml-abstract" x="120" y="22">AcquisitionJob</text>
+        <line x1="0" y1="32" x2="240" y2="32"/>
+        <text class="uml-member" x="10" y="52">+ run(): list[Sample]</text>
+        <text class="uml-member uml-abstract" x="10" y="70">+ create_reader(): Reader</text>
+        <text class="uml-member" x="10" y="86">+ normalize(), save()</text>
+      </g>
+      <text class="uml-note" x="450" y="22">[Product]</text>
+      <g class="uml-class" transform="translate(450,30)">
+        <rect width="240" height="92"/>
+        <text class="uml-name uml-abstract" x="120" y="22">Reader</text>
+        <line x1="0" y1="32" x2="240" y2="32"/>
+        <text class="uml-member uml-abstract" x="10" y="52">+ connect(): str</text>
+        <text class="uml-member uml-abstract" x="10" y="70">+ read_samples(): list[Sample]</text>
+      </g>
+      <path class="uml-dep" d="M260 76 H450" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="300" y="68">run()이 사용</text>
+
+      <g class="uml-class highlight" transform="translate(20,220)">
+        <rect width="110" height="56"/>
+        <text class="uml-name" x="55" y="22">UvVisJob</text>
+        <line x1="0" y1="32" x2="110" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ create_reader()</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(150,220)">
+        <rect width="110" height="56"/>
+        <text class="uml-name" x="55" y="22">MassSpecJob</text>
+        <line x1="0" y1="32" x2="110" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ create_reader()</text>
+      </g>
+      <text class="uml-note" x="270" y="248">[Concrete Creator]</text>
+      <path class="uml-inherit" d="M75 220 V175 H140 V122" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M205 220 V175 H140 V122" marker-end="url(#triangle)"/>
+
+      <g class="uml-class" transform="translate(395,220)">
+        <rect width="165" height="56"/>
+        <text class="uml-name" x="82" y="22">CsvSpectrumReader</text>
+        <line x1="0" y1="32" x2="165" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ read_samples()</text>
+      </g>
+      <g class="uml-class" transform="translate(575,220)">
+        <rect width="180" height="56"/>
+        <text class="uml-name" x="90" y="22">MassSpecBinaryReader</text>
+        <line x1="0" y1="32" x2="180" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ read_samples()</text>
+      </g>
+      <path class="uml-inherit" d="M477 220 V175 H570 V122" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M665 220 V175 H570 V122" marker-end="url(#triangle)"/>
+      <text class="uml-note" x="590" y="168">[Concrete Product]</text>
+
+      <path class="uml-dep" d="M75 276 V300 H477 V276" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="250" y="294">«create»</text>
+      <path class="uml-dep" d="M205 276 V322 H665 V276" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="420" y="316">«create»</text>
+    </svg>
+    <figcaption>그림 1-1. 측정 프레임워크의 팩토리 메서드. 강조된 Concrete Creator만 구체 리더를 안다.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+    <tbody>
+      <tr><td>제품(Product)</td><td><code>Reader</code></td><td>흐름이 의존하는 추상. 장비 고유 포맷을 공통 <code>Sample</code>로 번역하는 계약.</td></tr>
+      <tr><td>구체 제품(Concrete Product)</td><td><code>CsvSpectrumReader</code> 등</td><td>장비 하나의 포맷 지식.</td></tr>
+      <tr><td>생성자(Creator)</td><td><code>AcquisitionJob</code></td><td>흐름(<code>run()</code>)을 소유하고, 그 안에서 팩토리 메서드 <code>create_reader()</code>를 호출한다.</td></tr>
+      <tr><td>구체 생성자(Concrete Creator)</td><td><code>UvVisJob</code>, <code>MassSpecJob</code> 등</td><td><code>create_reader()</code>를 오버라이드해 어느 구체 제품을 만들지 결정한다.</td></tr>
+    </tbody>
+  </table></div>
+  <p>그림에서 두 계층이 평행하게 자라는 것을 볼 수 있다. Creator 계층과 Product 계층이 같은 축(장비 종류)을 따라 나란히 늘어나는 이 모양을 <strong><dfn class="term" id="term-parallel-class-hierarchies" data-term="parallel-class-hierarchies" title="두 상속 계층(예: Creator와 Product)이 같은 축을 따라 한 쌍씩 나란히 늘어나는 구조; 팩토리 메서드의 대표적 결과이자 비용이다.">평행 클래스 계층(parallel class hierarchies)</dfn></strong>이라 부르며, 팩토리 메서드의 대표적인 결과이자 비용이다. 또 하나 짚을 점: <code>run()</code>은 구조적으로 템플릿 메서드(14장)다. 고정된 알고리즘의 한 단계를 하위 클래스에 맡기는데, 그 단계가 마침 "생성"인 경우가 팩토리 메서드다.</p>
+</section>
+
+<section id="implementation">
+  <h2>4. 패턴 적용</h2>
+  <p class="lead-in">이제 <code>run()</code>에서 분기를 걷어 내고 "리더를 만든다"는 단계를 추상 메서드 <code>create_reader()</code>로 떼어 낸다. 읽을 때 세 가지를 확인하라. <code>run()</code> 본문에 구체 리더 이름이 하나라도 남아 있는가? <code>port</code>는 어디로 옮겨 갔는가? 파일 아래쪽 "다른 연구실의 코드" 구획이 위쪽 프레임워크를 한 줄이라도 고치는가? <code>Sample</code> docstring의 "<dfn class="term" id="term-immutable-object" data-term="immutable-object" title="생성된 뒤 상태를 바꿀 수 없는 객체; 공유해도 안전하고 해시 키로 쓸 수 있다.">불변</dfn>"은 생성된 뒤 상태를 바꿀 수 없다는 뜻이다(<code>frozen=True</code>가 그것을 보장한다). 데모 [3]의 <code><dfn class="term" id="term-assert-python-o" data-term="assert-python-o" title="개발 중 불변 조건을 확인하는 문장; `python -O`로 실행하면 제거되므로 입력 검증에 쓰면 안 된다.">assert</dfn></code>는 조건이 거짓이면 <code>AssertionError</code>를 내는 개발용 확인 문장인데, <code>python -O</code>로 실행하면 통째로 제거되므로 테스트 확인에는 쓰되 입력 검증에는 쓰지 않는다.</p>
+  <figure class="code"><figcaption>src/01_factory_method/02_factory_method.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;팩토리 메서드 적용: 흐름은 상위 클래스가, 리더 선택은 하위 클래스가 결정한다.
+
+상황: 01_naive.py에서 AcquisitionJob.run()은 측정 흐름과 리더 생성 분기를 함께 품고
+있었다. 그래서 새 장비마다 공용 프레임워크를 고쳐야 했고, 테스트하려면 전역을
+바꿔치기해야 했다. 여기서는 run()의 &quot;리더를 만든다&quot;는 한 단계를 추상 메서드
+create_reader()로 떼어 내고, 장비별 작업 클래스가 그것을 오버라이드한다.
+
+GoF 의도(intent): &quot;객체를 생성하기 위한 인터페이스를 정의하되, 어떤 클래스의 인스턴스를
+만들지는 서브클래스가 결정하게 한다. 팩토리 메서드는 클래스의 인스턴스화를
+서브클래스로 미룬다.&quot;
+
+역할 대응:
+- [Product]          Reader
+- [Concrete Product] CsvSpectrumReader, MassSpecBinaryReader, SerialJsonReader, XrdReader
+- [Creator]          AcquisitionJob      (run()이 &#x27;언제&#x27; 만들지 결정)
+- [Concrete Creator] UvVisJob, MassSpecJob, SerialJsonJob, XrdJob (create_reader()가 &#x27;무엇을&#x27; 결정)
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import csv
+import io
+import json
+import struct
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Sample:
+    &quot;&quot;&quot;측정점 하나. 불변으로 두어 정규화가 원시 데이터를 덮어쓰지 못하게 한다.&quot;&quot;&quot;
+
+    x: float
+    intensity: float
+
+
+# ---------------------------------------------------------------------------
+# Product 계층
+# ---------------------------------------------------------------------------
+
+class Reader(ABC):
+    &quot;&quot;&quot;[Product] 장비 리더의 공통 인터페이스.
+
+    AcquisitionJob.run()은 이 추상 타입만 안다(DIP). Protocol이 아니라 ABC를 쓴 이유:
+    이 계층은 &#x27;프레임워크가 정의하고 연구실들이 상속해 채우는&#x27; 명목적 계약이며,
+    메서드를 빠뜨린 리더를 인스턴스화 시점에 TypeError로 즉시 잡아 주기 때문이다.
+    &quot;&quot;&quot;
+
+    @abstractmethod
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비에 연결하고 사람이 읽을 연결 설명을 돌려준다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;장비 고유 포맷을 공통 Sample 목록으로 번역한다.&quot;&quot;&quot;
+
+
+class CsvSpectrumReader(Reader):
+    &quot;&quot;&quot;[Concrete Product] UV-Vis 분광광도계의 CSV(파장, 흡광도).&quot;&quot;&quot;
+
+    RAW = &quot;wavelength_nm,absorbance\n220,0.12\n260,0.87\n280,0.45\n&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;UV-Vis 분광광도계(USB, CSV 내보내기)&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;CSV 텍스트를 Sample 목록으로 바꾼다.&quot;&quot;&quot;
+        rows = csv.DictReader(io.StringIO(self.RAW))
+        return [Sample(float(r[&quot;wavelength_nm&quot;]), float(r[&quot;absorbance&quot;])) for r in rows]
+
+
+class MassSpecBinaryReader(Reader):
+    &quot;&quot;&quot;[Concrete Product] 질량분석기 고유 바이너리(리틀엔디언 float64 쌍: m/z, counts).&quot;&quot;&quot;
+
+    RAW = struct.pack(&quot;&lt;6d&quot;, 18.0, 1200.0, 44.0, 5300.0, 92.0, 800.0)
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;질량분석기(이더넷, 고유 바이너리)&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;8바이트 float64를 두 개씩 묶어 (m/z, counts) 쌍으로 해석한다.&quot;&quot;&quot;
+        values = struct.unpack(f&quot;&lt;{len(self.RAW) // 8}d&quot;, self.RAW)
+        return [Sample(values[i], values[i + 1]) for i in range(0, len(values), 2)]
+
+
+class SerialJsonReader(Reader):
+    &quot;&quot;&quot;[Concrete Product] 신형 장비의 시리얼 JSON 프레임.&quot;&quot;&quot;
+
+    RAW = &#x27;{&quot;points&quot;: [{&quot;t&quot;: 0.0, &quot;v&quot;: 3.2}, {&quot;t&quot;: 0.5, &quot;v&quot;: 6.4}, {&quot;t&quot;: 1.0, &quot;v&quot;: 1.6}]}&#x27;
+
+    def __init__(self, port: str) -&gt; None:
+        &quot;&quot;&quot;시리얼 포트가 필요하다. 이 인자를 아는 것은 이제 SerialJsonJob 하나뿐이다.&quot;&quot;&quot;
+        self.port = port
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return f&quot;시리얼 JSON 장비({self.port})&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;JSON 프레임의 points 배열을 Sample 목록으로 바꾼다.&quot;&quot;&quot;
+        return [Sample(p[&quot;t&quot;], p[&quot;v&quot;]) for p in json.loads(self.RAW)[&quot;points&quot;]]
+
+
+# ---------------------------------------------------------------------------
+# Creator 계층 — 공용 프레임워크
+# ---------------------------------------------------------------------------
+
+class AcquisitionJob(ABC):
+    &quot;&quot;&quot;[Creator] 측정 작업의 고정된 흐름을 소유한다.
+
+    핵심 분담: run()은 리더가 &#x27;언제&#x27; 필요한지(연결 직전)를 결정하고,
+    create_reader()를 구현한 하위 클래스가 &#x27;무엇을&#x27; 만들지 결정한다.
+    run() 본문에는 구체 리더 이름이 하나도 없다 — 이것이 01_naive.py와의 차이 전부다.
+    &quot;&quot;&quot;
+
+    def __init__(self, sample_id: str) -&gt; None:
+        &quot;&quot;&quot;장비별 생성 인자(port 등)는 더 이상 여기 없다. 그것은 Concrete Creator의 몫이다.&quot;&quot;&quot;
+        self.sample_id = sample_id
+
+    @abstractmethod
+    def create_reader(self) -&gt; Reader:
+        &quot;&quot;&quot;[Factory Method] 이 작업이 쓸 리더를 만든다.
+
+        반환 타입이 구체 클래스가 아니라 Reader인 점이 중요하다. 호출자인 run()은
+        이 타입에만 의존하므로, 하위 클래스가 무엇을 돌려주든 흐름은 그대로다.
+        GoF는 Creator가 기본 구현을 줄 수도 있다고 하지만, 여기서는 &#x27;기본 장비&#x27;라는
+        개념이 없으므로 추상으로 두어 구현 누락을 인스턴스화 시점에 잡는다.
+        &quot;&quot;&quot;
+
+    def run(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;측정 흐름: 연결 → 읽기 → 정규화 → 저장.
+
+        이 메서드는 하위 클래스가 오버라이드하지 않는 것을 전제로 한다(흐름은 프레임워크 소유).
+        구조적으로 템플릿 메서드(14장)와 같다 — 그 한 단계가 &#x27;생성&#x27;일 뿐이다.
+        &quot;&quot;&quot;
+        reader = self.create_reader()  # 생성 결정은 다형성으로 하위 클래스에 위임된다
+        print(f&quot;  연결: {reader.connect()}&quot;)
+        normalized = self.normalize(reader.read_samples())
+        self.save(normalized)
+        return normalized
+
+    def normalize(self, samples: list[Sample]) -&gt; list[Sample]:
+        &quot;&quot;&quot;최대 세기를 1.0으로 맞춘다. 장비와 무관한 공통 로직이라 Creator에 둔다.&quot;&quot;&quot;
+        peak = max(s.intensity for s in samples)
+        return [Sample(s.x, round(s.intensity / peak, 3)) for s in samples]
+
+    def save(self, samples: list[Sample]) -&gt; None:
+        &quot;&quot;&quot;저장을 흉내 낸다.&quot;&quot;&quot;
+        print(f&quot;  저장: {self.sample_id} → {len(samples)}개 측정점, 첫 점 {samples[0]}&quot;)
+
+
+class UvVisJob(AcquisitionJob):
+    &quot;&quot;&quot;[Concrete Creator] UV-Vis 측정 작업.&quot;&quot;&quot;
+
+    def create_reader(self) -&gt; Reader:
+        &quot;&quot;&quot;CSV 리더를 고른다 — 이 결정을 아는 곳은 프로그램 전체에서 여기 한 곳이다.&quot;&quot;&quot;
+        return CsvSpectrumReader()
+
+
+class MassSpecJob(AcquisitionJob):
+    &quot;&quot;&quot;[Concrete Creator] 질량분석 측정 작업.&quot;&quot;&quot;
+
+    def create_reader(self) -&gt; Reader:
+        &quot;&quot;&quot;바이너리 리더를 고른다.&quot;&quot;&quot;
+        return MassSpecBinaryReader()
+
+
+class SerialJsonJob(AcquisitionJob):
+    &quot;&quot;&quot;[Concrete Creator] 시리얼 JSON 장비 측정 작업.
+
+    포트처럼 특정 장비에만 필요한 생성 인자는 이 하위 클래스가 받는다.
+    naive 버전에서 모든 작업 생성자에 붙어 있던 port가 제자리를 찾은 것이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, sample_id: str, port: str) -&gt; None:
+        &quot;&quot;&quot;상위 생성자에 공통 인자를 넘기고 장비 고유 인자는 스스로 보관한다.&quot;&quot;&quot;
+        super().__init__(sample_id)
+        self.port = port
+
+    def create_reader(self) -&gt; Reader:
+        &quot;&quot;&quot;보관해 둔 포트로 리더를 만든다.&quot;&quot;&quot;
+        return SerialJsonReader(self.port)
+
+
+# ---------------------------------------------------------------------------
+# 다른 연구실의 코드 — 실제로는 별도 저장소에 있다고 가정한다.
+# 공용 프레임워크(위)를 한 줄도 고치지 않고 새 장비를 붙인다: OCP.
+# ---------------------------------------------------------------------------
+
+class XrdReader(Reader):
+    &quot;&quot;&quot;[Concrete Product] 옆 연구실의 X선 회절계(공백 구분 텍스트: 2θ, counts).&quot;&quot;&quot;
+
+    RAW = &quot;20.0 150\n28.4 980\n47.3 410\n&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;X선 회절계(옆 연구실 자체 리더)&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;공백으로 구분된 두 열을 읽는다.&quot;&quot;&quot;
+        return [Sample(*map(float, line.split())) for line in self.RAW.splitlines()]
+
+
+class XrdJob(AcquisitionJob):
+    &quot;&quot;&quot;[Concrete Creator] 옆 연구실이 &#x27;추가&#x27;만으로 만든 작업.&quot;&quot;&quot;
+
+    def create_reader(self) -&gt; Reader:
+        &quot;&quot;&quot;자기 연구실의 리더를 고른다.&quot;&quot;&quot;
+        return XrdReader()
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 장비별 작업 클래스를 고르면 리더는 각 클래스가 알아서 만든다&quot;)
+    jobs: list[AcquisitionJob] = [
+        UvVisJob(&quot;S-101&quot;),
+        MassSpecJob(&quot;S-102&quot;),
+        SerialJsonJob(&quot;S-103&quot;, port=&quot;/dev/ttyUSB0&quot;),
+    ]
+    for job in jobs:
+        job.run()  # 호출자 코드는 장비 종류를 모른다
+
+    print(&quot;\n[2] 옆 연구실은 프레임워크를 고치지 않고 XrdJob을 추가했다&quot;)
+    XrdJob(&quot;S-201&quot;).run()
+
+    print(&quot;\n[3] 테스트: 가짜 리더를 돌려주는 하위 클래스 하나면 이음새가 생긴다&quot;)
+
+    class FakeReader(Reader):
+        &quot;&quot;&quot;[Concrete Product] 테스트 전용. 손으로 검산 가능한 고정 데이터.&quot;&quot;&quot;
+
+        def connect(self) -&gt; str:
+            &quot;&quot;&quot;가짜 연결.&quot;&quot;&quot;
+            return &quot;가짜 장비&quot;
+
+        def read_samples(self) -&gt; list[Sample]:
+            &quot;&quot;&quot;세기 2, 4 → 정규화 결과 0.5, 1.0.&quot;&quot;&quot;
+            return [Sample(1, 2.0), Sample(2, 4.0)]
+
+    class FakeJob(AcquisitionJob):
+        &quot;&quot;&quot;[Concrete Creator] 테스트 전용. 전역 상태를 건드리지 않는다.&quot;&quot;&quot;
+
+        def create_reader(self) -&gt; Reader:
+            &quot;&quot;&quot;가짜 리더를 만든다.&quot;&quot;&quot;
+            return FakeReader()
+
+    result = FakeJob(&quot;S-test&quot;).run()
+    assert [s.intensity for s in result] == [0.5, 1.0]
+    print(&quot;  정규화 검증 통과 — monkeypatch 없이&quot;)
+
+    print(&quot;\n[4] create_reader()를 빠뜨린 하위 클래스는 만들 때 바로 걸린다&quot;)
+
+    class ForgetfulJob(AcquisitionJob):
+        &quot;&quot;&quot;구현을 잊은 Concrete Creator — ABC가 이것을 잡아낸다.&quot;&quot;&quot;
+
+    try:
+        ForgetfulJob(&quot;S-oops&quot;)
+    except TypeError as e:
+        print(f&quot;  TypeError: {e}&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_factory_method.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]에서 호출자는 <code>job.run()</code>만 부른다. 장비를 고르는 결정은 "어떤 작업 클래스를 인스턴스화하는가"로 한 번, 맨 바깥에서 내려졌고, 그 뒤로는 다형성이 일을 한다. naive 버전의 <code>if</code> 사슬은 사라진 것이 아니라 <strong>클래스 선택으로 대체</strong>되었다. 이 차이가 중요하다. <code>if</code> 사슬은 닫힌 목록이지만 하위 클래스 집합은 열린 목록이다.</p>
+  <p>[2]가 이 장의 요점이다. 재료공학 연구실은 <code>XrdReader</code>와 <code>XrdJob</code>을 <em>추가</em>했을 뿐 공용 프레임워크는 그대로다. 확장할 지식을 가진 쪽이 자기 코드 안에서 확장을 끝낸다. 동시에 <code>port</code>는 그것이 필요한 유일한 곳인 <code>SerialJsonJob</code>으로 옮겨 갔다. 생성 지식이 제자리를 찾으면 생성 인자도 함께 제자리를 찾는다.</p>
+  <p>[3]의 테스트는 naive 버전의 전역 바꿔치기와 비교해 보라. 테스트는 프레임워크가 공식적으로 열어 둔 확장 지점, 즉 <code>create_reader()</code>를 통해 들어온다. 이음새가 설계의 일부가 된 것이다. [4]는 <code>ABC</code>를 고른 이유를 보여준다. 팩토리 메서드 구현을 잊은 Concrete Creator는 첫 측정 때가 아니라 인스턴스를 만드는 순간 실패한다.</p>
+  <div class="callout ok">
+    <span class="label">핵심 정리</span>
+    팩토리 메서드는 "생성 코드를 어딘가로 옮기는" 기법이 아니다. <strong>생성 결정을 상속 계층의 확장 지점으로 만드는</strong> 기법이다. 그래서 판별 질문은 하나다. "새 제품을 추가할 때, 기존 클래스를 수정하는가, 하위 클래스를 추가하는가?"
+  </div>
+</section>
+
+<section id="pythonic">
+  <h2>5. 파이썬다운 변형</h2>
+  <p>02의 Concrete Creator들을 다시 보면 하는 일이 <code>create_reader()</code> 한 줄뿐이다. Java 같은 언어에서는 "생성 방법"을 값으로 넘기기가 번거로웠기 때문에 메서드 하나를 바꾸려고 클래스를 하나 만드는 것이 자연스러웠다. 파이썬에서는 클래스 자체가 호출 가능한 객체이고, 함수도 일급 값이다. 그렇다면 하위 클래스 계층 없이 같은 분담을 얻을 수 있지 않을까?</p>
+  <h3>생성 함수 주입과 <dfn class="term" id="term-alternative-constructor" data-term="alternative-constructor" title="`@classmethod` 등으로 만든, 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점; GoF 팩토리 메서드와 달리 무엇을 만들지는 호출자가 고른 클래스가 정한다.">대체 생성자</dfn></h3>
+  <p class="lead-in">대체 생성자는 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점이다. 생성자 오버로딩이 없는 파이썬에서는 흔히 <code><dfn class="term" id="term-classmethod" data-term="classmethod" title="인스턴스 대신 클래스(cls)를 첫 인자로 받는 메서드를 만드는 데코레이터; 하위 클래스에서 부르면 cls가 그 하위 클래스가 된다.">@classmethod</dfn></code>로 만든다. <code>@classmethod</code>를 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받으므로, 하위 클래스에서 부르면 <code>cls</code>가 그 하위 클래스가 된다. 아래 코드는 <code>create_reader()</code> 오버라이드를 생성자 인자 <code>reader_factory</code>로 바꾼다. 리더 인스턴스가 아니라 <em>만드는 방법</em>을 받는다는 점, <code>Reader</code>가 <code>Protocol</code>이 되어 리더들이 아무것도 상속하지 않는다는 점, 그리고 <code>from_config()</code>의 docstring이 그것을 "GoF 팩토리 메서드가 아니다"라고 말하는 이유에 주목하라. 새로 나오는 도구도 있다. <code><dfn class="term" id="term-functools-partial" data-term="functools-partial" title="함수의 일부 인자를 미리 채워 둔 새 호출 가능 객체를 만든다. repr에 채운 인자가 보인다.">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 호출 가능 객체를 만든다. 타입 힌트의 <code><dfn class="term" id="term-typing-classvar" data-term="typing-classvar" title="그 속성이 인스턴스가 아니라 클래스 전체에 속함을 타입 검사기에 알리는 타입 힌트(데이터클래스 필드에서도 제외된다).">ClassVar</dfn></code>는 그 속성이 인스턴스가 아니라 클래스 전체에 속한다고 표시하고, <code><dfn class="term" id="term-typing-any" data-term="typing-any" title="어떤 타입이든 허용한다는 타입 힌트. 타입 검사를 사실상 끈다.">Any</dfn></code>는 어떤 타입이든 허용한다는 표시로 그 자리의 타입 검사를 사실상 끈다. docstring의 "<dfn class="term" id="term-runtime" data-term="runtime" title="프로그램이 실제로 실행되는 시점(또는 실행 환경). 정적 검사 시점과 대비된다.">런타임</dfn>"은 프로그램이 실제로 실행되는 시점을 말하며, 코드를 실행하지 않고 검사하는 정적 검사 시점과 대비된다.</p>
+  <figure class="code"><figcaption>src/01_factory_method/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형 1: 상속 대신 &#x27;생성 함수&#x27;를 주입하고, 설정에서 작업을 만드는 대체 생성자.
+
+상황: 02_factory_method.py에서는 장비가 하나 늘 때마다 Concrete Creator(XrdJob 등)를
+하나씩 만들어야 했다. 그런데 그 하위 클래스들이 하는 일은 create_reader() 한 줄뿐이다.
+파이썬에서는 클래스 자체가 호출 가능한 객체(callable)이므로, &quot;리더를 만드는 방법&quot;을
+값으로 넘기면 하위 클래스 계층 없이 같은 분담(흐름은 프레임워크, 선택은 바깥)을 얻는다.
+
+이 파일이 보여주는 것:
+1. reader_factory: Callable[[], Reader] 주입 — 클래스, functools.partial, 람다 모두 팩토리가 된다.
+2. Reader를 Protocol로 — 장비 리더가 프레임워크 클래스를 상속할 필요조차 없어진다.
+3. @classmethod from_config() — 흔히 &#x27;팩토리 메서드&#x27;라 불리지만 GoF의 의도와는 다른 것.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import csv
+import io
+import json
+from dataclasses import dataclass
+from functools import partial
+from typing import Any, Callable, ClassVar, Protocol
+
+
+@dataclass(frozen=True)
+class Sample:
+    &quot;&quot;&quot;측정점 하나(불변).&quot;&quot;&quot;
+
+    x: float
+    intensity: float
+
+
+class Reader(Protocol):
+    &quot;&quot;&quot;[Product] 구조적 인터페이스.
+
+    ABC 대신 Protocol을 쓴 이유: 생성 함수 주입 방식에서는 프레임워크가 리더 계층을
+    &#x27;소유&#x27;하지 않는다. 벤더가 준 SDK 클래스든 연구실이 쓴 클래스든 connect()와
+    read_samples()만 있으면 된다. 대가는 누락 검사가 런타임 인스턴스화가 아니라
+    정적 타입 검사기(mypy 등)로 옮겨 간다는 것이다.
+    &quot;&quot;&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비에 연결하고 설명을 돌려준다.&quot;&quot;&quot;
+        ...
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;공통 Sample 목록을 돌려준다.&quot;&quot;&quot;
+        ...
+
+
+class CsvSpectrumReader:
+    &quot;&quot;&quot;[Concrete Product] UV-Vis CSV 리더. Reader를 상속하지 않는다 — Protocol이므로.&quot;&quot;&quot;
+
+    RAW = &quot;wavelength_nm,absorbance\n220,0.12\n260,0.87\n280,0.45\n&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;UV-Vis 분광광도계&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;CSV를 파싱한다.&quot;&quot;&quot;
+        rows = csv.DictReader(io.StringIO(self.RAW))
+        return [Sample(float(r[&quot;wavelength_nm&quot;]), float(r[&quot;absorbance&quot;])) for r in rows]
+
+
+class SerialJsonReader:
+    &quot;&quot;&quot;[Concrete Product] 시리얼 JSON 리더. 생성 인자(port)가 필요한 리더의 예.&quot;&quot;&quot;
+
+    RAW = &#x27;{&quot;points&quot;: [{&quot;t&quot;: 0.0, &quot;v&quot;: 3.2}, {&quot;t&quot;: 0.5, &quot;v&quot;: 6.4}, {&quot;t&quot;: 1.0, &quot;v&quot;: 1.6}]}&#x27;
+
+    def __init__(self, port: str) -&gt; None:
+        &quot;&quot;&quot;포트를 보관한다.&quot;&quot;&quot;
+        self.port = port
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return f&quot;시리얼 JSON 장비({self.port})&quot;
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;JSON 프레임을 파싱한다.&quot;&quot;&quot;
+        return [Sample(p[&quot;t&quot;], p[&quot;v&quot;]) for p in json.loads(self.RAW)[&quot;points&quot;]]
+
+
+# 리더를 만드는 &#x27;방법&#x27;의 타입. 인자 없는 호출로 Reader를 돌려주는 모든 것.
+ReaderFactory = Callable[[], Reader]
+
+
+class AcquisitionJob:
+    &quot;&quot;&quot;[Creator 역할을 합성으로] 흐름은 그대로 소유하고, 생성 방법은 주입받는다.
+
+    02의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
+    구조적으로는 &#x27;생성 전략&#x27;을 들고 있는 Context — 10장 전략 패턴과 같은 모양이다.
+    상속 대신 합성을 고른 이유: 변하는 것이 &#x27;메서드 하나&#x27;뿐이라면 그 하나를 값으로
+    넘기는 편이 클래스 계층을 늘리는 것보다 싸고, 런타임에 바꿀 수도 있다.
+    &quot;&quot;&quot;
+
+    # from_config가 쓰는 &#x27;장비 이름 → 생성 방법&#x27; 표. 클래스 속성이라 하위 클래스가 덮어쓸 수 있다.
+    DEVICES: ClassVar[dict[str, Callable[..., Reader]]] = {
+        &quot;uv-vis&quot;: CsvSpectrumReader,
+        &quot;serial-json&quot;: SerialJsonReader,
+    }
+
+    def __init__(self, sample_id: str, reader_factory: ReaderFactory) -&gt; None:
+        &quot;&quot;&quot;리더 인스턴스가 아니라 &#x27;만드는 방법&#x27;을 받는다.
+
+        왜 인스턴스를 바로 받지 않는가? run()이 &#x27;언제&#x27; 만들지 결정한다는 분담을 지키기 위해서다.
+        연결은 비싸고(장비 점유) 작업이 실제로 실행될 때까지 미뤄야 한다. 인스턴스를 받으면
+        생성 시점이 호출자에게 넘어가 버린다.
+        &quot;&quot;&quot;
+        self.sample_id = sample_id
+        self._reader_factory = reader_factory
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -&gt; AcquisitionJob:
+        &quot;&quot;&quot;대체 생성자(alternative constructor): 설정 dict에서 작업을 만든다.
+
+        주의: 이것도 흔히 &#x27;팩토리 메서드&#x27;라 부르지만 GoF 팩토리 메서드가 아니다.
+        - GoF: Creator의 다른 연산(run)이 호출하는 훅이며, &#x27;무엇을 만들지&#x27;를 하위 클래스가 결정.
+        - 이것: 클래스 밖에서 호출하는 생성 진입점이며, &#x27;무엇을 만들지&#x27;를 데이터(device 키)가 결정.
+        내부는 사실상 단순 팩토리(표 조회)다. cls(...)를 쓰므로 하위 클래스에서 호출하면 그
+        하위 클래스 인스턴스가 나온다는 점만 다형적이다.
+        &quot;&quot;&quot;
+        options = {k: v for k, v in config.items() if k not in (&quot;device&quot;, &quot;sample_id&quot;)}
+        maker = cls.DEVICES[config[&quot;device&quot;]]
+        # partial로 장비별 인자(port 등)를 미리 묶어 &#x27;인자 없는 팩토리&#x27;로 맞춘다.
+        return cls(config[&quot;sample_id&quot;], partial(maker, **options))
+
+    def run(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;흐름은 02와 동일하다. 생성 지점이 self.create_reader()에서 주입된 함수로 바뀌었을 뿐.&quot;&quot;&quot;
+        reader = self._reader_factory()
+        print(f&quot;  연결: {reader.connect()}&quot;)
+        samples = reader.read_samples()
+        peak = max(s.intensity for s in samples)
+        normalized = [Sample(s.x, round(s.intensity / peak, 3)) for s in samples]
+        print(f&quot;  저장: {self.sample_id} → {[s.intensity for s in normalized]}&quot;)
+        return normalized
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 클래스 자체가 팩토리다 — 하위 클래스 없이 UV-Vis 작업&quot;)
+    AcquisitionJob(&quot;S-101&quot;, CsvSpectrumReader).run()
+
+    print(&quot;\n[2] 생성 인자가 필요한 리더는 partial로 인자를 미리 묶는다&quot;)
+    AcquisitionJob(&quot;S-103&quot;, partial(SerialJsonReader, port=&quot;/dev/ttyUSB0&quot;)).run()
+
+    print(&quot;\n[3] 테스트: 평범한 함수 하나가 가짜 리더 팩토리가 된다 (FakeJob 클래스도 필요 없음)&quot;)
+
+    class FakeReader:
+        &quot;&quot;&quot;테스트용 리더. Protocol이라 아무것도 상속하지 않는다.&quot;&quot;&quot;
+
+        def connect(self) -&gt; str:
+            &quot;&quot;&quot;가짜 연결.&quot;&quot;&quot;
+            return &quot;가짜 장비&quot;
+
+        def read_samples(self) -&gt; list[Sample]:
+            &quot;&quot;&quot;정규화 결과가 0.5, 1.0이 되도록 고른 값.&quot;&quot;&quot;
+            return [Sample(1, 2.0), Sample(2, 4.0)]
+
+    created: list[str] = []
+
+    def spying_factory() -&gt; Reader:
+        &quot;&quot;&quot;팩토리가 &#x27;언제&#x27; 호출되는지 기록한다 — run() 전에는 리더가 만들어지지 않아야 한다.&quot;&quot;&quot;
+        created.append(&quot;생성됨&quot;)
+        return FakeReader()
+
+    job = AcquisitionJob(&quot;S-test&quot;, spying_factory)
+    print(f&quot;  run() 전 생성 기록: {created}&quot;)
+    job.run()
+    print(f&quot;  run() 후 생성 기록: {created}  ← 생성 시점은 여전히 프레임워크가 결정&quot;)
+
+    print(&quot;\n[4] from_config: 설정 파일 한 줄에서 작업 만들기 (대체 생성자)&quot;)
+    AcquisitionJob.from_config({&quot;device&quot;: &quot;serial-json&quot;, &quot;sample_id&quot;: &quot;S-104&quot;, &quot;port&quot;: &quot;COM7&quot;}).run()
+    try:
+        AcquisitionJob.from_config({&quot;device&quot;: &quot;xrd&quot;, &quot;sample_id&quot;: &quot;S-105&quot;})
+    except KeyError as e:
+        print(f&quot;  KeyError {e}: 표에 없는 장비 — 확장하려면 DEVICES를 고쳐야 한다 (단순 팩토리의 한계)&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]과 [2]에서 클래스 <code>CsvSpectrumReader</code>와 <code>partial(SerialJsonReader, port=...)</code>가 똑같이 "인자 없이 호출하면 리더가 나오는 것"으로 취급된다. [3]의 생성 기록은 이 변형이 팩토리 메서드의 본질 하나를 지킨다는 것을 보여준다. 리더가 만들어지는 <em>시점</em>은 여전히 <code>run()</code>이 결정한다. 인스턴스를 바로 넘기게 했다면 이 통제가 호출자에게 넘어갔을 것이다(장비 연결처럼 생성이 비싸거나 <dfn class="term" id="term-side-effect" data-term="side-effect" title="함수가 값을 돌려주는 것 외에 바깥 상태를 바꾸는 일(파일·네트워크 I/O, 장비 연결, 전역 등록 등).">부수 효과</dfn>, 곧 값을 돌려주는 것 외에 바깥 상태를 바꾸는 일이 있을 때 결정적인 차이다).</p>
+  <p>이것은 구조적으로 전략 패턴(10장)이다. 상속으로 변이를 다루던 것을 합성으로 바꿨고, 변이의 내용이 "생성"일 뿐이다. 그렇다면 02의 하위 클래스 방식은 언제 여전히 필요한가? Concrete Creator가 <code>create_reader()</code> 말고도 <code>normalize()</code>나 <code>save()</code> 같은 다른 단계도 함께 바꿔야 할 때다. 여러 훅을 일관되게 묶어 바꾸는 단위로는 클래스가 함수 여러 개를 따로 넘기는 것보다 낫다. 또 프레임워크 사용자가 "<code>XrdJob</code>"이라는 이름 붙은 개념을 문서·<dfn class="term" id="term-integrated-development-environment" data-term="integrated-development-environment" title="편집·실행·디버깅·자동 완성을 한데 묶은 통합 개발 환경.">IDE</dfn>(편집·실행·디버깅·자동 완성을 한데 묶은 통합 개발 환경)에서 발견할 수 있다는 점도 가치다.</p>
+  <p>[4]의 <code>from_config()</code>는 이름 때문에 혼동이 잦다. 파이썬 커뮤니티에서는 <code>@classmethod</code> 대체 생성자를 흔히 "팩토리 메서드"라 부르지만, 무엇을 만들지 결정하는 것이 하위 클래스가 아니라 <em>데이터(설정의 <code>device</code> 키)</em>이고, 내부는 표를 조회하는 단순 팩토리다. 그래서 <code>"xrd"</code>를 지원하려면 결국 <code>DEVICES</code> 표를 고쳐야 한다. 확장의 주도권 문제로 되돌아온 것이다.</p>
+
+  <h3>정의하는 순간 등록되는 <dfn class="term" id="term-registry" data-term="registry" title="이름(키)과 클래스·함수를 짝지어 두는 표; 호출자는 분기 대신 표를 조회하고, 새 항목은 표에 등록만 하면 추가된다.">레지스트리</dfn></h3>
+  <p class="lead-in">레지스트리는 이름(키)과 클래스·함수를 짝지어 둔 표다. 호출자는 분기 대신 표를 조회하고, 새 항목은 표에 등록만 하면 추가된다. 설정 문자열로 장비를 고르고 싶으면서도 "추가만으로 확장"을 지키려면, 표를 프레임워크가 쥐고 있지 않으면 된다. 다음 코드는 <code>__init_subclass__</code>로 <code>Reader</code> 하위 클래스가 <code>class XrdReader(TextColumnReader, device="xrd")</code>처럼 정의되는 순간 스스로 등록되게 한다. <code>device</code> 없이 상속한 중간 클래스 <code>TextColumnReader</code>가 등록되지 않는 것, 중복 키를 정의 시점에 거부하는 것, 그리고 마지막 [5]의 함정을 눈여겨보라.</p>
+  <div class="callout">
+    <span class="label">용어</span>
+    코드 주석에 처음 나오는 말들이다. <dfn class="term" id="term-metaclass" data-term="metaclass" title="클래스를 만들어 내는 클래스(기본은 `type`); 클래스 생성·호출 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다.">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 생성되고 호출되는 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다. <dfn class="term" id="term-keyword-only-argument" data-term="keyword-only-argument" title="매개변수 목록의 * 뒤에 두어 반드시 이름=값으로만 넘길 수 있게 한 인자.">키워드 전용</dfn> 인자는 매개변수 목록의 <code>*</code> 뒤에 두어 반드시 <code>이름=값</code>으로만 넘길 수 있게 한 인자다. <dfn class="term" id="term-declarative" data-term="declarative" title="&#x27;어떻게&#x27;의 절차 대신 &#x27;무엇&#x27;을 원하는지를 기술하는 방식.">선언적</dfn>이라는 말은 "어떻게"의 절차 대신 "무엇"을 원하는지를 적는 방식을 뜻한다. <dfn class="term" id="term-cooperative-multiple-inheritance" data-term="cooperative-multiple-inheritance" title="다중 상속 계층의 각 클래스가 `super()`로 다음 클래스에 호출을 넘겨 MRO 순서대로 모두 실행되게 하는 관례.">협력적 다중 상속</dfn>은 계층의 각 클래스가 <code>super()</code>로 다음 클래스에 호출을 넘겨, 여러 부모의 같은 메서드가 빠짐없이 차례로 실행되게 하는 관례다. <code>raise … <dfn class="term" id="term-exception-chaining" data-term="exception-chaining" title="`raise New(...) from e`로 새 예외의 `__cause__`에 원인 예외를 남기는 문법; `from`을 빼면 원래 예외는 `__context__`에 담겨 &#x27;처리 도중 다른 예외&#x27;로 보고되고, `from None`은 원인 표시를 숨긴다.">from None</dfn></code>은 예외 연쇄 문법의 한 형태다. <code>raise 새예외 from e</code>는 원인 예외 <code>e</code>를 새 예외에 기록하고, <code>from None</code>은 원인 표시를 숨겨 사용자에게 필요한 메시지만 남긴다. 마지막 데모의 <dfn class="term" id="term-entry-points" data-term="entry-points" title="설치된 패키지가 &#x27;이 이름으로 이 객체를 제공한다&#x27;고 메타데이터에 선언해, 다른 프로그램이 import하지 않고도 플러그인을 찾게 하는 파이썬 패키징 메커니즘.">진입점(entry points)</dfn>은 설치된 패키지가 "이 이름으로 이 객체를 제공한다"고 메타데이터에 선언해, 다른 프로그램이 직접 import하지 않고도 플러그인을 찾게 하는 파이썬 패키징 장치다.
+  </div>
+  <figure class="code"><figcaption>src/01_factory_method/04_registry.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형 2: __init_subclass__로 &#x27;정의하는 순간 등록되는&#x27; 리더 레지스트리.
+
+상황: 03_pythonic.py의 from_config()는 DEVICES 표를 프레임워크가 직접 들고 있어서,
+옆 연구실이 XRD 리더를 추가하려면 결국 공용 코드의 표를 고쳐야 했다(단순 팩토리의 한계).
+여기서는 Reader의 하위 클래스가 정의될 때 class 문의 키워드 인자(device=&quot;xrd&quot;)로
+스스로 레지스트리에 등록되게 한다. 프레임워크는 등록부만 조회한다.
+
+비판적으로 볼 점: 이것은 더 이상 엄밀한 GoF 팩토리 메서드가 아니다. &#x27;무엇을 만들지&#x27;를
+Creator의 하위 클래스가 아니라 &#x27;문자열 키 → 클래스&#x27; 등록부가 결정한다. 대신
+&quot;확장은 추가만으로&quot;라는 팩토리 메서드의 핵심 이득(OCP)은 그대로 유지하면서,
+설정 파일 같은 데이터로 장비를 고를 수 있게 된다. 플러그인 시스템이 흔히 쓰는 모양이다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import csv
+import io
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, ClassVar
+
+
+@dataclass(frozen=True)
+class Sample:
+    &quot;&quot;&quot;측정점 하나(불변).&quot;&quot;&quot;
+
+    x: float
+    intensity: float
+
+
+class Reader(ABC):
+    &quot;&quot;&quot;[Product] 리더 공통 인터페이스이자 등록부의 주인.
+
+    등록부를 여기에 둔 이유: &#x27;리더 종류의 목록&#x27;은 리더 계층에 대한 지식이므로
+    Reader가 소유하는 것이 응집도가 높다. AcquisitionJob은 Reader.for_device()만 부른다.
+    &quot;&quot;&quot;
+
+    # 장비 이름 → 리더 클래스. ClassVar로 표시해 인스턴스 속성이 아님을 타입 검사기에 알린다.
+    _registry: ClassVar[dict[str, type[Reader]]] = {}
+    # 등록된 하위 클래스가 자기 장비 이름을 알 수 있도록 __init_subclass__가 채운다(아래 참고).
+    device: ClassVar[str]
+
+    def __init_subclass__(cls, *, device: str | None = None, **kwargs: Any) -&gt; None:
+        &quot;&quot;&quot;하위 클래스가 &#x27;정의될 때&#x27; 파이썬이 호출한다(인스턴스 생성 때가 아님).
+
+        device를 키워드 전용 인자로 받는 이유: class XrdReader(Reader, device=&quot;xrd&quot;)처럼
+        클래스 정의 줄에 등록 정보가 함께 보여 선언적이다. device 없이 상속하면
+        (예: 공통 기능을 모은 중간 추상 클래스) 등록하지 않는다.
+        메타클래스로도 같은 일을 할 수 있지만, __init_subclass__는 메타클래스 충돌
+        (ABC는 이미 ABCMeta를 쓴다) 없이 훨씬 가볍게 같은 효과를 낸다.
+        &quot;&quot;&quot;
+        super().__init_subclass__(**kwargs)  # 협력적 다중 상속을 위해 반드시 위로 넘긴다
+        if device is None:
+            return
+        if device in Reader._registry:
+            # 조용히 덮어쓰면 두 연구실의 리더가 서로를 가리는 버그가 런타임 한참 뒤에야 드러난다.
+            raise ValueError(f&quot;장비 {device!r}가 이미 {Reader._registry[device].__name__}로 등록됨&quot;)
+        Reader._registry[device] = cls
+        cls.device = device
+
+    @classmethod
+    def for_device(cls, device: str, **options: Any) -&gt; Reader:
+        &quot;&quot;&quot;등록부에서 클래스를 찾아 인스턴스를 만든다. 실패 메시지에 등록된 목록을 담는다.&quot;&quot;&quot;
+        try:
+            reader_cls = Reader._registry[device]
+        except KeyError:
+            known = &quot;, &quot;.join(sorted(Reader._registry))
+            raise LookupError(f&quot;등록되지 않은 장비 {device!r} (등록됨: {known})&quot;) from None
+        return reader_cls(**options)
+
+    @abstractmethod
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;장비에 연결한다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;공통 Sample 목록을 돌려준다.&quot;&quot;&quot;
+
+
+class TextColumnReader(Reader):
+    &quot;&quot;&quot;중간 추상 클래스: &#x27;두 열짜리 텍스트&#x27;를 읽는 공통 로직. device가 없으므로 등록되지 않는다.&quot;&quot;&quot;
+
+    RAW: ClassVar[str] = &quot;&quot;
+    DELIMITER: ClassVar[str | None] = None
+
+    def read_samples(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;구분자로 두 열을 나눠 읽는다. 하위 클래스는 RAW와 DELIMITER만 정한다.&quot;&quot;&quot;
+        # 숫자로 시작하지 않는 줄(예: CSV 헤더 &quot;wavelength_nm,absorbance&quot;)은 데이터가 아니므로 건너뛴다.
+        lines = [ln for ln in self.RAW.splitlines() if ln and not ln[0].isalpha()]
+        return [Sample(*map(float, ln.split(self.DELIMITER))) for ln in lines]
+
+
+class CsvSpectrumReader(TextColumnReader, device=&quot;uv-vis&quot;):
+    &quot;&quot;&quot;[Concrete Product] class 문 한 줄이 곧 등록이다.&quot;&quot;&quot;
+
+    RAW = &quot;wavelength_nm,absorbance\n220,0.12\n260,0.87\n280,0.45\n&quot;
+    DELIMITER = &quot;,&quot;
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+        return &quot;UV-Vis 분광광도계&quot;
+
+
+class AcquisitionJob:
+    &quot;&quot;&quot;[Client] 흐름만 안다. 어떤 장비가 존재하는지는 전혀 모른다.&quot;&quot;&quot;
+
+    def __init__(self, sample_id: str, device: str, **options: Any) -&gt; None:
+        &quot;&quot;&quot;장비 이름과 리더 생성 옵션을 보관만 한다(생성은 run()에서).&quot;&quot;&quot;
+        self.sample_id = sample_id
+        self.device = device
+        self.options = options
+
+    def run(self) -&gt; list[Sample]:
+        &quot;&quot;&quot;연결 → 읽기 → 정규화 → 저장. 생성은 등록부 조회로 대체되었다.&quot;&quot;&quot;
+        reader = Reader.for_device(self.device, **self.options)
+        print(f&quot;  연결: {reader.connect()}&quot;)
+        samples = reader.read_samples()
+        peak = max(s.intensity for s in samples)
+        normalized = [Sample(s.x, round(s.intensity / peak, 3)) for s in samples]
+        print(f&quot;  저장: {self.sample_id} → {[s.intensity for s in normalized]}&quot;)
+        return normalized
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 프레임워크가 아는 장비:&quot;, sorted(Reader._registry))
+    AcquisitionJob(&quot;S-101&quot;, &quot;uv-vis&quot;).run()
+
+    print(&quot;\n[2] XRD 리더가 정의되기 전에는 찾을 수 없다&quot;)
+    try:
+        AcquisitionJob(&quot;S-201&quot;, &quot;xrd&quot;).run()
+    except LookupError as e:
+        print(f&quot;  LookupError: {e}&quot;)
+
+    print(&quot;\n[3] 옆 연구실이 자기 모듈에서 클래스를 &#x27;정의&#x27;만 한다 (프레임워크 수정 0줄)&quot;)
+
+    class XrdReader(TextColumnReader, device=&quot;xrd&quot;):
+        &quot;&quot;&quot;[Concrete Product] 공백 구분 텍스트(2θ, counts).&quot;&quot;&quot;
+
+        RAW = &quot;20.0 150\n28.4 980\n47.3 410\n&quot;
+
+        def connect(self) -&gt; str:
+            &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+            return &quot;X선 회절계(옆 연구실)&quot;
+
+    print(&quot;  이제 등록된 장비:&quot;, sorted(Reader._registry))
+    AcquisitionJob(&quot;S-201&quot;, &quot;xrd&quot;).run()
+
+    print(&quot;\n[4] 같은 이름으로 두 번 등록하면 정의 시점에 실패한다&quot;)
+    try:
+        class AnotherXrdReader(TextColumnReader, device=&quot;xrd&quot;):
+            &quot;&quot;&quot;다른 연구실이 같은 키를 쓴 경우.&quot;&quot;&quot;
+
+            def connect(self) -&gt; str:
+                &quot;&quot;&quot;연결을 흉내 낸다.&quot;&quot;&quot;
+                return &quot;충돌&quot;
+    except ValueError as e:
+        print(f&quot;  ValueError: {e}&quot;)
+
+    print(&quot;\n[5] 함정: 등록은 &#x27;모듈이 import될 때&#x27; 일어난다&quot;)
+    print(&quot;  XrdReader가 든 모듈을 아무도 import하지 않으면, 코드가 분명히 있는데도 [2]처럼 &#x27;없는 장비&#x27;로 실패한다.&quot;)
+    print(&quot;  그래서 플러그인 시스템은 진입점(entry points)이나 명시적 import 목록을 함께 둔다.&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_registry.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[2]와 [3]을 나란히 보면 레지스트리의 성격이 드러난다. 프레임워크 코드는 한 글자도 바뀌지 않았는데, 클래스 정의가 실행되자 장비 목록이 늘었다. <code>__init_subclass__</code>는 파이썬 3.6에서 들어온 훅으로, 예전에는 메타클래스로 하던 일을 훨씬 가볍게 해 준다. 특히 <code>Reader</code>가 이미 <code>ABCMeta</code>를 쓰고 있어서 별도 메타클래스를 섞으면 충돌을 해결해야 하는데, <code>__init_subclass__</code>는 그 문제가 없다.</p>
+  <p>엄밀히 말해 이것은 더 이상 GoF 팩토리 메서드가 아니다. Creator의 하위 클래스가 생성을 결정하지 않고, <code>AcquisitionJob</code>은 상속 계층조차 갖지 않는다. 남은 것은 팩토리 메서드가 노리던 <em>결과</em>, 즉 "새 제품은 추가만으로"다. [5]가 대가다. 등록이 import라는 부수 효과에 기대므로, 누군가 그 모듈을 import하지 않으면 코드가 분명히 있는데도 장비가 "없다". 명시적 상속 계층에서는 생길 수 없는 종류의 버그다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>방식</th><th>무엇을 만들지 결정하는 주체</th><th>새 장비 추가 비용</th><th>GoF 의도와의 거리</th></tr></thead>
+    <tbody>
+      <tr><td>naive / 단순 팩토리</td><td>프레임워크의 조건문</td><td>공용 코드 수정</td><td>패턴 아님</td></tr>
+      <tr><td>02 팩토리 메서드</td><td>Concrete Creator(하위 클래스)</td><td>하위 클래스 2개 추가</td><td>정확히 일치</td></tr>
+      <tr><td>03 생성 함수 주입</td><td>작업을 조립하는 호출자</td><td>리더 클래스 1개 추가</td><td>의도는 같고 수단이 합성</td></tr>
+      <tr><td>03 <code>from_config</code></td><td>설정 데이터 + 프레임워크의 표</td><td>표 수정</td><td>이름만 같음</td></tr>
+      <tr><td>04 레지스트리</td><td>등록부(정의 시점에 채워짐)</td><td>리더 클래스 1개 추가 + import 보장</td><td>결과(OCP)만 계승</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="tradeoffs">
+  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <p><strong>얻는 것.</strong> 흐름을 가진 코드가 구체 클래스를 모르게 된다(DIP). 새 제품은 하위 클래스 추가로 끝난다(OCP). 생성 인자가 그것을 아는 클래스로 모인다. 테스트용 이음새가 설계의 일부로 생긴다.</p>
+  <p><strong>치르는 것.</strong> 제품 하나를 위해 Creator 하위 클래스가 하나 더 생긴다(평행 계층). 상속은 정적이므로 실행 중에 생성 방식을 바꿀 수 없다. 그리고 "이 작업은 무엇을 만드는가"를 알려면 하위 클래스를 따라 내려가야 하므로 코드 추적이 한 단계 간접적이 된다.</p>
+  <div class="callout warn">
+    <span class="label">이 패턴을 쓰지 말아야 할 때</span>
+    <ul>
+      <li><strong>제품 종류가 닫혀 있고 확장 주체가 내부 팀뿐일 때.</strong> 장비가 두 종류이고 앞으로 늘 계획이 없다면 단순 팩토리 함수 하나가 더 읽기 쉽다. 평행 계층은 "제3자가 확장한다"는 전제가 있을 때 값을 한다.</li>
+      <li><strong>변하는 것이 생성 하나뿐이고 흐름을 상속할 이유가 없을 때.</strong> 파이썬에서는 생성 함수를 주입하는 편(03)이 싸다. 하위 클래스 하나가 메서드 한 줄을 위해 존재한다면 설계가 언어를 거스르고 있다는 신호다.</li>
+      <li><strong>생성 흐름을 소유한 상위 클래스가 없을 때.</strong> 그냥 "객체를 만들어 주는 함수"가 필요하다면 그것은 팩토리 함수이지 팩토리 메서드가 아니다. 패턴 이름을 붙이려고 추상 클래스를 만들지 않는다.</li>
+      <li><strong>테스트 때문에만 도입하려 할 때.</strong> 테스트 이음새가 유일한 동기라면 생성자 주입이 더 직접적이다.</li>
+    </ul>
+  </div>
+  <p><strong>관련 패턴.</strong></p>
+  <ul>
+    <li><strong>추상 팩토리(2장)</strong>: 팩토리 메서드가 "제품 하나"의 생성을 미룬다면, 추상 팩토리는 함께 쓰여야 하는 제품 <em>여러 개</em>의 생성 메서드를 한 객체에 묶는다. 추상 팩토리의 각 <code>create_*</code>는 대개 팩토리 메서드로 구현된다.</li>
+    <li><strong>템플릿 메서드(14장)</strong>: <code>run()</code>은 템플릿 메서드이고, <code>create_reader()</code>는 그 단계 중 하나다. 팩토리 메서드는 "단계가 생성인 템플릿 메서드"의 특수 사례로 볼 수 있다.</li>
+    <li><strong>전략(10장)</strong>: 03의 생성 함수 주입은 "생성 전략"이다. 상속(템플릿 메서드·팩토리 메서드)과 합성(전략)이라는 두 축은 이 교재에서 반복해서 등장한다.</li>
+  </ul>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. 표준 라이브러리의 "팩토리 메서드"</h3>
+    <p><code>datetime.fromtimestamp()</code>와 <code>dict.fromkeys()</code>는 문서와 블로그에서 흔히 팩토리 메서드라 불린다. GoF의 의도("어떤 클래스의 인스턴스를 만들지는 서브클래스가 결정한다")를 기준으로 이 둘이 GoF 팩토리 메서드인지 판별하라. 하위 클래스에서 이 메서드를 호출하면 무엇이 반환되는지 실험해 보고, 그 결과가 판별에 어떤 영향을 주는지도 논하라.</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>둘 다 GoF 팩토리 메서드가 아니라 <strong>대체 생성자</strong>다. 판별 근거는 두 가지다. 첫째, 만들 클래스는 호출자가 <dfn class="term" id="term-receiver-class" data-term="receiver-class" title="`Cls.method()`처럼 클래스 메서드를 호출할 때 점 앞에 온 클래스; `@classmethod`의 cls로 전달된다.">수신 클래스</dfn>(<code>Cls.method()</code>에서 점 앞에 온 클래스, 곧 <code>@classmethod</code>의 <code>cls</code>로 전달되는 클래스)를 고르는 순간 정해진다. <code>datetime.fromtimestamp(...)</code>라고 쓴 코드는 이미 "<code>datetime</code>을 달라"고 말했다. 프레임워크의 흐름이 훅을 부르고 하위 클래스가 답하는 간접층이 없다. 둘째, 생성된 객체를 사용하는 Creator 쪽 연산(02의 <code>run()</code>)이 없다. 이 메서드들의 목적은 "같은 타입을 다른 입력 형식에서 만들기", 즉 생성자 오버로딩이 없는 파이썬에서 이름 붙은 생성자를 제공하는 것이다.</p>
+      <p>흔한 오답은 "하위 클래스에서 부르면 하위 클래스 인스턴스가 나오니 서브클래스가 결정한다"는 논리다. 아래 실험처럼 실제로 하위 클래스 인스턴스가 나온다. 그러나 그것은 <code>cls</code>를 통해 생성하는 classmethod의 일반적 성질일 뿐, 하위 클래스가 생성 결정을 <em>오버라이드</em>한 결과가 아니다. 결정은 여전히 호출자의 몫이다.</p>
+      <figure class="code"><figcaption>src/01_factory_method/solutions/ex1_alt_constructors.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 1 해설: datetime.fromtimestamp, dict.fromkeys는 GoF 팩토리 메서드인가?
+
+상황: 표준 라이브러리 문서와 블로그는 classmethod 대체 생성자를 흔히 &#x27;팩토리 메서드&#x27;라고
+부른다. 이 파일은 두 메서드의 동작을 실험으로 확인하고, GoF의 의도 —
+&quot;Creator의 연산이 생성 훅을 호출하고, 무엇을 만들지는 Creator의 서브클래스가 결정한다&quot; —
+에 비추어 판별한다.
+
+결론 요약: 둘 다 GoF 팩토리 메서드가 아니라 &#x27;대체 생성자(alternative constructor)&#x27;다.
+- 생성될 클래스는 &#x27;호출자가 고른 수신 클래스(cls)&#x27;로 정해진다. 하위 클래스가 생성
+  결정을 오버라이드하는 훅이 아니다.
+- 생성 결과를 사용하는 Creator 쪽 연산(02의 run()에 해당)이 없다. 메서드의 목적이
+  &#x27;다른 입력 형식으로 같은 타입을 만든다&#x27;는 데 있다.
+공통점은 하나다: cls를 통해 생성하므로 하위 클래스에서 호출하면 하위 클래스 인스턴스가 나온다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+
+class LabTimestamp(datetime):
+    &quot;&quot;&quot;datetime 하위 클래스. fromtimestamp가 어떤 클래스를 만드는지 확인하려는 실험체.&quot;&quot;&quot;
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;연구실 기록용 표기. 하위 클래스에만 있는 메서드로, 반환 타입 확인에 쓴다.&quot;&quot;&quot;
+        return self.strftime(&quot;LAB-%Y%m%d-%H%M&quot;)
+
+
+class CountingDict(dict):
+    &quot;&quot;&quot;dict 하위 클래스. fromkeys 실험체.&quot;&quot;&quot;
+
+    def total(self) -&gt; int:
+        &quot;&quot;&quot;값의 합. 하위 클래스 전용 메서드.&quot;&quot;&quot;
+        return sum(self.values())
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 하위 클래스에서 호출하면 하위 클래스 인스턴스가 나온다 (cls 다형성)&quot;)
+    ts = LabTimestamp.fromtimestamp(0, tz=timezone.utc)
+    print(f&quot;  {type(ts).__name__}.fromtimestamp → {type(ts).__name__}, label={ts.label()}&quot;)
+    counts = CountingDict.fromkeys([&quot;UV-Vis&quot;, &quot;MS&quot;, &quot;XRD&quot;], 0)
+    print(f&quot;  {type(counts).__name__}.fromkeys → {type(counts).__name__}, total={counts.total()}&quot;)
+
+    print(&quot;\n[2] 그러나 &#x27;무엇을 만들지&#x27;는 호출자가 수신 클래스를 고르는 순간 이미 정해졌다&quot;)
+    print(&quot;  datetime.fromtimestamp(...)를 부르는 코드는 datetime을 원한다고 직접 말한 셈이다.&quot;)
+    print(&quot;  GoF처럼 &#x27;프레임워크 흐름 → 훅 호출 → 하위 클래스가 선택&#x27;하는 간접층이 없다.&quot;)
+
+    print(&quot;\n[3] 이 메서드들의 실제 목적: 같은 타입을 &#x27;다른 입력&#x27;에서 만들기&quot;)
+    print(f&quot;  datetime(1970,1,1,tzinfo=utc) == datetime.fromtimestamp(0, utc) → &quot;
+          f&quot;{datetime(1970, 1, 1, tzinfo=timezone.utc) == datetime.fromtimestamp(0, tz=timezone.utc)}&quot;)
+    print(&quot;  → 생성자 오버로딩이 없는 파이썬에서 &#x27;이름 붙은 생성자&#x27;를 만드는 관용구다.&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex1_alt_constructors.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 로그 수집기</h3>
+    <p>연구실 서버 관리자가 쓴 다음 로그 수집기를 (1) GoF 팩토리 메서드로, (2) 이어서 <code>__init_subclass__</code> 레지스트리로 리팩터링하라. 두 번째 단계에서는 <code>"<dfn class="term" id="term-nginx" data-term="nginx" title="널리 쓰이는 웹 서버·리버스 프록시; 요청마다 접근 로그를 남긴다.">nginx</dfn>"</code>(널리 쓰이는 웹 서버로, 요청마다 접근 로그를 남긴다), <code>"apache"</code> 같은 설정 문자열로 수집기를 고를 수 있어야 하고, 새 형식은 프레임워크 수정 없이 클래스 정의만으로 추가되어야 한다. 코드의 <code><dfn class="term" id="term-regular-expression" data-term="regular-expression" title="문자열 패턴을 기술하는 작은 언어; 파이썬은 `re` 모듈로 다룬다.">re.match</dfn></code>는 문자열 패턴을 기술하는 작은 언어인 정규식을 다루는 <code>re</code> 모듈 함수이고, <dfn class="term" id="term-http-status-code" data-term="http-status-code" title="HTTP 응답의 결과를 나타내는 세 자리 숫자(2xx 성공, 4xx 클라이언트 오류, 5xx 서버 오류, 401은 인증 필요).">5xx</dfn>는 웹에서 요청과 응답을 주고받는 프로토콜인 <dfn class="term" id="term-hypertext-transfer-protocol" data-term="hypertext-transfer-protocol" title="웹에서 요청·응답을 주고받는 프로토콜.">HTTP</dfn>의 응답 상태 코드(결과를 나타내는 세 자리 숫자) 중 서버 오류(500번대)를 뜻한다.</p>
+    <pre><code class="language-python">import re
+
+class LogCollector:
+    """웹 서버 접근 로그에서 IP별 5xx 오류 수를 센다."""
+
+    def __init__(self, fmt: str) -> None:
+        self.fmt = fmt  # "nginx" 또는 "apache"
+
+    def collect(self, lines: list[str]) -> dict[str, int]:
+        errors: dict[str, int] = {}
+        for line in lines:
+            # 문제: 줄마다 형식 분기 — 흐름과 파싱 결정이 엉켜 있다
+            if self.fmt == "nginx":
+                m = re.match(r'^(\S+) .*?" (\d{3}) ', line)
+                ip, status = m.group(1), int(m.group(2))
+            elif self.fmt == "apache":
+                status_s, ip, _ = line.split("|")
+                status = int(status_s)
+            else:
+                raise ValueError(self.fmt)
+            if status &gt;= 500:
+                errors[ip] = errors.get(ip, 0) + 1
+        return errors</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>먼저 변하는 것(한 줄을 해석하는 방법)과 변하지 않는 것(줄을 돌며 5xx를 세는 흐름)을 가른다. 변하는 것을 <code>LogParser</code> 제품 계층으로 빼내고, <code>collect()</code>는 그 안에서 팩토리 메서드 <code>create_parser()</code>를 부른다. 원래 코드는 줄마다 분기했지만 이제 파서는 <code>collect()</code> 시작 시 한 번 만들어진다. 생성 시점이 흐름 안에 명확히 자리 잡은 것이다. 데모의 nginx 로그 줄에 보이는 <dfn class="term" id="term-http-method" data-term="http-method" title="HTTP 요청의 동작 종류(GET 조회, POST 생성·변경, HEAD 헤더만 조회 등).">GET</dfn>·POST는 HTTP 요청의 동작 종류(GET은 조회, POST는 생성·변경)다.</p>
+      <p>2단계에서는 Product가 아니라 <strong>Concrete Creator를 등록</strong>했다. 본문 04는 리더(Product)를 등록했다. 어느 쪽이든 된다. 판단 기준은 "설정 문자열이 고르는 단위가 무엇인가"다. 형식마다 수집 흐름의 다른 단계까지 바뀔 가능성이 있다면 Creator를 등록하는 편이 낫다.</p>
+      <p>흔한 오답은 <code>create_parser()</code> 안에 <code>if self.fmt == ...</code>를 그대로 옮기는 것이다. 메서드 이름은 팩토리 메서드지만 하위 클래스가 결정하지 않으므로 단순 팩토리를 메서드로 옮긴 것에 불과하다. 또 하나 따져 볼 변형은 <code>__init__</code>에서 <code>self.parser = self.create_parser()</code>로 파서를 미리 만들어 두는 것이다. 오버라이드는 그대로 동작하므로 하위 클래스로 바꿔 끼우는 데는 문제가 없다. 진짜 함정은 두 가지다. 첫째, 생성자에서 팩토리 메서드를 부르면 하위 클래스가 <code>super().__init__()</code> <em>뒤에</em> 설정하는 상태가 아직 없다. 본문의 <code>SerialJsonJob</code>처럼 <code>port</code>를 <code>super().__init__()</code> 다음에 저장하는 하위 클래스라면 <code>create_reader()</code>가 <code>AttributeError</code>를 낸다. 둘째, 생성 시점이 "실행할 때"에서 "객체를 만들 때"로 당겨진다. 장비 연결처럼 생성이 비싸거나 부수 효과가 있으면, 실행되지 않을 작업까지 자원을 잡는다(본문 03 데모 [3]이 지킨 성질이다).</p>
+      <figure class="code"><figcaption>src/01_factory_method/solutions/ex2_log_parser.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: if/elif로 파서를 고르는 로그 수집기를 팩토리 메서드로, 이어서 레지스트리로.
+
+상황: 연구실 서버 관리자가 웹 서버 접근 로그를 모으는 LogCollector를 만들었다. collect()
+안에서 `if fmt == &quot;nginx&quot;: ... elif fmt == &quot;apache&quot;: ...`로 파서를 골랐다(문제 본문 코드).
+본문 01~02와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
+
+해설의 두 단계:
+- 1단계(GoF 팩토리 메서드): LogCollector가 collect() 흐름을 소유하고 create_parser()를 훅으로
+  남긴다. NginxCollector/ApacheCollector가 오버라이드한다.
+- 2단계(__init_subclass__ 레지스트리): 하위 클래스가 &#x27;정의되는 순간&#x27; 형식 이름으로 등록되어
+  설정 문자열로 수집기를 고를 수 있게 한다. Creator 하위 클래스 자체를 등록한다는 점이
+  본문 04_registry.py(Product를 등록)와 다르다 — 어느 쪽을 등록해도 된다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import re
+from abc import ABC, abstractmethod
+from typing import Any, ClassVar
+
+
+class LogParser(ABC):
+    &quot;&quot;&quot;[Product] 로그 한 줄을 (IP, 상태 코드)로 바꾼다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def parse(self, line: str) -&gt; tuple[str, int]:
+        &quot;&quot;&quot;한 줄을 해석한다.&quot;&quot;&quot;
+
+
+class NginxParser(LogParser):
+    &quot;&quot;&quot;[Concrete Product] nginx combined 형식: IP가 맨 앞, 상태 코드는 요청 문자열 뒤.&quot;&quot;&quot;
+
+    PATTERN = re.compile(r&#x27;^(\S+) .*?&quot; (\d{3}) &#x27;)
+
+    def parse(self, line: str) -&gt; tuple[str, int]:
+        &quot;&quot;&quot;정규식으로 IP와 상태 코드를 뽑는다.&quot;&quot;&quot;
+        m = self.PATTERN.match(line)
+        if m is None:
+            # assert가 아니라 예외: assert는 python -O에서 사라지므로 입력 검증에 쓰면 안 된다.
+            raise ValueError(f&quot;nginx 형식이 아님: {line}&quot;)
+        return m.group(1), int(m.group(2))
+
+
+class ApacheParser(LogParser):
+    &quot;&quot;&quot;[Concrete Product] 연구실 아파치 서버의 사용자 정의 형식: &#x27;상태|IP|경로&#x27;.&quot;&quot;&quot;
+
+    def parse(self, line: str) -&gt; tuple[str, int]:
+        &quot;&quot;&quot;세로 막대(|)로 나눈다. 필드 순서가 nginx와 다르다는 점이 파서를 나눌 이유다.&quot;&quot;&quot;
+        status, ip, _path = line.split(&quot;|&quot;)
+        return ip, int(status)
+
+
+class LogCollector(ABC):
+    &quot;&quot;&quot;[Creator] 수집 흐름(파싱 → 오류 집계)을 소유한다. 형식별 지식은 없다.&quot;&quot;&quot;
+
+    # 2단계: 형식 이름 → Concrete Creator 클래스.
+    registry: ClassVar[dict[str, type[LogCollector]]] = {}
+
+    def __init_subclass__(cls, *, fmt: str | None = None, **kwargs: Any) -&gt; None:
+        &quot;&quot;&quot;하위 클래스 정의 시 fmt 키로 자기 자신을 등록한다(2단계).&quot;&quot;&quot;
+        super().__init_subclass__(**kwargs)
+        if fmt is None:
+            return
+        if fmt in LogCollector.registry:
+            # 본문 04_registry.py와 같은 이유: 조용히 덮어쓰면 두 수집기가 서로를 가리는 버그가 늦게 드러난다.
+            raise ValueError(f&quot;형식 {fmt!r}가 이미 {LogCollector.registry[fmt].__name__}로 등록됨&quot;)
+        LogCollector.registry[fmt] = cls
+
+    @classmethod
+    def for_format(cls, fmt: str) -&gt; LogCollector:
+        &quot;&quot;&quot;설정 문자열로 수집기를 만든다. 원래 코드의 if/elif가 여기서 표 조회 한 번이 된다.&quot;&quot;&quot;
+        return LogCollector.registry[fmt]()
+
+    @abstractmethod
+    def create_parser(self) -&gt; LogParser:
+        &quot;&quot;&quot;[Factory Method] 이 수집기가 쓸 파서를 만든다(1단계의 핵심).&quot;&quot;&quot;
+
+    def collect(self, lines: list[str]) -&gt; dict[str, int]:
+        &quot;&quot;&quot;IP별 5xx 오류 수를 센다. 파서를 &#x27;언제&#x27; 만들지는 여기서 결정한다.&quot;&quot;&quot;
+        parser = self.create_parser()
+        errors: dict[str, int] = {}
+        for line in lines:
+            ip, status = parser.parse(line)
+            if status &gt;= 500:
+                errors[ip] = errors.get(ip, 0) + 1
+        return errors
+
+
+class NginxCollector(LogCollector, fmt=&quot;nginx&quot;):
+    &quot;&quot;&quot;[Concrete Creator] nginx 로그 수집기.&quot;&quot;&quot;
+
+    def create_parser(self) -&gt; LogParser:
+        &quot;&quot;&quot;nginx 파서를 고른다.&quot;&quot;&quot;
+        return NginxParser()
+
+
+class ApacheCollector(LogCollector, fmt=&quot;apache&quot;):
+    &quot;&quot;&quot;[Concrete Creator] 아파치 로그 수집기.&quot;&quot;&quot;
+
+    def create_parser(self) -&gt; LogParser:
+        &quot;&quot;&quot;아파치 파서를 고른다.&quot;&quot;&quot;
+        return ApacheParser()
+
+
+if __name__ == &quot;__main__&quot;:
+    nginx_lines = [
+        &#x27;10.0.0.7 - - [08/Oct/2026:10:00:01] &quot;GET /spectra HTTP/1.1&quot; 200 512&#x27;,
+        &#x27;10.0.0.9 - - [08/Oct/2026:10:00:02] &quot;POST /upload HTTP/1.1&quot; 502 0&#x27;,
+        &#x27;10.0.0.9 - - [08/Oct/2026:10:00:03] &quot;POST /upload HTTP/1.1&quot; 503 0&#x27;,
+    ]
+    apache_lines = [&quot;500|10.0.1.2|/xrd&quot;, &quot;200|10.0.1.3|/ms&quot;, &quot;500|10.0.1.2|/xrd&quot;]
+
+    print(&quot;[1] 1단계 — Concrete Creator를 직접 고른다 (GoF 팩토리 메서드)&quot;)
+    print(&quot;  nginx :&quot;, NginxCollector().collect(nginx_lines))
+    print(&quot;  apache:&quot;, ApacheCollector().collect(apache_lines))
+
+    print(&quot;\n[2] 2단계 — 설정 문자열로 고른다 (정의만 하면 등록되는 레지스트리)&quot;)
+    print(&quot;  등록된 형식:&quot;, sorted(LogCollector.registry))
+    print(&quot;  for_format(&#x27;apache&#x27;):&quot;, LogCollector.for_format(&quot;apache&quot;).collect(apache_lines))
+
+    print(&quot;\n[3] 새 형식 추가: 프레임워크(LogCollector) 수정 없이 클래스 정의만으로&quot;)
+
+    class CaddyParser(LogParser):
+        &quot;&quot;&quot;[Concrete Product] Caddy 서버의 공백 구분 형식: &#x27;상태 IP 경로&#x27;.&quot;&quot;&quot;
+
+        def parse(self, line: str) -&gt; tuple[str, int]:
+            &quot;&quot;&quot;공백으로 나눈다.&quot;&quot;&quot;
+            status, ip, _path = line.split()
+            return ip, int(status)
+
+    class CaddyCollector(LogCollector, fmt=&quot;caddy&quot;):
+        &quot;&quot;&quot;[Concrete Creator] 정의되는 순간 &#x27;caddy&#x27;로 등록된다.&quot;&quot;&quot;
+
+        def create_parser(self) -&gt; LogParser:
+            &quot;&quot;&quot;Caddy 파서를 고른다.&quot;&quot;&quot;
+            return CaddyParser()
+
+    print(&quot;  등록된 형식:&quot;, sorted(LogCollector.registry))
+    print(&quot;  for_format(&#x27;caddy&#x27;):&quot;, LogCollector.for_format(&quot;caddy&quot;).collect([&quot;503 10.0.2.5 /ms&quot;, &quot;200 10.0.2.6 /uv&quot;]))</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_log_parser.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 장비가 두 종류뿐이라면</h3>
+    <p>서윤의 연구실만 쓰는 프레임워크이고 장비는 UV-Vis와 질량분석기 두 종류뿐이다. 앞으로 늘릴 계획도 없다. 이때 단순 팩토리 함수(<code>make_reader(device)</code>)와 팩토리 메서드 중 무엇을 고르겠는가? (a) 확장 주체가 내부 팀인가 외부 연구실인가, (b) 테스트 용이성, 두 관점에서 근거를 들어 논하라. 상황이 어떻게 바뀌면 결론이 뒤집히는지도 쓰라.</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>단순 팩토리 함수가 낫다.</strong> (a) 확장 주체가 내부 팀뿐이면 "공용 코드를 수정해야 한다"는 비용이 사실상 없다. 고치는 사람과 코드 소유자가 같기 때문이다. 팩토리 메서드의 평행 계층은 제3자가 프레임워크를 수정하지 않고 확장해야 할 때 비용을 회수하는데, 그 전제가 없다. 닫힌 두 갈래 분기는 한 화면에 다 보이는 편이 오히려 읽기 쉽다. (b) 테스트 용이성은 팩토리 메서드만의 장점이 아니다. <code>AcquisitionJob</code>이 생성 함수나 리더를 생성자 인자로 받게 하면(03의 방식) 단순 팩토리와 함께 써도 이음새가 생긴다. 즉 "테스트를 위해 팩토리 메서드가 필요하다"는 논리는 성립하지 않는다.</p>
+      <p><strong>결론이 뒤집히는 조건</strong>: 다른 연구실이 같은 코드를 쓰기 시작해 확장 주체가 외부로 넘어갈 때, 또는 장비마다 정규화·저장 같은 다른 단계도 함께 달라져 "생성 + 다른 훅"을 한 단위로 묶어 바꿀 필요가 생길 때다. 앞의 경우는 레지스트리(04)도 후보이고, 뒤의 경우는 하위 클래스 방식(02)이 가장 자연스럽다.</p>
+      <p>흔한 오답은 "나중에 늘 수도 있으니 미리 패턴을 적용한다"이다. 두 갈래 <code>if</code>를 팩토리 메서드로 바꾸는 데는 몇 분이면 충분하다. 바꾸는 비용이 낮은 결정을 미리 내려 두는 것은 <dfn class="term" id="term-you-aren-t-gonna-need-it" data-term="you-aren-t-gonna-need-it" title="&#x27;그건 필요 없을 것이다&#x27; — 실제로 필요해지기 전에는 기능이나 추상화를 미리 만들지 말라는 원칙.">YAGNI</dfn>("You Aren't Gonna Need It": 실제로 필요해지기 전에는 기능이나 추상화를 미리 만들지 말라는 원칙) 위반이고, 그동안 모든 독자가 불필요한 간접층을 읽는 비용을 치른다.</p>
+    </details>
+  </div>
+</section>
+
+<!--
+설계서 대비 변경 사항:
+- 파이썬다운 변형을 03_pythonic.py(생성 함수 주입 + from_config)와 04_registry.py(__init_subclass__)로 나눴다.
+  한 파일에 넣으면 Reader를 ABC(레지스트리 소유)와 Protocol(주입) 두 방식으로 동시에 정의해야 해 혼란스럽기 때문이다.
+- 연습문제 2 해설에서는 본문(Product 등록)과 대비되도록 Concrete Creator를 등록하는 레지스트리를 보였다.
+-->
+    <nav class="pager"><a class="prev" href="00-intro.html"><small>← 이전 · 서론</small>서론: OOP 원리에서 패턴으로</a><a class="next" href="02-abstract-factory.html"><small>다음 · 2장 →</small>추상 팩토리 (Abstract Factory)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

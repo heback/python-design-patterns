@@ -1,0 +1,1327 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>종합 종합: 패턴 비교와 조합 — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">종합 · 종합: 패턴 비교와 조합</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#look-alikes">1. 닮은 패턴 구별하기</a></li><li><a href="#case-study">2. 사례 연구: 로봇 창고</a></li><li><a href="#combinations">3. 자주 쓰이는 조합</a></li><li><a href="#principles">4. 원칙으로 되짚기</a></li><li><a href="#python-absorption">5. 파이썬이 흡수한 패턴들</a></li><li><a href="#smells">6. 냄새에서 후보 패턴으로</a></li><li><a href="#anti-patterns">7. 패턴 과잉 체크리스트</a></li><li><a href="#exercises">8. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">종합</span><h1>종합: 패턴 비교와 조합</h1><p class="subtitle">닮은 패턴을 의도로 가르고, 변경 축만큼만 패턴을 넣기</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ol>
+    <li>구조가 비슷한 패턴들(전략/상태, 데코레이터/프록시/어댑터, 팩토리 메서드/추상 팩토리/빌더, 컴포지트/데코레이터, 퍼사드/어댑터, 커맨드/전략, 템플릿 메서드/전략)을 "누가 무엇을 결정하는가"라는 의도 기준으로 구별할 수 있다.</li>
+    <li>하나의 시스템에서 변경 축을 세고, 축마다 가장 가벼운 패턴을 골라 조합하며, <em>넣지 않은</em> 패턴과 그 이유를 말할 수 있다.</li>
+    <li>파이썬이 각 패턴을 얼마나 흡수하는지 정리하고, 냄새에서 후보 패턴을 떠올리되 과잉 적용을 걸러 내는 체크리스트를 쓸 수 있다.</li>
+  </ol>
+</section>
+
+<section id="look-alikes">
+  <h2>1. 닮은 패턴 구별하기</h2>
+  <p>열다섯 장을 지나 온 독자는 이미 눈치챘을 것이다. 클래스 다이어그램만 놓고 보면 구별되지 않는 패턴이 많다. 전략과 상태는 "Context가 교체 가능한 객체에 위임한다"는 같은 그림이고, 데코레이터와 프록시는 "같은 인터페이스로 감싸고 위임한다"는 같은 그림이다. 서론(<a href="00-intro.html">0장</a>)에서 말했듯 패턴을 가르는 것은 모양이 아니라 의도다. 그리고 의도는 대개 하나의 질문으로 드러난다. <strong>누가 무엇을 결정하는가?</strong></p>
+  <p class="lead-in">먼저 가장 자주 혼동되는 두 쌍을 같은 모양으로 짠 코드다. 창고 로봇의 속도 규칙을 전략과 상태로 각각 만들고, 로봇 드라이버를 데코레이터와 프록시로 각각 감쌌다. <code>StrategyRobot</code>과 <code>StateRobot</code>에서 다음 규칙을 고르는 코드가 <em>어디에</em> 있는지, <code>TimingDriver</code>와 <code>LazyDriver</code>에서 실제 드라이버를 <em>누가</em> 만드는지에 주목하라.</p>
+  <figure class="code"><figcaption>src/99_summary/01_lookalikes.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;닮은 패턴 구별하기: 같은 클래스 모양, 다른 의도 — 전략 vs 상태, 데코레이터 vs 프록시.
+
+상황: 물류 기업 &#x27;한빛로지스&#x27;의 로봇 창고 팀 신입 다온은 코드 리뷰에서 두 번 지적을 받았다.
+&quot;이건 전략이 아니라 상태예요&quot;, &quot;이건 데코레이터가 아니라 프록시예요&quot;. 다온은 항의했다.
+&quot;클래스 다이어그램이 똑같은데요?&quot; 맞다. 이 파일은 일부러 같은 모양으로 짠 두 쌍을 나란히 두고,
+&#x27;누가 무엇을 결정하는가&#x27;라는 질문 하나로 둘을 가른다.
+
+- 전략 vs 상태(10장·13장): 둘 다 Context가 교체 가능한 객체에 위임한다.
+  → 교체를 &#x27;바깥(클라이언트)&#x27;이 결정하면 전략, &#x27;상태 객체 자신&#x27;이 결정하면 상태.
+- 데코레이터 vs 프록시(6장·9장): 둘 다 같은 인터페이스로 감싸고 위임한다.
+  → 감쌀 객체를 &#x27;받아서&#x27; 책임을 더하면 데코레이터, 실제 객체의 생성·접근을 &#x27;소유·통제&#x27;하면 프록시.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from typing import Callable, Protocol
+
+
+# ===========================================================================
+# 1. 전략 vs 상태 — 로봇의 속도 결정
+# ===========================================================================
+
+SpeedRule = Callable[[int], float]  # 적재 무게(kg) → 최고 속도(m/s)
+
+
+def careful(load_kg: int) -&gt; float:
+    &quot;&quot;&quot;[Concrete Strategy] 깨지기 쉬운 상품 구역용: 무게와 무관하게 저속.&quot;&quot;&quot;
+    return 0.5
+
+
+def by_weight(load_kg: int) -&gt; float:
+    &quot;&quot;&quot;[Concrete Strategy] 일반 구역용: 무거울수록 느리게.&quot;&quot;&quot;
+    return max(0.5, 2.0 - load_kg / 50)
+
+
+class StrategyRobot:
+    &quot;&quot;&quot;[Context — 전략] 속도 규칙을 &#x27;바깥에서&#x27; 받는다. 로봇은 규칙이 언제 바뀌는지 모른다.&quot;&quot;&quot;
+
+    def __init__(self, rule: SpeedRule) -&gt; None:
+        &quot;&quot;&quot;교체 결정권은 이 생성자를 부르는 쪽(관제 시스템)에 있다.&quot;&quot;&quot;
+        self.rule = rule
+
+    def speed(self, load_kg: int) -&gt; float:
+        &quot;&quot;&quot;위임만 한다. 다음 규칙을 고르는 코드는 이 클래스 어디에도 없다.&quot;&quot;&quot;
+        return self.rule(load_kg)
+
+
+class Mode(Protocol):
+    &quot;&quot;&quot;[State] 상태별 행동 + &#x27;다음 상태&#x27;를 돌려주는 계약.&quot;&quot;&quot;
+
+    name: str
+
+    def speed(self, load_kg: int) -&gt; float:
+        &quot;&quot;&quot;이 상태에서의 속도.&quot;&quot;&quot;
+        ...
+
+    def after_trip(self, battery: int) -&gt; Mode:
+        &quot;&quot;&quot;주행을 마친 뒤 다음 상태를 &#x27;스스로&#x27; 고른다 — 전략에는 없는 메서드.&quot;&quot;&quot;
+        ...
+
+
+class Normal:
+    &quot;&quot;&quot;[Concrete State] 정상 주행.&quot;&quot;&quot;
+
+    name = &quot;정상&quot;
+
+    def speed(self, load_kg: int) -&gt; float:
+        &quot;&quot;&quot;무게 기반 속도.&quot;&quot;&quot;
+        return by_weight(load_kg)
+
+    def after_trip(self, battery: int) -&gt; Mode:
+        &quot;&quot;&quot;배터리가 30% 미만이면 절전 모드로 넘어간다. 이 지식이 상태 객체 안에 있다.&quot;&quot;&quot;
+        return PowerSave() if battery &lt; 30 else self
+
+
+class PowerSave:
+    &quot;&quot;&quot;[Concrete State] 절전 주행.&quot;&quot;&quot;
+
+    name = &quot;절전&quot;
+
+    def speed(self, load_kg: int) -&gt; float:
+        &quot;&quot;&quot;절전 중에는 저속.&quot;&quot;&quot;
+        return 0.5
+
+    def after_trip(self, battery: int) -&gt; Mode:
+        &quot;&quot;&quot;충전되면 정상으로 돌아간다.&quot;&quot;&quot;
+        return Normal() if battery &gt;= 60 else self
+
+
+class StateRobot:
+    &quot;&quot;&quot;[Context — 상태] 같은 위임 구조지만, 교체는 상태 객체가 결정한다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;처음 상태만 정한다. 이후 교체는 바깥이 아니라 after_trip()의 반환값이 한다.&quot;&quot;&quot;
+        self.mode: Mode = Normal()
+
+    def speed(self, load_kg: int) -&gt; float:
+        &quot;&quot;&quot;위임.&quot;&quot;&quot;
+        return self.mode.speed(load_kg)
+
+    def finish_trip(self, battery: int) -&gt; None:
+        &quot;&quot;&quot;다음 상태를 묻고 갈아 끼운다. 로봇은 &#x27;어떤 조건에서 무엇으로&#x27;를 모른다.&quot;&quot;&quot;
+        self.mode = self.mode.after_trip(battery)
+
+
+# ===========================================================================
+# 2. 데코레이터 vs 프록시 — 로봇 드라이버 감싸기
+# ===========================================================================
+
+class Driver(Protocol):
+    &quot;&quot;&quot;[Component / Subject] 로봇 드라이버 인터페이스.&quot;&quot;&quot;
+
+    def move(self, cell: str) -&gt; str:
+        &quot;&quot;&quot;칸으로 이동한다.&quot;&quot;&quot;
+        ...
+
+
+class RealDriver:
+    &quot;&quot;&quot;[Concrete Component / Real Subject] 실제 드라이버. 생성 시 로봇과 연결(비싸다)한다.&quot;&quot;&quot;
+
+    created = 0  # 몇 번 연결했는지 데모에서 보이려는 카운터
+
+    def __init__(self, robot_id: str) -&gt; None:
+        &quot;&quot;&quot;연결 비용이 큰 생성자.&quot;&quot;&quot;
+        RealDriver.created += 1
+        self.robot_id = robot_id
+
+    def move(self, cell: str) -&gt; str:
+        &quot;&quot;&quot;이동.&quot;&quot;&quot;
+        return f&quot;{self.robot_id}→{cell}&quot;
+
+
+class TimingDriver:
+    &quot;&quot;&quot;[Decorator] 이미 만들어진 드라이버를 &#x27;받아서&#x27; 책임(소요 시간 기록)을 더한다.
+
+    누가 무엇을 감쌀지는 조립 코드가 정한다. 몇 겹이든 쌓을 수 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Driver) -&gt; None:
+        &quot;&quot;&quot;감쌀 객체를 바깥에서 받는다 — 생명주기를 소유하지 않는다.&quot;&quot;&quot;
+        self.inner = inner
+        self.log: list[str] = []
+
+    def move(self, cell: str) -&gt; str:
+        &quot;&quot;&quot;위임 전후에 책임 하나를 덧붙인다.&quot;&quot;&quot;
+        result = self.inner.move(cell)
+        self.log.append(f&quot;move({cell}) 기록&quot;)
+        return result
+
+
+class LazyDriver:
+    &quot;&quot;&quot;[Proxy] 실제 드라이버를 &#x27;스스로 만들고&#x27; 그 시점을 통제한다(가상 프록시).
+
+    클라이언트는 RealDriver 참조를 한 번도 갖지 않는다. 이것이 9장이 말한 «create» 화살표의 차이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, robot_id: str) -&gt; None:
+        &quot;&quot;&quot;로봇 ID만 기억하고 연결은 미룬다.&quot;&quot;&quot;
+        self.robot_id = robot_id
+        self._real: RealDriver | None = None
+
+    def move(self, cell: str) -&gt; str:
+        &quot;&quot;&quot;첫 호출 때 연결한다. 접근 통제가 목적이지 책임 추가가 목적이 아니다.&quot;&quot;&quot;
+        if self._real is None:
+            self._real = RealDriver(self.robot_id)
+        return self._real.move(cell)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 전략: 관제 시스템이 구역에 따라 규칙을 바꾼다 (교체 결정 = 바깥)&quot;)
+    r = StrategyRobot(by_weight)
+    print(f&quot;  일반 구역 40kg: {r.speed(40)} m/s&quot;)
+    r.rule = careful  # 클라이언트가 직접 교체
+    print(f&quot;  유리 구역 40kg: {r.speed(40)} m/s&quot;)
+
+    print(&quot;\n[2] 상태: 로봇이 배터리에 따라 스스로 모드를 바꾼다 (교체 결정 = 상태 객체)&quot;)
+    s = StateRobot()
+    for battery in (55, 25, 40, 70):
+        s.finish_trip(battery)
+        print(f&quot;  주행 후 배터리 {battery:&gt;2}% → 모드 {s.mode.name}, 40kg 속도 {s.speed(40)} m/s&quot;)
+
+    print(&quot;\n[3] 데코레이터: 이미 연결된 드라이버를 받아 감싼다 — 연결은 조립 시점에 일어남&quot;)
+    RealDriver.created = 0
+    timed = TimingDriver(RealDriver(&quot;R-7&quot;))
+    print(f&quot;  감싼 직후 연결 수: {RealDriver.created}&quot;)
+    timed.move(&quot;A-03&quot;)
+    print(f&quot;  {timed.log}&quot;)
+
+    print(&quot;\n[4] 프록시: 실제 드라이버를 스스로 만든다 — 연결은 첫 사용 시점&quot;)
+    RealDriver.created = 0
+    lazy = LazyDriver(&quot;R-8&quot;)
+    print(f&quot;  프록시 생성 직후 연결 수: {RealDriver.created}&quot;)
+    lazy.move(&quot;B-11&quot;)
+    lazy.move(&quot;B-12&quot;)
+    print(f&quot;  두 번 이동한 뒤 연결 수: {RealDriver.created}&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_lookalikes.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]과 [2]의 차이는 교체를 일으키는 코드의 위치다. 전략에서는 바깥(관제 시스템)이 <code>r.rule = careful</code>로 갈아 끼우고, 로봇은 규칙이 바뀐 줄도 모른다. 상태에서는 <code>Normal.after_trip()</code>이 배터리를 보고 <code>PowerSave</code>를 돌려준다. 그래서 상태 쪽에만 "다음 상태를 고르는 메서드"가 있고, 구체 상태끼리 서로를 안다. <a href="13-state.html#structure">13장 3절</a>은 상태 패턴의 화살표 두 개를 지적했다. 상태가 컨텍스트에 전이를 요청하는 역방향 의존, 그리고 구체 상태끼리의 의존이다. 이 코드에는 후자만 있다. <code>after_trip()</code>이 다음 상태를 <em>반환</em>하고 컨텍스트가 갈아 끼우는 변형이라 전자는 없다. 전략에는 둘 다 없다.</p>
+  <p>[3]과 [4]의 차이는 연결 수에 있다. 데코레이터는 이미 만들어진 드라이버를 <em>받으므로</em> 감싸는 순간 연결이 이미 일어나 있다. 프록시는 실제 드라이버를 <em>스스로 만들므로</em> 연결 시점을 통제할 수 있고, 클라이언트는 실제 객체의 참조를 한 번도 갖지 않는다. <a href="09-proxy.html#structure">9장</a>이 "차이는 «create» 화살표 하나"라고 한 것이 이것이다.</p>
+  <h3>판별 질문 모음</h3>
+  <p>각 장의 트레이드오프 절에서 다룬 비교를 질문 하나씩으로 압축했다. 판별이 애매할 때는 이 질문을 코드에 직접 던져 보라.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>닮은 패턴</th><th>같은 점</th><th>가르는 질문</th><th>근거 장</th></tr></thead>
+    <tbody>
+      <tr><td>전략 / 상태</td><td>Context가 교체 가능한 객체에 위임</td><td>교체를 바깥(클라이언트)이 결정하는가, 상태 객체 스스로 다음 상태를 정하는가?</td><td><a href="10-strategy.html#tradeoffs">10</a>, <a href="13-state.html#tradeoffs">13</a></td></tr>
+      <tr><td>데코레이터 / 프록시</td><td>같은 인터페이스로 감싸고 위임</td><td>책임을 <em>더하는가</em>(조합은 클라이언트가), 접근을 <em>통제하는가</em>(실제 객체의 생성·생명주기를 흔히 프록시가 소유)?</td><td><a href="06-decorator.html#tradeoffs">6</a>, <a href="09-proxy.html#tradeoffs">9</a></td></tr>
+      <tr><td>어댑터 / 데코레이터·프록시</td><td>다른 객체를 감싼다</td><td>인터페이스를 <em>바꾸는가</em>(어댑터, 보통 한 겹), 유지하는가(데코레이터·프록시, 중첩 가능)?</td><td><a href="05-adapter.html#tradeoffs">5</a></td></tr>
+      <tr><td>퍼사드 / 어댑터</td><td>클라이언트와 다른 코드 사이에 선다</td><td>이미 정해진 Target으로 객체 하나를 <em>변환</em>하는가, 여러 객체 위에 <em>새로운 단순한</em> 인터페이스를 정의하는가?</td><td><a href="08-facade.html#tradeoffs">8</a></td></tr>
+      <tr><td>퍼사드 / 보호 프록시</td><td>서브시스템 앞의 진입점</td><td>다른 길을 열어 두는가(퍼사드), 막아야 하는가(보호 프록시 + 생성 경로 단일화)?</td><td><a href="08-facade.html#structure">8</a>, <a href="09-proxy.html#tradeoffs">9</a></td></tr>
+      <tr><td>컴포지트 / 데코레이터</td><td>재귀적 합성(자기 타입을 가진다)</td><td>자식 여럿을 <em>모아 합치는가</em>(부분-전체), 하나를 <em>감싸 덧붙이는가</em>? 데코레이터는 자식이 하나인 컴포지트처럼 보이지만 목적이 다르다.</td><td><a href="06-decorator.html#structure">6</a>, <a href="07-composite.html#tradeoffs">7</a></td></tr>
+      <tr><td>커맨드 / 전략</td><td>파이썬에서는 둘 다 흔히 함수 객체</td><td>"<em>무엇을</em> 할 것인가"(요청 자체, 대개 한 번 실행되어 이력에 남음)인가, "<em>어떻게</em> 할 것인가"(같은 일의 다른 방법, 컨텍스트에 머물며 반복 호출)인가?</td><td><a href="12-command.html#tradeoffs">12</a>, <a href="10-strategy.html#tradeoffs">10</a></td></tr>
+      <tr><td>템플릿 메서드 / 전략</td><td>알고리즘의 변이를 다룬다</td><td>상속으로 <em>일부 단계</em>를 바꾸는가, 합성으로 바꾸는가? 실행 중에 바꿔야 하거나 변이 축이 둘 이상이면 합성.</td><td><a href="14-template-method.html#tradeoffs">14</a></td></tr>
+      <tr><td>팩토리 메서드 / 추상 팩토리</td><td>생성 결정을 클라이언트에서 떼어 냄</td><td>Creator의 흐름 안에서 <em>제품 하나</em>의 생성을 하위 클래스에 미루는가, 함께 쓰여야 하는 <em>제품군</em>의 생성 메서드를 한 객체에 묶어 넘기는가?</td><td><a href="01-factory-method.html#tradeoffs">1</a>, <a href="02-abstract-factory.html#tradeoffs">2</a></td></tr>
+      <tr><td>추상 팩토리 / 빌더</td><td>복잡한 생성을 캡슐화</td><td>여러 객체를 <em>즉시</em> 돌려주는가, 객체 하나를 <em>단계적으로</em> 조립해 마지막에 돌려주는가?</td><td><a href="03-builder.html#tradeoffs">3</a></td></tr>
+      <tr><td>싱글턴 / 가상 프록시</td><td>지연 초기화</td><td>"하나만, 처음 필요할 때"인가, "이 객체를, 처음 필요할 때"인가? 전역 접근이 따라오는가?</td><td><a href="04-singleton.html#tradeoffs">4</a>, <a href="09-proxy.html#tradeoffs">9</a></td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <span class="label">템플릿 메서드 / 전략: 검사 범위에 대한 정확한 사실</span>
+    두 방식의 차이를 "상속 쪽이 더 안전하다"로 요약하는 것은 틀렸다(<a href="14-template-method.html#implementation">14장 4절</a>). 필수 단계를 <em>빠뜨리는</em> 실수는 양쪽 모두 생성 시점에 잡힌다. <code>abstractmethod</code>는 인스턴스화할 때 <code>TypeError</code>를, 필수 필드로 단계를 받는 <code>dataclass</code>는 생성자 호출 때 <code>TypeError</code>를 낸다. 그러나 <code>abstractmethod</code>는 이름만 확인하고 시그니처는 보지 않으며, 시그니처 불일치는 타입 검사기만 잡는다. 그리고 <em>잘못 동작하는</em> 단계는 어느 쪽도 실행 중에 잡지 못한다. 그것은 테스트의 몫이다. 두 방식을 가르는 것은 안전성이 아니라 변이의 축 수, 실행 중 교체 필요성, 그리고 상속이라는 가장 강한 결합의 비용이다.
+  </div>
+</section>
+
+<section id="case-study">
+  <h2>2. 사례 연구: 로봇 창고</h2>
+  <h3>2.1 상황</h3>
+  <p>중견 물류 기업 한빛로지스는 경기도 물류센터에 <dfn class="term" id="term-picking" data-term="picking" title="물류 창고에서 주문 상품을 보관 위치에서 꺼내 모으는 작업.">피킹</dfn>(주문 상품을 보관 위치에서 꺼내 모으는 작업) 로봇을 도입했다. 개발자 도윤이 석 달 전 만든 프로토타입은 단순했다. 주문이 들어오면 재고가 있는 칸을 찾아 배터리가 가장 많은 로봇을 보낸다. 시범 운영이 성공하자 요구가 한꺼번에 몰렸다.</p>
+  <p>구매팀이 단가를 이유로 두 번째 제조사의 로봇을 들여왔다. 기존 Acme 로봇의 SDK는 mm 좌표로 이동하고 배터리를 정수 %로 주지만, 새 RoboKo 로봇은 칸 이름 문자열로 이동하고 배터리를 0~1 실수로 준다. 운영팀은 유리 제품 구역에서는 "가까운 칸 먼저" 대신 "구역 순서대로 쓸기"로 통로 혼잡을 줄이자고 했다. 고객센터는 "출고 전이면 주문을 취소할 수 있어야 한다"고 요구했다. 관제실은 대시보드에 로봇 상태가 실시간으로 떠야 한다고 했고, 다음 분기에는 모바일 알림도 붙인다고 한다. 재무팀은 재고를 구역·<dfn class="term" id="term-rack" data-term="rack" title="창고에서 상품을 쌓는 선반 구조물.">랙</dfn>(상품을 쌓는 선반 구조물)·선반·칸 단위로 집계해 달라고 했는데, 신축 동은 선반 아래에 칸막이 단계가 하나 더 있다.</p>
+  <p>도윤은 이 요구를 하나씩 <code><dfn class="term" id="term-warehouse-management-system" data-term="warehouse-management-system" title="창고의 재고·입출고·작업을 관리하는 창고 관리 시스템.">WMS</dfn></code>(창고 관리 시스템: 재고·입출고·작업을 관리하는 시스템) 클래스에 분기로 넣었다. 그러다 사고가 났다. 배터리가 떨어진 로봇이 주문 처리 <em>도중</em>에 "충전 시작"으로 기록되고도 그대로 피킹을 계속해 배터리가 바닥난 채 멈춰 섰고, 주문은 반만 출고되었다. 팀장은 "이참에 패턴을 제대로 적용하자"고 했고, 신입 다온은 열다섯 개 패턴을 모두 넣은 설계안을 들고 왔다. 도윤은 그 설계안을 보고 질문 하나로 대답했다. "이 시스템에서 <strong>실제로 바뀌는 것</strong>이 몇 가지예요?"</p>
+  <p>이 장의 고통은 앞 장들과 다르다. 패턴을 몰라서가 아니라, 다 알기 때문에 생기는 고통이다. 어디까지 넣을 것인가?</p>
+
+  <h3>2.2 순진한 프로토타입</h3>
+  <p class="lead-in">도윤의 <code>WMS</code> 클래스다. <code># ⚠ 문제:</code> 주석 여섯 개가 각각 서로 다른 변경 축을 가리킨다는 점을 세어 보라. 그리고 데모 [2]에서 "충전 시작" 뒤에도 피킹이 이어져 배터리가 0%가 되는 것을 보라. 주석의 <dfn class="term" id="term-stock-keeping-unit" data-term="stock-keeping-unit" title="재고 관리 단위(상품 식별 코드).">SKU</dfn>는 재고 관리 단위, 곧 상품을 식별하는 코드다.</p>
+  <figure class="code"><figcaption>src/99_summary/02_naive_wms.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 프로토타입: 로봇 창고 관리 시스템(WMS)의 모든 것이 한 클래스에.
+
+상황: 한빛로지스의 개발자 도윤은 석 달 전 창고 자동화 프로토타입을 만들었다. 주문이 들어오면
+재고가 있는 칸을 찾아 피킹 로봇을 보내는 단순한 구조였다. 그 뒤 요구가 쌓였다.
+- 로봇 제조사가 둘이 되었다(Acme: 좌표 mm 단위 / RoboKo: 칸 이름 문자열). SDK 모양이 다르다.
+- 경로 알고리즘을 구역에 따라 바꾸고 싶다(가까운 칸 먼저 / 구역 순서대로 쓸기).
+- 주문을 대기열에 넣고, 실행 전이면 취소할 수 있어야 한다.
+- 배터리가 낮아지면 충전하러 보내고, 관제 대시보드에 실시간으로 보여야 한다.
+- 재고를 구역 → 랙 → 선반 → 칸 단위로 집계해야 한다.
+도윤은 매번 WMS 클래스에 분기를 추가했다. 이 파일은 그 결과다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+# 재고: 구역 → 랙 → 선반 → [(칸 코드, SKU, 수량, x, y)] — 깊이가 코드에 박혀 있다
+INVENTORY = {
+    &quot;A&quot;: {&quot;A1&quot;: {&quot;A1-1&quot;: [(&quot;A1-1-01&quot;, &quot;MUG&quot;, 5, 1, 1), (&quot;A1-1-02&quot;, &quot;CUP&quot;, 3, 2, 1)]}},
+    &quot;B&quot;: {&quot;B1&quot;: {&quot;B1-1&quot;: [(&quot;B1-1-01&quot;, &quot;MUG&quot;, 4, 8, 6)], &quot;B1-2&quot;: [(&quot;B1-2-01&quot;, &quot;PLATE&quot;, 9, 9, 6)]}},
+}
+
+
+class WMS:
+    &quot;&quot;&quot;창고 관리 시스템. 로봇·경로·주문·배터리·대시보드·재고를 한 클래스가 다 안다.&quot;&quot;&quot;
+
+    def __init__(self, route_mode: str) -&gt; None:
+        &quot;&quot;&quot;로봇 두 대(제조사가 다름)와 경로 모드.&quot;&quot;&quot;
+        self.robots = [{&quot;id&quot;: &quot;R1&quot;, &quot;vendor&quot;: &quot;acme&quot;, &quot;bat&quot;: 40, &quot;pos&quot;: (0, 0), &quot;status&quot;: &quot;idle&quot;},
+                       {&quot;id&quot;: &quot;R2&quot;, &quot;vendor&quot;: &quot;roboko&quot;, &quot;bat&quot;: 50, &quot;pos&quot;: (0, 0), &quot;status&quot;: &quot;idle&quot;}]
+        self.route_mode = route_mode
+
+    def count(self, sku: str) -&gt; int:
+        &quot;&quot;&quot;⚠ 문제: 4중 반복문 — 계층이 하나 늘면(예: 선반 아래 &#x27;칸막이&#x27;) 모든 집계 코드를 고친다.&quot;&quot;&quot;
+        total = 0
+        for racks in INVENTORY.values():
+            for shelves in racks.values():
+                for bins in shelves.values():
+                    for _code, s, qty, _x, _y in bins:
+                        if s == sku:
+                            total += qty
+        return total
+
+    def order(self, sku: str, qty: int) -&gt; None:
+        &quot;&quot;&quot;⚠ 문제: 주문 즉시 실행된다. 대기열도 취소도 없다 — 요청이 객체가 아니기 때문이다.&quot;&quot;&quot;
+        bins = [(c, q, x, y) for racks in INVENTORY.values() for shelves in racks.values()
+                for bs in shelves.values() for c, s, q, x, y in bs if s == sku and q &gt; 0]
+        # ⚠ 문제: 경로 알고리즘이 if 분기로 박혀 있다. 세 번째 알고리즘은 이 메서드를 또 고친다.
+        if self.route_mode == &quot;nearest&quot;:
+            bins.sort(key=lambda b: b[2] + b[3])
+        elif self.route_mode == &quot;sweep&quot;:
+            bins.sort(key=lambda b: b[0])
+        robot = max(self.robots, key=lambda r: r[&quot;bat&quot;])
+        for code, _q, x, y in bins[:qty]:  # 단순화: 칸 하나에서 1개씩 집는다
+            # ⚠ 문제: 제조사 SDK 차이가 업무 로직 한가운데 있다. 세 번째 제조사가 오면 여기를 고친다.
+            if robot[&quot;vendor&quot;] == &quot;acme&quot;:
+                print(f&quot;    [acme] goto({x * 1000}mm, {y * 1000}mm) grab({code})&quot;)
+            elif robot[&quot;vendor&quot;] == &quot;roboko&quot;:
+                print(f&quot;    [roboko] move(&#x27;{code}&#x27;) pick({code[-2:]})&quot;)
+            robot[&quot;bat&quot;] -= 25  # 한 번 이동·피킹에 25%p (시뮬레이션)
+            robot[&quot;status&quot;] = &quot;moving&quot;
+            # ⚠ 문제: 대시보드 갱신이 직접 호출이다. 모바일 알림이 추가되면 여기에 또 한 줄.
+            print(f&quot;    [대시보드] {robot[&#x27;id&#x27;]} {code} 피킹, 배터리 {robot[&#x27;bat&#x27;]}%&quot;)
+            # ⚠ 문제: 배터리 처리도 여기서. 충전을 &#x27;바로&#x27; 시작해 진행 중인 주문과 뒤엉킨다.
+            if robot[&quot;bat&quot;] &lt; 30:
+                robot[&quot;status&quot;] = &quot;charging&quot;
+                print(f&quot;    [대시보드] {robot[&#x27;id&#x27;]} 충전 시작 (주문 처리 도중!)&quot;)
+        robot[&quot;status&quot;] = &quot;idle&quot; if robot[&quot;status&quot;] != &quot;charging&quot; else &quot;charging&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    wms = WMS(route_mode=&quot;nearest&quot;)
+    print(&quot;[1] MUG 재고:&quot;, wms.count(&quot;MUG&quot;))
+    print(&quot;[2] MUG 2개 주문 — 즉시 실행&quot;)
+    wms.order(&quot;MUG&quot;, 2)
+    print(&quot;[3] 방금 주문을 취소하고 싶다면? → 방법이 없다(이미 실행됨)&quot;)
+    print(&quot;[4] 이 클래스를 고쳐야 하는 이유: 제조사 추가, 경로 알고리즘, 주문 정책,&quot;)
+    print(&quot;    배터리 규칙, 알림 채널, 재고 계층 — 변경 축 여섯 개가 한 클래스에 묶여 있다&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_naive_wms.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>주석이 가리키는 축을 정리하면 이렇다. (1) 재고 계층의 깊이가 4중 반복문에 박혀 있다. (2) 주문이 즉시 실행되어 대기·취소가 불가능하다. (3) 경로 알고리즘이 <code>if</code> 분기다. (4) 제조사 SDK 차이가 업무 로직 한가운데 있다. (5) 대시보드 갱신이 직접 호출이다. (6) 배터리 대응이 진행 중인 주문과 뒤엉킨다. 각 축은 서로 다른 팀이, 서로 다른 시점에 바꾸자고 한다. 한 클래스가 바뀔 이유가 여섯이다.</p>
+
+  <h3>2.3 변경 축을 세고, 축마다 하나씩</h3>
+  <p>도윤의 원칙은 단순했다. <strong>변경 축마다 가장 가벼운 해법 하나.</strong> 그 해법은 패턴 하나일 수도, 두 패턴의 협력(컴포지트+반복자)일 수도, 새 패턴 없이 이미 있는 패턴의 조합일 수도 있다. 축이 아닌 곳에는 넣지 않는다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>변경 축(누가 바꾸자고 하는가)</th><th>선택</th><th>가장 가벼운 형태를 고른 이유</th></tr></thead>
+    <tbody>
+      <tr><td>제조사 SDK(구매팀)</td><td>어댑터</td><td>우리가 고칠 수 없는 인터페이스. Target은 <code>Protocol</code>, 어댑터는 메서드가 셋이고 SDK 객체를 공유하므로 클래스(5장 기준).</td></tr>
+      <tr><td>경로 알고리즘(운영팀)</td><td>전략</td><td>메서드 하나, 상태 없음 → 그냥 함수 + 이름표 <code>dict</code>(10장 표의 첫 줄).</td></tr>
+      <tr><td>주문 대기·취소(고객센터)</td><td>커맨드</td><td>요청이 실행 전에 존재하는 값이어야 한다. undo는 필요 없으므로 <code>execute</code> 하나(12장 "쓰지 말아야 할 때"의 반대).</td></tr>
+      <tr><td>알림 채널(관제실, 모바일)</td><td>옵저버</td><td>반응하는 쪽이 늘어난다. 메서드 하나짜리 관찰자는 콜러블(11장 5절).</td></tr>
+      <tr><td>재고 계층 깊이(재무팀, 신축 동)</td><td>컴포지트 + 반복자</td><td>깊이가 데이터로 바뀐다. 단계별 클래스 대신 <code>Group</code> 하나, 순회는 <code>yield from</code> 제너레이터(7장·15장).</td></tr>
+      <tr><td>배터리 대응 정책(관제실)</td><td>새 패턴 없음: 옵저버 + 커맨드 조합</td><td>발행자는 배터리 사실만 알리고, 관찰자 <code>BatteryGuard</code>가 충전 명령을 만들어 대기열에 넣는다(3.1절).</td></tr>
+      <tr><td>(02의 축이 아닌 별도 요구) 운영 콘솔과 야간 배치의 공통 흐름</td><td>퍼사드</td><td>두 클라이언트가 "번호 발급 + 명령 제출", "대기열 비우기"라는 흐름을 공유한다. 그것이 퍼사드의 몫이고, <code>cancel()</code>·<code>stock()</code>은 편의상 둔 한 줄 위임이다(8장 기준으로는 퍼사드의 가치가 아니다). 서브시스템은 숨기지 않는다.</td></tr>
+    </tbody>
+  </table></div>
+  <figure class="diagram">
+    <svg viewBox="0 0 760 400" role="img" aria-label="로봇 창고 WMS의 패턴 조합"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="300" y="18">[Facade]</text>
+      <g class="uml-class highlight" transform="translate(300,24)">
+        <rect width="170" height="40"/>
+        <text class="uml-name" x="85" y="25">WarehouseOps</text>
+      </g>
+      <text class="uml-note" x="20" y="110">[Command / Invoker]</text>
+      <g class="uml-class" transform="translate(20,116)">
+        <rect width="150" height="40"/>
+        <text class="uml-name" x="75" y="25">TaskQueue</text>
+      </g>
+      <g class="uml-class" transform="translate(20,196)">
+        <rect width="150" height="48"/>
+        <text class="uml-name" x="75" y="20">PickOrder</text>
+        <text class="uml-name" x="75" y="40">ChargeRobot</text>
+      </g>
+      <path class="uml-assoc" d="M95 156 V196" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M330 64 V90 H95 V116" marker-end="url(#arrow)"/>
+
+      <text class="uml-note" x="300" y="110">[Observer]</text>
+      <g class="uml-class" transform="translate(300,116)">
+        <rect width="170" height="40"/>
+        <text class="uml-name" x="85" y="25">EventHub</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(300,196)">
+        <rect width="170" height="40"/>
+        <text class="uml-name" x="85" y="25">BatteryGuard</text>
+      </g>
+      <path class="uml-dep" d="M385 156 V196" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="392" y="182">통지</text>
+      <path class="uml-dep" d="M300 226 H170" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="176" y="258">«create» ChargeRobot</text>
+      <path class="uml-dep" d="M470 216 H490 V98 H150 V116" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="395" y="93">submit(urgent)</text>
+      <path class="uml-dep" d="M170 212 H230 V146 H300" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="236" y="178">emit</text>
+
+      <text class="uml-note" x="560" y="110">[Composite + Iterator]</text>
+      <g class="uml-class" transform="translate(560,116)">
+        <rect width="180" height="56"/>
+        <text class="uml-name" x="90" y="22">Group / Bin</text>
+        <line x1="0" y1="32" x2="180" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ walk(): Iterator[Bin]</text>
+      </g>
+      <path class="uml-dep" d="M470 44 H650 V116" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="560" y="38">stock()</text>
+
+      <text class="uml-note" x="20" y="300">[Strategy] 함수</text>
+      <g class="uml-class" transform="translate(20,306)">
+        <rect width="200" height="40"/>
+        <text class="uml-name" x="100" y="25">nearest_first / zone_sweep</text>
+      </g>
+      <path class="uml-dep" d="M60 244 V306" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="66" y="286">경로</text>
+
+      <text class="uml-note" x="300" y="300">[Target]</text>
+      <g class="uml-class" transform="translate(300,306)">
+        <rect width="170" height="40"/>
+        <text class="uml-name uml-abstract" x="85" y="25">RobotDriver</text>
+      </g>
+      <path class="uml-dep" d="M130 244 V280 H385 V306" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="560" y="300">[Adapter]</text>
+      <g class="uml-class highlight" transform="translate(560,306)">
+        <rect width="180" height="48"/>
+        <text class="uml-name" x="90" y="20">AcmeAdapter</text>
+        <text class="uml-name" x="90" y="40">RoboKoAdapter</text>
+      </g>
+      <path class="uml-impl" d="M560 326 H470" marker-end="url(#triangle)"/>
+      <text class="uml-note" x="20" y="388">PickOrder.execute(ctx)가 경로 전략·드라이버·재고·허브를 Context로 받아 쓴다. 조립은 build() 한 곳.</text>
+    </svg>
+    <figcaption>그림 99-1. 로봇 창고 WMS. 한 상자에 이름이 두 줄이면 같은 역할의 클래스 둘이다. 강조한 클래스가 패턴 사이의 이음매다: 퍼사드(진입), BatteryGuard(옵저버 → 커맨드), 어댑터(외부 SDK).</figcaption>
+  </figure>
+
+  <h3>2.4 조합된 코드</h3>
+  <p class="lead-in">완성된 WMS다. 파일이 길지만 구획마다 패턴 하나이고, 각 클래스 docstring 첫 줄의 역할 태그가 그림 99-1과 대응한다. 경로 전략 <code>nearest_first</code>가 쓰는 <dfn class="term" id="term-manhattan-distance" data-term="manhattan-distance" title="두 점의 x 차이와 y 차이의 절댓값 합.">맨해튼 거리</dfn>는 두 점의 x 차이와 y 차이의 절댓값을 더한 거리로, 통로를 따라 직각으로 움직이는 창고 로봇에 맞는 척도다. 처음 읽을 때는 세 곳만 보라. <code>PickOrder.execute()</code>가 배터리를 판단하지 않고 "사실만" 알리는 부분, <code>BatteryGuard</code> docstring의 "왜 여기서 바로 충전하지 않는가", 그리고 모든 배선이 모인 <code>build()</code>다. 모듈 docstring 끝에는 넣지 않은 패턴 목록이 있다.</p>
+  <figure class="code"><figcaption>src/99_summary/03_wms.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;패턴 조합: 로봇 창고 WMS — 변경 축마다 가장 가벼운 해법, 그리고 넣지 않은 패턴들.
+
+상황: 02_naive_wms.py의 WMS 클래스에는 변경 축 여섯 개(제조사 SDK, 경로 알고리즘, 주문 대기·취소,
+배터리 대응, 알림 채널, 재고 계층)가 묶여 있었다. 도윤의 팀은 &quot;패턴을 몇 개 넣을까&quot;가 아니라
+&quot;변경 축이 몇 개인가&quot;부터 셌고, 축마다 가장 가벼운 해법을 골랐다.
+
+변경 축 → 선택 (괄호는 교재의 장. 여섯 축에 일곱 패턴 — 컴포지트와 반복자가 한 축을 함께 맡는다)
+- 제조사 SDK 모양이 다르다          → 어댑터(5): AcmeAdapter, RoboKoAdapter → RobotDriver(Protocol)
+- 경로 알고리즘을 구역별로 바꾼다    → 전략(10): 그냥 함수(nearest_first, zone_sweep) + 이름표 dict
+- 주문을 쌓고, 실행 전 취소한다     → 커맨드(12): PickOrder/ChargeRobot 객체 + TaskQueue(호출자)
+- 알림 채널이 늘어난다              → 옵저버(11): EventHub에 콜러블 구독
+- 재고 계층의 깊이가 바뀐다          → 컴포지트(7) + 반복자(15): Group/Bin, walk() 제너레이터
+- 배터리 대응 정책                   → 새 패턴 없이 옵저버+커맨드 조합(11·12장이 이 장으로 미룬 것):
+  배터리 &#x27;이벤트&#x27;를 받은 관찰자가 충전 &#x27;명령&#x27;을 만들어 대기열 앞에 넣는다(BatteryGuard docstring 참고).
+02의 축이 아닌 별도 요구 하나: 운영 콘솔과 야간 배치가 &#x27;번호 발급+제출&#x27;, &#x27;대기열 비우기&#x27; 흐름을 공유
+→ 퍼사드(8): WarehouseOps.
+
+넣지 않은 것: 상태 패턴(로봇 상태는 Enum 셋 — 행동 차이가 작다), 추상 팩토리(시뮬레이션/실환경은
+&#x27;제품군&#x27;이 아니라 드라이버 하나의 차이 — 주입으로 충분), 싱글턴, 템플릿 메서드, 빌더, 데코레이터, 프록시.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Callable, ClassVar, Iterator, Protocol
+
+
+# ===========================================================================
+# 컴포지트 + 반복자 — 재고 계층
+# ===========================================================================
+
+@dataclass
+class Bin:
+    &quot;&quot;&quot;[Leaf] 칸 하나. 재귀가 멈추는 곳.&quot;&quot;&quot;
+
+    code: str
+    sku: str
+    qty: int
+    x: int
+    y: int
+
+    def walk(self) -&gt; Iterator[Bin]:
+        &quot;&quot;&quot;자기 자신 하나를 내보낸다. Group과 같은 질문(walk)에 답하므로 클라이언트가 구별하지 않는다.&quot;&quot;&quot;
+        yield self
+
+
+@dataclass
+class Group:
+    &quot;&quot;&quot;[Composite] 구역·랙·선반 — 이름만 다르고 역할은 같으므로 클래스 하나로 충분하다.
+
+    계층 단계마다 Zone/Rack/Shelf 클래스를 만들지 않은 이유: 7장 트레이드오프는 &quot;깊이가 고정되고
+    계층마다 역할이 다르면&quot; 공통 인터페이스가 억지 메서드를 만든다고 경고했다. 여기는 그 반대 —
+    계층마다 역할이 같고 깊이가 데이터로 바뀐다 — 이므로 단계별 클래스 대신 Group 하나가 맞다.
+    &quot;&quot;&quot;
+
+    name: str
+    children: list[Group | Bin] = field(default_factory=list)
+
+    def walk(self) -&gt; Iterator[Bin]:
+        &quot;&quot;&quot;[반복자] yield from 재귀 — 깊이가 몇 단이든 칸들의 평평한 스트림이 된다(15장).&quot;&quot;&quot;
+        for child in self.children:
+            yield from child.walk()
+
+
+def stock(node: Group | Bin, sku: str) -&gt; int:
+    &quot;&quot;&quot;재고 집계는 순회 위의 sum 한 줄. 02의 4중 반복문이 사라졌다.&quot;&quot;&quot;
+    return sum(b.qty for b in node.walk() if b.sku == sku)
+
+
+# ===========================================================================
+# 어댑터 — 두 제조사 SDK를 우리 인터페이스로
+# ===========================================================================
+
+class AcmeSDK:
+    &quot;&quot;&quot;[Adaptee] 제조사 A의 SDK: 좌표는 mm, 배터리는 0~100 정수. 우리가 고칠 수 없다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;시뮬레이션 상태.&quot;&quot;&quot;
+        self._battery = 45
+
+    def goto(self, x_mm: int, y_mm: int) -&gt; None:
+        &quot;&quot;&quot;mm 좌표로 이동한다. 이동마다 배터리가 준다.&quot;&quot;&quot;
+        self._battery -= 20
+
+    def grab(self, bin_code: str) -&gt; None:
+        &quot;&quot;&quot;칸 코드로 집는다.&quot;&quot;&quot;
+
+    def battery_pct(self) -&gt; int:
+        &quot;&quot;&quot;남은 배터리(%).&quot;&quot;&quot;
+        return self._battery
+
+    def dock(self) -&gt; None:
+        &quot;&quot;&quot;충전기에 도킹한다.&quot;&quot;&quot;
+        self._battery = 100
+
+
+class RoboKoSDK:
+    &quot;&quot;&quot;[Adaptee] 제조사 B의 SDK: 칸 이름 문자열로 이동, 상태는 dict, 배터리는 0.0~1.0.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;시뮬레이션 상태.&quot;&quot;&quot;
+        self._bat = 0.5
+
+    def move(self, cell: str) -&gt; None:
+        &quot;&quot;&quot;칸 이름으로 이동한다.&quot;&quot;&quot;
+        self._bat -= 0.15
+
+    def pick(self, slot: int) -&gt; None:
+        &quot;&quot;&quot;칸 안의 슬롯 번호로 집는다(칸 코드 끝 두 자리).&quot;&quot;&quot;
+
+    def get_status(self) -&gt; dict[str, float]:
+        &quot;&quot;&quot;상태 묶음.&quot;&quot;&quot;
+        return {&quot;bat&quot;: self._bat}
+
+    def charge(self) -&gt; None:
+        &quot;&quot;&quot;충전한다.&quot;&quot;&quot;
+        self._bat = 1.0
+
+
+class RobotDriver(Protocol):
+    &quot;&quot;&quot;[Target] 우리 도메인이 로봇에게 원하는 최소한(5장: &#x27;SDK들의 공통분모&#x27;가 아니라 &#x27;우리가 알고 싶은 것&#x27;).&quot;&quot;&quot;
+
+    def go_and_pick(self, b: Bin) -&gt; None:
+        &quot;&quot;&quot;칸으로 가서 하나 집는다.&quot;&quot;&quot;
+        ...
+
+    def battery(self) -&gt; int:
+        &quot;&quot;&quot;배터리(%) — 단위 차이는 어댑터가 흡수한다.&quot;&quot;&quot;
+        ...
+
+    def recharge(self) -&gt; None:
+        &quot;&quot;&quot;충전한다.&quot;&quot;&quot;
+        ...
+
+
+class AcmeAdapter:
+    &quot;&quot;&quot;[Adapter] 칸 좌표(m)를 mm로 번역한다.&quot;&quot;&quot;
+
+    def __init__(self, sdk: AcmeSDK) -&gt; None:
+        &quot;&quot;&quot;Adaptee를 합성으로 감싼다(객체 어댑터).&quot;&quot;&quot;
+        self._sdk = sdk
+
+    def go_and_pick(self, b: Bin) -&gt; None:
+        &quot;&quot;&quot;이동 + 집기 두 호출을 우리 어휘 하나로.&quot;&quot;&quot;
+        self._sdk.goto(b.x * 1000, b.y * 1000)
+        self._sdk.grab(b.code)
+
+    def battery(self) -&gt; int:
+        &quot;&quot;&quot;이미 % 정수다.&quot;&quot;&quot;
+        return self._sdk.battery_pct()
+
+    def recharge(self) -&gt; None:
+        &quot;&quot;&quot;도킹이 곧 충전.&quot;&quot;&quot;
+        self._sdk.dock()
+
+
+class RoboKoAdapter:
+    &quot;&quot;&quot;[Adapter] 칸 코드를 이름/슬롯으로, 0~1 배터리를 %로 번역한다.&quot;&quot;&quot;
+
+    def __init__(self, sdk: RoboKoSDK) -&gt; None:
+        &quot;&quot;&quot;Adaptee를 감싼다.&quot;&quot;&quot;
+        self._sdk = sdk
+
+    def go_and_pick(self, b: Bin) -&gt; None:
+        &quot;&quot;&quot;칸 이름으로 이동하고 슬롯 번호로 집는다.&quot;&quot;&quot;
+        self._sdk.move(b.code)
+        self._sdk.pick(int(b.code[-2:]))
+
+    def battery(self) -&gt; int:
+        &quot;&quot;&quot;0.9 → 90. 반올림해 부동소수 오차(0.6000000001 같은)를 숨긴다.&quot;&quot;&quot;
+        return round(self._sdk.get_status()[&quot;bat&quot;] * 100)
+
+    def recharge(self) -&gt; None:
+        &quot;&quot;&quot;충전.&quot;&quot;&quot;
+        self._sdk.charge()
+
+
+# ===========================================================================
+# 로봇 — 상태 패턴을 &#x27;쓰지 않은&#x27; 자리
+# ===========================================================================
+
+class Status(Enum):
+    &quot;&quot;&quot;로봇 상태. 상태별로 다른 것은 &#x27;받을 수 있는 작업인가&#x27; 하나뿐이라 Enum이면 충분하다(13장 6절).&quot;&quot;&quot;
+
+    IDLE = &quot;대기&quot;
+    BUSY = &quot;작업&quot;
+    CHARGING = &quot;충전&quot;
+
+
+@dataclass
+class Robot:
+    &quot;&quot;&quot;로봇 하나 = 이름 + 드라이버(어댑터) + 상태.&quot;&quot;&quot;
+
+    name: str
+    driver: RobotDriver
+    status: Status = Status.IDLE
+
+
+# ===========================================================================
+# 옵저버 — 통지 허브
+# ===========================================================================
+
+Listener = Callable[[dict[str, object]], None]
+
+
+class EventHub:
+    &quot;&quot;&quot;[Subject] 이벤트 이름별 콜러블 구독(11장 03의 단순판). 발행자는 구독자를 모른다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;이벤트 이름 → 구독자 목록.&quot;&quot;&quot;
+        self._subs: dict[str, list[Listener]] = defaultdict(list)
+
+    def on(self, event: str, fn: Listener) -&gt; None:
+        &quot;&quot;&quot;구독한다.&quot;&quot;&quot;
+        self._subs[event].append(fn)
+
+    def emit(self, event: str, **data: object) -&gt; None:
+        &quot;&quot;&quot;통지한다. 목록을 복사해 순회 — 통지 도중 구독이 바뀌어도 이번 통지는 흔들리지 않는다.&quot;&quot;&quot;
+        for fn in list(self._subs[event]):
+            fn({&quot;event&quot;: event, **data})
+
+
+# ===========================================================================
+# 커맨드 — 요청을 객체로: 대기, 취소, 우선 처리
+# ===========================================================================
+
+RoutePlanner = Callable[[tuple[int, int], list[Bin]], list[Bin]]
+
+
+@dataclass
+class Context:
+    &quot;&quot;&quot;명령이 실행될 때 필요한 것들. 명령이 수신자를 필드로 들지 않고 인자로 받게 하는 묶음(12장 5절).&quot;&quot;&quot;
+
+    inventory: Group
+    robots: list[Robot]
+    hub: EventHub
+    route: RoutePlanner
+
+
+class Command(Protocol):
+    &quot;&quot;&quot;[Command] 실행 계약. 이 시스템에는 undo가 필요 없어 execute 하나다(피킹은 되돌릴 수 없는 물리 동작).
+
+    key와 cancellable을 계약에 둔 이유: 호출자(TaskQueue)가 취소 여부를 판단할 때 구체 명령 타입을
+    isinstance로 묻지 않게 하려는 것이다. 취소 가능성은 명령 자신이 밝힌다.
+    &quot;&quot;&quot;
+
+    @property
+    def key(self) -&gt; str:
+        &quot;&quot;&quot;취소·추적에 쓰는 식별자.&quot;&quot;&quot;
+        ...
+
+    @property
+    def cancellable(self) -&gt; bool:
+        &quot;&quot;&quot;대기 중에 취소할 수 있는가.&quot;&quot;&quot;
+        ...
+
+    @property
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;로그용 이름. 왜 실행되었는지도 담는다.&quot;&quot;&quot;
+        ...
+
+    def execute(self, ctx: Context) -&gt; None:
+        &quot;&quot;&quot;실행한다.&quot;&quot;&quot;
+        ...
+
+
+@dataclass
+class PickOrder:
+    &quot;&quot;&quot;[Concrete Command] 주문 하나. 대기열에 있는 동안은 그냥 데이터라서 취소할 수 있다.&quot;&quot;&quot;
+
+    order_id: str
+    sku: str
+    qty: int
+    # ClassVar: 취소 가능성은 명령 &#x27;종류&#x27;의 성질이다. 인스턴스마다 바꿀 수 있는 생성자 인자가 되면 안 된다.
+    cancellable: ClassVar[bool] = True  # 고객 요청이므로 출고 전이면 취소할 수 있다
+
+    @property
+    def key(self) -&gt; str:
+        &quot;&quot;&quot;주문 번호가 곧 식별자.&quot;&quot;&quot;
+        return self.order_id
+
+    @property
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;로그용 이름.&quot;&quot;&quot;
+        return f&quot;주문 {self.order_id}({self.sku}×{self.qty})&quot;
+
+    def execute(self, ctx: Context) -&gt; None:
+        &quot;&quot;&quot;가장 배터리가 많은 대기 로봇에게 경로대로 피킹시킨다.&quot;&quot;&quot;
+        robot = max((r for r in ctx.robots if r.status is Status.IDLE), key=lambda r: r.driver.battery())
+        candidates = [b for b in ctx.inventory.walk() if b.sku == self.sku and b.qty &gt; 0]
+        robot.status = Status.BUSY
+        picked = 0
+        for b in ctx.route((0, 0), candidates):  # [전략] 어떤 순서로 돌지는 주입된 함수가 정한다
+            take = min(b.qty, self.qty - picked)
+            for _ in range(take):  # 단순화: 한 번에 하나씩 집으며 매번 이동한다
+                robot.driver.go_and_pick(b)
+            b.qty -= take
+            picked += take
+            if picked == self.qty:
+                break
+        robot.status = Status.IDLE
+        ctx.hub.emit(&quot;order.done&quot;, order=self.order_id, robot=robot.name, picked=picked)
+        # 배터리 판단은 여기서 하지 않고 &#x27;사실&#x27;만 알린다. 대응 정책은 구독자의 몫이다.
+        ctx.hub.emit(&quot;robot.battery&quot;, robot=robot.name, pct=robot.driver.battery())
+
+
+@dataclass
+class ChargeRobot:
+    &quot;&quot;&quot;[Concrete Command] 충전. 주문과 같은 대기열을 타므로 명령 &#x27;사이&#x27;에서만 실행된다.
+
+    reason을 필드로 둔 이유: 실행 이력(label)에 &#x27;왜 충전했는가&#x27;가 남게 하려는 것이다.
+    cancellable=False로 정한 이유: 배터리 부족 충전은 안전 조치라 운영자의 일반 취소 대상이 아니다.
+    &quot;&quot;&quot;
+
+    robot_name: str
+    reason: str
+    cancellable: ClassVar[bool] = False  # ClassVar라 호출자가 ChargeRobot(..., cancellable=True)로 뒤집을 수 없다
+
+    @property
+    def key(self) -&gt; str:
+        &quot;&quot;&quot;로봇별 충전 식별자.&quot;&quot;&quot;
+        return f&quot;charge-{self.robot_name}&quot;
+
+    @property
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;로그용 이름 + 사유.&quot;&quot;&quot;
+        return f&quot;충전 {self.robot_name}({self.reason})&quot;
+
+    def execute(self, ctx: Context) -&gt; None:
+        &quot;&quot;&quot;해당 로봇을 충전한다.&quot;&quot;&quot;
+        robot = next(r for r in ctx.robots if r.name == self.robot_name)
+        robot.status = Status.CHARGING
+        robot.driver.recharge()
+        robot.status = Status.IDLE
+        ctx.hub.emit(&quot;robot.charged&quot;, robot=robot.name, pct=robot.driver.battery())
+
+
+class TaskQueue:
+    &quot;&quot;&quot;[Invoker] 명령을 쌓고 하나씩 실행한다. 명령의 구체 타입을 모른다 — key/cancellable/label만 본다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;대기 중인 명령들.&quot;&quot;&quot;
+        self._pending: list[Command] = []
+
+    def submit(self, cmd: Command, *, urgent: bool = False) -&gt; None:
+        &quot;&quot;&quot;뒤에 붙이거나(일반), 맨 앞에 끼운다(긴급).&quot;&quot;&quot;
+        if urgent:
+            self._pending.insert(0, cmd)
+        else:
+            self._pending.append(cmd)
+
+    def cancel(self, key: str) -&gt; bool:
+        &quot;&quot;&quot;아직 실행되지 않은 명령을 뺀다. 요청이 객체이기 때문에 가능한 일(02에서는 불가능했다).
+
+        취소할 수 없다고 스스로 밝힌 명령(cancellable=False)은 남겨 두고 False를 돌려준다.
+        &quot;&quot;&quot;
+        before = len(self._pending)
+        self._pending = [c for c in self._pending if not (c.key == key and c.cancellable)]
+        return len(self._pending) &lt; before
+
+    def run_next(self, ctx: Context) -&gt; Command | None:
+        &quot;&quot;&quot;맨 앞 명령 하나를 실행한다.&quot;&quot;&quot;
+        if not self._pending:
+            return None
+        cmd = self._pending.pop(0)
+        cmd.execute(ctx)
+        return cmd
+
+    def labels(self) -&gt; list[str]:
+        &quot;&quot;&quot;대기열 미리보기.&quot;&quot;&quot;
+        return [c.label for c in self._pending]
+
+
+# ===========================================================================
+# 옵저버 + 커맨드 — 이벤트를 받아 &#x27;명령을 만든다&#x27;
+# ===========================================================================
+
+class BatteryGuard:
+    &quot;&quot;&quot;[Concrete Observer → Client of Command] 배터리 이벤트를 받아 충전 명령을 대기열 앞에 넣는다.
+
+    왜 여기서 바로 robot.driver.recharge()를 부르지 않는가? (설계 근거 — 아래 1)은 이 데모 출력이
+    직접 보여 주는 것이 아니다. 지금 PickOrder는 execute의 맨 끝에서 통지하므로 직접 충전해도 충전 시점은
+    주문 사이로 같다. 달라지는 것은 실행 이력에 충전 항목·사유가 남지 않고, ChargeRobot이 내던 robot.charged
+    이벤트(대시보드의 &quot;충전 완료&quot; 줄)도 나오지 않는다는 점이다.)
+    1) 재진입: 관찰자는 통지가 발행자 실행의 어느 시점에 오는지 알 수 없다. 발행자가 피킹마다 배터리를
+       알리도록 바뀌면 직접 충전은 곧바로 02의 &#x27;주문 처리 도중 충전&#x27; 사고가 된다. 명령으로 미루면 발행
+       시점과 무관하게 &#x27;명령 사이&#x27;에서만 충전된다.
+    2) 일관성: 충전도 명령이 되면 대기열·우선순위·실행 이력을 주문과 같은 경로로 타고, 사유가 이력에 남는다.
+    3) 정책 분리: &#x27;몇 % 미만이면 충전&#x27;은 이 관찰자만 안다. 발행자(PickOrder)는 사실만 알린다.
+    &quot;&quot;&quot;
+
+    def __init__(self, queue: TaskQueue, threshold: int = 30) -&gt; None:
+        &quot;&quot;&quot;명령을 넣을 대기열과 임계값.&quot;&quot;&quot;
+        self.queue = queue
+        self.threshold = threshold
+
+    def __call__(self, e: dict[str, object]) -&gt; None:
+        &quot;&quot;&quot;콜러블 관찰자. 임계값 미만이면 긴급 충전 명령을 만든다.&quot;&quot;&quot;
+        pct = e[&quot;pct&quot;]
+        if isinstance(pct, int) and pct &lt; self.threshold:
+            reason = f&quot;배터리 {pct}% &lt; {self.threshold}%&quot;
+            self.queue.submit(ChargeRobot(str(e[&quot;robot&quot;]), reason), urgent=True)
+
+
+# ===========================================================================
+# 전략 — 경로 알고리즘은 그냥 함수
+# ===========================================================================
+
+def nearest_first(start: tuple[int, int], bins: list[Bin]) -&gt; list[Bin]:
+    &quot;&quot;&quot;[Concrete Strategy] 출발점에서 맨해튼 거리가 가까운 칸부터.&quot;&quot;&quot;
+    return sorted(bins, key=lambda b: abs(b.x - start[0]) + abs(b.y - start[1]))
+
+
+def zone_sweep(start: tuple[int, int], bins: list[Bin]) -&gt; list[Bin]:
+    &quot;&quot;&quot;[Concrete Strategy] 칸 코드 순서대로 구역을 쓸고 지나간다(통로 혼잡이 적다).&quot;&quot;&quot;
+    return sorted(bins, key=lambda b: b.code)
+
+
+ROUTES: dict[str, RoutePlanner] = {&quot;nearest&quot;: nearest_first, &quot;sweep&quot;: zone_sweep}
+
+
+# ===========================================================================
+# 퍼사드 — 운영자용 정문
+# ===========================================================================
+
+class WarehouseOps:
+    &quot;&quot;&quot;[Facade] 운영 콘솔과 야간 배치가 공유하는 단순한 API. 서브시스템(대기열·허브·재고)은 숨기지 않는다(8장).
+
+    퍼사드의 몫은 공유되는 흐름인 order()(번호 발급 + 명령 생성·제출)와 run_all()(대기열 비우기)이다.
+    cancel()과 stock()은 한 줄 위임에 가까운 편의 메서드로, 8장 기준으로는 퍼사드의 가치가 아니다.
+    &quot;&quot;&quot;
+
+    def __init__(self, ctx: Context, queue: TaskQueue) -&gt; None:
+        &quot;&quot;&quot;조립된 서브시스템들을 받는다(생성은 composition root의 일).&quot;&quot;&quot;
+        self.ctx, self.queue = ctx, queue
+        self._seq = 0
+
+    def order(self, sku: str, qty: int) -&gt; str:
+        &quot;&quot;&quot;주문을 접수하고 주문 번호를 돌려준다. 운영자는 커맨드 객체를 몰라도 된다.&quot;&quot;&quot;
+        self._seq += 1
+        oid = f&quot;O-{self._seq:03d}&quot;
+        self.queue.submit(PickOrder(oid, sku, qty))
+        return oid
+
+    def cancel(self, key: str) -&gt; bool:
+        &quot;&quot;&quot;명령 취소. 주문이면 주문 번호가 key다. 취소 불가 명령은 False.&quot;&quot;&quot;
+        return self.queue.cancel(key)
+
+    def run_all(self) -&gt; list[str]:
+        &quot;&quot;&quot;대기열을 비울 때까지 실행하고, 실행된 명령 이름을 돌려준다.&quot;&quot;&quot;
+        done = []
+        while (cmd := self.queue.run_next(self.ctx)) is not None:
+            done.append(cmd.label)
+        return done
+
+    def stock(self, sku: str) -&gt; int:
+        &quot;&quot;&quot;창고 전체 재고.&quot;&quot;&quot;
+        return stock(self.ctx.inventory, sku)
+
+
+# ===========================================================================
+# Composition root — 모든 조립이 여기 한 곳
+# ===========================================================================
+
+def build(route: str) -&gt; WarehouseOps:
+    &quot;&quot;&quot;창고를 조립한다. 싱글턴 없이 &#x27;하나&#x27;는 여기서 하나 만들어 나눠 주는 것으로 보장한다(4장).&quot;&quot;&quot;
+    inventory = Group(&quot;창고&quot;, [
+        Group(&quot;A&quot;, [Group(&quot;A1&quot;, [Group(&quot;A1-1&quot;, [Bin(&quot;A1-1-01&quot;, &quot;MUG&quot;, 5, 1, 1), Bin(&quot;A1-1-02&quot;, &quot;CUP&quot;, 3, 2, 1)])])]),
+        Group(&quot;B&quot;, [Group(&quot;B1&quot;, [Group(&quot;B1-1&quot;, [Bin(&quot;B1-1-01&quot;, &quot;MUG&quot;, 4, 8, 6)]),
+                                 Group(&quot;B1-2&quot;, [Bin(&quot;B1-2-01&quot;, &quot;PLATE&quot;, 9, 9, 6)])])]),
+    ])
+    robots = [Robot(&quot;R1&quot;, AcmeAdapter(AcmeSDK())), Robot(&quot;R2&quot;, RoboKoAdapter(RoboKoSDK()))]
+    hub, queue = EventHub(), TaskQueue()
+    ctx = Context(inventory, robots, hub, ROUTES[route])
+    # 구독 배선도 조립의 일부다. 누가 무엇을 듣는지가 이 몇 줄에 다 보인다.
+    hub.on(&quot;order.done&quot;, lambda e: print(f&quot;    [대시보드] {e[&#x27;order&#x27;]} 완료: {e[&#x27;robot&#x27;]}가 {e[&#x27;picked&#x27;]}개&quot;))
+    hub.on(&quot;robot.battery&quot;, lambda e: print(f&quot;    [대시보드] {e[&#x27;robot&#x27;]} 배터리 {e[&#x27;pct&#x27;]}%&quot;))
+    hub.on(&quot;robot.battery&quot;, BatteryGuard(queue))
+    hub.on(&quot;robot.charged&quot;, lambda e: print(f&quot;    [대시보드] {e[&#x27;robot&#x27;]} 충전 완료 {e[&#x27;pct&#x27;]}%&quot;))
+    return WarehouseOps(ctx, queue)
+
+
+if __name__ == &quot;__main__&quot;:
+    ops = build(route=&quot;nearest&quot;)
+    print(&quot;[1] 재고 조회 — 계층 깊이와 무관한 집계(컴포지트 + 반복자)&quot;)
+    print(f&quot;  MUG {ops.stock(&#x27;MUG&#x27;)}개, PLATE {ops.stock(&#x27;PLATE&#x27;)}개&quot;)
+
+    print(&quot;\n[2] 주문 세 건 접수 후 하나 취소 — 아직 실행 전이라 가능(커맨드)&quot;)
+    a, b, c = ops.order(&quot;MUG&quot;, 2), ops.order(&quot;PLATE&quot;, 1), ops.order(&quot;CUP&quot;, 1)
+    print(f&quot;  {b} 취소: {ops.cancel(b)} / 대기열: {ops.queue.labels()}&quot;)
+
+    print(&quot;\n[3] 실행 — 배터리 경고 &#x27;이벤트&#x27;가 충전 &#x27;명령&#x27;이 되어 대기열 앞에 끼어든다(옵저버 + 커맨드)&quot;)
+    executed = ops.run_all()
+    print(f&quot;  실행 순서: {executed}&quot;)
+    print(f&quot;  남은 MUG {ops.stock(&#x27;MUG&#x27;)}개&quot;)
+
+    print(&quot;\n[4] 충전 명령은 스스로 &#x27;취소 불가&#x27;를 밝힌다 — 호출자는 타입을 묻지 않고 cancellable만 본다&quot;)
+    ops.queue.submit(ChargeRobot(&quot;R1&quot;, &quot;안전: 배터리 셀 온도 경고 후 보호 충전&quot;))
+    print(f&quot;  charge-R1 취소 시도: {ops.cancel(&#x27;charge-R1&#x27;)} / 대기열: {ops.queue.labels()}&quot;)
+    print(f&quot;  실행: {ops.run_all()}&quot;)
+
+    print(&quot;\n[5] 경로 전략 교체는 조립 시점의 이름 하나 — 같은 주문, 다른 방문 순서&quot;)
+    for route in (&quot;nearest&quot;, &quot;sweep&quot;):
+        o = build(route)
+        order = [x.code for x in o.ctx.route((9, 9), [bn for bn in o.ctx.inventory.walk() if bn.sku == &quot;MUG&quot;])]
+        print(f&quot;  {route:7}: (9,9)에서 출발한 MUG 방문 순서 {order}&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_wms.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]의 재고 집계는 <code>sum(b.qty for b in node.walk() ...)</code> 한 줄이다. 신축 동의 칸막이 단계는 <code>Group</code>을 한 겹 더 넣는 <em>데이터</em> 변경일 뿐 코드 변경이 아니다. [2]에서 주문은 대기열에 있는 동안 그냥 데이터이므로 취소된다. 프로토타입에서는 불가능했던 일이다.</p>
+  <p>[3]이 이 사례의 핵심이다. R2가 첫 주문을 마치자 배터리가 20%가 되었고, <code>PickOrder</code>는 그 <em>사실</em>을 <code>robot.battery</code> 이벤트로 알렸다. <code>BatteryGuard</code>는 그 이벤트를 듣고 충전 <em>명령</em>을 만들어 대기열 맨 앞에 넣었다. 그 결과 실행 순서가 "주문 → 충전 → 주문"이 되었다. 프로토타입의 "주문 처리 도중 충전" 사고가 구조적으로 사라졌다. 충전은 진행 중인 명령이 끝난 뒤, 다음 명령이 시작되기 전에만 일어날 수 있다. [4]는 취소 판단을 명령 자신이 한다는 것을 보여준다. <code>TaskQueue.cancel()</code>은 명령의 구체 타입을 묻지 않고 <code>key</code>와 <code>cancellable</code>만 본다. 충전 명령은 안전 조치라서 스스로 취소 불가를 밝히고, 실행 이력에는 사유가 함께 남는다. [5]는 경로 전략 교체가 조립 시점의 이름 하나라는 것을 보여준다.</p>
+  <p>단, [3]의 출력이 BatteryGuard docstring의 "재진입" 근거까지 보여 주지는 않는다. 지금 <code>PickOrder</code>는 <code>execute()</code>의 맨 끝에서 배터리를 알리므로, 관찰자가 그 자리에서 직접 충전해도 충전은 똑같이 주문 사이에 일어난다. 달라지는 것은 실행 이력에 충전 항목과 사유가 남지 않고, <code>ChargeRobot</code>이 내던 <code>robot.charged</code> 이벤트, 곧 대시보드의 "충전 완료" 줄도 사라진다는 점이다. 재진입 위험 자체는 이 출력에 나타나지 않는다. 명령으로 미루는 것은 발행 시점이 바뀌어도 안전하게 하려는 <em>설계 근거</em>다. 3.1절에서 다룬다.</p>
+  <h3>2.5 넣지 않은 패턴과 그 이유</h3>
+  <p>다온의 설계안에 있던 나머지 패턴은 왜 빠졌는가. 각 판단은 해당 장의 "쓰지 말아야 할 때" 기준과 7절 체크리스트를 이 시스템의 사실에 적용한 것이다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>넣지 않은 패턴</th><th>이 시스템에서의 사실</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td>상태</td><td>로봇 상태는 셋이고, 상태별로 다른 것은 "작업을 받을 수 있는가" 하나뿐이다. <code>Enum</code>이면 충분하다. 고장·정비 상태가 추가되고 상태마다 행동이 크게 달라지면 그때 옮긴다.</td><td><a href="13-state.html#tradeoffs">13장</a> "상태마다 다른 것이 데이터뿐일 때"</td></tr>
+      <tr><td>추상 팩토리</td><td>시뮬레이션과 실환경의 차이는 드라이버 하나다. "함께 쓰여야 하는 제품군"이 아니라 제품 하나이므로 <code>build()</code>에서 주입하면 된다.</td><td><a href="02-abstract-factory.html#tradeoffs">2장</a> "제품이 하나뿐일 때"</td></tr>
+      <tr><td>싱글턴</td><td><code>EventHub</code>와 <code>TaskQueue</code>는 하나면 충분하지만 둘이면 틀리지는 않는다. 테스트는 각자 새로 만들어야 한다.</td><td><a href="04-singleton.html#tradeoffs">4장</a></td></tr>
+      <tr><td>템플릿 메서드</td><td>명령 둘의 <code>execute()</code>에 끌어올릴 공통 절차가 없다. 주문은 로봇 선택 → 경로 → 피킹 → 이벤트 둘, 충전은 로봇 조회 → 충전 → 이벤트 하나다. 공유할 골격이 없으면 템플릿 메서드는 빈 골격과 상속 결합만 남긴다. 공통 골격이 생기면 그때도 호출자 <code>run_next()</code>에 두는 편이 상속보다 가볍다.</td><td><a href="14-template-method.html#structure">14장 3절</a>(골격이 패턴의 전제), <a href="14-template-method.html#tradeoffs">6절</a>(상속 결합의 비용)</td></tr>
+      <tr><td>빌더</td><td>재고 트리는 지금 <code>build()</code> 안의 리터럴이다. ERP에서 읽으며 검증해야 할 때가 빌더의 시점이다(연습문제 3).</td><td><a href="07-composite.html#tradeoffs">7장</a> 관련 패턴, <a href="03-builder.html#tradeoffs">3장</a></td></tr>
+      <tr><td>데코레이터·프록시</td><td>드라이버 호출에 덧붙일 책임(재시도, 계측)이나 통제할 접근(권한, 지연 연결)이 아직 요구되지 않았다.</td><td>7절 체크리스트 1번(변경이 실제로 일어났는가)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout ok">
+    <span class="label">핵심 정리</span>
+    02가 드러낸 여섯 축에 일곱 패턴이 들어갔다. 컴포지트와 반복자가 재고 계층 한 축을 함께 맡았고, 배터리 축에는 새 패턴 없이 옵저버+커맨드 조합이 쓰였으며, 퍼사드는 02의 축이 아니라 별도의 공유 흐름 요구에서 왔다. 그중 셋(전략, 옵저버의 관찰자, 반복자)은 함수나 제너레이터로 줄었다. 패턴의 수는 설계의 품질 지표가 아니다. 지표는 <strong>"각 변경 요구가 몇 곳을 건드리는가"</strong>다. 이 설계에서 새 제조사는 어댑터 하나, 새 경로 알고리즘은 함수 하나, 새 알림 채널은 구독 한 줄, 새 계층 단계는 데이터 한 겹이다.
+  </div>
+</section>
+
+<section id="combinations">
+  <h2>3. 자주 쓰이는 조합</h2>
+  <p>패턴은 혼자 쓰이는 경우보다 짝을 지어 쓰이는 경우가 많다. 각 장이 "관련 패턴"에서 예고한 조합들을 모으면 다음과 같다.</p>
+  <h3>3.1 옵저버 + 커맨드: 이벤트가 명령을 만든다</h3>
+  <p><a href="11-observer.html#tradeoffs">11장</a>과 <a href="12-command.html#tradeoffs">12장</a>은 이 조합을 이 장으로 미뤘다. 2절의 <code>BatteryGuard</code>가 그 구현이다. 형식은 단순하다. 관찰자가 통지를 받으면 일을 직접 하지 않고 명령 객체를 만들어 호출자에게 넘긴다. 이 한 단계의 간접이 세 가지를 준다.</p>
+  <ul>
+    <li><strong>재진입 차단(설계 근거).</strong> 관찰자는 통지가 발행자 실행의 <em>어느 시점</em>에 오는지 알 수 없다. 관찰자가 그 자리에서 시스템 상태를 바꾸면 아직 끝나지 않은 발행자의 작업 안으로 들어가게 된다. 이것을 재진입이라 부른다. 지금 <code>PickOrder</code>는 맨 끝에서 통지하므로 문제가 드러나지 않지만, 피킹마다 배터리를 알리도록 바뀌면 직접 충전은 곧바로 02의 사고가 된다. 명령으로 만들어 대기열에 넣으면 발행 시점과 무관하게 실행이 명령 <em>사이</em>로 미뤄진다.</li>
+    <li><strong>같은 경로.</strong> 이벤트가 만든 작업도 사람이 만든 작업과 같은 대기열·우선순위·실행 이력을 탄다. <code>ChargeRobot</code>은 <code>reason</code> 필드를 가지므로 "왜 충전했는가"가 실행 이력에 남는다. 취소 여부는 명령이 스스로 밝힌다. 충전은 안전 조치라 클래스 상수 <code>cancellable: ClassVar[bool] = False</code>로 정했고(인스턴스마다 뒤집을 수 없다), 호출자는 그 속성만 보고 판단한다.</li>
+    <li><strong>정책의 분리.</strong> 발행자(<code>PickOrder</code>)는 "배터리가 20%다"라는 사실만 알리고, "30% 미만이면 충전"이라는 정책은 관찰자만 안다. 정책이 바뀌어도 발행자는 그대로다.</li>
+  </ul>
+  <p>GUI 프레임워크(버튼 클릭 이벤트 → 편집 명령), <dfn class="term" id="term-event-sourcing" data-term="event-sourcing" title="현재 상태 대신 상태를 바꾼 이벤트들의 기록을 저장하고, 그 기록을 재생해 상태를 얻는 설계 방식.">이벤트 소싱</dfn>(현재 상태 대신 상태를 바꾼 이벤트들의 기록을 저장하고, 그것을 재생해 상태를 얻는 설계 방식. 도메인 이벤트 → 후속 명령), 메시지 브로커의 소비자(메시지 → 작업 큐)가 모두 이 모양이다. 주의할 점도 있다. 관찰자가 명령을 만들고, 그 명령이 다시 이벤트를 내고, 그 이벤트가 또 명령을 만드는 순환이 생길 수 있다. 이 예에서는 <code>ChargeRobot</code>이 <code>robot.charged</code>라는 <em>다른</em> 이벤트를 내므로 순환이 없다. 이벤트 이름 설계가 곧 순환 방지 장치다.</p>
+  <h3>3.2 그 밖의 조합</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>조합</th><th>어떻게 맞물리는가</th><th>어디서 보았나</th></tr></thead>
+    <tbody>
+      <tr><td>컴포지트 + 반복자</td><td>트리 순회를 <code>walk()</code>/<code>__iter__</code> 제너레이터에 가두면, 연산은 평평한 스트림 위의 <code>sum</code>, <code>Counter</code>, 컴프리헨션이 된다. 단, 트리 모양을 써야 하는 연산(형제 중 최댓값 등)은 여전히 재귀 메서드가 자연스럽다.</td><td><a href="07-composite.html#pythonic">7장 5절</a>, <a href="15-iterator.html#pythonic">15장 5절</a>, 이 장 2절</td></tr>
+      <tr><td>커맨드 + 컴포지트</td><td>매크로 커맨드는 명령의 컴포지트다. 실행은 순서대로, undo는 역순으로 전파된다.</td><td><a href="12-command.html#pythonic">12장 5절</a></td></tr>
+      <tr><td>전략 + 등록부(팩토리)</td><td>설정 문자열을 전략으로 바꾸는 선택 로직을 한 곳(<code>build_policy</code>, <code>ROUTES</code>)에 둔다. 등록부의 값이 전략 자체인지, 전략을 만드는 팩토리인지가 설계 선택이다.</td><td><a href="10-strategy.html#structure">10장 3절</a>, <a href="01-factory-method.html#pythonic">1장 5절</a></td></tr>
+      <tr><td>상태 + 옵저버</td><td>전이 관문(<code>change_state</code>)에서 전이를 통지하면 앱 푸시·대시보드·지표 수집을 상태 코드와 분리할 수 있다.</td><td><a href="13-state.html#tradeoffs">13장 6절</a></td></tr>
+      <tr><td>상태 + 커맨드</td><td>전이를 일으키는 사건을 명령으로 만들면 큐잉, 재시도, 감사 로그가 가능해진다.</td><td><a href="13-state.html#tradeoffs">13장 6절</a></td></tr>
+      <tr><td>추상 팩토리 + 퍼사드</td><td>퍼사드가 플랫폼별 서브시스템을 만들어야 할 때 그 생성을 추상 팩토리에 맡기고, 퍼사드는 단순한 업무 API만 낸다.</td><td><a href="08-facade.html#tradeoffs">8장 6절</a>, <a href="02-abstract-factory.html#tradeoffs">2장 6절</a></td></tr>
+      <tr><td>빌더 + 컴포지트</td><td>ERP 데이터처럼 외부에서 읽어 들이는 트리를 단계적으로 조립하고 <code>build()</code>에서 구조 제약(순환, 빈 조립품)을 검사한다.</td><td><a href="07-composite.html#tradeoffs">7장 6절</a></td></tr>
+      <tr><td>템플릿 메서드 + 팩토리 메서드</td><td>골격의 한 단계가 "무엇을 만들 것인가"이면 그 단계가 팩토리 메서드다.</td><td><a href="01-factory-method.html#structure">1장 3절</a>, <a href="14-template-method.html#tradeoffs">14장 6절</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="principles">
+  <h2>4. 원칙으로 되짚기</h2>
+  <p>서론에서 세 원칙(변하는 것의 분리, 인터페이스에 프로그래밍, 합성 우선)이 패턴들의 공통 뿌리라고 했다. 열다섯 패턴을 지나 온 지금, 각 패턴이 주로 무엇을 실현했는지 정리하면 다음과 같다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>원칙</th><th>대표적으로 실현한 패턴</th></tr></thead>
+    <tbody>
+      <tr><td>OCP(추가로 확장)</td><td>팩토리 메서드(새 제품 = 하위 클래스), 추상 팩토리(새 제품군), 데코레이터(새 책임 = 래퍼), 전략(새 알고리즘), 옵저버(새 관찰자), 커맨드(새 동작), 상태(새 상태)</td></tr>
+      <tr><td>DIP(추상에 의존)</td><td>팩토리 메서드·추상 팩토리(생성), 어댑터(Target은 도메인이 소유하는 포트), 옵저버(주체는 추상 관찰자만 안다)</td></tr>
+      <tr><td>SRP(변경 이유 하나)</td><td>빌더(조립 절차와 표현의 분리), 프록시(접근 정책의 분리), 퍼사드(흐름 규칙의 단일 출처), 상태(상태별 행동의 응집)</td></tr>
+      <tr><td>합성 우선</td><td>데코레이터, 전략, 컴포지트, 프록시. 그리고 거의 모든 장의 파이썬다운 변형</td></tr>
+    </tbody>
+  </table></div>
+  <p>원칙끼리 충돌하는 지점도 두 곳 보았다. <strong>싱글턴은 캡슐화(생성 통제)를 실현하지만 DIP와 충돌한다.</strong> 클라이언트가 구체 클래스에 정적으로 묶이기 때문이다. 4장의 결론은 두 요구(유일성, 전역 접근)를 떼어 내 유일성만 composition root에 남기는 것이었다. <strong>템플릿 메서드는 DRY와 순서 강제를 얻지만 합성 우선과 충돌한다.</strong> 상속은 가장 강한 결합이고, 취약한 기반 클래스 문제와 요요 문제를 데려온다. 14장은 변이 축이 하나이고 골격이 안정적일 때로 그 사용을 한정했다. 원칙은 규칙이 아니라 힘이다. 패턴은 서로 당기는 힘들 사이의 특정한 균형점이다.</p>
+</section>
+
+<section id="python-absorption">
+  <h2>5. 파이썬이 흡수한 패턴들</h2>
+  <p>장마다 "언어가 이 패턴을 얼마나 흡수하는가"를 판단했다. 그 판단을 한 표로 모은다. 분류는 각 장 5·6절이 내린 결론을 따랐다. 흡수 정도는 "패턴의 <em>의도</em>가 사라졌는가"가 아니라 "그 의도를 위해 <em>클래스 구조</em>가 여전히 필요한가"를 기준으로 했다. 의도는 어느 장에서도 사라지지 않았다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>흡수 정도</th><th>패턴</th><th>파이썬의 수단</th><th>그래도 클래스가 필요한 경우</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="1">언어의 일부</td><td><a href="15-iterator.html#pythonic">반복자</a></td><td><code>__iter__</code>/<code>__next__</code> 프로토콜, 제너레이터, <code>yield from</code>, <code>itertools</code></td><td>순회 중 위치 조회, <code>peek</code>/<code>seek</code>, 반복자 복제·직렬화</td></tr>
+      <tr><td rowspan="2">대부분 함수로</td><td><a href="10-strategy.html#pythonic">전략</a></td><td>함수, 클로저, <code>partial</code>, <code>sorted(key=)</code> 같은 주입 지점</td><td>로그·비교·직렬화가 필요하면 <code>frozen dataclass</code> + <code>__call__</code>, 메서드가 둘 이상이면 ABC/Protocol</td></tr>
+      <tr><td><a href="11-observer.html#pythonic">옵저버</a></td><td>콜러블 구독, <code>WeakMethod</code>로 해제 누락 안전망</td><td>여러 콜백 메서드를 한 계약으로 묶을 때(ABC 관찰자)</td></tr>
+      <tr><td rowspan="6">대체 수단이 대부분을 맡음</td><td><a href="04-singleton.html#pythonic">싱글턴</a></td><td>모듈 수준 객체(import 캐시), 무엇보다 composition root 주입</td><td>거의 없다(값 싱글턴 <code>None</code>, 이름별 레지스트리 <code>logging.getLogger</code> 정도)</td></tr>
+      <tr><td><a href="08-facade.html#pythonic">퍼사드</a></td><td>모듈 함수와 <code>__all__</code>, <code>__init__.py</code>, <code>@contextmanager</code></td><td>상태를 가진 세션, 여러 서브시스템 참조를 주입받아 보관할 때</td></tr>
+      <tr><td><a href="05-adapter.html#pythonic">어댑터</a></td><td><code>Protocol</code>(상속 불필요), <code>partial</code>·클로저 함수 어댑터</td><td>메서드가 둘 이상이고 상태를 공유할 때. <code>__getattr__</code> 위임은 경계에 구멍을 낸다</td></tr>
+      <tr><td><a href="09-proxy.html#pythonic">프록시</a></td><td><code>cached_property</code>(클래스를 고칠 수 있을 때), <code>lru_cache</code>, <code>weakref.proxy</code></td><td>고칠 수 없는 외부 클래스의 지연 로딩, 권한 통제. <code>__getattr__</code> 범용 프록시는 특수 메서드와 <code>isinstance</code>에서 깨진다</td></tr>
+      <tr><td><a href="03-builder.html#pythonic">빌더</a></td><td><code>dataclass(kw_only, frozen)</code>, <code>__post_init__</code> 검증, <code>replace</code> 파생</td><td>조건부·누적적 조립이 반복될 때, 같은 절차로 여러 표현(GoF 빌더)</td></tr>
+      <tr><td><a href="02-abstract-factory.html#pythonic">추상 팩토리</a></td><td><code>Protocol</code> 제품 + 생성 함수 번들(frozen dataclass). 제품군이 두세 개이고 composition root에서만 조립된다면 이것으로 충분하다</td><td>번들은 데이터라 섞을 수 있다. 제품군 일관성을 구조로 보장하거나 공유 상태(계정, 세션)를 소유해야 하면 클래스 계층</td></tr>
+      <tr><td rowspan="4">함수로 일부 대체</td><td><a href="12-command.html#pythonic">커맨드</a></td><td>"나중에 실행"은 <code>partial</code>·클로저 — 12장의 표현대로 "절반만" 함수로 된다</td><td>undo 정보, 이름, 로그 전송·재생이 필요하면 명령 객체(수신자를 인자로 받는 dataclass)</td></tr>
+      <tr><td><a href="06-decorator.html#pythonic">데코레이터</a></td><td>시그니처를 지키는 함수 래퍼(<code>functools.wraps</code>), 런타임 조립은 <code>reduce</code></td><td>연산이 둘 이상이고 상태를 공유할 때(배치의 <code>send</code>+<code>flush</code>). <code>@</code> 문법은 이름만 같은 다른 범주</td></tr>
+      <tr><td><a href="14-template-method.html#pythonic">템플릿 메서드</a></td><td>"준비-본문-정리"는 <code>@contextmanager</code>, 단계 주입은 합성</td><td>변이 축이 하나이고 골격이 안정적일 때. <code>__init_subclass__</code>로 정의 시점 검사</td></tr>
+      <tr><td><a href="01-factory-method.html#pythonic">팩토리 메서드</a></td><td>생성 함수(클래스 자체가 callable) 주입, <code>__init_subclass__</code> 레지스트리</td><td>Creator가 생성 외의 훅도 함께 바꿔야 할 때. <code>@classmethod</code> 대체 생성자는 이름만 같다</td></tr>
+      <tr><td rowspan="2">여전히 클래스 구조가 핵심</td><td><a href="13-state.html#pythonic">상태</a></td><td>행동 차이가 작으면 <code>Enum</code> + 전이표, 무상태 상태는 모듈 상수로 공유</td><td>상태마다 행동·데이터가 크게 다를 때. <code>__class__</code> 교체는 동작하지만 유지보수 불가</td></tr>
+      <tr><td><a href="07-composite.html#pythonic">컴포지트</a></td><td>순회는 제너레이터, 가끔 추가되는 연산은 <code>functools.singledispatch</code></td><td>공통 연산과 재귀 구조 자체는 클래스(또는 dataclass)로</td></tr>
+    </tbody>
+  </table></div>
+  <p>표의 마지막 열이 이 교재가 장마다 던진 질문, "클래스가 필요한 순간은 언제인가"의 답을 모은 것이다. 거의 모든 답이 같은 몇 가지로 수렴한다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 바꿔야 한다. 구조적 보장(일관성, 구현 누락 검사)이 필요하다. 또 하나의 반복된 교훈은 <code>__getattr__</code> 위임의 한계다. 어댑터(5장)에서는 번역을 거치지 않은 SDK 메서드가 새어 나와 경계에 구멍이 나고, 오타가 SDK 이름으로 보고되며, 타입 검사기가 그 객체에 무엇이 있는지 알 수 없었다. 데코레이터(6장)와 프록시(9장)에서는 특수 메서드가 인스턴스가 아니라 타입에서 직접 조회되므로 "투명한 범용 래퍼"가 <code>len()</code>, <code>with</code>, <code>isinstance</code>에서 깨졌다. 편리한 한 줄 위임은 세 장 모두에서 "같은 인터페이스" 또는 "경계"라는 패턴의 약속을 깎아 먹었다.</p>
+  <p>마지막으로 <a href="07-composite.html#pythonic">7장</a>이 소개한 <code>functools.singledispatch</code>를 다시 짚는다. 객체지향 설계는 "새 타입 추가에 강하고 새 연산 추가에 약하다". 다형적 메서드는 타입을 추가하기 쉽고, <code>singledispatch</code>는 연산을 추가하기 쉽다. GoF가 방문자(Visitor) 패턴으로 풀던 문제를 파이썬은 디스패치 표 하나로 푼다. 다만 그것은 타입 분기를 없앤 것이 아니라 한 곳에 모은 것이며, 새 타입이 생기면 등록 함수를 모두 찾아 추가해야 한다. 어느 축이 더 자주 변하는지가 선택의 기준이다.</p>
+</section>
+
+<section id="smells">
+  <h2>6. 냄새에서 후보 패턴으로</h2>
+  <p>서론에서 패턴은 "판단의 지름길"이라고 했다. 아래 표는 그 지름길의 색인이다. 왼쪽 냄새를 맡으면 가운데 패턴을 <em>후보로</em> 떠올리되, 오른쪽 질문으로 먼저 걸러라. 대부분의 경우 걸러진다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>냄새</th><th>후보</th><th>먼저 물을 것</th></tr></thead>
+    <tbody>
+      <tr><td>같은 메서드에 <code>if type == ...</code> 분기가 계속 늘고, 고를 수 있는 알고리즘이 셋 이상</td><td>전략</td><td>숫자만 바뀌는 것 아닌가(설정값)? 함수 하나면 되지 않는가?</td></tr>
+      <tr><td>같은 상태 분기가 여러 메서드에 반복되고 불법 전이 버그가 난다</td><td>상태</td><td>상태가 둘뿐인가? 다른 것이 데이터(문구, 색)뿐인가 → <code>Enum</code></td></tr>
+      <tr><td>흐름 메서드가 구체 클래스를 직접 만들고, 확장은 외부 팀이 한다</td><td>팩토리 메서드</td><td>확장 주체가 내부 팀뿐인가? 생성 함수 주입으로 충분한가?</td></tr>
+      <tr><td>섞이면 안 되는 객체들이 따로따로 생성된다</td><td>추상 팩토리</td><td>제품들 사이에 정말 일관성 제약이 있는가? 제품군이 하나뿐인가?</td></tr>
+      <tr><td>생성자 인자에 <code>None</code>이 늘어서고, 인자 사이에 제약이 있다</td><td>빌더</td><td><code>dataclass(kw_only=True)</code> + <code>__post_init__</code>으로 끝나지 않는가?</td></tr>
+      <tr><td>"하나뿐이어야 한다"며 어디서든 꺼내 쓴다</td><td>(싱글턴 대신) 주입</td><td>둘이면 논리적으로 틀리는가, 하나면 충분할 뿐인가?</td></tr>
+      <tr><td>외부 SDK의 예외·어휘가 도메인 코드에 샌다</td><td>어댑터</td><td>통합 대상이 하나뿐이고 바뀔 계획이 없는가 → 얇은 래퍼 함수</td></tr>
+      <tr><td>기능 조합마다 하위 클래스가 생긴다(2ⁿ 폭발)</td><td>데코레이터</td><td>조합이 사실상 고정인가? 순서 조합 대부분이 무의미한가?</td></tr>
+      <tr><td>깊이가 정해지지 않은 트리에 중첩 반복문을 쓴다</td><td>컴포지트(+ 반복자)</td><td>깊이가 고정이고 계층마다 역할이 다른가? 사실은 그래프인가?</td></tr>
+      <tr><td>여러 클라이언트가 같은 서브시스템 호출 순서를 복제한다</td><td>퍼사드</td><td>클라이언트가 하나뿐인가? 통과용 메서드만 생기지 않는가?</td></tr>
+      <tr><td>비싼 객체를 미리 만들거나, 접근 권한 검사가 흩어진다</td><td>프록시</td><td>클래스를 고칠 수 있는가 → <code>cached_property</code>. 함수 하나인가 → <code>lru_cache</code></td></tr>
+      <tr><td>상태가 바뀔 때 알려야 할 곳이 늘어 주체 코드가 계속 바뀐다</td><td>옵저버</td><td>반응하는 쪽이 하나뿐인가 → 콜백 인자. 순서와 결과가 중요한 흐름인가 → 명시적 호출</td></tr>
+      <tr><td>요청을 취소·재시도·되돌리기·기록해야 한다</td><td>커맨드</td><td>undo도 큐도 로그도 없는가 → <code>dict[str, Callable]</code></td></tr>
+      <tr><td>하위 클래스들이 같은 절차를 복사하고 일부만 다르다</td><td>템플릿 메서드</td><td>변이 축이 둘 이상인가? 실행 중에 바뀌는가? "준비-본문-정리"뿐인가 → 컨텍스트 관리자</td></tr>
+      <tr><td>컬렉션 내부 구조(리스트, 페이지 API)가 소비자에게 샌다</td><td>반복자</td><td>내부 리스트를 감싸기만 하는가 → <code>return iter(self._items)</code></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="anti-patterns">
+  <h2>7. 패턴 과잉 체크리스트</h2>
+  <p>이 수준의 학생이 가장 자주 하는 실수는 패턴을 모르는 것이 아니라 너무 많이 쓰는 것이다. 2절의 다온처럼. 설계 리뷰에서 패턴을 하나 넣자는 제안이 나오면 다음을 차례로 물어라.</p>
+  <ol>
+    <li><strong>변경이 실제로 일어났는가?</strong> "나중에 바뀔 수도 있다"는 추측이다. 두 번째 구현이 실제로 생겼을 때 추상화를 끌어올려도 대개 늦지 않다. 각 장이 "세 번째 변형이 실제로 생길 때 리팩터링해도 늦지 않다"(10장), "늘어나기 시작할 때 리팩터링하라"(13장)고 반복한 이유다.</li>
+    <li><strong>구현이 하나뿐인 인터페이스인가?</strong> 구현 하나에 ABC 하나는 모든 변경이 두 곳을 오가게 한다. 파이썬에서는 덕 타이핑 덕분에 나중에 <code>Protocol</code>을 붙여도 구현을 고칠 필요가 없다.</li>
+    <li><strong>추상화 비용이 변경 비용보다 큰가?</strong> 1년에 한 번 바뀌는 규칙을 위해 모든 독자가 매일 간접층을 읽는다면 손해다(서론 연습문제 3).</li>
+    <li><strong>언어가 이미 자리를 주고 있는가?</strong> <code>key=</code>에 함수를 넘기면 되는 곳에 <code>SortStrategy</code> 계층, 모듈이면 되는 곳에 싱글턴 클래스, 제너레이터면 되는 곳에 반복자 클래스. 5절 표의 가운데 열을 먼저 보라.</li>
+    <li><strong>패턴의 이름을 붙이려고 구조를 만들고 있지는 않은가?</strong> 이름만 패턴인 코드(분기가 남은 전략, 하위 클래스가 결정하지 않는 팩토리 메서드, 인터페이스가 다른 데코레이터)는 패턴의 비용만 치르고 이득은 얻지 못한다.</li>
+    <li><strong>그 패턴이 해결하는 변경 축을 한 문장으로 말할 수 있는가?</strong> "제조사가 바뀐다 → 어댑터"처럼 말하지 못한다면 그 패턴은 아직 이유가 없다.</li>
+  </ol>
+  <div class="callout warn">
+    <span class="label">반대 방향의 실수도 있다</span>
+    과잉을 경계하다 보면 필요한 추상화까지 미루게 된다. 2절의 프로토타입처럼 이미 변경 축 여섯 개가 한 클래스에 묶여 매번 같은 곳이 깨지고 있다면, 그것은 "아직 이르다"가 아니라 "이미 늦었다"다. 판단 기준은 미래의 추측이 아니라 <strong>지금까지의 변경 이력</strong>이다. 같은 곳이 서로 다른 이유로 세 번 바뀌었다면 축을 분리할 때다.
+  </div>
+</section>
+
+<section id="exercises">
+  <h2>8. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. 같은 그림, 네 개의 패턴</h3>
+    <p>다음 네 설계는 클래스 다이어그램이 모두 같다. "<code>X</code>는 인터페이스 <code>I</code>를 가진 객체 하나를 필드로 갖고, 자기 연산을 그 객체에 위임한다." 설명만 다르다. 각각이 전략·상태·데코레이터·프록시 중 무엇인지 판별하고, 근거를 "누가 무엇을 결정하는가"로 쓰라.</p>
+    <ol type="a">
+      <li><code>Conveyor</code>는 <code>Motor</code>를 갖는다. 운영자가 야간에는 <code>QuietMotor</code>, 주간에는 <code>FastMotor</code>를 끼운다. <code>Conveyor</code>는 무엇이 끼워졌는지 모른다.</li>
+      <li><code>Door</code>는 <code>DoorMode</code>를 갖는다. <code>Locked.open()</code>은 거부하고, <code>Unlocked.lock()</code>은 <code>Door</code>의 모드를 <code>Locked</code>로 바꾼다.</li>
+      <li><code>ScannerClient</code>는 <code>Scanner</code> 인터페이스를 구현하고 내부에 <code>Scanner</code>를 갖는다. 생성자는 장치 주소만 받고, 첫 <code>scan()</code> 때 실제 장치 드라이버를 만들어 연결한다. 관리자 계정이 아니면 <code>calibrate()</code>를 거부한다.</li>
+      <li><code>RetryingScanner</code>는 <code>Scanner</code>를 구현하고 생성자로 <code>Scanner</code>를 받는다. 실패하면 세 번까지 다시 부른다. 설정 파일에 따라 <code>LoggingScanner</code>로 한 번 더 감싸기도 한다.</li>
+    </ol>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>(a) 전략.</strong> 교체를 바깥(운영자)이 결정하고, 컨텍스트는 교체 시점도 이유도 모른다. 모터들은 서로를 모른다.</p>
+      <p><strong>(b) 상태.</strong> 교체를 상태 객체 자신이 결정한다(<code>Unlocked.lock()</code>이 다음 모드를 정한다). 상태 객체가 컨텍스트에 전이를 요청하는 역방향 의존과, 구체 상태끼리 서로를 아는 관계가 있다. "거부"라는 상태별 행동 차이도 상태 패턴의 신호다.</p>
+      <p><strong>(c) 프록시.</strong> 가상 프록시(첫 사용 때 생성)와 보호 프록시(권한 검사)를 겸한다. 결정적 근거는 실제 객체를 <em>스스로 만든다</em>는 것이다. 클라이언트는 실제 드라이버의 참조를 갖지 않고, 프록시가 그 생명주기를 소유한다. 목적은 책임 추가가 아니라 접근 통제다.</p>
+      <p><strong>(d) 데코레이터.</strong> 감쌀 객체를 <em>받고</em>, 같은 인터페이스로 책임(재시도, 로그)을 덧붙이며, 조합을 바깥(설정)이 정하고, 몇 겹이든 쌓인다.</p>
+      <p>흔한 오답은 (d)를 프록시로 보는 것이다. "재시도"를 접근 통제로 볼 수도 있기 때문이다. 판별 기준은 생성과 조합의 주도권이다. 실제 객체를 받아서 감싸고 클라이언트가 조합을 정하면 데코레이터다. 또 (a)를 상태로 보는 오답도 흔한데, "야간/주간"이라는 말이 상태처럼 들리기 때문이다. 그러나 그 전환을 모터 객체가 결정하지 않는다. 이름이 아니라 결정의 위치를 보라.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 스마트 주차장</h3>
+    <p>한빛로지스 물류센터의 주차장 시스템이다. 변경 이력을 보면 이 코드가 바뀐 이유는 세 가지였다. 변경 축 셋을 찾고, 축마다 가장 가벼운 패턴을 적용하라. 축이 아닌 곳에는 패턴을 넣지 마라.</p>
+    <pre><code class="language-python">class ParkingLot:
+    """출차 처리. 요금·차단기·알림이 한 메서드에."""
+
+    def __init__(self, lot_type: str, gate_vendor: str) -> None:
+        self.lot_type, self.gate_vendor = lot_type, gate_vendor
+
+    def leave(self, plate: str, car: str, minutes: int) -> str:
+        # 변경 이력 1: 요금 규칙 — 직원 주차장 무료, 경차 할인이 차례로 추가됨
+        if self.lot_type == "staff":
+            fee = 0
+        else:
+            fee = -(-minutes // 30) * 1000
+            if car == "compact":
+                fee //= 2
+        # 변경 이력 2: 차단기 교체 — 신형은 SDK 모양이 다르다
+        if self.gate_vendor == "gateco":
+            opened = f"GateCo #2 열림"            # sdk.open_bar(2)
+        else:
+            opened = f"BarrierX BX-7 5000ms 열림"  # sdk.lift("BX-7", 5000)
+        # 변경 이력 3: 알림 대상 추가 — 전광판, 문자, 이번 달엔 정산 시스템
+        print(f"전광판: {plate} {fee}원")
+        print(f"문자: {plate}님 {fee}원 결제")
+        return opened</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>변경 이력이 곧 변경 축이다. (1) 요금 규칙 → <strong>전략</strong>. 메서드 하나에 상태가 없으므로 함수와 이름표 <code>dict</code>로 충분하다. 경차 할인은 요금 규칙 내부의 사정이므로 별도 축이 아니라 <code>standard</code> 함수 안에 둔다. (2) 차단기 제조사 → <strong>어댑터</strong>. 우리가 고칠 수 없는 SDK 두 개를 <code>Gate.open()</code> 하나로 번역한다. 게이트 번호나 유지 시간 같은 SDK 고유 인자는 어댑터 필드가 된다. (3) 알림 대상 → <strong>옵저버</strong>. 콜러블 구독 목록이면 정산 시스템 추가는 구독 한 줄이다.</p>
+      <p>넣지 않은 것도 답의 일부다. 차량의 입차/출차 상태는 <code>bool</code> 하나라 상태 패턴이 필요 없고, 주차장이 하나라고 싱글턴을 만들 이유도 없다. 출차 흐름 하나뿐인데 퍼사드를 씌우면 통과용 메서드만 생긴다.</p>
+      <p>흔한 오답 두 가지. 첫째, 요금 규칙마다 <code>FeePolicy</code> ABC를 상속한 클래스를 만드는 것. 틀리지는 않지만 메서드 하나·상태 없음인 전략에 클래스 계층은 소음이다(10장 표). 둘째, 알림을 데코레이터로 푸는 것(<code>NotifyingParkingLot(lot)</code>). 알림 대상이 늘 때마다 래퍼가 한 겹씩 늘고, 순서를 조립 코드가 관리해야 한다. "반응하는 쪽이 늘어난다"는 축에는 옵저버가 맞다. 해설 코드의 <code>-(-minutes // 30)</code>은 <dfn class="term" id="term-ceiling-division" data-term="ceiling-division" title="-(-a // b)처럼 써서 나눗셈 결과를 올림하는 정수 관용구.">올림 나눗셈</dfn> 관용구다. 내림 나눗셈 <code>//</code>을 부호를 뒤집어 적용해 나눗셈 결과를 올림한다(31분은 2구간).</p>
+      <figure class="code"><figcaption>src/99_summary/solutions/ex2_parking.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: &#x27;스마트 주차장&#x27; 순진한 코드에서 변경 축 3개를 찾아 각각 가장 가벼운 패턴으로.
+
+상황: 한빛로지스 물류센터의 직원 주차장 시스템(문제 본문 코드)은 ParkingLot.leave() 하나에
+요금 계산·차단기 제어·알림이 다 들어 있었다. 변경 요구 이력을 보면 축이 셋이다.
+1. 요금 규칙(경차 할인, 야간 정액, 직원 무료…)이 분기마다 바뀐다     → 전략(10장): 함수 + 이름표 dict
+2. 차단기 제조사가 바뀐다(GateCo의 open_bar(gate_no) → 신형 BarrierX의 lift(id, ms)) → 어댑터(5장)
+3. 출차 알림을 받는 쪽이 는다(전광판, 문자, 정산 시스템)            → 옵저버(11장): 콜러블 구독
+축이 아닌 것에는 패턴을 넣지 않았다: 차량 상태(입차/출차)는 bool 하나, 주차장은 하나지만 싱글턴 없음.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable, Protocol
+
+# ---------------------------------------------------------------------------
+# 축 1: 요금 규칙 — 전략이지만 파이썬에서는 그냥 함수
+# ---------------------------------------------------------------------------
+
+FeeRule = Callable[[str, int], int]  # (차종, 주차 분) → 요금(원)
+
+
+def standard(car: str, minutes: int) -&gt; int:
+    &quot;&quot;&quot;기본: 30분 1,000원, 경차 50% 할인. 할인은 규칙 내부 사정이라 여기에 둔다.&quot;&quot;&quot;
+    fee = -(-minutes // 30) * 1000  # 올림 나눗셈: 31분은 2구간
+    return fee // 2 if car == &quot;compact&quot; else fee
+
+
+def staff_free(car: str, minutes: int) -&gt; int:
+    &quot;&quot;&quot;직원 주차장: 무료.&quot;&quot;&quot;
+    return 0
+
+
+FEE_RULES: dict[str, FeeRule] = {&quot;standard&quot;: standard, &quot;staff&quot;: staff_free}
+
+# ---------------------------------------------------------------------------
+# 축 2: 차단기 — 어댑터
+# ---------------------------------------------------------------------------
+
+
+class Gate(Protocol):
+    &quot;&quot;&quot;[Target] 주차장이 차단기에게 원하는 것은 &#x27;열어라&#x27; 하나.&quot;&quot;&quot;
+
+    def open(self) -&gt; str:
+        &quot;&quot;&quot;차단기를 연다.&quot;&quot;&quot;
+        ...
+
+
+class GateCoSDK:
+    &quot;&quot;&quot;[Adaptee] 구형 차단기 SDK.&quot;&quot;&quot;
+
+    def open_bar(self, gate_no: int) -&gt; str:
+        &quot;&quot;&quot;게이트 번호로 연다.&quot;&quot;&quot;
+        return f&quot;GateCo #{gate_no} 열림&quot;
+
+
+class BarrierXSDK:
+    &quot;&quot;&quot;[Adaptee] 신형 차단기 SDK: 장치 ID와 열림 유지 시간(ms)이 필요하다.&quot;&quot;&quot;
+
+    def lift(self, device_id: str, hold_ms: int) -&gt; str:
+        &quot;&quot;&quot;연다.&quot;&quot;&quot;
+        return f&quot;BarrierX {device_id} {hold_ms}ms 열림&quot;
+
+
+@dataclass
+class GateCoAdapter:
+    &quot;&quot;&quot;[Adapter] 게이트 번호를 기억해 open()을 open_bar(n)으로 번역.&quot;&quot;&quot;
+
+    sdk: GateCoSDK
+    gate_no: int
+
+    def open(self) -&gt; str:
+        &quot;&quot;&quot;번역.&quot;&quot;&quot;
+        return self.sdk.open_bar(self.gate_no)
+
+
+@dataclass
+class BarrierXAdapter:
+    &quot;&quot;&quot;[Adapter] 장치 ID와 기본 유지 시간을 채워 lift()로 번역.&quot;&quot;&quot;
+
+    sdk: BarrierXSDK
+    device_id: str
+    hold_ms: int = 5000
+
+    def open(self) -&gt; str:
+        &quot;&quot;&quot;번역.&quot;&quot;&quot;
+        return self.sdk.lift(self.device_id, self.hold_ms)
+
+
+# ---------------------------------------------------------------------------
+# 축 3: 알림 — 옵저버(콜러블 구독)
+# ---------------------------------------------------------------------------
+
+Listener = Callable[[str, int], None]  # (번호판, 요금)
+
+
+@dataclass
+class ParkingLot:
+    &quot;&quot;&quot;[Context + Subject] 출차 흐름만 안다. 요금·차단기·알림의 구체는 모두 주입받는다.&quot;&quot;&quot;
+
+    fee_rule: FeeRule
+    gate: Gate
+    listeners: list[Listener] = field(default_factory=list)
+
+    def leave(self, plate: str, car: str, minutes: int) -&gt; str:
+        &quot;&quot;&quot;요금 계산 → 차단기 열기 → 통지. 문제 본문의 if 사슬이 위임 세 줄이 되었다.&quot;&quot;&quot;
+        fee = self.fee_rule(car, minutes)
+        opened = self.gate.open()
+        for notify in list(self.listeners):  # 복사본 순회: 통지 중 구독 변경에 안전
+            notify(plate, fee)
+        return opened
+
+
+if __name__ == &quot;__main__&quot;:
+    log: list[str] = []
+    lot = ParkingLot(FEE_RULES[&quot;standard&quot;], GateCoAdapter(GateCoSDK(), 2),
+                     [lambda p, f: log.append(f&quot;전광판: {p} {f}원&quot;),
+                      lambda p, f: log.append(f&quot;문자: {p}님 {f}원 결제&quot;)])
+    print(&quot;[1] 일반 주차장, 구형 차단기&quot;)
+    print(&quot;  &quot;, lot.leave(&quot;12가3456&quot;, &quot;compact&quot;, 45), log)
+
+    print(&quot;\n[2] 직원 주차장으로 바꾸고 신형 차단기 설치 — ParkingLot 코드 수정 0줄&quot;)
+    log.clear()
+    lot.fee_rule, lot.gate = FEE_RULES[&quot;staff&quot;], BarrierXAdapter(BarrierXSDK(), &quot;BX-7&quot;)
+    print(&quot;  &quot;, lot.leave(&quot;34나5678&quot;, &quot;sedan&quot;, 600), log)
+
+    print(&quot;\n[3] 정산 시스템이 알림을 받고 싶다 — 구독 한 줄&quot;)
+    lot.listeners.append(lambda p, f: log.append(f&quot;정산: {p} {f}&quot;))
+    log.clear()
+    lot.leave(&quot;56다7890&quot;, &quot;sedan&quot;, 30)
+    print(&quot;  &quot;, log)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_parking.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 동료의 세 가지 제안</h3>
+    <p>2절의 WMS 설계 리뷰에서 다온이 세 가지를 제안했다. 각각에 찬성 또는 반대 의견을 쓰라. 근거는 "그 패턴이 해결할 변경 축이 이 시스템에 존재하는가"여야 한다. 반대한다면 어떤 변화가 생기면 찬성으로 바뀌는지도 쓰라.</p>
+    <ol type="a">
+      <li>"<code>EventHub</code>와 <code>TaskQueue</code>는 시스템에 하나뿐이니 싱글턴으로 만들죠."</li>
+      <li>"<code>PickOrder</code>와 <code>ChargeRobot</code>에 공통 기반 클래스 <code>BaseCommand</code>를 두고, <code>execute()</code>를 '검증 → 수행 → 이벤트 발행' 템플릿 메서드로 고정하죠."</li>
+      <li>"재고 트리를 <code>build()</code> 안에 리터럴로 쓰지 말고 <code>InventoryBuilder</code>로 만들죠."</li>
+    </ol>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>(a) 반대.</strong> "하나뿐이다"는 "하나면 충분하다"이지 "둘이면 틀린다"가 아니다(4장). 이미 <code>build()</code>가 각각 하나씩 만들어 필요한 곳에 나눠 준다. 싱글턴으로 바꾸면 테스트마다 구독자와 대기 명령이 누적되고(11장도 전역 이벤트 버스를 싱글턴의 유혹으로 경고했다), <code>PickOrder</code>가 전역에서 허브를 꺼내 쓰는 숨은 의존이 생긴다. <em>찬성으로 바뀌는 조건</em>: 사실상 없다. 프로세스 사이에서 대기열이 하나여야 한다면 그것은 싱글턴이 아니라 외부 브로커의 일이다.</p>
+      <p><strong>(b) 지금은 반대.</strong> 변경 축이 없다. 명령은 둘뿐이고, "검증"은 아직 어느 명령에도 없으며, 이벤트 발행 내용도 명령마다 다르다. 기반 클래스를 미리 깔면 취약한 기반 클래스 문제와 요요 문제(14장)만 들여온다. <em>찬성으로 바뀌는 조건</em>: 명령이 늘고 모든 명령에 같은 골격(예: 실행 전 로봇 가용성 검사 → 실행 → 감사 로그)이 반복될 때. 그때도 먼저 고려할 곳은 상속이 아니라 호출자 <code>TaskQueue.run_next()</code>다. 골격을 호출자가 소유하면 명령 클래스는 상속 없이 그대로다.</p>
+      <p><strong>(c) 지금은 반대, 곧 찬성.</strong> 현재 트리는 코드 안의 리터럴이고 조립하는 곳이 한 곳뿐이라 빌더가 해결할 문제가 없다. <code>dataclass</code> 생성자 호출로 충분하다(3장 5절). 그러나 실제 운영에서는 재고 배치가 ERP나 창고 설계 DB에서 오고, 칸 코드 중복, 빈 선반, 좌표 범위 같은 구조 제약을 조립이 끝난 시점에 검사해야 한다. 그때가 빌더의 시점이다. 7장도 "ERP 데이터에서 BOM을 만드는 코드"를 빌더의 좋은 후보로 꼽았다. 조건부·누적적 조립과 완성 시점 교차 검증이 함께 나타나기 때문이다.</p>
+      <p>세 답의 공통 구조를 보라. 패턴의 장점을 나열하는 것이 아니라 <strong>"이 시스템에서 무엇이 바뀌는가"</strong>를 먼저 물었다. 흔한 오답은 각 패턴의 일반적 장점("싱글턴은 메모리를 아낀다", "템플릿 메서드는 중복을 없앤다")으로 찬성하는 것이다. 장점은 해결할 문제가 있을 때만 장점이다.</p>
+    </details>
+  </div>
+</section>
+
+<!--
+설계서 대비 변경 사항:
+- 사례 연구의 최종 코드는 여섯 변경 축에 일곱 패턴(어댑터, 전략, 커맨드, 옵저버, 컴포지트, 반복자, 퍼사드)을 쓴다. 설계서가 넣으라던 상태·추상 팩토리는
+  각 장의 "쓰지 말아야 할 때" 기준에 해당해 의도적으로 넣지 않았고, 그 이유를 2.5절 표로 명시했다.
+- 11·12장이 이 장으로 미룬 옵저버+커맨드 조합을 사례의 BatteryGuard로 구현하고 3.1절에서 독립적으로 설명했다.
+- 템플릿 메서드/전략 비교는 14장의 수정된 사실(필수 단계 누락은 양쪽 모두 생성 시점에 검출, 시그니처는 타입 검사기만,
+  잘못 동작하는 단계는 어느 쪽도 런타임에 못 잡음)을 따랐다.
+- 설계서에 없던 섹션: principles(원칙 되짚기·원칙 간 충돌), smells(냄새 → 후보 패턴 표).
+-->
+    <nav class="pager"><a class="prev" href="15-iterator.html"><small>← 이전 · 15장</small>반복자 (Iterator)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

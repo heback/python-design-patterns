@@ -1,0 +1,74 @@
+[
+  {
+    "id": "port-ports-and-adapters",
+    "aliases_add": ["'포트'", "포트와 어댑터", "포트(port)"],
+    "aliases_remove": ["포트"],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive (one of the 3 remaining violations). The bare '포트' alias matches '시리얼 포트' (serial port, term serial-port, defined in ch01 context para 2). It can't be avoided without renaming the hardware. The hexagonal-architecture sense first appears in ch05 (#structure: '도메인이 바깥 세계에 내미는 '포트''). After the alias fix, ch05 needs a <dfn data-term=\"port-ports-and-adapters\"> there. Nobody defines it today, because ch05's writer saw the first hit in ch01."
+  },
+  {
+    "id": "url-scheme",
+    "aliases_add": [],
+    "aliases_remove": ["S3", "객체 저장소"],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive (remaining violation). 'S3' and '객체 저장소' are object-storage's aliases, not URL scheme. I placed the dfn on the true first scheme occurrence (`gs://` in ch02 context para 2, followed by the definition of URL 스킴). Once these two aliases are removed, the check passes."
+  },
+  {
+    "id": "kw-only-true",
+    "aliases_add": [],
+    "aliases_remove": ["__post_init__", "dataclass kw_only·__post_init__"],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive (remaining violation). '__post_init__' belongs to term post-init, which is defined in ch02's pythonic lead-in. kw_only itself first appears in ch03 #pythonic, where I placed its dfn. Removing the __post_init__ aliases makes the check pass."
+  },
+  {
+    "id": "pipe",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "",
+    "drop": false,
+    "reason": "Was a false positive in ch01: the ex2_log_parser.py docstring '파이프로 나눈다' meant the '|' character. I reworded that docstring to '세로 막대(|)로 나눈다' (no code change). The term's first appearance is now ch08 03_pythonic.py ('Popen·파이프·대기'), which is the real OS-pipe sense. ch08 therefore needs a <dfn data-term=\"pipe\"> (in the lead-in before that code). This is now a violation in ch08, not in my chapters."
+  },
+  {
+    "id": "tile",
+    "aliases_add": [],
+    "aliases_remove": ["타일"],
+    "short_new": "",
+    "drop": false,
+    "reason": "Caution: the alias '타일' is a substring of '스타일' (style). My first ch03 draft ('API 스타일') moved tile's first appearance into ch03. I reworded to 'API 설계 방식'. Keeping only '원본 타일' (or adding '타일(tile)') avoids this trap for future prose."
+  },
+  {
+    "id": "io-stringio",
+    "aliases_add": [],
+    "aliases_remove": ["contextlib.redirect_stdout", "redirect_stdout"],
+    "short_new": "문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼 객체(파일 대신 쓰는 테스트·파싱용 대역).",
+    "drop": false,
+    "reason": "The current short describes contextlib.redirect_stdout, not io.StringIO. In ch01 io.StringIO is used to parse a CSV string, and I defined it with that meaning. If redirect_stdout needs a glossary entry, it should be its own term."
+  },
+  {
+    "id": "sqs-pub-sub",
+    "aliases_add": [],
+    "aliases_remove": ["발행/구독", "주제(topic)"],
+    "short_new": "AWS SQS와 GCP Pub/Sub — 각 클라우드가 제공하는 관리형 메시지 큐(발행-구독) 서비스.",
+    "drop": false,
+    "reason": "The current short is the generic publish-subscribe definition, which duplicates term publish-subscribe. '발행/구독' and '주제(topic)' are aliases of that concept. In ch02 I defined SQS/Pub/Sub as the cloud services and defined 토픽 (publish-subscribe) separately in the naive lead-in."
+  },
+  {
+    "id": "session",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "한 사용자·연결·클라이언트가 시작해 끝날 때까지 유지되는 상호작용 단위와 그 상태(클라우드 SDK에서는 자격 증명·리전 같은 설정을 묶어 든 연결 객체, 예: boto3.Session).",
+    "drop": false,
+    "reason": "Its first use (ch02 ex3 solution) is the SDK-session sense, so I defined it that way in context. A broadened short fits both senses."
+  },
+  {
+    "id": "init-subclass",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "",
+    "drop": false,
+    "reason": "Note only: defined in ch00 (inside the hook definition), so ch01 does not redefine it."
+  }
+]

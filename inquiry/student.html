@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>디자인 패턴 탐구 학습지</title>
+<style>:root {
+  --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f3f1ec; --text: #1f2328; --muted: #656d76;
+  --border: #dcd8cf; --accent: #2c5d8f; --accent-soft: #e6eef7; --accent-text: #ffffff;
+  --ok: #2e7d4f; --ok-soft: #e4f3ea; --warn: #b4630f; --warn-soft: #fbeedd; --bad: #b3352b; --bad-soft: #fbe6e3;
+  --teacher: #7a3e9d; --teacher-soft: #f3e9f9;
+  --stage-1: #d9822b; --stage-2: #2c5d8f; --stage-3: #2e7d4f; --stage-4: #7a3e9d; --stage-5: #b3352b; --stage-6: #5b6770;
+  --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --surface: #1c1f23; --surface-2: #23272c; --text: #e6e6e3; --muted: #9aa0a6;
+    --border: #33383f; --accent: #8ab4e8; --accent-soft: #1f2a37; --accent-text: #0f1720;
+    --ok: #7ccf9a; --ok-soft: #1a2c22; --warn: #f0a868; --warn-soft: #33261b; --bad: #f08c82; --bad-soft: #35201d;
+    --teacher: #cf9be8; --teacher-soft: #2b2033;
+    --stage-1: #f0a868; --stage-2: #8ab4e8; --stage-3: #7ccf9a; --stage-4: #cf9be8; --stage-5: #f08c82; --stage-6: #a3adb5;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --surface: #1c1f23; --surface-2: #23272c; --text: #e6e6e3; --muted: #9aa0a6;
+  --border: #33383f; --accent: #8ab4e8; --accent-soft: #1f2a37; --accent-text: #0f1720;
+  --ok: #7ccf9a; --ok-soft: #1a2c22; --warn: #f0a868; --warn-soft: #33261b; --bad: #f08c82; --bad-soft: #35201d;
+  --teacher: #cf9be8; --teacher-soft: #2b2033;
+  --stage-1: #f0a868; --stage-2: #8ab4e8; --stage-3: #7ccf9a; --stage-4: #cf9be8; --stage-5: #f08c82; --stage-6: #a3adb5;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 120px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.7 -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+code, pre, .mono { font-family: var(--mono); }
+code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: .9em; }
+pre {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+  overflow-x: auto; font-size: 13.5px; line-height: 1.55; margin: 10px 0;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+button { font: inherit; cursor: pointer; }
+.btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  padding: 6px 12px; border-radius: 8px; font-size: 14px; line-height: 1.4;
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn.small { padding: 2px 8px; font-size: 13px; }
+.btn.ghost { background: transparent; }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+
+/* 상단 바 */
+.topbar {
+  position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+}
+.topbar h1 { font-size: 17px; margin: 0; letter-spacing: -.01em; }
+.topbar .grow { flex: 1 1 20px; }
+.topbar input.id {
+  border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 6px;
+  padding: 4px 8px; font: inherit; font-size: 14px; width: 110px;
+}
+.topbar input.id.sm { width: 64px; }
+.savestate { font-size: 13px; color: var(--muted); }
+.savestate.dirty { color: var(--warn); font-weight: 600; }
+.savestate.clean { color: var(--ok); }
+
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px 0; max-width: 1100px; margin: 0 auto; }
+.tab {
+  flex: 1 1 130px; text-align: left; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+}
+.tab small { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.tab b { font-size: 14px; }
+.tab[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent) inset; }
+.bar { height: 5px; background: var(--surface-2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--ok); width: 0; transition: width .3s; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px 16px 80px; }
+
+/* 주 머리 */
+.hero {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; margin-bottom: 16px;
+}
+.hero .kicker { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+.hero h2 { margin: 2px 0 4px; font-size: 24px; letter-spacing: -.02em; }
+.hero p { margin: 6px 0; }
+.concept {
+  display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 20px;
+  padding: 2px 12px; font-weight: 700; font-size: 14px; margin-right: 6px;
+}
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+.card { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; }
+.card h4 { margin: 0 0 4px; font-size: 14px; }
+.card ul { margin: 4px 0; padding-left: 20px; }
+.card li { margin: 2px 0; }
+.qtag { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 10px; margin-right: 4px; color: #fff; }
+.qtag.f { background: var(--stage-2); } .qtag.c { background: var(--stage-3); } .qtag.d { background: var(--stage-5); }
+.pattern-links a { display: inline-block; margin: 2px 8px 2px 0; font-size: 14px; }
+
+/* 단계 */
+.stage { margin: 22px 0; }
+.stage > header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; position: sticky; top: 52px; background: var(--bg); padding: 6px 0; z-index: 5; }
+.stage .badge {
+  background: var(--sc, var(--accent)); color: #fff; border-radius: 8px; padding: 2px 10px; font-weight: 700; font-size: 14px;
+}
+.stage[data-s="1"] { --sc: var(--stage-1); } .stage[data-s="2"] { --sc: var(--stage-2); }
+.stage[data-s="3"] { --sc: var(--stage-3); } .stage[data-s="4"] { --sc: var(--stage-4); }
+.stage[data-s="5"] { --sc: var(--stage-5); } .stage[data-s="6"] { --sc: var(--stage-6); }
+.stage h3 { margin: 0; font-size: 18px; }
+.stage .min { color: var(--muted); font-size: 13px; }
+.stage .intro { color: var(--muted); margin: 0 0 10px; }
+.item {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--sc, var(--accent));
+  border-radius: var(--radius); padding: 14px 18px; margin: 12px 0;
+}
+.item.done { border-left-color: var(--ok); }
+.item .q { margin: 0 0 8px; font-weight: 600; }
+.item .q .no { color: var(--sc, var(--accent)); margin-right: 6px; font-family: var(--mono); font-size: 13px; }
+.item .hint { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+.item.info { background: var(--surface-2); border-left-style: dashed; }
+.item.info .q { font-weight: 400; }
+textarea, input[type="text"], select {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text);
+  font: inherit; font-size: 15px; padding: 7px 10px; line-height: 1.55;
+}
+textarea { resize: vertical; min-height: 44px; overflow: hidden; }
+textarea.code { font-family: var(--mono); font-size: 13.5px; line-height: 1.5; min-height: 160px; tab-size: 4; white-space: pre; overflow: auto; }
+textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.opts { display: grid; gap: 6px; margin: 6px 0 10px; }
+.opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg); }
+.opt:hover { border-color: var(--accent); }
+.opt input { margin-top: 6px; }
+.opt.sel { background: var(--accent-soft); border-color: var(--accent); }
+.why { margin-top: 6px; }
+.why label { font-size: 13px; color: var(--muted); display: block; }
+.tbl-wrap { overflow-x: auto; }
+table.grid { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+table.grid th, table.grid td { border: 1px solid var(--border); padding: 5px 7px; vertical-align: top; text-align: left; }
+table.grid thead th { background: var(--surface-2); }
+table.grid tbody th { background: var(--surface-2); width: 17%; font-weight: 600; }
+table.grid td textarea { font-size: 14px; min-height: 56px; }
+.sortrow { display: grid; grid-template-columns: 1fr 190px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.sortrow:last-child { border-bottom: 0; }
+.triple { display: grid; grid-template-columns: 1fr 1fr 1fr 30px; gap: 6px; margin: 5px 0; align-items: center; }
+.triple .arrow { text-align: center; color: var(--muted); }
+.listrow { display: grid; grid-template-columns: 26px 1fr 30px; gap: 6px; margin: 5px 0; align-items: center; }
+.listrow .n { color: var(--muted); text-align: right; font-family: var(--mono); font-size: 13px; }
+.xbtn { border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; }
+.xbtn:hover { color: var(--bad); }
+.scale-row { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+.scale-row:last-child { border-bottom: 0; }
+.scale-pts { display: flex; gap: 4px; }
+.scale-pts label { display: block; }
+.scale-pts input { position: absolute; opacity: 0; }
+.scale-pts span { display: block; width: 34px; text-align: center; padding: 3px 0; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg); }
+.scale-pts input:checked + span { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.scale-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.addbtn { margin-top: 4px; }
+.filled-mark { float: right; font-size: 12px; color: var(--muted); }
+.item.done .filled-mark { color: var(--ok); }
+
+/* 교사 코멘트 / 정답 */
+.fb { margin-top: 10px; background: var(--teacher-soft); border-left: 4px solid var(--teacher); border-radius: 8px; padding: 8px 12px; }
+.fb b { color: var(--teacher); }
+.fb .mk { font-size: 18px; margin-right: 4px; }
+.sample { margin-top: 10px; background: var(--ok-soft); border-left: 4px solid var(--ok); border-radius: 8px; padding: 8px 12px; }
+.sample > b, .tnote > b { display: block; font-size: 13px; color: var(--ok); margin-bottom: 2px; }
+.tnote { margin-top: 10px; background: var(--warn-soft); border-left: 4px solid var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14.5px; }
+.tnote > b { color: var(--warn); }
+.val { white-space: pre-wrap; word-break: break-word; }
+.val.empty, .empty { color: var(--muted); font-style: italic; }
+.val-code { margin: 4px 0; }
+table.ro { border-collapse: collapse; width: 100%; font-size: 14px; }
+table.ro th, table.ro td { border: 1px solid var(--border); padding: 4px 8px; vertical-align: top; text-align: left; white-space: pre-wrap; }
+table.ro th { background: var(--surface-2); }
+.ro-opt { padding: 3px 8px; border-radius: 6px; margin: 2px 0; }
+.ro-opt.on { background: var(--accent-soft); font-weight: 600; }
+.ro-opt.key::after { content: " ✔ 정답"; color: var(--ok); font-weight: 700; font-size: 12px; }
+.pill { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.part { background: var(--warn-soft); color: var(--warn); } .pill.none { background: var(--surface-2); color: var(--muted); }
+
+.banner { background: var(--teacher-soft); border: 1px solid var(--teacher); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff;
+  padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 50; opacity: 0; transition: opacity .25s; pointer-events: none;
+}
+.toast.on { opacity: .95; }
+.dropzone { position: fixed; inset: 0; background: rgba(44,93,143,.85); color: #fff; display: none; place-items: center; font-size: 26px; z-index: 60; }
+.dropzone.on { display: grid; }
+.lead { color: var(--muted); }
+.theme-toggle { font-size: 16px; }
+details.fold { margin: 8px 0; }
+details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+
+@media (max-width: 640px) {
+  .triple { grid-template-columns: 1fr; } .triple .arrow { display: none; }
+  .sortrow { grid-template-columns: 1fr; }
+  .stage > header { position: static; }
+}
+@media print {
+  .topbar, .tabs, .toast, .dropzone, .addbtn, .xbtn, .no-print { display: none !important; }
+  body { background: #fff; color: #000; font-size: 12px; }
+  .item, .hero { break-inside: avoid; border-color: #aaa; }
+  textarea { border: 1px solid #aaa; overflow: visible; }
+  .stage > header { position: static; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>🔍 디자인 패턴 탐구 학습지</h1>
+  <input class="id" id="f-class" placeholder="학급" aria-label="학급">
+  <input class="id sm" id="f-num" placeholder="번호" aria-label="번호">
+  <input class="id" id="f-name" placeholder="이름" aria-label="이름">
+  <span class="grow"></span>
+  <span class="savestate" id="savestate"></span>
+  <button class="btn primary" id="btn-save" title="내 답을 JSON 파일로 내려받기">💾 저장</button>
+  <button class="btn" id="btn-load" title="저장해 둔 JSON 파일(또는 선생님 코멘트가 담긴 파일) 불러오기">📂 불러오기</button>
+  <button class="btn ghost" id="btn-print">🖨</button>
+  <button class="btn ghost danger" id="btn-reset">초기화</button>
+  <button class="btn ghost theme-toggle" title="밝게/어둡게">◐</button>
+  <input type="file" id="file-in" accept=".json,application/json" hidden>
+</header>
+<nav class="tabs" id="tabs" role="tablist"></nav>
+<main>
+  <noscript>이 학습지는 JavaScript가 필요합니다.</noscript>
+  <section id="week"></section>
+</main>
+<script>const CONTENT = {"weeks": [{"n": 1, "concept": "변화", "title": "변화는 어디서 오는가 — 변경 축 찾기", "subtitle": "전략 · 템플릿 메서드", "overview": "같은 코드가 몇 달 사이에 왜 무서워질까요? 이번 주에는 ‘고쳐야 할 이유’가 서로 다른 것들이 한 곳에 뒤엉킨 모습을 직접 관찰하고, <b>변화를 한 곳에 가두는 두 가지 방법<\/b>(합성으로 갈아 끼우기 · 상속으로 빈칸 채우기)을 비교합니다.", "goals": ["‘변경 축’(서로 다른 이유로 바뀌는 부분)을 코드에서 찾아 말할 수 있다.", "전략과 템플릿 메서드가 변화를 가두는 방식의 같은 점·다른 점을 설명할 수 있다.", "패턴을 넣을 때와 넣지 않을 때를 근거를 들어 판단할 수 있다."], "questions": {"factual": ["배달비 코드에서 if 분기는 몇 개이며, 각 분기는 누가(어느 팀이) 바꾸자고 하는가?", "전략 패턴의 구성 요소(Context, Strategy, 구체 전략)는 각각 무엇을 맡는가?"], "conceptual": ["‘변화’는 코드의 어떤 성질로 드러나는가?", "변화를 격리하는 비용은 무엇이며, 언제 그 비용이 아깝지 않은가?"], "debatable": ["“분기가 세 개만 넘으면 전략 패턴을 써야 한다”는 주장에 동의하는가?"]}, "patterns": [{"ch": 0, "name": "서론", "href": "../textbook/00-intro.html"}, {"ch": 10, "name": "10장 전략", "href": "../textbook/10-strategy.html"}, {"ch": 14, "name": "14장 템플릿 메서드", "href": "../textbook/14-template-method.html"}], "product": "배달비·채점기 변경 축 분석표, 전략 리팩터링 코드, 첫 번째 일반화 문장", "stages": [{"key": "engage", "title": "몰입", "en": "Tuning in", "minutes": 20, "intro": "코드를 ‘고치는 사람’이 되어 봅니다. 아직 정답을 찾지 말고, 느낌과 예상을 솔직하게 적어 보세요.", "items": [{"id": "w1-e0", "type": "info", "html": "<p><b>상황.<\/b> 음식 배달 플랫폼 ‘한끼배달’의 민재는 처음에 배달비를 ‘기본 3,000원 + km당 500원’으로 정했습니다. 사업이 커지면서 우천·심야 할증, 구독 회원 무료, 가게 프로모션이 차례로 붙었고, 민재는 그때마다 <code>if<\/code>를 하나씩 더했습니다.<\/p><pre><code>def delivery_fee(order, rainy=False, night=False, subscriber=False, promo=None):\n    fee = 3000 + 500 * order.km          # 기본 3,000원 + km당 500원\n    if rainy:\n        fee += 1000                      # 우천 할증\n    if night:\n        fee += 1500                      # 심야 할증\n    if subscriber:\n        fee = 0                          # 한끼패스 회원은 무료\n    if promo == &quot;STORE_HALF&quot;:\n        fee = fee // 2                   # 가게 프로모션: 절반 부담\n    return fee<\/code><\/pre><p class='lead'>읽을 교재: 10장 1~2절 ‘상황’과 ‘순진한 코드’<\/p>"}, {"id": "w1-e1", "type": "text", "rows": 3, "q": "이 함수에서 <b>가장 불안한 줄<\/b>은 어디인가요? 왜 그렇게 느꼈나요?", "hint": "예) ‘~줄의 ~가 ~와 순서가 바뀌면 ~할 것 같다’"}, {"id": "w1-e2", "type": "list", "n": 5, "hint": "예) 학생 할인 …", "q": "다음 분기에 <b>들어올 법한 새 요구사항<\/b>을 5가지 이상 상상해 적어 보세요."}, {"id": "w1-e3", "type": "scales", "q": "지금의 나는? (사전 진단 — 점수는 평가에 쓰이지 않습니다)", "items": ["여러 조건 분기가 얽힌 코드를 고쳐 본 경험이 있다", "‘전략 패턴’이 무엇인지 한 문장으로 설명할 수 있다", "‘템플릿 메서드 패턴’이 무엇인지 한 문장으로 설명할 수 있다", "패턴을 넣으면 코드가 항상 좋아진다고 생각한다"], "labels": ["전혀 아니다", "매우 그렇다"]}]}, {"key": "find", "title": "조사", "en": "Finding out", "minutes": 35, "intro": "직접 예측하고, 실행해서 확인하고, 두 가지 해법의 구조를 읽습니다.", "items": [{"id": "w1-f0", "type": "info", "html": "<p>다음 코드를 <b>실행하기 전에<\/b> 출력을 예측하세요. (배달 4km: 기본 5,000원)<\/p><pre><code>class Order:\n    def __init__(self, km): self.km = km\n\ndef fee(order, rainy=False, subscriber=False, promo=None):\n    f = 3000 + 500 * order.km\n    if rainy: f += 1000\n    if subscriber: f = 0\n    if promo == &quot;HALF&quot;: f //= 2\n    return f\n\nprint(fee(Order(4), rainy=True, subscriber=True))\nprint(fee(Order(4), rainy=True, promo=&quot;HALF&quot;))\nprint(fee(Order(4), subscriber=True, promo=&quot;HALF&quot;))<\/code><\/pre>"}, {"id": "w1-f1", "type": "text", "rows": 3, "q": "세 줄의 출력을 예측하고, 직접 실행한 결과와 같았는지 적어 보세요.", "hint": "예) 예측: ?, ?, ? / 실제: ?, ?, ?"}, {"id": "w1-f2", "type": "text", "rows": 4, "q": "<code>if subscriber<\/code> 줄을 <b>맨 앞<\/b>으로 옮기고 <code>rainy=True, subscriber=True<\/code>로 호출하면 결과가 어떻게 바뀌나요? 이것은 코드의 어떤 문제를 보여 주나요?"}, {"id": "w1-f3", "type": "info", "html": "<p><b>해법 A. 전략(Strategy).<\/b> 규칙 자체를 ‘갈아 끼울 수 있는 값’으로 만듭니다. (교재 10장 3~4절)<\/p><pre><code>from typing import Callable\n\nFeeRule = Callable[[&quot;Order&quot;], int]            # 전략: Order를 받아 배달비(int)를 돌려주는 함수\n\ndef distance_rule(o): return 3000 + 500 * o.km\ndef subscriber_rule(o): return 0\ndef rainy_rule(o):    return distance_rule(o) + 1000\n\nRULES: dict[str, FeeRule] = {                 # 이름표 → 전략. 새 규칙은 여기에 한 줄 추가\n    &quot;base&quot;: distance_rule, &quot;sub&quot;: subscriber_rule, &quot;rain&quot;: rainy_rule,\n}\n\nclass Order:\n    def __init__(self, km, rule: FeeRule = distance_rule):\n        self.km, self.rule = km, rule         # 규칙을 &#x27;들고&#x27; 있을 뿐, 어떤 규칙인지는 모른다\n    def fee(self):\n        return self.rule(self)                # 위임\n\nprint(Order(4).fee(), Order(4, RULES[&quot;sub&quot;]).fee(), Order(4, RULES[&quot;rain&quot;]).fee())<\/code><\/pre>"}, {"id": "w1-f4", "type": "table", "corner": "새 요구가 생기면", "cols": ["if 분기 방식(순진한 코드)", "전략 방식"], "rows": ["‘학생 할인’ 규칙 추가", "구독 규칙만 바뀜", "규칙별 테스트 작성", "실행 중 규칙 교체"], "q": "네 가지 변화가 일어날 때, 각 방식에서 <b>무엇을 열어서 고쳐야 하는지<\/b> 적어 보세요."}, {"id": "w1-f5", "type": "choice", "q": "전략 패턴에서 ‘<b>어떤 규칙을 쓸지 고르는 코드<\/b>’는 어디에 있어야 할까요?", "options": ["Order 클래스 안의 if 문", "Order를 만드는 쪽(호출 측)이나 설정 — 전략 바깥", "각 규칙 함수 안", "패턴을 쓰면 선택 코드는 사라진다"]}, {"id": "w1-f6", "type": "info", "html": "<p><b>해법 B. 템플릿 메서드(Template Method).<\/b> 이번에는 ‘절차는 고정, 일부 단계만 바뀌는’ 상황입니다. 코딩 교육 플랫폼 ‘코드랩’의 채점기입니다. (교재 14장)<\/p><pre><code>class Grader:\n    def grade(self, source, cases):               # ← 템플릿 메서드: 골격은 여기 하나\n        path = self.save(source)                  # (1) 소스 저장\n        results = []\n        for case in cases:\n            out = self.run(path, case.input)      # (2) 실행  ← 언어마다 다름\n            results.append(out.strip() == case.expected)   # (3) 출력 비교\n        self.record(results)                      # (4) 결과 기록\n        return results\n\n    def save(self, source): ...                   # 고정 단계\n    def record(self, results): ...                # 고정 단계\n    def run(self, path, stdin): raise NotImplementedError   # 비워 둔 단계(추상)\n\nclass PythonGrader(Grader):\n    def run(self, path, stdin): ...               # python path 실행\nclass CGrader(Grader):\n    def compile_cmd(self): return [&quot;gcc&quot;, &quot;-O2&quot;]  # ← 훅: 기본값이 있고 필요할 때만 덮어씀\n    def run(self, path, stdin): ...               # 컴파일 후 실행<\/code><\/pre>"}, {"id": "w1-f7", "type": "sort", "q": "채점기의 단계들을 <b>골격에 고정할 것<\/b>과 <b>하위 클래스가 채울 것<\/b>으로 나눠 보세요.", "cards": ["소스 저장", "코드 실행(언어마다 다름)", "출력과 기대값 비교", "결과 기록", "C 컴파일 명령", "시간 제한 정책"], "buckets": ["골격에 고정", "하위 클래스가 채움(추상 단계·훅)"]}]}, {"key": "sort", "title": "조직", "en": "Sorting out", "minutes": 20, "intro": "관찰한 것을 정리합니다. 개념 사이의 <b>관계<\/b>를 직접 연결하고, 두 패턴을 비교표로 나란히 놓습니다.", "items": [{"id": "w1-s1", "type": "triples", "min": 6, "relations": ["를 격리한다", "를 가능하게 한다", "의 비용이다", "와 대립한다", "를 구현한다", "에 의존한다", "의 한 종류다"], "q": "<b>개념 지도<\/b>: 변화, 변경 축, 인터페이스, 전략, 템플릿 메서드, 상속, 합성, 간접층 — 이 개념들 사이의 관계를 6개 이상 ‘A —관계→ B’로 만들어 보세요.", "hint": "‘관계’ 칸에는 동사구를 쓰세요. 칸에 마우스를 올리면 추천 표현이 나옵니다."}, {"id": "w1-s2", "type": "table", "corner": "비교 관점", "cols": ["전략", "템플릿 메서드"], "rows": ["변화를 담는 방법", "바꿀 수 있는 시점", "변하는 축이 두 개 이상일 때", "결합의 세기", "파이썬에서 흔한 모습"], "q": "두 패턴을 5가지 관점에서 비교해 채워 보세요."}]}, {"key": "general", "title": "일반화", "en": "Making conclusions", "minutes": 15, "intro": "이제 이번 주의 핵심을 <b>자기 말로<\/b> 한 문장으로 써 봅니다. 그리고 그 문장이 틀리는 경우를 스스로 찾아봅니다.", "items": [{"id": "w1-g1", "type": "text", "rows": 3, "q": "<b>나의 일반화<\/b>: ‘변화’에 대해 오늘 알게 된 것을 “~할수록 ~하지만, ~” 형태의 한 문장으로 써 보세요.", "hint": "얻는 것과 치르는 것을 함께 담아 보세요."}, {"id": "w1-g2", "type": "text", "rows": 3, "q": "<b>반례 찾기<\/b>: 위 일반화가 <b>들어맞지 않거나 오히려 해가 되는<\/b> 상황을 하나 만들어 보세요."}, {"id": "w1-g3", "type": "multi", "q": "다음 중 <b>전략 도입을 고려할 신호<\/b>인 것을 모두 고르세요.", "options": ["새 규칙이 생길 때마다 기존 함수를 열어 수정한다", "규칙을 ‘계산’하는 코드와 규칙을 ‘고르는’ 코드가 한 함수에 섞여 있다", "규칙이 2개로 고정되어 있고 앞으로도 바뀔 이유가 없다", "규칙을 고객·시점마다 다르게, 실행 중에 바꿔야 한다", "코드가 길어 보여서 패턴을 써 보고 싶다"]}]}, {"key": "transfer", "title": "전이", "en": "Going further", "minutes": 25, "intro": "배운 것을 <b>새로운 코드<\/b>에 적용합니다. 판단 문항에서는 ‘쓰지 않는 선택’도 정답일 수 있습니다.", "items": [{"id": "w1-t0", "type": "info", "html": "<p><b>리팩터링 과제.<\/b> 보고서 내보내기 함수입니다. 새 형식(<code>json<\/code>)이 계속 늘어날 예정입니다.<\/p><pre><code>def export(rows, fmt):\n    if fmt == &quot;csv&quot;:\n        return &quot;\\n&quot;.join(&quot;,&quot;.join(map(str, r)) for r in rows)\n    elif fmt == &quot;tsv&quot;:\n        return &quot;\\n&quot;.join(&quot;\\t&quot;.join(map(str, r)) for r in rows)\n    elif fmt == &quot;md&quot;:\n        return &quot;\\n&quot;.join(&quot;| &quot; + &quot; | &quot;.join(map(str, r)) + &quot; |&quot; for r in rows)\n    raise ValueError(fmt)\n\nprint(export([[1, 2], [3, 4]], &quot;csv&quot;))<\/code><\/pre>"}, {"id": "w1-t1", "type": "code", "starter": "def export(rows, fmt):\n    if fmt == \"csv\":\n        return \"\\n\".join(\",\".join(map(str, r)) for r in rows)\n    elif fmt == \"tsv\":\n        return \"\\n\".join(\"\\t\".join(map(str, r)) for r in rows)\n    elif fmt == \"md\":\n        return \"\\n\".join(\"| \" + \" | \".join(map(str, r)) + \" |\" for r in rows)\n    raise ValueError(fmt)\n\nprint(export([[1, 2], [3, 4]], \"csv\"))", "hint": "export()를 다시 열지 않고도 새 형식을 추가할 수 있게 고치고, 마지막에 json 형식을 ‘추가’해 보세요. (실행해서 확인한 코드를 붙여 넣으세요)", "q": "위 코드를 <b>전략(등록부)<\/b> 방식으로 리팩터링하세요."}, {"id": "w1-t2", "type": "choice", "q": "상품 목록을 <b>이름순 / 가격순<\/b> 두 가지로 정렬하려 합니다. 가장 적절한 설계는?", "options": ["SortStrategy 추상 클래스와 NameSort, PriceSort 클래스를 만든다", "<code>sorted(items, key=...)<\/code>처럼 정렬 키 함수를 인자로 받는다", "if sort_by == 'name': … elif … 를 그대로 둔다", "템플릿 메서드로 정렬 골격을 만든다"]}, {"id": "w1-t3", "type": "text", "rows": 5, "q": "<b>나의 삶에서 찾기<\/b>: 내가 만들었거나 쓰고 있는 코드(또는 학교·동아리의 규칙·절차 — 급식 신청, 동아리 회비 등)에서 <b>변경 축을 두 개<\/b> 찾고, 각각 어떻게 분리할 수 있을지 적어 보세요."}]}, {"key": "reflect", "title": "성찰", "en": "Reflecting", "minutes": 10, "intro": "생각이 어떻게 달라졌는지 돌아보고, 다음 탐구를 스스로 정합니다.", "items": [{"id": "w1-r1", "type": "scales", "q": "이번 주를 마치며 (1~5)", "items": ["변경 축을 코드에서 찾을 수 있다", "전략과 템플릿 메서드의 차이를 친구에게 설명할 수 있다", "패턴을 쓰지 않는 선택도 설계라고 생각한다", "이번 주 활동에 적극적으로 참여했다"]}, {"id": "w1-r2", "type": "text", "rows": 3, "q": "수업 전과 비교해 <b>가장 달라진 내 생각<\/b>은 무엇인가요? 또는 아직 <b>헷갈리는 점<\/b>은?"}, {"id": "w1-r3", "type": "text", "rows": 2, "q": "다음 주에 탐구해 보고 싶은 <b>나만의 질문<\/b> 하나를 적어 보세요."}]}]}, {"n": 2, "concept": "책임", "title": "누가 만드는가 — 생성의 책임 나누기", "subtitle": "팩토리 메서드 · 추상 팩토리 · 빌더 · 싱글턴", "overview": "<code>CsvReader()<\/code> 한 줄에는 생각보다 많은 ‘앎’이 들어 있습니다. 이번 주에는 <b>객체를 만드는 책임<\/b>이 누구에게 있어야 하는지, 그 책임을 옮기면 무엇이 편해지고 무엇이 어딘가에 남는지를 네 가지 생성 패턴으로 탐구합니다.", "goals": ["‘new를 쓴다’는 것이 코드에 어떤 앎(결합)을 만드는지 설명할 수 있다.", "네 가지 생성 문제(한 객체 선택·제품군·단계적 조립·하나만)를 상황에서 가려낼 수 있다.", "싱글턴의 ‘하나뿐임’과 ‘전역 접근’을 분리해 생각하고 대안(주입)을 설계할 수 있다."], "questions": {"factual": ["팩토리 메서드·추상 팩토리·빌더·싱글턴은 각각 어떤 상황에서 등장했는가?", "감사 로그 기록기가 ‘하나여야’ 하는 이유는 무엇인가?"], "conceptual": ["생성을 분리하면 ‘앎’은 어디서 어디로 이동하는가?", "‘하나여야 한다’와 ‘어디서든 얻는다’는 같은 요구인가?"], "debatable": ["“싱글턴은 안티패턴이므로 쓰면 안 된다”는 주장에 어디까지 동의하는가?"]}, "patterns": [{"ch": 1, "name": "1장 팩토리 메서드", "href": "../textbook/01-factory-method.html"}, {"ch": 2, "name": "2장 추상 팩토리", "href": "../textbook/02-abstract-factory.html"}, {"ch": 3, "name": "3장 빌더", "href": "../textbook/03-builder.html"}, {"ch": 4, "name": "4장 싱글턴", "href": "../textbook/04-singleton.html"}], "product": "생성 패턴 비교표, 상황 분류 카드, 싱글턴 → 주입 리팩터링 코드, 두 번째 일반화 문장", "stages": [{"key": "engage", "title": "몰입", "en": "Tuning in", "minutes": 20, "intro": "한 줄짜리 생성 코드가 품고 있는 것을 들여다봅니다.", "items": [{"id": "w2-e0", "type": "info", "html": "<p><b>상황.<\/b> 연구실 자동화를 맡은 박사과정생 서윤은 장비가 하나뿐이라 아래처럼 Reader를 직접 만들었습니다. 그런데 곧 적외선(IR) 분광기가 들어옵니다.<\/p><pre><code>class AcquisitionJob:                         # 분석화학 연구실: 장비 측정 → 정규화 → 저장\n    def run(self, device_id):\n        reader = CsvSpectrumReader()          # ← 구체 클래스 이름을 직접 안다\n        raw = reader.read(device_id)\n        data = normalize(raw)\n        archive.save(data)<\/code><\/pre><p class='lead'>읽을 교재: 1장 1~2절<\/p>"}, {"id": "w2-e1", "type": "text", "rows": 3, "q": "<code>CsvSpectrumReader()<\/code>라고 쓰는 코드는 이 클래스에 대해 <b>무엇을 ‘알고’ 있는<\/b> 걸까요? 최대한 많이 적어 보세요.", "hint": "예) 클래스 이름, …"}, {"id": "w2-e2", "type": "list", "n": 4, "hint": "예) 장비 종류가 늘어날 때", "q": "<code>new<\/code> 한 줄이 <b>고통이 되는 순간<\/b>을 4가지 이상 상상해 보세요."}, {"id": "w2-e3", "type": "scales", "q": "지금의 나는? (사전 진단)", "items": ["팩토리 패턴을 써 본 적이 있다", "싱글턴을 써 본 적이 있다", "싱글턴은 ‘전역 변수의 다른 이름’이라는 말을 들어 봤다", "객체 생성 코드도 설계 대상이라고 생각한다"], "labels": ["전혀 아니다", "매우 그렇다"]}]}, {"key": "find", "title": "조사", "en": "Finding out", "minutes": 35, "intro": "코드를 읽고, 예측하고, 네 가지 생성 패턴을 조사해 비교합니다.", "items": [{"id": "w2-f0", "type": "info", "html": "<p><b>팩토리 메서드의 구조.<\/b> 새 장비가 들어와도 <code>AcquisitionJob<\/code>의 흐름은 건드리지 않습니다.<\/p><pre><code>class AcquisitionJob:                         # Creator: 흐름(템플릿)은 여기 한 곳\n    def run(self, device_id):\n        reader = self.make_reader()           # ← &#x27;무엇을&#x27; 만들지는 하위 클래스에 위임\n        archive.save(normalize(reader.read(device_id)))\n    def make_reader(self):                    # 팩토리 메서드\n        raise NotImplementedError\n\nclass UvVisJob(AcquisitionJob):\n    def make_reader(self): return CsvSpectrumReader()\nclass IrJob(AcquisitionJob):\n    def make_reader(self): return JcampReader()     # 새 장비: 클래스 하나 추가<\/code><\/pre>"}, {"id": "w2-f1", "type": "text", "rows": 3, "q": "IR 분광기(JCAMP 형식)를 추가한다면 <b>기존 클래스 중 열어야 하는 것<\/b>과 <b>새로 만들어야 하는 것<\/b>은 무엇인가요? 그리고 ‘어느 장비면 어느 Job’을 고르는 코드는 <b>어디에<\/b> 있게 되나요?"}, {"id": "w2-f2", "type": "info", "html": "<p><b>싱글턴의 함정.<\/b> 다음 코드를 실행하기 전에 출력을 예측하세요. (교재 4장 개념 문제 1과 같은 계열)<\/p><pre><code>class Counter:\n    _inst = None\n    def __new__(cls):\n        if cls._inst is None:\n            cls._inst = super().__new__(cls)\n            cls._inst.n = 0\n        return cls._inst\n    def __init__(self):\n        self.n = 0\n\na = Counter(); a.n = 5\nb = Counter()\nprint(a is b, b.n)<\/code><\/pre>"}, {"id": "w2-f3", "type": "text", "rows": 3, "q": "출력을 예측하고, 실행 결과와 비교하세요. 결과의 원인은 무엇인가요?"}, {"id": "w2-f4", "type": "table", "corner": "패턴", "cols": ["풀려는 생성 문제", "누가 무엇을 결정·수행하나", "얻는 것", "치르는 비용"], "rows": ["팩토리 메서드", "추상 팩토리", "빌더", "싱글턴"], "q": "교재 1~4장의 ‘상황’과 ‘트레이드오프’ 절을 읽고 <b>생성 패턴 4종 비교표<\/b>를 채워 보세요.", "hint": "각 칸은 한두 문장. 교재 문장을 그대로 옮기지 말고 내 말로 줄여 보세요."}]}, {"key": "sort", "title": "조직", "en": "Sorting out", "minutes": 25, "intro": "여러 상황 속에서 생성 문제의 <b>유형<\/b>을 가려내고, 개념을 연결합니다.", "items": [{"id": "w2-s1", "type": "sort", "q": "각 상황은 어떤 생성 패턴이 어울리는 문제인가요?", "cards": ["수집 흐름은 같은데 장비마다 다른 Reader를 써야 한다", "AWS면 S3+SQS+SecretsManager, GCP면 GCS+Pub/Sub+SecretManager가 짝이어야 한다", "SELECT 쿼리: 필터·그룹·정렬·제한이 선택적이고 읽히는 순서가 중요하다", "감사 로그 기록기는 ‘마지막 해시’를 쥐고 있어 두 개면 체인이 깨진다", "CLI 위젯 세트(버튼·입력창·라벨)를 라이트/다크 테마별로 일관되게 만든다", "HTTP 요청에 URL·헤더·바디·타임아웃을 필요한 것만 조합한다", "로그 수집기가 파일 또는 syslog 중 하나를 만들어 쓴다(수집 흐름은 동일)"], "buckets": ["팩토리 메서드", "추상 팩토리", "빌더", "싱글턴"]}, {"id": "w2-s2", "type": "triples", "min": 6, "relations": ["를 분리한다", "를 알고 있다", "에 의존한다", "를 옮긴다", "를 보장한다", "와 구별된다", "의 비용이다"], "q": "<b>개념 지도<\/b>: 책임, 결합, 구체 클래스, 추상, 생성, 주입, 전역 접근, 하나뿐임 — 관계를 6개 이상 연결해 보세요."}]}, {"key": "general", "title": "일반화", "en": "Making conclusions", "minutes": 15, "intro": "‘책임’에 대한 나의 일반화를 쓰고, 싱글턴에 대한 오개념을 점검합니다.", "items": [{"id": "w2-g1", "type": "text", "rows": 3, "q": "<b>나의 일반화<\/b>: ‘생성의 책임’에 대해 이번 주에 알게 된 것을 “~할수록 ~하지만, ~” 형태의 한 문장으로 써 보세요.", "hint": "‘앎’이 어디로 이동하는지 포함해 보세요."}, {"id": "w2-g2", "type": "choice", "q": "<b>싱글턴<\/b>의 본질은 무엇일까요?", "options": ["어디서든 접근할 수 있는 전역 객체", "인스턴스가 하나뿐임을 보장하는 것", "‘하나여야 한다’와 ‘어디서든 얻는다’는 별개의 결정이며, 분리할 수 있다", "‘하나’와 ‘전역 접근’은 함께여야 의미가 있다"]}, {"id": "w2-g3", "type": "text", "rows": 3, "q": "<b>반례 찾기<\/b>: 생성 책임을 분리했는데 <b>오히려 나빠진<\/b> 경우를 하나 만들어 보세요."}]}, {"key": "transfer", "title": "전이", "en": "Going further", "minutes": 25, "intro": "배운 것을 새 코드와 새 상황에 적용합니다.", "items": [{"id": "w2-t0", "type": "info", "html": "<p><b>리팩터링 과제.<\/b> 어디서든 <code>Config.instance()<\/code>를 부르는 코드입니다. 테스트에서 <code>debug=True<\/code> 상황을 검증하기 어렵습니다.<\/p><pre><code>class Config:\n    _instance = None\n    @classmethod\n    def instance(cls):\n        if cls._instance is None:\n            cls._instance = cls()\n        return cls._instance\n    def __init__(self):\n        self.debug = False\n\ndef process(x):\n    if Config.instance().debug:          # ← 어디서든 전역으로 접근\n        print(&quot;debug&quot;, x)\n    return x * 2<\/code><\/pre>"}, {"id": "w2-t1", "type": "code", "starter": "class Config:\n    _instance = None\n    @classmethod\n    def instance(cls):\n        if cls._instance is None:\n            cls._instance = cls()\n        return cls._instance\n    def __init__(self):\n        self.debug = False\n\ndef process(x):\n    if Config.instance().debug:          # ← 어디서든 전역으로 접근\n        print(\"debug\", x)\n    return x * 2", "q": "전역 접근을 <b>제거<\/b>하고, ‘하나’는 유지하면서 테스트에서 설정을 바꿔 끼울 수 있게 <b>주입<\/b> 방식으로 고쳐 보세요.", "hint": "‘하나’는 누가 지키게 되나요? (코드 주석으로 설명해도 좋아요)"}, {"id": "w2-t2", "type": "choice", "q": "필수 인자 2개와 선택 옵션 6개를 가진 <b>HTTP 요청 설정 객체<\/b>를 만들려 합니다. 가장 적절한 접근은?", "options": ["Builder 클래스를 만들어 메서드 체이닝으로 조립한다", "dataclass에 기본값을 두고 키워드 인자로 만든다", "싱글턴으로 하나만 만든다", "추상 팩토리로 만든다"]}, {"id": "w2-t3", "type": "text", "rows": 5, "q": "<b>나의 삶에서 찾기<\/b>: 내가 아는 프로그램(게임·앱·학교 시스템)에서 <b>‘하나만 있어야’ 하는 것<\/b>과 <b>‘짝이 맞아야’ 하는 것<\/b>을 하나씩 찾고, 어떤 방식으로 생성 책임을 두면 좋을지 적어 보세요."}]}, {"key": "reflect", "title": "성찰", "en": "Reflecting", "minutes": 10, "intro": "이번 주의 배움을 돌아봅니다.", "items": [{"id": "w2-r1", "type": "scales", "q": "이번 주를 마치며 (1~5)", "items": ["생성 패턴 4종의 풀려는 문제를 구분할 수 있다", "‘하나뿐임’과 ‘전역 접근’의 차이를 설명할 수 있다", "‘분리하면 규칙이 어딘가로 옮겨 간다’는 말을 예로 설명할 수 있다", "이번 주 활동에 적극적으로 참여했다"]}, {"id": "w2-r2", "type": "text", "rows": 3, "q": "이번 주에 <b>가장 달라진 내 생각<\/b>, 또는 <b>아직 헷갈리는 점<\/b>은?"}, {"id": "w2-r3", "type": "text", "rows": 2, "q": "다음 주에 탐구해 보고 싶은 <b>나만의 질문<\/b> 하나를 적어 보세요."}]}]}, {"n": 3, "concept": "경계", "title": "경계에 서는 객체 — 감싸기의 의도", "subtitle": "어댑터 · 데코레이터 · 컴포지트 · 퍼사드 · 프록시", "overview": "구조 패턴은 서로 닮았습니다. 클래스 다이어그램만 보면 대부분 ‘감싸고 위임’입니다. 이번 주에는 <b>같은 모양인데 왜 다른 이름일까?<\/b>라는 질문으로, 경계에 서는 객체가 <b>무엇을 바꾸고 무엇을 지키는지<\/b>를 탐구합니다.", "goals": ["겉모양이 같은 구조 패턴을 ‘의도(왜 감싸는가)’로 구별할 수 있다.", "어댑터·퍼사드·프록시·데코레이터·컴포지트가 인터페이스를 다루는 방식(변환·단순화·통제·덧붙임·재귀 합성)을 설명할 수 있다.", "경계 객체를 직접 설계·구현하고, 과잉 적용을 가려낼 수 있다."], "questions": {"factual": ["어댑터·퍼사드·프록시·데코레이터·컴포지트는 각각 인터페이스를 어떻게 다루는가?", "데코레이터의 순서가 바뀌면 결과가 어떻게 달라지는가?"], "conceptual": ["같은 ‘감싸기’ 구조가 서로 다른 패턴이 되게 하는 것은 무엇인가?", "‘경계’에 놓는 객체는 무엇을 보호하고 무엇을 노출하는가?"], "debatable": ["“퍼사드는 서브시스템으로 가는 다른 길을 막아야 한다”는 주장에 동의하는가?"]}, "patterns": [{"ch": 5, "name": "5장 어댑터", "href": "../textbook/05-adapter.html"}, {"ch": 6, "name": "6장 데코레이터", "href": "../textbook/06-decorator.html"}, {"ch": 7, "name": "7장 컴포지트", "href": "../textbook/07-composite.html"}, {"ch": 8, "name": "8장 퍼사드", "href": "../textbook/08-facade.html"}, {"ch": 9, "name": "9장 프록시", "href": "../textbook/09-proxy.html"}], "product": "구조 패턴 5종 의도 비교표, 상황 분류, 어댑터 구현, 세 번째 일반화 문장", "stages": [{"key": "engage", "title": "몰입", "en": "Tuning in", "minutes": 20, "intro": "경계에 선 코드를 관찰하고 ‘구조만으로 구별할 수 있을까?’ 하는 질문을 만나 봅니다.", "items": [{"id": "w3-e0", "type": "info", "html": "<p><b>상황.<\/b> 솔숲상회는 PG사 A의 SDK를 주문·환불·정산 코드 세 곳에서 직접 불렀습니다. 어느 날 PG사 B로 일부 교체하라는 지시가 내려옵니다. B의 SDK는 <code>charge()<\/code>가 아니라 <code>pay(order_id, …)<\/code>를 제공하고 오류도 다릅니다. (교재 5장 1절)<\/p>"}, {"id": "w3-e1", "type": "text", "rows": 3, "q": "다른 사람이 만든 라이브러리(또는 SDK)의 사용법이 내 코드와 맞지 않았던 경험이 있나요? 그때 <b>어떻게 해결했고, 어떤 점이 불편<\/b>했나요?", "hint": "경험이 없다면 ‘만약 그런 상황이라면 어떻게 하겠는지’를 적어도 좋아요."}, {"id": "w3-e2", "type": "info", "html": "<p>아래 클래스는 어떤 패턴일까요? 모양은 하나뿐입니다.<\/p><pre><code>class Wrapper:\n    def __init__(self, inner):\n        self.inner = inner                # 다른 객체를 감싸고\n    def send(self, x):\n        return self.inner.send(x)         # 호출을 그대로(또는 약간 바꿔) 위임한다<\/code><\/pre>"}, {"id": "w3-e3", "type": "choice", "q": "위 코드(모양)만 보고 이것이 <b>어댑터인지, 데코레이터인지, 프록시인지<\/b> 알 수 있을까요?", "options": ["알 수 있다. 구조에 이름이 있다", "알 수 없다. 코드의 ‘의도’를 알아야 한다", "셋은 사실 같은 패턴이다"]}]}, {"key": "find", "title": "조사", "en": "Finding out", "minutes": 35, "intro": "예측으로 데코레이터를 이해하고, 다섯 구조 패턴을 조사해 비교합니다.", "items": [{"id": "w3-f0", "type": "info", "html": "<p><b>데코레이터의 순서.<\/b> 실행하기 전에 두 줄의 출력을 예측하세요. (교재 6장 개념 문제 1)<\/p><pre><code>def encrypt(m):  return &quot;E(&quot; + m + &quot;)&quot;\ndef compress(m): return &quot;C(&quot; + m + &quot;)&quot;\n\nclass Chan:\n    def send(self, m): print(&quot;send&quot;, m)\n\nclass Enc:                                # 암호화 데코레이터\n    def __init__(self, inner): self.inner = inner\n    def send(self, m): self.inner.send(encrypt(m))\n\nclass Comp:                               # 압축 데코레이터\n    def __init__(self, inner): self.inner = inner\n    def send(self, m): self.inner.send(compress(m))\n\nEnc(Comp(Chan())).send(&quot;hi&quot;)              # (가)\nComp(Enc(Chan())).send(&quot;hi&quot;)              # (나)<\/code><\/pre>"}, {"id": "w3-f1", "type": "text", "rows": 4, "q": "(가)와 (나)의 출력을 예측하고 실행으로 확인하세요. 그리고 <b>실제 통신<\/b>에서는 ‘압축 후 암호화’와 ‘암호화 후 압축’ 중 어느 쪽이 맞는지, 위 코드 중 어느 것이 그 순서인지 적어 보세요.", "hint": "힌트: 암호화된 데이터는 무작위처럼 보여 잘 압축되지 않습니다."}, {"id": "w3-f2", "type": "table", "corner": "패턴", "cols": ["의도 (왜 감싸는가)", "인터페이스는? (바꿈 / 유지 / 새로 정의)", "감싸는 대상 수", "‘이 패턴이 필요하다’는 신호"], "rows": ["어댑터", "퍼사드", "프록시", "데코레이터", "컴포지트"], "q": "교재 5~9장을 읽고 <b>구조 패턴 5종 의도 비교표<\/b>를 채워 보세요."}]}, {"key": "sort", "title": "조직", "en": "Sorting out", "minutes": 25, "intro": "여러 상황에서 어떤 경계 객체가 필요한지 판단하고, 개념을 연결합니다.", "items": [{"id": "w3-s1", "type": "sort", "q": "각 상황에는 어떤 패턴이 어울릴까요?", "cards": ["PG사 B의 SDK는 pay()를 제공하는데, 우리 코드는 charge()를 기대한다", "체크인 키오스크가 예약·여권·좌석·수하물·탑승권 서비스 5개를 늘 같은 순서로 불러야 한다", "수백 MB 위성 영상은 실제로 볼 때까지 내려받지 않고 싶다", "센서 전송 채널에 로깅·재시도·압축을 필요한 조합으로 덧붙이고 싶다", "부품 → 조립품 → 완제품의 원가를 모두 같은 get_cost()로 구하고 싶다", "관리자만 호출할 수 있게 메서드 호출 앞에서 권한을 검사한다", "조직도(팀·부서·본부)의 인건비를 합산한다", "SDK 응답의 필드명과 단위를 우리 도메인 모델로 번역한다"], "buckets": ["어댑터", "퍼사드", "프록시", "데코레이터", "컴포지트"]}, {"id": "w3-s2", "type": "text", "rows": 4, "q": "<b>같은 모양, 다른 의도<\/b>: ‘데코레이터’와 ‘프록시’는 둘 다 같은 인터페이스로 감쌉니다. 둘을 가르는 질문 두 가지를 직접 만들어 보세요."}, {"id": "w3-s3", "type": "triples", "min": 6, "relations": ["를 감싼다", "를 바꾼다", "를 유지한다", "를 단순화한다", "를 통제한다", "를 덧붙인다", "와 구별된다", "에 의존한다"], "q": "<b>개념 지도<\/b>: 경계, 인터페이스, 위임, 감싸기, 의도, 구조, 통제, 단순화 — 관계를 6개 이상 연결해 보세요."}]}, {"key": "general", "title": "일반화", "en": "Making conclusions", "minutes": 15, "intro": "‘경계’에 대한 일반화를 쓰고, 흔한 오개념을 점검합니다.", "items": [{"id": "w3-g1", "type": "text", "rows": 3, "q": "<b>나의 일반화<\/b>: ‘경계에 놓는 객체’에 대해 이번 주 알게 된 것을 “~일수록(~하면) ~하지만, ~” 형태의 한 문장으로 써 보세요.", "hint": "구조와 의도의 관계, 그리고 감싸는 비용(간접층)을 담아 보세요."}, {"id": "w3-g2", "type": "multi", "q": "다음 중 <b>옳은 진술<\/b>을 모두 고르세요.", "options": ["데코레이터는 감싼 객체와 같은 인터페이스를 유지한다", "어댑터는 보통 인터페이스를 유지한 채 기능을 덧붙인다", "프록시는 실제 객체의 생성·접근을 통제하기도 한다", "퍼사드는 서브시스템으로 가는 다른 길을 항상 물리적으로 막는다", "컴포지트는 단품과 묶음을 같은 인터페이스로 다루게 한다"]}, {"id": "w3-g3", "type": "text", "rows": 3, "q": "<b>반례 찾기<\/b>: 경계 객체를 두었는데 <b>오히려 불필요했던<\/b> 경우를 하나 만들어 보세요."}]}, {"key": "transfer", "title": "전이", "en": "Going further", "minutes": 25, "intro": "새로운 상황에서 경계 객체를 직접 구현하고 판단합니다.", "items": [{"id": "w3-t0", "type": "info", "html": "<p><b>구현 과제.<\/b> 온도 센서 두 종류를 같은 코드로 다루려고 합니다. <code>FahrenheitSensor<\/code>는 남의 SDK라 고칠 수 없습니다. (교재 5장 연습 2)<\/p><pre><code>class CelsiusSensor:                      # 우리 쪽 센서: 섭씨\n    def read_c(self): return 21.5\n\nclass FahrenheitSensor:                   # 남의 SDK(고칠 수 없음): 화씨\n    def get_temperature(self): return 70.7\n\ndef report(sensor):                       # 클라이언트는 sensor.celsius() 만 안다\n    print(f&quot;{sensor.celsius():.1f}°C&quot;)<\/code><\/pre>"}, {"id": "w3-t1", "type": "code", "starter": "class CelsiusSensor:                      # 우리 쪽 센서: 섭씨\n    def read_c(self): return 21.5\n\nclass FahrenheitSensor:                   # 남의 SDK(고칠 수 없음): 화씨\n    def get_temperature(self): return 70.7\n\ndef report(sensor):                       # 클라이언트는 sensor.celsius() 만 안다\n    print(f\"{sensor.celsius():.1f}°C\")", "q": "<code>report()<\/code>가 <b>두 센서 모두<\/b>에 동작하도록 어댑터를 작성하세요. (실행해서 <code>21.5°C<\/code>가 두 번 나오는지 확인)"}, {"id": "w3-t2", "type": "choice", "q": "동료가 ‘모든 서비스 호출을 한 곳에 모으자’며 <b>메서드 30개짜리 퍼사드<\/b>를 제안합니다. 가장 적절한 반응은?", "options": ["좋다. 퍼사드는 많이 모을수록 단순하다", "서브시스템 API를 그대로 복제한 것이라 단순화가 아니다. 반복되는 ‘흐름’ 몇 개만 퍼사드로 만든다", "퍼사드 대신 프록시로 바꾼다", "서브시스템을 모두 싱글턴으로 만든다"]}, {"id": "w3-t3", "type": "text", "rows": 6, "q": "<b>나의 삶에서 찾기<\/b>: 내가 쓰는 외부 서비스(급식 API, 소셜 로그인, 결제, 지도 등)를 하나 골라, <b>내 코드와 서비스 사이에 둘 경계 객체<\/b>를 설계해 보세요. 클래스 이름, 메서드 3개 이내, 그리고 이것이 어댑터·퍼사드·프록시 중 무엇인지 이유와 함께 적어 보세요."}]}, {"key": "reflect", "title": "성찰", "en": "Reflecting", "minutes": 10, "intro": "이번 주의 배움을 돌아봅니다.", "items": [{"id": "w3-r1", "type": "scales", "q": "이번 주를 마치며 (1~5)", "items": ["구조 패턴 5종을 의도로 구별할 수 있다", "어댑터를 직접 구현할 수 있다", "‘모양이 같아도 의도가 다르면 다른 패턴’이라는 말을 예로 설명할 수 있다", "이번 주 활동에 적극적으로 참여했다"]}, {"id": "w3-r2", "type": "text", "rows": 3, "q": "이번 주에 <b>가장 달라진 내 생각<\/b>, 또는 <b>아직 헷갈리는 패턴 쌍<\/b>은?"}, {"id": "w3-r3", "type": "text", "rows": 2, "q": "다음 주에 탐구해 보고 싶은 <b>나만의 질문<\/b> 하나를 적어 보세요."}]}]}, {"n": 4, "concept": "상호작용", "title": "누가 누구를 아는가 — 객체 사이의 호출 관계", "subtitle": "옵저버 · 커맨드 · 상태 · 반복자", "overview": "객체는 혼자 일하지 않습니다. 이번 주에는 <b>호출 관계를 직접 호출에서 간접(통지·요청 객체·상태 객체·순회)으로<\/b> 바꿨을 때 ‘누가 누구를 아는가’, 그리고 ‘언제 일어나는가’가 어떻게 달라지는지 탐구합니다.", "goals": ["직접 호출·분기가 만드는 의존의 방향을 그림으로 설명할 수 있다.", "옵저버·커맨드·상태·반복자가 끊어 주는 의존과 새로 생기는 약속(통지 순서, 이력, 전이, 순회 프로토콜)을 설명할 수 있다.", "파이썬 기능이 흡수한 패턴(콜러블, for/제너레이터)을 알아보고 직접 구현할 수 있다."], "questions": {"factual": ["옵저버에서 통지 도중 구독을 해제하면 어떤 일이 생기는가?", "커맨드 객체는 어떤 정보를 가지고 있어야 되돌릴 수 있는가?"], "conceptual": ["‘직접 호출’에서 ‘간접 호출’로 바꾸면 의존의 방향은 어떻게 달라지는가?", "상태 패턴에서 ‘전이를 누가 정하는가’는 왜 중요한가?"], "debatable": ["“상태 패턴을 쓰면 if 분기가 없어지므로 항상 더 좋은 코드가 된다”는 주장에 동의하는가?"]}, "patterns": [{"ch": 11, "name": "11장 옵저버", "href": "../textbook/11-observer.html"}, {"ch": 12, "name": "12장 커맨드", "href": "../textbook/12-command.html"}, {"ch": 13, "name": "13장 상태", "href": "../textbook/13-state.html"}, {"ch": 15, "name": "15장 반복자", "href": "../textbook/15-iterator.html"}], "product": "의존 방향 표, 상황 분류, 옵저버·반복자 구현, 상태 전이표, 네 번째 일반화 문장", "stages": [{"key": "engage", "title": "몰입", "en": "Tuning in", "minutes": 20, "intro": "직접 호출과 분기가 쌓인 코드를 보고, ‘누가 누구를 알고 있는지’ 눈으로 확인합니다.", "items": [{"id": "w4-e0", "type": "info", "html": "<p><b>상황 1.<\/b> 증권 앱의 시세 수신기는 새 가격이 들어오면 필요한 곳을 직접 호출합니다. (교재 11장 1~2절)<\/p><pre><code>class PriceFeed:\n    def push_price(self, price):\n        chart.redraw(price)               # 처음엔 이 한 줄이면 충분했다\n        alarm.check(price)                # 가격 알림이 생겼다\n        portfolio.recalc(price)           # 평가손익 계산이 생겼다\n        logger.record(price)              # 감사 로그가 생겼다 …  (다음 분기: 모바일 푸시?)<\/code><\/pre><p><b>상황 2.<\/b> 공유 킥보드의 상태 관리입니다. (교재 13장 1~2절)<\/p><pre><code>class Scooter:\n    def press_button(self):\n        if self.status == &quot;available&quot;:\n            self.unlock(); self.status = &quot;riding&quot;\n        elif self.status == &quot;riding&quot;:\n            self.lock(); self.status = &quot;available&quot;\n        elif self.status == &quot;paused&quot;:          # 일시정지가 생겼다\n            ...\n        elif self.status == &quot;broken&quot;:          # 고장이 생겼다\n            ...                                # 모든 메서드(unlock, end_ride, report…)에 같은 분기가 반복된다<\/code><\/pre>"}, {"id": "w4-e1", "type": "text", "rows": 4, "q": "<code>PriceFeed<\/code>가 <b>알고 있는 것<\/b>을 모두 적어 보세요. 새로 ‘모바일 푸시’가 필요하면 어디를 고쳐야 하나요? 이 변경은 시세 수신과 관련 있을까요?"}, {"id": "w4-e2", "type": "text", "rows": 3, "q": "<code>Scooter.press_button()<\/code>의 <code>if/elif<\/code>는 상태가 하나 늘 때 <b>몇 군데<\/b>를 고쳐야 할까요? 그 이유는?"}, {"id": "w4-e3", "type": "scales", "q": "지금의 나는? (사전 진단)", "items": ["옵저버(이벤트 구독) 구조를 써 본 적이 있다", "‘실행 취소(undo)’를 구현해 본 적이 있다", "상태를 문자열 변수와 if로 관리해 본 적이 있다", "for 문이 디자인 패턴과 관련이 있다고 생각한다"], "labels": ["전혀 아니다", "매우 그렇다"]}]}, {"key": "find", "title": "조사", "en": "Finding out", "minutes": 35, "intro": "예측과 실행으로 각 패턴의 ‘약속’을 확인하고, 네 패턴을 비교합니다.", "items": [{"id": "w4-f0", "type": "info", "html": "<p><b>옵저버의 함정.<\/b> 실행하기 전에 출력을 예측하세요. (교재 11장 개념 문제 1)<\/p><pre><code>class Feed:\n    def __init__(self): self.subs = []\n    def subscribe(self, f): self.subs.append(f)\n    def push(self, p):\n        for f in self.subs:\n            f(p)\n\nfeed = Feed()\nlog = []\n\ndef once(p):\n    log.append((&quot;once&quot;, p))\n    feed.subs.remove(once)               # 한 번 받고 스스로 구독 해제\n\nfeed.subscribe(once)\nfeed.subscribe(lambda p: log.append((&quot;b&quot;, p)))\nfeed.push(1)\nfeed.push(2)\nprint(log)<\/code><\/pre>"}, {"id": "w4-f1", "type": "text", "rows": 4, "q": "<code>print(log)<\/code>의 출력을 예측하고 실행으로 확인하세요. 예상과 달랐다면 <b>왜<\/b> 그런 일이 일어났는지, 어떻게 고치면 되는지 적어 보세요."}, {"id": "w4-f2", "type": "info", "html": "<p><b>커맨드의 이력.<\/b> 실행하기 전에 출력을 예측하세요. (교재 12장)<\/p><pre><code>class Shape: x = 0\n\nclass Move:                                # 커맨드: &#x27;요청&#x27;을 값으로 만든 것\n    def __init__(self, s, dx): self.s, self.dx = s, dx\n    def do(self):   self.s.x += self.dx\n    def undo(self): self.s.x -= self.dx\n\ns = Shape(); hist = []\nfor dx in (3, 4, 5):\n    c = Move(s, dx); c.do(); hist.append(c)\nhist.pop().undo()                          # 가장 최근 것을 되돌린다\nprint(s.x, len(hist))<\/code><\/pre>"}, {"id": "w4-f3", "type": "text", "rows": 3, "q": "<code>print(s.x, len(hist))<\/code>의 출력을 예측하고, <code>Move<\/code>가 <b>되돌리기를 하려면 꼭 가지고 있어야 하는 정보<\/b>가 무엇인지 적어 보세요."}, {"id": "w4-f4", "type": "choice", "q": "<b>상태<\/b> 패턴과 <b>전략<\/b> 패턴은 클래스 구조가 거의 같습니다. 둘을 가르는 가장 큰 차이는?", "options": ["상태는 클래스가 더 많다", "전략은 바깥(클라이언트)이 교체를 결정하고, 상태는 상태 객체(또는 그 결과)가 다음 상태를 정한다", "전략은 상속을, 상태는 합성을 쓴다", "차이가 없고 이름만 다르다"]}, {"id": "w4-f5", "type": "table", "corner": "패턴", "cols": ["직접 호출·분기가 만드는 고통", "끊어 주는 의존(누가 누구를 모르게 되나)", "새로 생기는 객체·약속", "파이썬이 흡수한 모습"], "rows": ["옵저버", "커맨드", "상태", "반복자"], "q": "교재 11~13장·15장의 ‘트레이드오프’ 절을 읽고 <b>상호작용 패턴 4종 비교표<\/b>를 채워 보세요."}]}, {"key": "sort", "title": "조직", "en": "Sorting out", "minutes": 25, "intro": "상황을 네 패턴으로 분류하고, 의존의 방향을 정리하고, 개념을 연결합니다.", "items": [{"id": "w4-s1", "type": "sort", "q": "각 상황은 어떤 패턴이 어울릴까요?", "cards": ["시세가 바뀌면 차트·알림·로그가 각자 반응해야 하고 반응하는 쪽은 앞으로 늘어난다", "도형 이동·색 변경을 실행 취소하고 매크로로 묶고 싶다", "킥보드가 잠김·주행·일시정지·고장일 때 같은 버튼이 다르게 동작한다", "플레이리스트가 리스트인지 서버 페이지인지 몰라도 차례로 재생하고 싶다", "주문 취소 요청을 출고 전에 대기열에 넣어 두었다가 나중에 실행한다", "회원가입 뒤 환영 메일·쿠폰·통계 집계가 각각 독립적으로 늘어난다", "결재 문서가 임시저장·상신·승인·반려일 때 가능한 행동이 다르다"], "buckets": ["옵저버", "커맨드", "상태", "반복자"]}, {"id": "w4-s2", "type": "table", "corner": "패턴", "cols": ["알게 되는 쪽 (→ 의존이 생김)", "모르게 되는 쪽 (의존이 끊김)"], "rows": ["옵저버", "커맨드", "상태", "반복자"], "q": "<b>의존의 방향<\/b>: 각 패턴을 적용한 뒤 ‘누가 누구를 알게 되고, 누가 누구를 모르게 되는지’ 채워 보세요."}, {"id": "w4-s3", "type": "triples", "min": 6, "relations": ["를 간접화한다", "를 알고 있다", "에 의존한다", "를 약속한다", "를 가능하게 한다", "와 구별된다", "의 비용이다"], "q": "<b>개념 지도<\/b>: 상호작용, 의존 방향, 통지, 요청, 상태, 순회, 결합도, 약속 — 관계를 6개 이상 연결해 보세요."}]}, {"key": "general", "title": "일반화", "en": "Making conclusions", "minutes": 15, "intro": "‘상호작용’에 대한 일반화를 쓰고, 진술을 점검합니다.", "items": [{"id": "w4-g1", "type": "text", "rows": 3, "q": "<b>나의 일반화<\/b>: ‘객체 사이의 호출 관계’에 대해 이번 주 알게 된 것을 “~할수록 ~하지만, ~” 형태의 한 문장으로 써 보세요.", "hint": "의존 방향의 변화와, 새로 생기는 약속(비용)을 함께 담아 보세요."}, {"id": "w4-g2", "type": "multi", "q": "다음 중 <b>옳은 진술<\/b>을 모두 고르세요.", "options": ["옵저버에서 발행자는 관찰자의 구체 클래스를 알 필요가 없다", "옵저버는 통지 순서와 예외 격리를 항상 자동으로 안전하게 처리해 준다", "커맨드는 요청을 값(객체)으로 만들어 저장·지연·취소할 수 있게 한다", "상태 패턴은 if 분기를 없애므로 항상 코드가 짧아진다", "파이썬의 for 루프는 반복자 패턴을 언어가 흡수한 것이다"]}, {"id": "w4-g3", "type": "text", "rows": 3, "q": "<b>반례 찾기<\/b>: 간접 관계로 바꿨는데 <b>오히려 불필요했던<\/b> 경우를 하나 만들어 보세요."}]}, {"key": "transfer", "title": "전이", "en": "Going further", "minutes": 25, "intro": "새로운 코드와 상황에 적용합니다.", "items": [{"id": "w4-t0", "type": "info", "html": "<p><b>구현 과제 1 (옵저버).<\/b> 회원가입 후속 작업이 <code>sign_up()<\/code>에 박혀 있습니다. (교재 11장 연습 2)<\/p><pre><code>def send_welcome_mail(user): print(&quot;메일 →&quot;, user[&quot;email&quot;])\ndef issue_coupon(user):      print(&quot;쿠폰 →&quot;, user[&quot;email&quot;])\ndef track_signup(user):      print(&quot;통계 +1&quot;)\n\ndef sign_up(email):\n    user = {&quot;email&quot;: email}\n    send_welcome_mail(user)               # 회원가입이 후속 작업을 전부 알고 있다\n    issue_coupon(user)\n    track_signup(user)\n    return user<\/code><\/pre>"}, {"id": "w4-t1", "type": "code", "starter": "def send_welcome_mail(user): print(\"메일 →\", user[\"email\"])\ndef issue_coupon(user):      print(\"쿠폰 →\", user[\"email\"])\ndef track_signup(user):      print(\"통계 +1\")\n\ndef sign_up(email):\n    user = {\"email\": email}\n    send_welcome_mail(user)               # 회원가입이 후속 작업을 전부 알고 있다\n    issue_coupon(user)\n    track_signup(user)\n    return user", "q": "<code>sign_up()<\/code>이 후속 작업을 <b>몰라도<\/b> 되고, 새 후속 작업을 추가할 때 <code>sign_up()<\/code>을 <b>고치지 않아도<\/b> 되게 바꿔 보세요."}, {"id": "w4-t2", "type": "table", "corner": "상태 \\ 이벤트", "cols": ["예약", "체크인", "종료", "취소"], "rows": ["비어 있음", "예약됨", "사용 중"], "q": "<b>구현 과제 2 (상태 설계).<\/b> 회의실 예약 시스템의 <b>상태 전이표<\/b>를 완성하세요. 각 칸에는 ‘다음 상태’ 또는 ‘불가’를 적습니다.", "hint": "이 표는 코드의 어디에(상태 클래스? dict?) 들어갈지도 생각해 보세요."}, {"id": "w4-t3", "type": "info", "html": "<p><b>구현 과제 3 (반복자).<\/b> 서버가 한 번에 한 쪽씩만 항목을 줍니다. (교재 15장 연습 2, 4절)<\/p><pre><code># 서버는 한 번에 한 쪽씩만 준다: 토큰 → (항목들, 다음 토큰). 마지막 쪽의 다음 토큰은 None.\nPAGES = {None: ([&quot;a&quot;, &quot;b&quot;], &quot;t1&quot;), &quot;t1&quot;: ([&quot;c&quot;], &quot;t2&quot;), &quot;t2&quot;: ([&quot;d&quot;, &quot;e&quot;], None)}\n\ndef fetch_page(token):\n    return PAGES[token]\n\ndef all_items():\n    # 여기를 작성하세요. 호출하는 쪽이 for item in all_items(): 로\n    # 쪽(page)이 몇 개인지 모른 채 항목을 하나씩 받을 수 있어야 합니다.\n    ...\n\nprint(list(all_items()))                   # [&#x27;a&#x27;, &#x27;b&#x27;, &#x27;c&#x27;, &#x27;d&#x27;, &#x27;e&#x27;] 가 나와야 합니다<\/code><\/pre>"}, {"id": "w4-t4", "type": "code", "starter": "# 서버는 한 번에 한 쪽씩만 준다: 토큰 → (항목들, 다음 토큰). 마지막 쪽의 다음 토큰은 None.\nPAGES = {None: ([\"a\", \"b\"], \"t1\"), \"t1\": ([\"c\"], \"t2\"), \"t2\": ([\"d\", \"e\"], None)}\n\ndef fetch_page(token):\n    return PAGES[token]\n\ndef all_items():\n    # 여기를 작성하세요. 호출하는 쪽이 for item in all_items(): 로\n    # 쪽(page)이 몇 개인지 모른 채 항목을 하나씩 받을 수 있어야 합니다.\n    ...\n\nprint(list(all_items()))                   # ['a', 'b', 'c', 'd', 'e'] 가 나와야 합니다", "q": "<code>all_items()<\/code>를 <b>제너레이터<\/b>로 작성해, 호출하는 쪽이 쪽 수를 모른 채 <code>for<\/code>로 순회할 수 있게 하세요."}]}, {"key": "reflect", "title": "성찰", "en": "Reflecting", "minutes": 10, "intro": "이번 주의 배움을 돌아봅니다.", "items": [{"id": "w4-r1", "type": "scales", "q": "이번 주를 마치며 (1~5)", "items": ["직접 호출과 간접 호출에서 의존의 방향이 달라짐을 그림으로 설명할 수 있다", "옵저버·커맨드·상태·반복자를 상황에서 구별할 수 있다", "‘간접화에는 새 약속이 따른다’는 말을 예로 설명할 수 있다", "이번 주 활동에 적극적으로 참여했다"]}, {"id": "w4-r2", "type": "text", "rows": 3, "q": "이번 주에 <b>가장 달라진 내 생각<\/b>, 또는 <b>아직 헷갈리는 점<\/b>은?"}, {"id": "w4-r3", "type": "text", "rows": 2, "q": "마지막 주(종합)에 <b>꼭 다루고 싶은 질문<\/b> 하나를 적어 보세요."}]}]}, {"n": 5, "concept": "균형", "title": "얼마나 넣을 것인가 — 변경 축만큼만", "subtitle": "패턴 비교와 조합 · 종합 설계", "overview": "열다섯 개 패턴을 다 아는 사람이 열다섯 개를 다 쓰는 것은 아닙니다. 마지막 주에는 지난 4주의 일반화를 하나로 엮고, <b>‘무엇을 넣고 무엇을 넣지 않을지’<\/b>를 근거와 함께 설계하는 종합 과제를 수행합니다.", "goals": ["닮은 패턴을 ‘누가 무엇을 결정하는가’라는 질문으로 구별할 수 있다.", "시스템의 변경 축을 세고, 축마다 가장 가벼운 해법을 고르며, 넣지 않은 패턴과 그 이유를 말할 수 있다.", "4주간의 일반화를 연결해 나만의 설계 원칙을 정리하고, 새로운 맥락에 전이할 수 있다."], "questions": {"factual": ["로봇 창고 사례에서 변경 축은 몇 개이고, 각각 어떤 해법이 선택되었는가?", "전략·상태, 데코레이터·프록시를 가르는 질문은 각각 무엇인가?"], "conceptual": ["패턴의 가치와 비용은 무엇에 의해 결정되는가?", "언어 기능이 패턴을 흡수하면 설계 판단은 어떻게 달라지는가?"], "debatable": ["“디자인 패턴은 파이썬에서는 대부분 불필요하다”는 주장에 어디까지 동의하는가?", "“초기에 확장성을 위해 패턴을 미리 넣어 두는 편이 낫다”는 주장은 타당한가?"]}, "patterns": [{"ch": 99, "name": "종합: 패턴 비교와 조합", "href": "../textbook/99-summary.html"}, {"ch": 0, "name": "서론", "href": "../textbook/00-intro.html"}], "product": "변경 축 분석표, 닮은 패턴 판별, 최종 일반화, 스마트 주차장 종합 설계서, 5주 성찰", "stages": [{"key": "engage", "title": "몰입", "en": "Tuning in", "minutes": 15, "intro": "‘다 넣은 설계안’을 마주하고, 도윤의 질문에 나는 어떻게 답할지 생각해 봅니다.", "items": [{"id": "w5-e0", "type": "info", "html": "<p><b>상황.<\/b> 물류 기업 한빛로지스의 피킹 로봇 창고는 여섯 가지 요구를 한꺼번에 받았고(아래), 개발자 도윤은 이를 하나씩 WMS 클래스에 분기로 넣다가 사고를 냈습니다. 신입 다온은 <b>열다섯 개 패턴을 모두 넣은 설계안<\/b>을 들고 왔습니다. 도윤은 질문 하나로 대답했습니다. “이 시스템에서 실제로 바뀌는 것이 몇 가지예요?” (교재 99장 2절)<\/p><pre><code>요구 ①  제조사가 둘이 되었다. Acme SDK는 mm 좌표·배터리 정수 %, RoboKo SDK는 칸 이름·배터리 0~1 실수\n요구 ②  유리 구역은 ‘가까운 칸 먼저’ 대신 ‘구역 순서대로 쓸기’ 경로를 쓰자 (운영팀)\n요구 ③  출고 전이면 주문을 취소할 수 있어야 한다 (고객센터)\n요구 ④  대시보드에 로봇 상태가 실시간으로 뜨고, 다음 분기엔 모바일 알림도 붙는다 (관제실)\n요구 ⑤  재고를 구역·랙·선반·칸으로 집계하되, 신축 동은 선반 아래 칸막이 단계가 하나 더 있다 (재무팀)\n요구 ⑥  배터리가 떨어지면 진행 중인 주문과 뒤엉키지 않고 충전을 보내자 (관제실)<\/code><\/pre>"}, {"id": "w5-e1", "type": "text", "rows": 4, "q": "도윤이 다온에게 한 질문에 <b>당신이라면 어떻게 대답<\/b>하겠습니까? 여섯 요구를 ‘변경 축’으로 묶어 본다면 몇 개가 되며, 열다섯 개를 다 넣는 것에 대해 어떤 의견인가요?"}, {"id": "w5-e2", "type": "scales", "q": "지금의 나는? (사전 진단)", "items": ["패턴은 많이 알수록 설계를 잘한다", "닮은 패턴(전략/상태, 데코레이터/프록시)을 확실히 구별할 수 있다", "파이썬에서는 패턴 대부분이 함수·언어 기능으로 대체된다고 생각한다", "‘넣지 않는 선택’도 설계의 결과물로 설명할 수 있다"], "labels": ["전혀 아니다", "매우 그렇다"]}]}, {"key": "find", "title": "조사", "en": "Finding out", "minutes": 35, "intro": "변경 축을 세고, 닮은 패턴을 구별하고, 파이썬이 흡수한 정도를 조사합니다.", "items": [{"id": "w5-f1", "type": "table", "corner": "변경 축 (요구)", "cols": ["후보 패턴", "가장 가벼운 형태", "넣지 않으면 생기는 고통"], "rows": ["① 제조사 SDK 차이 (구매팀)", "② 경로 알고리즘 (운영팀)", "③ 주문 대기·취소 (고객센터)", "④ 알림 채널 (관제실)", "⑤ 재고 계층 깊이 (재무팀)", "⑥ 배터리 대응 (관제실)"], "q": "여섯 변경 축마다 <b>패턴을 고르고, 가장 가벼운 형태<\/b>를 정해 보세요. 교재 99장 2.3절을 읽기 <b>전에<\/b> 먼저 시도해 보세요."}, {"id": "w5-f2", "type": "sort", "q": "<b>닮은 패턴 가르기<\/b>: 각 서술은 어느 패턴의 특징일까요?", "cards": ["관제 시스템이 <code>r.rule = careful<\/code>로 규칙을 갈아 끼운다. 로봇은 규칙이 바뀐 줄도 모른다", "<code>Normal.after_trip()<\/code>이 배터리를 보고 다음 상태(PowerSave)를 돌려준다", "이미 만들어진 드라이버를 받아 시간을 재고 위임한다", "실제 드라이버를 스스로 만들고, 처음 쓸 때까지 연결을 미룬다", "클라이언트가 만들어 둔 객체를 겹겹이 감싸 책임을 조합한다", "클라이언트는 실제 객체의 참조를 한 번도 갖지 않는다"], "buckets": ["전략", "상태", "데코레이터", "프록시"]}, {"id": "w5-f3", "type": "table", "corner": "패턴", "cols": ["파이썬 기능으로 대체되는 모습", "그래도 클래스·패턴으로 남기는 기준"], "rows": ["전략", "옵저버", "반복자", "싱글턴", "데코레이터(구조 패턴)", "템플릿 메서드"], "q": "각 패턴을 <b>파이썬이 얼마나 흡수<\/b>했는지, 그래도 남기는 기준은 무엇인지 지난 4주 내용을 떠올려 채워 보세요."}]}, {"key": "sort", "title": "조직", "en": "Sorting out", "minutes": 20, "intro": "4주간의 개념을 하나의 지도로 엮습니다.", "items": [{"id": "w5-s1", "type": "triples", "min": 8, "relations": ["를 격리한다", "를 옮긴다", "의 비용이다", "를 약속한다", "와 구별된다", "를 흡수한다", "에 비례한다", "를 결정한다"], "q": "<b>종합 개념 지도<\/b>: 변화, 책임, 경계, 상호작용, 균형, 변경 축, 간접층, 의도, 언어 기능 — 관계를 8개 이상 연결하세요. 1~4주차 개념 지도에서 가져와도 좋습니다."}, {"id": "w5-s2", "type": "list", "n": 5, "hint": "예) 지금 바뀌는 것이 정말 두 가지 이상인가?", "q": "<b>나의 패턴 선택 체크리스트<\/b>: 코드를 고치기 전에 스스로에게 던질 질문을 5개 이상 만들어 보세요."}]}, {"key": "general", "title": "일반화", "en": "Making conclusions", "minutes": 15, "intro": "마지막 일반화를 쓰고, 반론에 맞서 봅니다.", "items": [{"id": "w5-g1", "type": "text", "rows": 4, "q": "<b>나의 최종 일반화<\/b>: 1~4주차의 일반화(변화·책임·경계·상호작용)를 엮어 ‘좋은 설계 판단’에 대한 나의 원칙을 두세 문장으로 써 보세요.", "hint": "‘얻는 것 / 치르는 것 / 언제’의 세 요소가 모두 들어가면 좋아요."}, {"id": "w5-g2", "type": "text", "rows": 4, "q": "<b>토론 준비<\/b>: “디자인 패턴은 파이썬에서는 대부분 불필요하다”는 주장에 대해, <b>동의하는 근거 한 가지와 반박하는 근거 한 가지<\/b>를 쓰고 당신의 최종 입장을 밝히세요."}]}, {"key": "transfer", "title": "전이", "en": "Going further", "minutes": 40, "intro": "종합 수행 과제: 새로운 시스템을 직접 설계합니다. <b>패턴을 ‘넣지 않는’ 선택<\/b>도 반드시 설명해야 합니다.", "items": [{"id": "w5-t0", "type": "info", "html": "<p><b>수행 과제 — 스마트 주차장.<\/b> 아래 여섯 가지 요구를 가진 시스템의 설계서를 작성합니다. (교재 99장 연습 2 참고)<\/p><pre><code>스마트 주차장 시스템의 요구\n ① 결제는 PG사 A( pay(plate, won) )와 B( charge({&quot;car&quot;: …, &quot;amount&quot;: …}) ) 두 곳을 쓰고, 계속 늘 수 있다\n ② 요금제는 일반·장기·전기차 할인이 있고, 운영자가 실행 중에 바꾼다\n ③ 입·출차 이벤트에 전광판·앱 푸시·통계가 각각 반응하며, 반응하는 쪽은 앞으로 늘어난다\n ④ 정산 시 층·구역·면 단위로 합계를 낸다 (건물마다 계층 깊이가 다르다)\n ⑤ 출구 게이트는 닫힘·열림·고장 상태에 따라 같은 신호에 다르게 반응한다\n ⑥ 운영 콘솔은 ‘입차 등록 → 요금 계산 → 결제’를 한 번에 호출하고 싶어 한다<\/code><\/pre>"}, {"id": "w5-t1", "type": "table", "corner": "요구", "cols": ["선택한 패턴 (또는 ‘넣지 않음’)", "변경 축 — 누가 왜 바꾸나", "가장 가벼운 형태"], "rows": ["① PG사 A·B 결제", "② 요금제 실행 중 교체", "③ 입출차 이벤트 반응", "④ 층·구역·면 계층 합계", "⑤ 출구 게이트 상태", "⑥ 운영 콘솔 한 번에 호출"], "q": "여섯 요구 각각에 <b>패턴·변경 축·가장 가벼운 형태<\/b>를 정해 설계표를 완성하세요."}, {"id": "w5-t2", "type": "text", "rows": 4, "q": "이 시스템에 <b>넣지 않은 패턴<\/b>을 두 가지 이상 들고, <b>왜 넣지 않았는지<\/b>(그 대신 무엇으로 충분한지) 설명하세요."}, {"id": "w5-t3", "type": "code", "starter": "# 시그니처만 스케치하세요 (본문은 ... 로 둡니다)\n# 예)\n# class PgAdapter(Protocol): ...", "q": "위 설계의 <b>핵심 클래스·함수 시그니처<\/b>를 파이썬으로 스케치하세요. (본문은 <code>...<\/code>로 두어도 됩니다)", "hint": "클래스 이름만 나열하지 말고, 요구와 연결해 주석으로 ‘①~⑥’을 표시해 보세요."}, {"id": "w5-t4", "type": "choice", "q": "동료가 ‘모든 객체 생성은 팩토리로, 이벤트는 전부 옵저버로, 설정은 전부 싱글턴으로 통일하자’고 제안합니다. 가장 적절한 대응은?", "options": ["일관성이 중요하므로 수용한다", "각 제안이 ‘실제로 바뀌는 축’에 대응하는지 하나씩 확인하고, 바뀌는 축이 없으면 넣지 않는다", "패턴은 전부 과잉이므로 모두 거부한다", "팩토리만 수용한다"]}]}, {"key": "reflect", "title": "성찰", "en": "Reflecting", "minutes": 15, "intro": "5주간의 탐구를 돌아보고, 앞으로의 나를 정합니다.", "items": [{"id": "w5-r1", "type": "scales", "q": "5주를 마치며 (1~5) — 1주차 사전 진단과 비교해 보세요", "items": ["코드에서 변경 축을 찾을 수 있다", "닮은 패턴을 의도로 구별할 수 있다", "패턴을 쓰지 않는 선택도 설계라고 설명할 수 있다", "‘분리하면 복잡도는 옮겨 간다’를 예로 설명할 수 있다", "5주 동안의 활동에 적극적으로 참여했다"]}, {"id": "w5-r2", "type": "text", "rows": 4, "q": "첫날 도윤의 질문(“실제로 바뀌는 것이 몇 가지예요?”)에 다시 답해 보세요. <b>5주 전과 지금의 답은 어떻게 달라졌나요?<\/b>"}, {"id": "w5-r3", "type": "list", "n": 3, "hint": "예) 코드를 고치기 전에 ‘누가 왜 바꾸자고 하는가’부터 묻기", "q": "앞으로 <b>의식적으로 실천해 볼 것 3가지<\/b>를 적어 보세요."}, {"id": "w5-r4", "type": "text", "rows": 3, "q": "선생님께 하고 싶은 말, 수업에서 좋았던 점, 개선되었으면 하는 점을 자유롭게 적어 주세요."}]}]}]};</script>
+<script>"use strict";
+/* 학생용·교사용이 공유하는 엔진: 문항 렌더링, 응답 판정, 파일 입출력.
+   응답 값의 모양(JSON에 그대로 저장된다)
+   text: string | choice: {sel, why} | multi: {sel:[], why} | table: string[][] | sort: {카드번호: 칸번호}
+   triples: string[][3] | list: string[] | scales: (number|null)[] | code: string */
+
+const APP = "dp-inquiry", SCHEMA = 1;
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+
+function autosize(t) { if (t.classList.contains("code")) return; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
+function toast(msg) {
+  let t = $(".toast"); if (!t) { t = el("div", { class: "toast" }); document.body.append(t); }
+  t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 2400);
+}
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function download(name, text, mime) {
+  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: mime || "application/json" })), download: name });
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function safeName(s) { return String(s || "").trim().replace(/[\\/:*?"<>|\s]+/g, "_"); }
+function stamp(d) { d = d || new Date(); const p = n => String(n).padStart(2, "0"); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+/* ---------- 응답 여부·자동 판정 ---------- */
+const nonEmpty = s => typeof s === "string" && s.trim() !== "";
+function isAnswered(it, v) {
+  if (v == null) return false;
+  switch (it.type) {
+    case "text": return nonEmpty(v);
+    case "code": return nonEmpty(v) && v.trim() !== (it.starter || "").trim();
+    case "choice": return v.sel != null;
+    case "multi": return Array.isArray(v.sel) && v.sel.length > 0;
+    case "table": return Array.isArray(v) && v.some(r => Array.isArray(r) && r.some(nonEmpty));
+    case "sort": return Object.values(v).some(x => x !== "" && x != null);
+    case "triples": return Array.isArray(v) && v.filter(r => r.every(nonEmpty)).length > 0;
+    case "list": return Array.isArray(v) && v.some(nonEmpty);
+    case "scales": return Array.isArray(v) && v.some(x => x != null);
+  }
+  return false;
+}
+const ANSWERABLE = it => it.type !== "info";
+function weekProgress(week, answers) {
+  let total = 0, done = 0;
+  for (const st of week.stages) for (const it of st.items) if (ANSWERABLE(it)) { total++; if (isAnswered(it, answers[it.id])) done++; }
+  return { total, done };
+}
+/* 선택형만 자동 판정. 반환: null | {state:"ok"|"part"|"bad", text} */
+function autoCheck(it, v) {
+  const a = it.answer;
+  if (!a || !isAnswered(it, v)) return null;
+  if (it.type === "choice") return v.sel === a.sel ? { state: "ok", text: "정답" } : { state: "bad", text: "오답" };
+  if (it.type === "multi") {
+    const A = new Set(a.sel), S = new Set(v.sel), hit = [...S].filter(x => A.has(x)).length, wrong = S.size - hit;
+    if (hit === A.size && wrong === 0) return { state: "ok", text: "정답" };
+    return { state: hit ? "part" : "bad", text: `${hit}/${A.size} 맞음${wrong ? `, 잘못 고른 ${wrong}` : ""}` };
+  }
+  if (it.type === "sort") {
+    const keys = Object.keys(a), hit = keys.filter(k => String(v[k]) === String(a[k])).length;
+    return { state: hit === keys.length ? "ok" : hit ? "part" : "bad", text: `${hit}/${keys.length} 일치` };
+  }
+  return null;
+}
+
+/* ---------- 입력 위젯 ---------- */
+function taInput(val, onChange, o) {
+  o = o || {};
+  const t = el("textarea", { rows: o.rows || 3, placeholder: o.placeholder || "", class: o.code ? "code" : "", spellcheck: o.code ? "false" : null });
+  t.value = val || "";
+  t.addEventListener("input", () => { autosize(t); onChange(t.value); });
+  if (o.code) t.addEventListener("keydown", e => {
+    if (e.key === "Tab") { e.preventDefault(); const s = t.selectionStart; t.setRangeText("    ", s, t.selectionEnd, "end"); onChange(t.value); }
+  });
+  requestAnimationFrame(() => autosize(t));
+  setTimeout(() => autosize(t), 60);
+  return t;
+}
+
+function renderInput(it, val, set) {
+  switch (it.type) {
+    case "info": return el("div", { html: it.html || "" });
+    case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: it.hint });
+    case "code": return taInput(val == null ? (it.starter || "") : val, set, { code: true, placeholder: it.hint });
+    case "choice": case "multi": {
+      const multi = it.type === "multi", cur = val || { sel: multi ? [] : null, why: "" };
+      const box = el("div", { class: "opts" });
+      it.options.forEach((o, i) => {
+        const inp = el("input", { type: multi ? "checkbox" : "radio", name: it.id });
+        inp.checked = multi ? cur.sel.includes(i) : cur.sel === i;
+        const lab = el("label", { class: "opt" + (inp.checked ? " sel" : "") }, inp, el("span", { html: o }));
+        inp.addEventListener("change", () => {
+          if (multi) cur.sel = $$("input", box).map((x, j) => x.checked ? j : -1).filter(j => j >= 0);
+          else cur.sel = i;
+          $$(".opt", box).forEach((l, j) => l.classList.toggle("sel", multi ? cur.sel.includes(j) : cur.sel === j));
+          set({ sel: cur.sel, why: cur.why });
+        });
+        box.append(lab);
+      });
+      const out = el("div", {}, box);
+      if (it.why !== false) {
+        const w = taInput(cur.why, v => { cur.why = v; set({ sel: cur.sel, why: v }); }, { rows: 2, placeholder: it.whyHint || "그렇게 고른 이유를 적어 보세요." });
+        out.append(el("div", { class: "why" }, el("label", {}, "이유·근거"), w));
+      }
+      return out;
+    }
+    case "table": {
+      const cur = (val || []).map(r => r.slice());
+      const R = it.rows.length, C = it.cols.length;
+      for (let r = 0; r < R; r++) { cur[r] = cur[r] || []; for (let c = 0; c < C; c++) cur[r][c] = cur[r][c] || ""; }
+      const thead = el("thead", {}, el("tr", {}, el("th", {}, it.corner || ""), it.cols.map(c => el("th", {}, c))));
+      const tbody = el("tbody", {}, it.rows.map((rl, r) => el("tr", {}, el("th", { html: rl }),
+        it.cols.map((_, c) => el("td", {}, taInput(cur[r][c], v => { cur[r][c] = v; set(cur.map(x => x.slice())); }, { rows: 2 }))))));
+      return el("div", { class: "tbl-wrap" }, el("table", { class: "grid" }, thead, tbody));
+    }
+    case "sort": {
+      const cur = Object.assign({}, val || {});
+      return el("div", {}, it.cards.map((c, i) => {
+        const s = el("select", {}, el("option", { value: "" }, "— 고르기 —"), it.buckets.map((b, j) => el("option", { value: j }, b)));
+        s.value = cur[i] == null ? "" : String(cur[i]);
+        s.addEventListener("change", () => { if (s.value === "") delete cur[i]; else cur[i] = Number(s.value); set(Object.assign({}, cur)); });
+        return el("div", { class: "sortrow" }, el("div", { html: c }), s);
+      }));
+    }
+    case "triples": {
+      let rows = (val && val.length ? val : Array.from({ length: it.min || 3 }, () => ["", "", ""])).map(r => r.slice());
+      const wrap = el("div"), dl = el("datalist", { id: "dl-" + it.id }, (it.relations || []).map(r => el("option", { value: r })));
+      const emit = () => set(rows.map(r => r.slice()));
+      const draw = () => {
+        wrap.replaceChildren(dl, ...rows.map((r, i) => {
+          const mk = (k, ph, list) => { const x = el("input", { type: "text", placeholder: ph, list: list ? "dl-" + it.id : null }); x.value = r[k]; x.addEventListener("input", () => { r[k] = x.value; emit(); }); return x; };
+          return el("div", { class: "triple" }, mk(0, "개념 A"), mk(1, "관계(→)", true), mk(2, "개념 B"),
+            el("button", { class: "xbtn", type: "button", title: "삭제", onclick: () => { rows.splice(i, 1); if (!rows.length) rows.push(["", "", ""]); emit(); draw(); } }, "×"));
+        }), el("button", { class: "btn small addbtn", type: "button", onclick: () => { rows.push(["", "", ""]); draw(); } }, "+ 관계 추가"));
+      };
+      draw(); return wrap;
+    }
+    case "list": {
+      let rows = (val && val.length ? val : Array(it.n || 3).fill("")).slice();
+      const wrap = el("div"), emit = () => set(rows.slice());
+      const draw = () => {
+        wrap.replaceChildren(...rows.map((r, i) => {
+          const x = el("input", { type: "text", placeholder: it.hint || "" }); x.value = r;
+          x.addEventListener("input", () => { rows[i] = x.value; emit(); });
+          return el("div", { class: "listrow" }, el("span", { class: "n" }, i + 1 + "."), x,
+            el("button", { class: "xbtn", type: "button", title: "삭제", onclick: () => { rows.splice(i, 1); if (!rows.length) rows.push(""); emit(); draw(); } }, "×"));
+        }), el("button", { class: "btn small addbtn", type: "button", onclick: () => { rows.push(""); draw(); const ins = $$("input", wrap); ins[ins.length - 1].focus(); } }, "+ 칸 추가"));
+      };
+      draw(); return wrap;
+    }
+    case "scales": {
+      const cur = (val || []).slice(); while (cur.length < it.items.length) cur.push(null);
+      const lo = (it.labels || ["전혀 아니다", "매우 그렇다"]);
+      return el("div", {}, it.items.map((s, i) => el("div", { class: "scale-row" }, el("div", { html: s }),
+        el("div", {}, el("div", { class: "scale-pts" }, [1, 2, 3, 4, 5].map(n => {
+          const inp = el("input", { type: "radio", name: it.id + "-" + i, value: n }); inp.checked = cur[i] === n;
+          inp.addEventListener("change", () => { cur[i] = n; set(cur.slice()); });
+          return el("label", {}, inp, el("span", {}, n));
+        })), el("div", { class: "scale-ends" }, el("span", {}, lo[0]), el("span", {}, lo[1]))))));
+    }
+  }
+  return el("div", {}, "(지원하지 않는 문항 유형)");
+}
+
+/* ---------- 읽기 전용 표시 (교사용 화면·예시 정답) ---------- */
+function renderValue(it, v, key) {
+  const empty = () => el("div", { class: "val empty" }, "(미응답)");
+  if (v == null || (it.type !== "scales" && !isAnswered(it, v) && it.type !== "code")) return empty();
+  switch (it.type) {
+    case "text": return el("div", { class: "val" }, v);
+    case "code": return nonEmpty(v) ? el("pre", { class: "val-code" }, el("code", {}, v)) : empty();
+    case "choice": case "multi": {
+      const sel = it.type === "multi" ? v.sel : [v.sel], keys = key ? (it.type === "multi" ? key.sel : [key.sel]) : [];
+      const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on" : "") + (key && keys.includes(i) && key === it.answer && v === it.answer ? " key" : "") }, el("span", { html: (sel.includes(i) ? "● " : "○ ") + o }))));
+      if (v.why && nonEmpty(v.why)) box.append(el("div", { class: "val" }, el("b", {}, "이유: "), v.why));
+      return box;
+    }
+    case "table": return el("div", { class: "tbl-wrap" }, el("table", { class: "ro" },
+      el("thead", {}, el("tr", {}, el("th", {}, it.corner || ""), it.cols.map(c => el("th", {}, c)))),
+      el("tbody", {}, it.rows.map((rl, r) => el("tr", {}, el("th", { html: rl }), it.cols.map((_, c) => el("td", {}, (v[r] && v[r][c]) || "")))))));
+    case "sort": return el("table", { class: "ro" }, el("tbody", {}, it.cards.map((c, i) => el("tr", {}, el("td", { html: c }), el("td", {}, v[i] == null ? "—" : it.buckets[v[i]])))));
+    case "triples": return el("div", {}, v.filter(r => r.some(nonEmpty)).map(r => el("div", { class: "val" }, `${r[0] || "?"}  —[${r[1] || "?"}]→  ${r[2] || "?"}`)));
+    case "list": return el("ol", { class: "val" }, v.filter(nonEmpty).map(x => el("li", {}, x)));
+    case "scales": return el("div", {}, it.items.map((s, i) => el("div", { class: "val" }, el("span", { html: s }), `  →  ${v[i] == null ? "—" : v[i] + "/5"}`)));
+  }
+  return empty();
+}
+function renderSample(it) {
+  const a = it.answer;
+  if (a == null) return null;
+  if (it.type === "choice" || it.type === "multi") {
+    const sel = it.type === "multi" ? a.sel : [a.sel];
+    const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on key" : "") }, el("span", { html: (sel.includes(i) ? "● " : "○ ") + o }))));
+    if (a.why) box.append(el("div", { class: "val" }, el("b", {}, "근거: "), a.why));
+    return box;
+  }
+  return renderValue(Object.assign({}, it, { type: it.type }), a);
+}
+
+/* ---------- 파일 ---------- */
+function newState() { return { app: APP, schema: SCHEMA, student: { name: "", number: "", klass: "" }, answers: {}, feedback: {}, saved: null }; }
+function validState(d) { return d && d.app === APP && d.answers && typeof d.answers === "object"; }
+function readJsonFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => { try { res(JSON.parse(r.result)); } catch (e) { rej(new Error(file.name + ": JSON 형식이 올바르지 않습니다.")); } };
+    r.onerror = () => rej(new Error(file.name + ": 읽을 수 없습니다."));
+    r.readAsText(file);
+  });
+}
+function bindDrop(onFiles) {
+  const dz = el("div", { class: "dropzone" }, "JSON 파일을 여기에 놓으세요"); document.body.append(dz);
+  let n = 0;
+  addEventListener("dragenter", e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { n++; dz.classList.add("on"); } });
+  addEventListener("dragleave", () => { if (--n <= 0) { n = 0; dz.classList.remove("on"); } });
+  addEventListener("dragover", e => e.preventDefault());
+  addEventListener("drop", e => { e.preventDefault(); n = 0; dz.classList.remove("on"); if (e.dataTransfer.files.length) onFiles([...e.dataTransfer.files]); });
+}
+function initTheme() {
+  const t = lsGet("dp-theme"); if (t) document.documentElement.dataset.theme = t;
+  const b = $(".theme-toggle"); if (!b) return;
+  b.addEventListener("click", () => {
+    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark"; lsSet("dp-theme", r.dataset.theme);
+  });
+}
+const MARKS = { 3: ["◎", "우수"], 2: ["○", "적절"], 1: ["△", "보완 필요"] };
+const STAGE_NO = { engage: 1, find: 2, sort: 3, general: 4, transfer: 5, reflect: 6 };
+</script>
+<script>"use strict";
+/* 학생용 앱. CONTENT(문항)는 빌드 때 주입된다. 정답·교사 메모는 학생용 빌드에 들어 있지 않다. */
+const LS_KEY = "dp-inquiry-student";
+let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
+
+(function boot() {
+  const raw = lsGet(LS_KEY);
+  if (raw) { try { const d = JSON.parse(raw); if (validState(d)) S = d; } catch (e) {} }
+  curWeek = Number(lsGet(LS_KEY + "-week")) || 0;
+  if (curWeek >= CONTENT.weeks.length) curWeek = 0;
+  initTheme();
+  bindTop();
+  render();
+  bindDrop(files => importFile(files[0]));
+  addEventListener("beforeunload", e => { if (dirty && hasAnswers()) { e.preventDefault(); e.returnValue = ""; } });
+})();
+
+function hasAnswers() { return Object.keys(S.answers).length > 0; }
+
+function bindTop() {
+  const f = $("#f-name"), n = $("#f-num"), k = $("#f-class");
+  [[f, "name"], [n, "number"], [k, "klass"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
+  $("#btn-save").addEventListener("click", saveFile);
+  $("#btn-load").addEventListener("click", () => $("#file-in").click());
+  $("#file-in").addEventListener("change", e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ""; });
+  $("#btn-print").addEventListener("click", () => print());
+  $("#btn-reset").addEventListener("click", () => {
+    if (!confirm("작성한 모든 내용을 지우고 처음부터 시작합니다. 저장하지 않은 내용은 복구할 수 없습니다. 계속할까요?")) return;
+    S = newState(); dirty = false; persist(); render(); toast("초기화했습니다");
+  });
+}
+
+function touch() {
+  dirty = true; updateSaveState();
+  clearTimeout(saveTimer); saveTimer = setTimeout(persist, 400);
+}
+function persist() {
+  S.saved = new Date().toISOString();
+  const ok = lsSet(LS_KEY, JSON.stringify(S));
+  updateSaveState(ok);
+}
+function updateSaveState(lsOk) {
+  const e = $("#savestate");
+  if (dirty) { e.className = "savestate dirty"; e.textContent = "● 아직 파일로 저장하지 않았어요"; }
+  else if (!hasAnswers()) { e.className = "savestate"; e.textContent = "아직 작성한 내용이 없어요"; }
+  else { e.className = "savestate clean"; e.textContent = "✔ 파일 저장됨 " + stamp(); }
+  if (lsOk === false) e.title = "브라우저 자동 저장이 막혀 있습니다. 반드시 JSON 파일로 저장하세요.";
+}
+
+function saveFile() {
+  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  S.saved = new Date().toISOString();
+  const name = [S.student.klass, S.student.number, S.student.name].map(safeName).filter(Boolean).join("_") + "_탐구학습.json";
+  download(name, JSON.stringify(S, null, 2));
+  dirty = false; persist(); updateSaveState(); toast("저장했습니다: " + name);
+}
+
+async function importFile(file) {
+  try {
+    const d = await readJsonFile(file);
+    if (!validState(d)) throw new Error("이 앱에서 저장한 탐구학습 JSON이 아닙니다.");
+    if (hasAnswers() && dirty && !confirm("지금 작성 중인 내용(저장 전)이 불러온 파일의 내용으로 바뀝니다. 계속할까요?")) return;
+    S = Object.assign(newState(), d, { student: Object.assign({ name: "", number: "", klass: "" }, d.student) });
+    S.feedback = S.feedback || {};
+    dirty = false; persist(); render();
+    toast("불러왔습니다" + (Object.keys(S.feedback).length ? " · 선생님 코멘트가 포함되어 있어요" : ""));
+  } catch (e) { alert(e.message); }
+}
+
+/* ---------- 화면 ---------- */
+function render() {
+  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number; $("#f-class").value = S.student.klass;
+  renderTabs(); renderWeek(); updateSaveState();
+}
+
+function renderTabs() {
+  const box = $("#tabs"); box.replaceChildren();
+  CONTENT.weeks.forEach((w, i) => {
+    const p = weekProgress(w, S.answers), pct = p.total ? Math.round(100 * p.done / p.total) : 0;
+    const t = el("button", { class: "tab", role: "tab", "aria-selected": String(i === curWeek), "data-w": i, onclick: () => { curWeek = i; lsSet(LS_KEY + "-week", i); renderTabs(); renderWeek(); scrollTo(0, 0); } },
+      el("b", {}, `${w.n}주차 · ${w.concept}`), el("small", {}, w.title), el("div", { class: "bar" }, el("i", { style: `width:${pct}%` })), el("small", { class: "pg" }, `${p.done}/${p.total} 완료`));
+    box.append(t);
+  });
+}
+function refreshProgress() {
+  CONTENT.weeks.forEach((w, i) => {
+    const p = weekProgress(w, S.answers), t = $(`.tab[data-w="${i}"]`); if (!t) return;
+    $(".bar > i", t).style.width = (p.total ? Math.round(100 * p.done / p.total) : 0) + "%"; $(".pg", t).textContent = `${p.done}/${p.total} 완료`;
+  });
+}
+
+function renderWeek() {
+  const w = CONTENT.weeks[curWeek], main = $("#week"); main.replaceChildren();
+  const hasFb = Object.values(S.feedback || {}).some(f => f && (f.comment || f.mark));
+  if (hasFb) main.append(el("div", { class: "banner" }, el("b", {}, "선생님 코멘트가 도착했어요. "), "각 문항 아래 보라색 상자와 주차 마지막의 총평을 읽어 보고, 고쳐 쓴 뒤 다시 저장해서 제출하세요."));
+  const fbWeek = (S.feedback || {})["week-" + w.n];
+  main.append(el("section", { class: "hero" },
+    el("div", { class: "kicker" }, `${w.n}주차 / ${CONTENT.weeks.length}주`),
+    el("h2", {}, `${w.title}`),
+    el("p", {}, el("span", { class: "concept" }, "핵심 개념: " + w.concept), el("span", { class: "lead" }, w.subtitle)),
+    el("p", { html: w.overview }),
+    el("div", { class: "pattern-links" }, el("b", {}, "함께 읽을 교재: "), w.patterns.map(p => el("a", { href: p.href, target: "_blank", rel: "noopener" }, p.name))),
+    el("div", { class: "grid2" },
+      el("div", { class: "card" }, el("h4", {}, "이번 주 탐구 질문"),
+        el("ul", {}, [["f", "사실적", w.questions.factual], ["c", "개념적", w.questions.conceptual], ["d", "논쟁적", w.questions.debatable]]
+          .flatMap(([k, lab, arr]) => arr.map(q => el("li", {}, el("span", { class: "qtag " + k }, lab), q))))),
+      el("div", { class: "card" }, el("h4", {}, "이번 주 목표"), el("ul", {}, w.goals.map(g => el("li", { html: g }))),
+        el("p", { class: "lead", style: "margin:6px 0 0;font-size:14px" }, "💡 일반화(결론)는 정답을 외우는 것이 아니라 4단계에서 내 말로 직접 써 보는 것입니다.")))));
+  w.stages.forEach((st, si) => {
+    const sec = el("section", { class: "stage", "data-s": STAGE_NO[st.key], id: `st-${w.n}-${si}` },
+      el("header", {}, el("span", { class: "badge" }, `${si + 1}. ${st.title}`), el("span", { class: "min" }, `${st.en} · 약 ${st.minutes}분`)));
+    if (st.intro) sec.append(el("p", { class: "intro" }, st.intro));
+    let no = 0;
+    st.items.forEach(it => sec.append(renderItem(it, ANSWERABLE(it) ? ++no : 0)));
+    main.append(sec);
+  });
+  if (fbWeek && fbWeek.comment) main.append(el("div", { class: "fb" }, el("b", {}, `${w.n}주차 총평`), el("div", { class: "val" }, fbWeek.comment)));
+  const ov = (S.feedback || {})._overall;
+  if (curWeek === CONTENT.weeks.length - 1 && ov && ov.comment) main.append(el("div", { class: "fb" }, el("b", {}, "선생님 종합 코멘트"), el("div", { class: "val" }, ov.comment)));
+  main.append(el("div", { class: "no-print", style: "margin-top:24px;display:flex;gap:8px;flex-wrap:wrap" },
+    el("button", { class: "btn primary", onclick: saveFile }, "💾 JSON으로 저장"),
+    curWeek < CONTENT.weeks.length - 1 && el("button", { class: "btn", onclick: () => { curWeek++; lsSet(LS_KEY + "-week", curWeek); renderTabs(); renderWeek(); scrollTo(0, 0); } }, "다음 주차 →")));
+}
+
+function renderItem(it, no) {
+  if (it.type === "info") return el("div", { class: "item info" }, el("div", { html: it.html }));
+  const done = isAnswered(it, S.answers[it.id]);
+  const card = el("div", { class: "item" + (done ? " done" : ""), id: it.id },
+    el("div", { class: "filled-mark" }, done ? "✔ 작성함" : ""),
+    el("p", { class: "q" }, el("span", { class: "no" }, "Q" + no), el("span", { html: it.q })));
+  if (it.hint && it.type !== "text" && it.type !== "list") card.append(el("p", { class: "hint", html: it.hint }));
+  card.append(renderInput(it, S.answers[it.id], v => {
+    S.answers[it.id] = v; touch();
+    const d = isAnswered(it, v); card.classList.toggle("done", d); $(".filled-mark", card).textContent = d ? "✔ 작성함" : "";
+    refreshProgress();
+  }));
+  const fb = (S.feedback || {})[it.id];
+  if (fb && (fb.comment || fb.mark)) card.append(el("div", { class: "fb" }, el("b", {}, "선생님 코멘트 "), fb.mark && MARKS[fb.mark] ? el("span", { class: "mk" }, MARKS[fb.mark][0] + " " + MARKS[fb.mark][1]) : null, fb.comment ? el("div", { class: "val" }, fb.comment) : null));
+  return card;
+}
+</script>
+</body>
+</html>

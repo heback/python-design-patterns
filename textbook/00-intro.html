@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>서론 서론: OOP 원리에서 패턴으로 — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">서론 · 서론: OOP 원리에서 패턴으로</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#why-patterns">1. 왜 패턴인가</a></li><li><a href="#principles-revisited">2. 세 원칙의 재해석: 원칙에서 패턴으로</a></li><li><a href="#gof-anatomy">3. 패턴을 읽는 법</a></li><li><a href="#python-lens">4. 파이썬이라는 렌즈</a></li><li><a href="#how-to-read">5. 이 교재의 구성과 사용법</a></li><li><a href="#pattern-map">6. 15개 패턴 지도</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">서론</span><h1>서론: OOP 원리에서 패턴으로</h1><p class="subtitle">원리를 알면서도 설계가 막히는 순간, 패턴은 무엇을 더해 주는가</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ol>
+    <li>디자인 패턴을 "OOP 원리가 반복되는 설계 문제에서 굳어진 해법"으로 설명하고, GoF의 의도(intent)·동기·참여자·결과(consequences) 틀로 패턴을 읽을 수 있다.</li>
+    <li>"변하는 것을 찾아 캡슐화하라", "구현이 아닌 인터페이스에 프로그래밍하라", "상속보다 합성" 세 원칙이 이후 15개 패턴의 공통 뿌리임을 사례로 보일 수 있다.</li>
+    <li>파이썬의 언어 기능(덕 타이핑, <code>ABC</code>와 <code>Protocol</code>, 일급 함수, 모듈, 던더 프로토콜)이 일부 패턴을 단순화하거나 소거한다는 관점을 갖고, 이 교재의 장 구성과 사용법을 이해한다.</li>
+  </ol>
+</section>
+
+<section id="why-patterns">
+  <h2>1. 왜 패턴인가</h2>
+  <p>구립 새솔도서관의 사서 지민은 파이썬을 독학해 업무 자동화 스크립트를 몇 개 만들었다. 그중 하나가 연체료 계산이다. 반납일을 넘긴 날수에 100원을 곱하는 한 줄짜리 함수였다. 일 년쯤 지나 규정이 바뀌었다. 아동 회원은 50% 감면, DVD는 일당 500원, 시험 기간에 반납한 대학생은 면제. 지민은 <code>if</code>를 세 개 더했다. 여기까지는 괜찮았다.</p>
+  <p>올해 초 시청이 구립 도서관 세 곳(새솔, 하늘, 바다)의 연체료 정책을 지점 자율로 바꾸었다. 하늘 지점은 DVD 요율을 700원으로 올리고 시험 기간 면제를 없앴고, 바다 지점은 아동 감면을 없앴다. 지민의 함수는 자료 유형 × 회원 유형 × 기간 × 지점의 조합을 모두 담은 <code>if/elif</code> 덩어리가 되었다. 하늘 지점이 상한 3,000원을 도입하겠다고 하자, 지민은 그 줄을 어디에 끼워야 할지 몰라 하루를 보냈다. 상한을 감면 앞에 두느냐 뒤에 두느냐에 따라 아동 회원의 금액이 달라진다는 것을 그때서야 깨달았다.</p>
+  <p>이 교재의 독자는 지민보다 훨씬 많이 안다. 캡슐화, 다형성, SOLID, 합성과 상속의 차이를 이미 설명할 수 있다. 그런데도 비슷한 함수 앞에서 손이 멈추는 경험이 있을 것이다. 원리는 "무엇이 좋은 설계인가"를 말해 주지만 "<em>이</em> 상황에서 무엇을 어디로 옮겨야 하는가"는 말해 주지 않는다. 원리와 코드 사이에 한 층이 빠져 있다.</p>
+  <p>디자인 패턴이 그 층이다. 패턴은 새로운 원리가 아니다. 같은 원리를 같은 종류의 문제에 적용했을 때 사람들이 반복해서 도달한 <strong>해법의 모양</strong>에 이름을 붙인 것이다. 그래서 패턴은 두 가지를 준다. 첫째, <strong>판단의 지름길</strong>이다. "규칙이 지점별로 조합되고 순서가 의미를 가진다"는 <dfn class="term" id="term-code-smell" data-term="code-smell" title="당장 버그는 아니지만 설계 문제가 숨어 있음을 시사하는 코드의 징후(분기 복제, 전역 바꿔치기, 테스트용 뒷문 등).">냄새</dfn>(코드 냄새: 당장 버그는 아니지만 설계 문제가 숨어 있음을 알리는 코드의 징후)를 맡으면 처음부터 다시 추론하지 않고 "전략을 목록으로 조립하는 구조"를 떠올린다. 둘째, <strong>공유 어휘</strong>다. 코드 리뷰에서 "이 부분은 데코레이터로 감싸자"라는 한 마디는 클래스 구조, 인터페이스 일치, 중첩 가능성, 대안(상속)과의 비교까지 함께 전달한다. 패턴 이름은 설계 토론의 압축 형식이다.</p>
+  <div class="callout warn">
+    <span class="label">이 교재가 경계하는 것</span>
+    패턴을 알게 된 학생의 대표적 실수는 과잉 적용이다. 모든 클래스 앞에 인터페이스를 만들고, 모든 조건문을 상태 패턴으로 바꾸고, 모든 "하나뿐인" 객체를 싱글턴으로 만든다. 그래서 각 장의 트레이드오프 절은 반드시 "이 패턴을 쓰지 말아야 할 때"를 다룬다. 장을 덮을 때 남아야 할 것은 <dfn class="term" id="term-unified-modeling-language" data-term="unified-modeling-language" title="클래스·객체·상호작용을 그림으로 나타내는 표준 모델링 표기법; 이 책의 구조 다이어그램은 UML 클래스 다이어그램이다.">UML</dfn>(클래스와 그 관계를 그림으로 나타내는 표준 표기법. 각 장 3절의 구조 다이어그램이 이 표기를 따른다) 모양이 아니라 <strong>"이런 냄새가 나면 이 패턴을 떠올리고, 이런 조건이면 쓰지 않는다"</strong>는 판단력이다.
+  </div>
+</section>
+
+<section id="principles-revisited">
+  <h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
+  <p><dfn class="term" id="term-gang-of-four" data-term="gang-of-four" title="1994년 『Design Patterns』를 쓴 Gamma·Helm·Johnson·Vlissides 네 저자, 또는 그 책; 이 책이 다루는 23개 고전 패턴의 출처다.">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn class="term" id="term-program-to-an-interface" data-term="program-to-an-interface" title="구체 클래스가 아니라 추상 타입(인터페이스)에 의존하도록 코드를 쓰라는 GoF 원칙.">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
+  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn class="term" id="term-postponed-evaluation-of-annotations" data-term="postponed-evaluation-of-annotations" title="타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn class="term" id="term-dataclasses-dataclass" data-term="dataclasses-dataclass" title="필드 선언만으로 `__init__`·`__repr__`·`__eq__` 등을 자동 생성해 주는 클래스 데코레이터.">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn class="term" id="term-frozen-true" data-term="frozen-true" title="`@dataclass(frozen=True)`로 만든, 생성 후 필드에 대입할 수 없는 불변 데이터클래스; 같은 값이면 해시가 같아 딕셔너리 키로 쓸 수 있다.">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
+  <figure class="code"><figcaption>src/00_intro/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 규칙이 늘 때마다 자라는 도서관 연체료 함수.
+
+상황: 구립 새솔도서관의 사서 지민은 반납일을 넘긴 도서의 연체료(일당 100원)를 계산하는
+함수를 만들었다. 처음에는 한 줄이었다. 그 뒤 아동 회원 50% 감면, DVD 일당 500원,
+시험 기간 대학생 면제가 차례로 붙었고, 이번에는 시청이 &quot;구립 도서관 세 곳의 정책을
+각자 다르게 운영하라&quot;고 했다. 이 파일은 그 요구를 if/elif로 받아들인 결과다.
+
+읽을 때 주목할 점:
+- 자료 유형 × 회원 유형 × 기간 × 지점의 조합이 한 함수 안에서 곱해진다.
+- 새 규칙 하나가 기존 분기 사이에 끼어들며, 적용 &#x27;순서&#x27;가 암묵적인 정책이 된다.
+- 이 함수가 바뀌어야 할 이유가 규칙의 수만큼 있다(SRP), 새 규칙은 늘 수정이다(OCP).
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+
+
+@dataclass(frozen=True)
+class Loan:
+    &quot;&quot;&quot;대출 한 건. 연체료 계산에 필요한 사실만 담는다.&quot;&quot;&quot;
+
+    material: str      # &quot;book&quot; | &quot;dvd&quot;
+    member: str        # &quot;adult&quot; | &quot;child&quot; | &quot;university&quot;
+    due: date
+    returned: date
+    branch: str        # &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
+
+
+EXAM_WEEKS = (date(2026, 6, 8), date(2026, 6, 21))  # 시험 기간(대학생 면제)
+
+
+def late_fee(loan: Loan) -&gt; int:
+    &quot;&quot;&quot;연체료(원)를 계산한다.&quot;&quot;&quot;
+    days = (loan.returned - loan.due).days
+    if days &lt;= 0:
+        return 0
+    # ⚠ 문제: 자료 유형 요율이 지점 분기 &#x27;안&#x27;에 복제되어 있다. 하늘 지점만 DVD 요율이 다르다.
+    if loan.branch == &quot;하늘&quot;:
+        rate = 700 if loan.material == &quot;dvd&quot; else 100
+    else:
+        rate = 500 if loan.material == &quot;dvd&quot; else 100
+    fee = days * rate
+    # ⚠ 문제: 감면·면제 규칙이 지점 조건과 뒤엉킨다. 바다 지점은 아동 감면이 없다는 요구를
+    #   넣으면서 조건이 길어졌고, 다음 요구가 오면 이 줄을 또 고쳐야 한다.
+    if loan.member == &quot;child&quot; and loan.branch != &quot;바다&quot;:
+        fee = fee // 2
+    # ⚠ 문제: 적용 &#x27;순서&#x27;가 숨은 정책이다. 면제를 감면보다 먼저 두든 나중에 두든 결과가 같아
+    #   보이지만, 다음에 &#x27;최대 3,000원 상한&#x27; 규칙이 들어오면 순서가 결과를 바꾼다.
+    if loan.member == &quot;university&quot; and EXAM_WEEKS[0] &lt;= loan.returned &lt;= EXAM_WEEKS[1]:
+        if loan.branch in (&quot;새솔&quot;, &quot;바다&quot;):  # 하늘 지점은 시험 기간 면제를 하지 않는다
+            fee = 0
+    return fee
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 지점·회원·자료별 연체료 (모두 5일 연체)&quot;)
+    due, back = date(2026, 6, 10), date(2026, 6, 15)
+    for branch in (&quot;새솔&quot;, &quot;하늘&quot;, &quot;바다&quot;):
+        row = []
+        for material, member in ((&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)):
+            row.append(f&quot;{material}/{member}={late_fee(Loan(material, member, due, back, branch)):&gt;5}&quot;)
+        print(f&quot;  {branch}: &quot; + &quot;  &quot;.join(row))
+
+    print(&quot;\n[2] 이 함수를 수정해야 하는 이유를 세어 보면&quot;)
+    reasons = [&quot;자료 유형 요율 변경&quot;, &quot;회원 감면 정책 변경&quot;, &quot;시험 기간 변경&quot;,
+               &quot;지점별 예외 추가&quot;, &quot;새 지점 개설&quot;, &quot;상한·하한 도입&quot;]
+    for r in reasons:
+        print(f&quot;  - {r}&quot;)
+    print(f&quot;  → 변경 이유 {len(reasons)}가지가 한 함수에 모여 있다&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]의 표는 지금은 정확하다. 문제는 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
+  <ol>
+    <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
+    <li><strong>변하는 것을 어떤 인터페이스 뒤에 숨길 것인가?</strong> "대출과 현재 금액을 받아 조정된 금액을 돌려준다"는 <dfn class="term" id="term-contract" data-term="contract" title="인터페이스가 호출자에게 약속하는 입력·출력·실패 방식·불변 조건의 총체; 구현은 시그니처뿐 아니라 이 약속을 지켜야 대체 가능하다.">계약</dfn> 하나면 감면·면제·상한이 모두 들어간다. 계약이란 인터페이스가 호출자에게 약속하는 입력·출력·실패 방식의 총체이고, 구현은 시그니처뿐 아니라 이 약속까지 지켜야 서로 바꿔 끼울 수 있다.</li>
+    <li><strong>그것들을 상속으로 엮을 것인가, 합성으로 조립할 것인가?</strong> 지점의 차이는 행동이 아니라 조합이다. 지점마다 하위 클래스를 만들면 <dfn class="term" id="term-combinatorial-explosion" data-term="combinatorial-explosion" title="독립적인 선택지들의 조합마다 클래스를 만들 때 클래스 수가 곱(예: 기능 n개면 2^n)으로 늘어나는 현상.">조합의 수만큼 클래스가 생긴다</dfn>. 독립적인 선택지가 늘 때마다 클래스 수가 곱으로 불어나는 이 현상을 조합 폭발이라 부른다. 규칙 객체의 목록으로 조립하면 지점 정책은 데이터가 된다.</li>
+  </ol>
+  <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 01의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn class="term" id="term-refactoring" data-term="refactoring" title="외부에서 관찰되는 동작은 그대로 두고 코드의 내부 구조만 개선하는 일; 동작 보존이 첫 조건이다.">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn class="term" id="term-abstract-base-class" data-term="abstract-base-class" title="파이썬에서 추상 클래스를 만드는 도구. @abstractmethod가 남은 클래스는 인스턴스화할 때 TypeError가 난다(시그니처는 검사하지 않음).">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn class="term" id="term-typing-protocol" data-term="typing-protocol" title="메서드 모양만 선언해 두면 상속 없이도 그 모양을 갖춘 클래스를 호환 타입으로 인정하는(구조적 타이핑) 인터페이스 선언 방식. 검사는 타입 검사기가 한다.">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn class="term" id="term-dataclasses-field" data-term="dataclasses-field" title="데이터클래스 필드의 세부 옵션을 지정하는 함수; `default_factory=list`는 인스턴스마다 새 빈 리스트를 기본값으로 만든다(가변 기본값 공유 방지).">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
+  <figure class="code"><figcaption>src/00_intro/02_refactored.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;세 원칙으로 리팩터링: 변하는 것을 찾아 → 인터페이스 뒤에 숨기고 → 합성으로 조립한다.
+
+상황: 01_naive.py의 late_fee()는 지점 정책이 셋으로 갈라지자 if/elif가 곱해졌다. 지민의
+선배 개발자 현우는 함수를 고치기 전에 질문부터 했다. &quot;이 함수에서 지점마다 &#x27;다른&#x27; 것은
+무엇이고, 어디서나 &#x27;같은&#x27; 것은 무엇인가?&quot; 답은 이랬다.
+- 같은 것: 연체 일수 × 일당 요율을 구한 뒤 조정 규칙들을 차례로 적용한다는 &#x27;절차&#x27;.
+- 다른 것: 자료별 요율표, 그리고 어떤 조정 규칙(감면·면제·상한)을 어떤 순서로 쓰는가.
+
+세 단계가 각각 교재 전체를 관통하는 원칙이다.
+1. 변하는 것을 찾아 캡슐화하라   → 조정 규칙 하나하나를 클래스로 분리(Adjustment).
+2. 구현이 아닌 인터페이스에 프로그래밍하라 → FeePolicy는 Adjustment 추상에만 의존.
+3. 상속보다 합성                → 지점 정책 = 요율표 + 규칙 목록의 &#x27;조립&#x27;. 지점별 하위 클래스가 없다.
+이 모양은 10장 전략 패턴의 씨앗이다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import date
+
+
+@dataclass(frozen=True)
+class Loan:
+    &quot;&quot;&quot;대출 한 건(01과 같다).&quot;&quot;&quot;
+
+    material: str
+    member: str
+    due: date
+    returned: date
+    branch: str
+
+
+class Adjustment(ABC):
+    &quot;&quot;&quot;[변하는 것의 인터페이스] 기본 연체료에 적용하는 조정 규칙 하나.
+
+    ABC를 고른 이유: 이 교재에서는 &#x27;우리가 정의하고 우리가 구현하는&#x27; 계약에 ABC를 쓴다.
+    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 03).
+    &quot;&quot;&quot;
+
+    @abstractmethod
+    def apply(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;조정된 연체료를 돌려준다. 다른 규칙에 대해서는 아무것도 모른다.&quot;&quot;&quot;
+
+
+class ChildDiscount(Adjustment):
+    &quot;&quot;&quot;아동 회원 50% 감면.&quot;&quot;&quot;
+
+    def apply(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;아동이면 절반. 정수 나눗셈으로 원 단위를 유지한다.&quot;&quot;&quot;
+        return fee // 2 if loan.member == &quot;child&quot; else fee
+
+
+@dataclass(frozen=True)
+class ExamWaiver(Adjustment):
+    &quot;&quot;&quot;시험 기간 대학생 면제. 기간이 &#x27;설정&#x27;이므로 필드로 가진다 — 클래스가 필요한 이유 중 하나.&quot;&quot;&quot;
+
+    start: date
+    end: date
+
+    def apply(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;기간 안에 반납한 대학생이면 0원.&quot;&quot;&quot;
+        if loan.member == &quot;university&quot; and self.start &lt;= loan.returned &lt;= self.end:
+            return 0
+        return fee
+
+
+@dataclass(frozen=True)
+class Cap(Adjustment):
+    &quot;&quot;&quot;연체료 상한. naive 코드에서 &#x27;순서가 결과를 바꾼다&#x27;고 경고했던 바로 그 규칙.&quot;&quot;&quot;
+
+    limit: int
+
+    def apply(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;상한을 넘지 않게 자른다.&quot;&quot;&quot;
+        return min(fee, self.limit)
+
+
+@dataclass(frozen=True)
+class FeePolicy:
+    &quot;&quot;&quot;[변하지 않는 절차] 일수 × 요율 → 규칙을 &#x27;목록 순서대로&#x27; 적용.
+
+    naive 코드에서 숨어 있던 적용 순서가 여기서는 adjustments 리스트의 순서로 &#x27;눈에 보인다&#x27;.
+    지점 정책을 하위 클래스로 만들지 않은 이유: 지점의 차이는 &#x27;행동&#x27;이 아니라 &#x27;조합&#x27;이다.
+    하위 클래스로 표현하면 규칙 조합마다 클래스가 필요해 조합 폭발이 일어난다.
+    &quot;&quot;&quot;
+
+    rates: dict[str, int]
+    adjustments: list[Adjustment] = field(default_factory=list)
+
+    def late_fee(self, loan: Loan) -&gt; int:
+        &quot;&quot;&quot;연체료를 계산한다. 이 메서드에는 지점 이름도 회원 유형도 등장하지 않는다.&quot;&quot;&quot;
+        days = (loan.returned - loan.due).days
+        if days &lt;= 0:
+            return 0
+        fee = days * self.rates[loan.material]
+        for rule in self.adjustments:
+            fee = rule.apply(loan, fee)
+        return fee
+
+
+EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
+
+# 지점 정책은 &#x27;코드&#x27;가 아니라 &#x27;조립&#x27;이다. 01의 if 사슬이 이 표 한 장으로 바뀌었다.
+BRANCH_POLICIES: dict[str, FeePolicy] = {
+    &quot;새솔&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 500}, [ChildDiscount(), EXAM]),
+    &quot;하늘&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 700}, [ChildDiscount()]),
+    &quot;바다&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 500}, [EXAM]),
+}
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 01_naive.py와 같은 입력, 같은 결과&quot;)
+    due, back = date(2026, 6, 10), date(2026, 6, 15)
+    for branch, policy in BRANCH_POLICIES.items():
+        row = []
+        for material, member in ((&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)):
+            row.append(f&quot;{material}/{member}={policy.late_fee(Loan(material, member, due, back, branch)):&gt;5}&quot;)
+        print(f&quot;  {branch}: &quot; + &quot;  &quot;.join(row))
+
+    print(&quot;\n[2] 새 요구: 하늘 지점만 상한 3,000원 — 기존 클래스 수정 없이 조립만 바꾼다&quot;)
+    haneul = BRANCH_POLICIES[&quot;하늘&quot;]
+    capped = FeePolicy(haneul.rates, [*haneul.adjustments, Cap(3000)])
+    dvd = Loan(&quot;dvd&quot;, &quot;adult&quot;, due, back, &quot;하늘&quot;)
+    print(f&quot;  상한 전 {haneul.late_fee(dvd)}원 → 상한 후 {capped.late_fee(dvd)}원&quot;)
+
+    print(&quot;\n[3] 순서가 결과를 바꾸는 경우, 그 순서는 이제 리스트에 &#x27;쓰여&#x27; 있다&quot;)
+    child_dvd = Loan(&quot;dvd&quot;, &quot;child&quot;, due, back, &quot;하늘&quot;)
+    a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
+    b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
+    print(f&quot;  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_refactored.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
+  <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn class="term" id="term-chain-of-responsibility" data-term="chain-of-responsibility" title="요청을 처리할 수 있는 객체들을 사슬로 잇고, 각 객체가 처리하거나 다음으로 넘기게 하는 GoF 행위 패턴(이 책의 범위 밖).">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
+</section>
+
+<section id="gof-anatomy">
+  <h2>3. 패턴을 읽는 법</h2>
+  <p>GoF는 모든 패턴을 같은 틀, 곧 <dfn class="term" id="term-pattern-description-template" data-term="pattern-description-template" title="GoF가 모든 패턴을 기술하는 공통 틀(의도, 동기, 적용 가능성, 구조, 참여자, 협력, 결과 등); 특히 결과(Consequences)는 패턴을 쓸 때 얻고 치르는 것이다.">패턴 기술 항목</dfn>(의도·동기·구조·결과처럼 패턴마다 같은 순서로 채우는 항목들)으로 기술한다. 이 교재의 각 장도 그 틀을 따르되 순서를 학습에 맞게 바꾸었다. 패턴 하나를 읽을 때 다음 네 가지를 찾으면 된다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>요소</th><th>묻는 질문</th><th>이 교재에서 찾을 곳</th></tr></thead>
+    <tbody>
+      <tr><td>의도(Intent)</td><td>이 패턴은 한 문장으로 무엇을 하는가?</td><td>각 장 3절 첫 문단. GoF 원문의 의도를 인용 수준으로 옮긴다.</td></tr>
+      <tr><td>동기(Motivation)와 적용 가능성(Applicability)</td><td>어떤 상황에서, 서로 당기는 어떤 요구들 사이에서 이 해법이 나오는가?</td><td>1절 "상황"과 2절 "순진한 설계". 고통이 먼저, 해법은 나중이다.</td></tr>
+      <tr><td>구조와 참여자(Structure, Participants)</td><td>어떤 역할들이 있고 누가 누구를 아는가?</td><td>3절의 클래스 다이어그램과 역할 표, 코드 docstring의 <code><dfn class="term" id="term-context" data-term="context" title="전략·상태 패턴에서 교체 가능한 전략(또는 상태) 객체를 보유하고 일을 위임하는 쪽 객체의 역할명(10·13장에서 정의).">[Context]</dfn></code> 같은 역할 태그. 역할 태그는 그 클래스가 패턴 안에서 맡은 역할의 이름이다. 예컨대 Context는 전략·상태 패턴에서 교체 가능한 객체를 들고 일을 맡기는 쪽이다(10·13장).</td></tr>
+      <tr><td>결과(Consequences)</td><td>무엇을 얻고 무엇을 치르는가? 언제 쓰면 안 되는가?</td><td>6절 "트레이드오프와 관련 패턴".</td></tr>
+    </tbody>
+  </table></div>
+  <p>GoF의 실제 기술 항목은 이보다 많다(의도, 별칭, 동기, 적용 가능성, 구조, 참여자, 협력, 결과, 구현, 예제 코드, 알려진 사용, 관련 패턴). 위 표는 그중 판단에 직접 쓰이는 넷을 고른 것이다. "서로 당기는 요구들", 즉 <strong><dfn class="term" id="term-forces" data-term="forces" title="한 설계 상황에서 서로 당기는 요구·제약들(예: 유연성 대 단순성); Christopher Alexander의 건축 패턴에서 비롯해 패턴 문헌에 널리 쓰인 개념이다.">힘(forces)</dfn></strong>(예: 유연성과 단순성처럼 한 설계 상황에서 서로 반대쪽으로 당기는 요구·제약)이라는 말은 GoF의 항목 이름이 아니라 Christopher Alexander의 건축 패턴에서 비롯해 이후 패턴 문헌이 널리 쓴 개념이다. 이 교재의 "상황" 절이 그리는 것이 바로 그 힘이다.</p>
+  <p>가장 자주 오독되는 것은 의도다. 구조만 보면 구별되지 않는 패턴이 많다. 어댑터·데코레이터·프록시는 모두 "다른 객체를 감싸는 객체"이고, 전략과 상태는 클래스 다이어그램이 사실상 같다. 이들을 가르는 것은 모양이 아니라 의도다. 인터페이스를 <em>바꾸는가</em>, 같은 인터페이스로 책임을 <em>더하는가</em>, 접근을 <em>통제하는가</em>. 알고리즘 교체를 <em>클라이언트가</em> 결정하는가, <em>상태 객체 스스로</em> 결정하는가. 각 장의 코드 리뷰 기준이 "이름만 패턴인 코드"를 가장 큰 결함으로 보는 것도 이 때문이다.</p>
+  <p>GoF는 패턴을 목적에 따라 셋으로 분류한다. <strong><dfn class="term" id="term-creational-structural-behavioral-patterns" data-term="creational-structural-behavioral-patterns" title="GoF가 목적에 따라 나눈 패턴 분류: 객체 생성을 떼어 내는 생성 패턴, 클래스·객체를 엮어 큰 구조를 만드는 구조 패턴, 책임과 알고리즘을 나누고 소통 방식을 정하는 행위 패턴.">생성 패턴</dfn></strong>은 객체를 <em>누가, 언제, 무엇으로</em> 만드는지를 클라이언트로부터 떼어 낸다. <strong>구조 패턴</strong>은 클래스와 객체를 <em>어떻게 엮어</em> 더 큰 구조를 만드는지 다룬다. <strong>행위 패턴</strong>은 책임과 알고리즘을 객체들 사이에 <em>어떻게 나누고</em> 그들이 어떻게 소통하는지 다룬다. 이 분류는 목차의 순서이기도 하다(6절).</p>
+</section>
+
+<section id="python-lens">
+  <h2>4. 파이썬이라는 렌즈</h2>
+  <p>GoF 책의 예제는 C++와 Smalltalk로 쓰였고, 패턴의 상당수는 그 언어들에 <em>없는</em> 기능을 메우기 위한 것이었다. Peter Norvig는 1996년 Object World 발표 "Design Patterns in Dynamic Programming"에서 23개 패턴 중 16개의 <em>일부 용법</em>이 Lisp와 Dylan의 기능(<dfn class="term" id="term-first-class-function" data-term="first-class-function" title="변수에 담고, 인자로 넘기고, 반환값으로 돌려줄 수 있는 값. 파이썬에서 함수는 일급 객체다.">일급 함수</dfn>와 타입, <dfn class="term" id="term-multimethod" data-term="multimethod" title="호출할 구현을 첫 인자 하나가 아니라 여러 인자의 실행 시점 타입 조합으로 고르는 함수(다중 디스패치); 파이썬에는 언어 기능으로 없다.">멀티메서드</dfn>, <dfn class="term" id="term-macro" data-term="macro" title="Lisp 계열 언어에서 코드를 입력받아 코드를 만들어 내 컴파일 전에 펼치는 문법 확장 장치; 파이썬에는 없다.">매크로</dfn> 등)으로 단순해지거나 보이지 않게 된다고 주장했다. 일급 함수는 변수에 담고 인자로 넘기고 반환값으로 돌려줄 수 있는 함수(파이썬의 함수가 그렇다), 멀티메서드는 첫 인자 하나가 아니라 여러 인자의 실행 시점 타입 조합으로 호출할 구현을 고르는 함수, 매크로는 코드를 입력받아 새 코드를 만들어 내고 그것이 실행 전에 펼쳐지게 하는 Lisp 계열의 문법 확장 장치다. 이 숫자를 파이썬에 그대로 옮길 수는 없다. 그중 일부는 파이썬에 없는 멀티메서드나 매크로에 기대기 때문이다. 그러나 "언어 기능이 패턴의 일부를 흡수한다"는 일반적인 요지는 파이썬에서도 성립하며, 이 교재가 장마다 확인하는 것이 바로 그 범위다. 이 교재는 장마다 "파이썬다운 변형" 절에서 <strong>언어가 이 패턴을 얼마나 흡수하는가</strong>를 판단하게 한다. 그 판단에 쓰는 도구는 다섯 가지다.</p>
+  <ul>
+    <li><strong><dfn class="term" id="term-duck-typing" data-term="duck-typing" title="객체의 선언된 타입이 아니라 실제로 가진 메서드·속성으로 협력 가능 여부가 정해지는 파이썬의 동적 타이핑 방식.">덕 타이핑</dfn>.</strong> 파이썬에서는 객체의 선언된 타입이 아니라 실제로 가진 메서드·속성이 협력 가능 여부를 정한다("오리처럼 걷고 오리처럼 울면 오리다"). 인터페이스를 선언하지 않아도 다형성이 성립하므로, "인터페이스에 프로그래밍하라"는 원칙의 비용이 거의 0이다.</li>
+    <li><strong><code>abc.ABC</code>와 <code>typing.Protocol</code>.</strong> 그래도 계약을 명시하고 싶을 때 두 선택지가 있다. 이 교재는 다음 기준을 일관되게 쓰고, 이후 장에서 다시 설명하지 않는다. 우리가 정의하고 우리가 구현하는 <dfn class="term" id="term-extension-point" data-term="extension-point" title="기존 코드를 고치지 않고 새 동작을 끼워 넣을 수 있도록 설계가 일부러 열어 둔 자리(추상 메서드, 주입 인자, 등록부 등).">확장 지점</dfn>(기존 코드를 고치지 않고 새 동작을 끼워 넣도록 설계가 일부러 열어 둔 자리)이며 구현 누락을 실행 시점(인스턴스화)에 잡고 싶다면 <code>ABC</code>(<dfn class="term" id="term-nominal-typing" data-term="nominal-typing" title="타입 호환을 이름(명시적 상속·선언)으로 판단하는 방식; ABC를 상속해야 그 타입으로 인정된다.">명목적 타이핑</dfn>: 명시적으로 상속해야 그 타입으로 인정한다). 외부 <dfn class="term" id="term-software-development-kit" data-term="software-development-kit" title="특정 서비스·장비를 프로그램에서 쓰도록 제공되는 라이브러리·도구 묶음(이 책에서는 대개 수정할 수 없는 외부 코드).">SDK</dfn>(외부 서비스·장비를 쓰도록 제공되는, 대개 우리가 고칠 수 없는 라이브러리), 함수, <dfn class="term" id="term-test-double" data-term="test-double" title="테스트에서 실제 협력 객체 대신 끼워 넣는 가짜·스텁 등 대체 객체; 실제 장비·네트워크 없이 대상 로직만 검증하게 해 준다.">테스트 대역</dfn>(테스트에서 실제 협력 객체 대신 끼워 넣는 가짜 객체)처럼 상속 없이 끼어들어야 하는 것이 구현체라면 <code>Protocol</code>(<dfn class="term" id="term-structural-typing" data-term="structural-typing" title="상속 관계가 아니라 메서드·호출 모양이 맞는지로 타입 호환을 판정하는 방식(파이썬의 Protocol, Callable 타입 별칭).">구조적 타이핑</dfn>: 상속 관계가 아니라 메서드 모양이 맞는지로 타입을 인정한다. 검사는 <dfn class="term" id="term-static-type-checker" data-term="static-type-checker" title="실행하지 않고 타입 힌트를 읽어 타입 불일치를 찾아 주는 도구(mypy, pyright).">mypy</dfn> 같은 정적 검사기, 곧 코드를 실행하지 않고 타입 힌트를 읽어 불일치를 찾는 도구가 한다).</li>
+    <li><strong>일급 함수와 <dfn class="term" id="term-closure" data-term="closure" title="바깥 함수의 지역 변수를 붙잡아(캡처) 기억하는 안쪽 함수. 바깥 함수가 끝난 뒤에도 그 값을 쓸 수 있다.">클로저</dfn>.</strong> 클로저는 바깥 함수의 지역 변수를 붙잡아 기억하는 안쪽 함수로, 바깥 함수가 끝난 뒤에도 그 값을 쓴다. 메서드 하나짜리 인터페이스는 대개 그냥 함수다. 전략, 커맨드, 팩토리 메서드의 생성 <dfn class="term" id="term-hook" data-term="hook" title="흐름을 소유한 쪽(상위 클래스·프레임워크·언어 런타임)이 정해 둔 시점에 호출해 주도록 비워 둔 확장 지점으로, 하위 클래스가 오버라이드하는 메서드, 주입받는 함수, `__init_subclass__`처럼 언어가 특정 순간에 불러 주는 특수 메서드가 모두 여기에 든다. GoF 템플릿 메서드의 좁은 의미의 &#x27;훅 연산&#x27;은 그중 기본 구현(흔히 no-op)이 있어 하위 클래스가 필요할 때만 재정의하는 단계로, 반드시 구현해야 하는 추상 단계와 구별된다.">훅</dfn>이 함수 하나로 줄어드는 경우가 많다. 훅(hook)이란 흐름을 소유한 쪽(상위 클래스, 우리 코드를 정해진 자리에서 불러 주는 라이브러리, 또는 파이썬 언어 자체)이 정해 둔 시점에 불러 주도록 비워 둔 확장 지점이다. 하위 클래스가 오버라이드하는 메서드, 인자로 넘겨받아 때가 되면 부르는 함수, 하위 클래스가 정의되는 순간 파이썬이 상위 클래스 쪽에서 불러 주는 <code><dfn class="term" id="term-init-subclass" data-term="init-subclass" title="어떤 클래스의 하위 클래스가 &#x27;정의될 때&#x27; 파이썬이 상위 클래스 쪽에서 호출해 주는 훅(3.6+); 메타클래스 없이 하위 클래스 등록·검사를 할 수 있다.">__init_subclass__</dfn></code>(1장에서 쓴다) 같은 메서드가 모두 훅이다. 14장 템플릿 메서드는 GoF의 더 좁은 의미인 '훅 연산'(기본 구현이 있어 하위 클래스가 필요할 때만 재정의하는 단계로, 반드시 구현해야 하는 추상 단계와 대비된다)을 쓰므로 그곳에서 둘을 구별한다(<a href="14-template-method.html#structure">14장 3절</a>).</li>
+    <li><strong>모듈.</strong> 모듈은 첫 import 때 한 번 실행되고 <dfn class="term" id="term-cache" data-term="cache" title="다시 계산·요청하지 않도록 결과를 가까운 곳에 저장해 두는 것.">캐시</dfn>되는(다시 실행하지 않도록 결과가 저장되는) <dfn class="term" id="term-namespace" data-term="namespace" title="이름과 객체의 대응을 담는 공간(모듈, 클래스, 함수 지역 등); 같은 이름도 이름공간이 다르면 충돌하지 않는다.">이름공간</dfn>, 곧 이름과 객체의 대응을 담는 공간이다. 싱글턴과 퍼사드의 상당수는 모듈 하나로 충분하다.</li>
+    <li><strong><dfn class="term" id="term-dunder-special-method" data-term="dunder-special-method" title="`__init__`, `__call__`, `__iter__`처럼 이름 앞뒤에 밑줄 두 개가 붙은 특수 메서드; 언어가 정해 둔 프로토콜(호출, 반복, with 등)에 참여하는 방법이며, 파이썬은 이를 인스턴스가 아니라 타입에서 찾는다.">던더</dfn>(dunder) 프로토콜.</strong> 던더는 double underscore의 줄임말로, 이름 앞뒤에 밑줄 두 개가 붙은 특수 메서드를 가리킨다. 이 메서드들은 언어가 미리 정해 둔 인터페이스(프로토콜)에 참여하는 방법이며, 파이썬은 이를 인스턴스가 아니라 타입에서 찾는다. <code>__iter__</code>/<code><dfn class="term" id="term-iterator-protocol" data-term="iterator-protocol" title="__iter__/__next__ 메서드와 StopIteration 예외로 이루어진 파이썬의 순회 규약. for·list()·next()가 이 규약을 호출한다.">__next__</dfn></code>(반복자 프로토콜: 순회할 반복자를 내주고 다음 값을 꺼내며, 끝나면 <code>StopIteration</code>을 던진다. <code>for</code> 문이 이것을 부른다), <code><dfn class="term" id="term-call" data-term="call" title="() 로 호출할 수 있는 모든 객체(함수, 람다, partial, __call__을 정의한 인스턴스).">__call__</dfn></code>(객체를 함수처럼 <code>()</code>로 부를 수 있게 한다), <code><dfn class="term" id="term-getattr" data-term="getattr" title="일반 속성 조회가 실패했을 때만 호출되는 특수 메서드(모든 조회를 가로채는 `__getattribute__`와 다름); 위임 래퍼를 짧게 만드는 데 쓰인다.">__getattr__</dfn></code>(일반 속성 조회가 실패했을 때만 불린다), <code><dfn class="term" id="term-context-manager" data-term="context-manager" title="with 문에 쓰여 블록 진입 시 준비, 빠져나올 때(예외 포함) 정리를 보장하는 객체. @contextmanager는 yield 하나 있는 제너레이터 함수로 이를 만든다.">__enter__</dfn></code>/<code>__exit__</code>(컨텍스트 매니저: <code>with</code> 블록에 들어갈 때 준비하고, 빠져나올 때 예외가 나도 정리를 보장한다)가 대표적이다. 반복자 패턴은 언어 자체가 되었고(<dfn class="term" id="term-generator" data-term="generator" title="yield가 있는 함수(제너레이터 함수)를 부르면 나오는 반복자 객체. 값을 하나 내고 실행을 멈췄다가 다음 next()에서 이어 간다.">제너레이터</dfn>: <code>yield</code>가 든 함수를 부르면 나오는 반복자로, 값을 하나 내고 멈췄다가 다음 요청에서 이어 간다), 프록시와 어댑터는 <code>__getattr__</code> 위임으로 짧아진다.</li>
+  </ul>
+  <p class="lead-in">2절의 리팩터링을 이 렌즈로 다시 쓰면 어떻게 되는가. 아래 코드는 상태 없는 규칙을 함수로, 설정 있는 규칙을 클로저와 <code>__call__</code> 클래스로 바꾸고, 계약을 <code>Protocol</code>로 표현한다. 세 종류의 규칙이 한 목록 안에서 똑같이 호출된다는 점, 그리고 데모 [2]가 "클래스가 필요한 순간"에 대해 무엇을 말하는지 주목하라. docstring이 말하는 "<dfn class="term" id="term-callable" data-term="callable" title="`()`로 호출할 수 있는 모든 것(함수, 클래스, 람다, `__call__`을 가진 객체); 타입 힌트 `Callable[[인자...], 반환]`으로 그 모양을 적는다.">호출 가능한</dfn> 것"(callable)은 <code>()</code>로 부를 수 있는 모든 것, 곧 함수·클래스·람다·<code>__call__</code>을 가진 객체이며, 타입 힌트로는 <code>Callable[[인자...], 반환]</code>으로 적는다. <dfn class="term" id="term-serialization" data-term="serialization" title="객체를 저장·전송할 수 있는 바이트·문자열 형식으로 바꾸는 것(반대는 역직렬화); 동시성 맥락에서는 &#x27;여러 실행을 한 줄로 차례대로 세운다&#x27;는 다른 뜻으로도 쓰인다.">직렬화</dfn>는 객체를 저장하거나 전송할 수 있는 문자열·바이트 형식으로 바꾸는 것이다.</p>
+  <figure class="code"><figcaption>src/00_intro/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬이라는 렌즈: Protocol(구조적 타이핑), 일급 함수, __call__ — 클래스가 필요한 순간은 언제인가.
+
+상황: 02_refactored.py는 조정 규칙마다 Adjustment ABC를 상속한 클래스를 만들었다. Java라면
+자연스러운 모양이다. 그런데 ChildDiscount는 상태도 없고 메서드도 apply() 하나뿐이다.
+파이썬에서 이것은 그냥 &#x27;함수&#x27;가 아닌가? 이 파일은 같은 정책을 세 가지 재료로 다시 조립한다.
+1. 상태 없는 규칙        → 평범한 함수 (일급 함수)
+2. 설정이 있는 규칙      → 클로저, 또는 __call__을 가진 작은 클래스
+3. 계약(인터페이스)      → typing.Protocol: 상속 없이 &#x27;모양&#x27;만 맞으면 된다
+
+그리고 교재 전체의 반복 질문을 던진다: &quot;여기서 클래스가 필요한 순간은 언제인가?&quot;
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date
+from typing import Protocol
+
+
+@dataclass(frozen=True)
+class Loan:
+    &quot;&quot;&quot;대출 한 건. 01·02에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
+
+    material: str
+    member: str
+    due: date
+    returned: date
+
+
+class Adjustment(Protocol):
+    &quot;&quot;&quot;[구조적 인터페이스] &#x27;(loan, fee)를 받아 int를 돌려주는 호출 가능한 것&#x27;이면 무엇이든.
+
+    ABC(명목적 타이핑)와의 차이: 구현체가 이 클래스를 상속하거나 import할 필요가 없다.
+    함수, 람다, __call__을 가진 객체가 모두 자격을 얻는다. 검사는 mypy 같은 정적 검사기가 한다.
+    선택 기준(이 교재 전체에서 쓰는 것):
+    - 우리가 소유한 확장 지점이고, 구현 누락을 실행 시점에 잡고 싶다 → ABC
+    - 외부 코드·함수·테스트 대역이 상속 없이 끼어들어야 한다      → Protocol
+    &quot;&quot;&quot;
+
+    def __call__(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;조정된 연체료.&quot;&quot;&quot;
+        ...
+
+
+def child_discount(loan: Loan, fee: int) -&gt; int:
+    &quot;&quot;&quot;상태 없는 규칙은 함수 하나로 충분하다. 클래스 + 메서드 + 인스턴스화가 모두 사라졌다.&quot;&quot;&quot;
+    return fee // 2 if loan.member == &quot;child&quot; else fee
+
+
+def cap(limit: int) -&gt; Adjustment:
+    &quot;&quot;&quot;설정이 있는 규칙 1: 클로저. limit을 캡처한 함수를 돌려준다(함수를 만드는 함수).&quot;&quot;&quot;
+
+    def apply(loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;캡처한 limit으로 자른다.&quot;&quot;&quot;
+        return min(fee, limit)
+
+    return apply
+
+
+@dataclass(frozen=True)
+class ExamWaiver:
+    &quot;&quot;&quot;설정이 있는 규칙 2: __call__을 가진 클래스. &#x27;함수처럼 호출되면서&#x27; 추가 기능도 갖는다.
+
+    클로저 대신 클래스를 고른 이유: describe()처럼 &#x27;두 번째 메서드&#x27;가 필요하고, 설정값(start, end)을
+    출력·비교·직렬화하고 싶기 때문이다(dataclass가 __repr__과 __eq__를 공짜로 준다).
+    클로저는 이런 것을 외부에 드러내지 못한다 — 이것이 &#x27;클래스가 필요한 순간&#x27;의 대표 신호다.
+    &quot;&quot;&quot;
+
+    start: date
+    end: date
+
+    def __call__(self, loan: Loan, fee: int) -&gt; int:
+        &quot;&quot;&quot;__call__ 덕분에 이 객체는 Adjustment 프로토콜을 만족한다.&quot;&quot;&quot;
+        if loan.member == &quot;university&quot; and self.start &lt;= loan.returned &lt;= self.end:
+            return 0
+        return fee
+
+    def describe(self) -&gt; str:
+        &quot;&quot;&quot;사람이 읽는 설명. 함수에는 둘 수 없는 두 번째 행동.&quot;&quot;&quot;
+        return f&quot;시험 기간 {self.start:%m/%d}~{self.end:%m/%d} 대학생 면제&quot;
+
+
+@dataclass(frozen=True)
+class FeePolicy:
+    &quot;&quot;&quot;02와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다.&quot;&quot;&quot;
+
+    rates: dict[str, int]
+    adjustments: list[Adjustment] = field(default_factory=list)
+
+    def late_fee(self, loan: Loan) -&gt; int:
+        &quot;&quot;&quot;연체료를 계산한다.&quot;&quot;&quot;
+        days = (loan.returned - loan.due).days
+        if days &lt;= 0:
+            return 0
+        fee = days * self.rates[loan.material]
+        for rule in self.adjustments:
+            fee = rule(loan, fee)  # 함수든 객체든 똑같이 &#x27;호출&#x27;한다 — 덕 타이핑
+        return fee
+
+
+# 모듈 수준 상수: 파이썬에서 &#x27;지점 정책 표&#x27;는 클래스가 아니라 모듈에 둔 값이면 충분하다.
+# 모듈은 한 번만 import되므로 이 표는 프로세스에서 하나다(4장 싱글턴의 논점으로 이어진다).
+EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
+BRANCH_POLICIES: dict[str, FeePolicy] = {
+    &quot;새솔&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 500}, [child_discount, EXAM]),
+    &quot;하늘&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 700}, [child_discount, cap(3000)]),
+    &quot;바다&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 500}, [EXAM]),
+}
+
+
+if __name__ == &quot;__main__&quot;:
+    due, back = date(2026, 6, 10), date(2026, 6, 15)
+    print(&quot;[1] 함수·클로저·__call__ 객체가 한 목록 안에서 똑같이 쓰인다&quot;)
+    for branch, policy in BRANCH_POLICIES.items():
+        kinds = [type(r).__name__ for r in policy.adjustments]
+        fee = policy.late_fee(Loan(&quot;dvd&quot;, &quot;child&quot;, due, back))
+        print(f&quot;  {branch}: 규칙 종류 {kinds} → 아동 DVD 5일 연체 {fee}원&quot;)
+
+    print(&quot;\n[2] 클래스로 둔 규칙만 자기 자신을 설명할 수 있다&quot;)
+    print(f&quot;  EXAM → {EXAM!r}&quot;)
+    print(f&quot;  EXAM.describe() → {EXAM.describe()}&quot;)
+    # repr에는 메모리 주소가 섞여 실행마다 달라지므로 이름만 보인다. 어느 쪽이든 3000은 보이지 않는다.
+    # (cap(3000).__closure__[0].cell_contents로 꺼낼 수는 있지만, 그것은 공개 인터페이스가 아니다.)
+    print(f&quot;  cap(3000) → &lt;function {cap(3000).__qualname__}&gt;  (설정값 3000이 공개 인터페이스로 드러나지 않는다)&quot;)
+
+    print(&quot;\n[3] 테스트 대역도 상속 없이 람다 한 줄 — Protocol이라 가능하다&quot;)
+    always_100 = FeePolicy({&quot;book&quot;: 100}, [lambda loan, fee: 100])
+    print(f&quot;  {always_100.late_fee(Loan(&#x27;book&#x27;, &#x27;adult&#x27;, due, back))}원&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
+  <p>그렇다고 클래스가 사라지지는 않는다. [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
+  <div class="table-wrap"><table data-preview>
+    <thead><tr><th>파이썬 기능</th><th>흡수하거나 단순화하는 패턴</th><th>여전히 클래스가 필요한 경우(장에서 다룸)</th></tr></thead>
+    <tbody>
+      <tr><td>일급 함수, 클로저</td><td>전략(10), 커맨드(12), 팩토리 메서드의 생성 훅(1)</td><td>실행 취소처럼 행동이 둘 이상일 때(12), 설정을 드러내야 할 때(10)</td></tr>
+      <tr><td>제너레이터, <code>__iter__</code></td><td>반복자(15)</td><td>순회 상태를 저장·재개해야 할 때(15)</td></tr>
+      <tr><td>모듈</td><td>싱글턴(4), 퍼사드(8)</td><td>테스트에서 교체해야 할 때 — 대개 주입으로 해결(4)</td></tr>
+      <tr><td><code>__getattr__</code> 위임</td><td>어댑터(5), 프록시(9)</td><td>타입 검사와 명시성이 중요할 때(5, 9)</td></tr>
+      <tr><td><code>@</code> 데코레이터 문법</td><td>함수에 대한 데코레이터 패턴(6)</td><td>이름만 같고 개념은 다르다 — 객체 인터페이스를 감쌀 때(6)</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="how-to-read">
+  <h2>5. 이 교재의 구성과 사용법</h2>
+  <p>패턴을 다루는 01~15장은 모두 같은 일곱 절로 되어 있다. 순서 자체가 교수법이다.</p>
+  <ol>
+    <li><strong>상황</strong>: 구체적인 인물, 제품, 변경 요구가 나오는 이야기. 코드는 없다. 무엇이 아픈지를 먼저 느끼게 하려는 것이다.</li>
+    <li><strong>순진한 설계와 그 한계</strong>: 그 상황에서 누구나 처음 쓸 법한 코드와, 데모 출력으로 드러나는 문제. <code># ⚠ 문제:</code> 주석이 고통 지점을 가리킨다.</li>
+    <li><strong>패턴의 구조</strong>: GoF 의도, 그 장의 실제 클래스 이름으로 그린 다이어그램, 역할 표.</li>
+    <li><strong>패턴 적용</strong>: 역할 태그와 "왜"를 설명하는 주석이 달린 교과서적 구현과 그 실행 결과.</li>
+    <li><strong>파이썬다운 변형</strong>: 언어 기능이 패턴을 어떻게 바꾸거나 없애는지, 그 대가는 무엇인지.</li>
+    <li><strong>트레이드오프와 관련 패턴</strong>: 얻는 것, 치르는 것, 쓰지 말아야 할 때, 이웃 패턴과의 차이.</li>
+    <li><strong>연습문제</strong>: 판단·리팩터링·확장·비교 유형을 섞은 3~4문제와, 접혀 있는 해설.</li>
+  </ol>
+  <p><strong>코드는 직접 실행하라.</strong> 본문의 모든 코드는 저장소의 <code>src/{nn}_{slug}/</code>에 있는 실제 파일이며, 본문에 실린 실행 결과는 빌드할 때 그 파일을 실제로 실행해 얻은 것이다. 파일은 표준 라이브러리만 쓰고 서로 import하지 않으므로 하나만 열어 <code>python3 02_refactored.py</code>처럼 바로 돌릴 수 있다. 파일 이름의 번호가 본문에 등장하는 순서다(<code>01_naive.py</code> → <code>02_…</code> → <code>03_pythonic.py</code>). 모듈 docstring 첫 단락에 그 파일이 다루는 상황이 요약되어 있으니 파일만 열어도 맥락을 잃지 않는다. 가장 좋은 학습법은 순진한 코드에 다음 변경 요구를 직접 넣어 보며 고통을 체험한 뒤 패턴 코드로 넘어가는 것이다.</p>
+  <p><strong>연습문제는 해설을 펼치기 전에 답을 써라.</strong> 해설은 정답만이 아니라 흔한 오답이 왜 틀렸는지를 함께 다룬다. 이 수준의 학생이 틀리는 이유는 대개 지식 부족이 아니라 과잉 적용이나 의도의 오독이기 때문이다. 코드 문제의 해설은 <code>src/{nn}_{slug}/solutions/</code>에 실행 가능한 파일로 있다.</p>
+  <p>장마다 도메인이 다르다(과학 연구실, 클라우드 인프라, 병원 <dfn class="term" id="term-electronic-medical-record" data-term="electronic-medical-record" title="전자의무기록 — 환자의 진료·처방·검사 기록을 전산으로 관리하는 병원 정보 시스템.">EMR</dfn>(전자의무기록), 결제, <dfn class="term" id="term-internet-of-things" data-term="internet-of-things" title="센서·장비가 네트워크에 연결되어 데이터를 주고받는 사물인터넷.">IoT</dfn>(센서·장비가 네트워크로 데이터를 주고받는 사물인터넷)…). 패턴을 특정 도메인의 관용구로 기억하지 않고 구조적 문제로 기억하게 하려는 의도다. 마지막 <a href="99-summary.html">99장</a>은 로봇 물류 창고라는 하나의 시스템에서 여러 패턴이 어떻게 조합되는지 다루고, 장마다 내린 "언어가 패턴을 흡수하는 정도" 판단을 표 하나로 정리한다.</p>
+</section>
+
+<section id="pattern-map">
+  <h2>6. 15개 패턴 지도</h2>
+  <p>각 패턴의 의도를 한 줄로 요약했다. 지금 다 이해할 필요는 없다. 장을 읽은 뒤 돌아와 이 한 줄이 무엇을 압축하고 있는지 확인하는 용도로 쓰면 좋다.</p>
+  <h3>생성 패턴</h3>
+  <div class="table-wrap"><table data-preview>
+    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><a href="01-factory-method.html">팩토리 메서드</a></td><td>상위 클래스는 <em>언제</em> 만들지, 하위 클래스는 <em>무엇을</em> 만들지 결정한다.</td><td>과학 연구실 장비 데이터</td></tr>
+      <tr><td>2</td><td><a href="02-abstract-factory.html">추상 팩토리</a></td><td>함께 쓰여야 하는 객체 제품군을 섞이지 않게 한 번에 만든다.</td><td>멀티 클라우드 인프라</td></tr>
+      <tr><td>3</td><td><a href="03-builder.html">빌더</a></td><td>복잡한 객체를 단계적으로 조립하고, 같은 절차로 다른 표현을 만든다.</td><td>BI(비즈니스 인텔리전스) 대시보드의 SQL(데이터베이스 질의 언어) 조립</td></tr>
+      <tr><td>4</td><td><a href="04-singleton.html">싱글턴</a></td><td>인스턴스를 하나로 제한하고 전역 접근점을 준다 — 그리고 그 둘을 떼어 놓는 법.</td><td>병원 EMR 감사 로그</td></tr>
+    </tbody>
+  </table></div>
+  <h3>구조 패턴</h3>
+  <div class="table-wrap"><table data-preview>
+    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
+    <tbody>
+      <tr><td>5</td><td><a href="05-adapter.html">어댑터</a></td><td>고칠 수 없는 남의 인터페이스를 우리가 기대하는 인터페이스로 바꾼다.</td><td>커머스 결제 PG(전자결제대행사) 연동</td></tr>
+      <tr><td>6</td><td><a href="06-decorator.html">데코레이터</a></td><td>같은 인터페이스를 유지한 채 책임을 겹겹이 덧입힌다.</td><td>IoT 텔레메트리 채널</td></tr>
+      <tr><td>7</td><td><a href="07-composite.html">컴포지트</a></td><td>부분과 전체를 클라이언트가 똑같이 다루게 트리로 구성한다.</td><td>제조 부품표(BOM, Bill of Materials)</td></tr>
+      <tr><td>8</td><td><a href="08-facade.html">퍼사드</a></td><td>복잡한 서브시스템 앞에 단순한 정문 하나를 둔다.</td><td>항공 셀프 체크인</td></tr>
+      <tr><td>9</td><td><a href="09-proxy.html">프록시</a></td><td>같은 인터페이스의 대리인이 실제 객체로 가는 접근을 통제한다.</td><td>위성 영상 아카이브</td></tr>
+    </tbody>
+  </table></div>
+  <h3>행위 패턴</h3>
+  <div class="table-wrap"><table data-preview>
+    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
+    <tbody>
+      <tr><td>10</td><td><a href="10-strategy.html">전략</a></td><td>교체 가능한 알고리즘 계열을 캡슐화하고 클라이언트가 고르게 한다.</td><td>음식 배달비 정책</td></tr>
+      <tr><td>11</td><td><a href="11-observer.html">옵저버</a></td><td>상태 변화를 알리는 쪽이 듣는 쪽을 모르게 한다.</td><td>증권 시세 알림</td></tr>
+      <tr><td>12</td><td><a href="12-command.html">커맨드</a></td><td>요청을 객체로 만들어 되돌리고, 묶고, 미루고, 보낸다.</td><td>웹 다이어그램 도구</td></tr>
+      <tr><td>13</td><td><a href="13-state.html">상태</a></td><td>행동이 상태에 따라 달라질 때 분기 대신 상태 객체를 바꾼다.</td><td>공유 킥보드 대여</td></tr>
+      <tr><td>14</td><td><a href="14-template-method.html">템플릿 메서드</a></td><td>절차의 골격은 고정하고 달라지는 단계만 하위 클래스에 연다.</td><td>온라인 저지 채점</td></tr>
+      <tr><td>15</td><td><a href="15-iterator.html">반복자</a></td><td>내부 표현을 감춘 채 원소를 차례로 꺼낸다 — 언어가 흡수한 패턴.</td><td>음악 스트리밍 재생 목록</td></tr>
+    </tbody>
+  </table></div>
+  <h3>장 사이의 연결</h3>
+  <p>패턴은 따로 외우면 서로 섞인다. 다음 짝들은 각 장에서 명시적으로 비교하거나 함께 쓰므로, 읽는 동안 의식해 두면 좋다.</p>
+  <div class="table-wrap"><table data-preview>
+    <thead><tr><th>짝</th><th>같은 점</th><th>가르는 질문</th></tr></thead>
+    <tbody>
+      <tr><td>팩토리 메서드(1) → 추상 팩토리(2)</td><td>생성 결정을 클라이언트에서 떼어 낸다</td><td>제품 하나인가, 함께 쓰여야 하는 제품군인가</td></tr>
+      <tr><td>추상 팩토리(2) ↔ 빌더(3)</td><td>복잡한 생성을 캡슐화한다</td><td>여러 객체를 즉시인가, 한 객체를 단계적으로인가</td></tr>
+      <tr><td>어댑터(5) · 데코레이터(6) · 프록시(9)</td><td>다른 객체를 감싼다</td><td>인터페이스를 바꾸는가 / 같은 인터페이스로 책임을 더하는가 / 접근을 통제하는가</td></tr>
+      <tr><td>어댑터(5) ↔ 퍼사드(8)</td><td>클라이언트와 서브시스템 사이에 선다</td><td>기존 인터페이스를 맞추는가, 새 단순 인터페이스를 만드는가</td></tr>
+      <tr><td>데코레이터(6) ↔ 컴포지트(7)</td><td>재귀적 합성 구조</td><td>책임을 더하는가, 부분-전체를 표현하는가</td></tr>
+      <tr><td>전략(10) ↔ 상태(13)</td><td>클래스 구조가 거의 같다</td><td>교체를 누가 결정하는가(클라이언트 / 상태 자신). 13장은 전이 결정을 컨텍스트의 전이표로 모으는 변형도 다룬다</td></tr>
+      <tr><td>전략(10) ↔ 템플릿 메서드(14)</td><td>알고리즘의 변이를 다룬다</td><td>합성으로인가, 상속으로인가</td></tr>
+      <tr><td>반복자(15) + 컴포지트(7)</td><td>대안이 아니라 협력 관계: 컴포지트가 트리를 만들고 반복자가 그것을 순회한다</td><td>트리를 어떤 순서로 순회할 것인가, 순회를 클라이언트에서 어떻게 떼어 낼 것인가</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. 외웠지만 이해하지 못한 신호</h3>
+    <p>다음은 패턴을 막 배운 개발자들이 코드 리뷰에서 한 말이다. 각 문장의 함정을 이 장의 원칙(변하는 것의 분리, 인터페이스에 프로그래밍, 합성 우선)과 파이썬 관점으로 설명하라. 문장에 일리가 있는 조건이 있다면 그것도 쓰라.</p>
+    <ol type="a">
+      <li>"모든 클래스는 인터페이스(ABC)를 먼저 만들고 구현해야 합니다."</li>
+      <li>"조건문이 보이면 상태 패턴으로 바꿔야 합니다."</li>
+      <li>"설정 객체는 하나만 있으면 되니까 싱글턴으로 만들겠습니다."</li>
+    </ol>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>(a)</strong> "인터페이스에 프로그래밍하라"를 "인터페이스를 <em>선언</em>하라"로 오독했다. 원칙의 요지는 클라이언트가 구체 구현의 세부에 의존하지 않게 하라는 것이다. 파이썬에서는 덕 타이핑으로 이미 상당 부분 달성되고, 필요하면 나중에 <code>Protocol</code>을 붙여도 구현 클래스를 고칠 필요가 없다. 구현이 하나뿐이고 바뀔 계획도 없는 클래스에 ABC를 먼저 만들면 모든 변경이 두 곳을 오가야 하는 비용만 남는다. <em>일리가 있는 조건</em>: 그 경계가 다른 팀이나 <dfn class="term" id="term-plugin" data-term="plugin" title="본체 코드를 고치지 않고 정해진 확장 지점에 꽂아 기능을 더하는 독립 모듈.">플러그인</dfn>(본체 코드를 고치지 않고 정해진 확장 지점에 꽂아 기능을 더하는 독립 모듈)이 구현할 확장 지점이고, 구현 누락을 인스턴스화 시점에 잡아야 할 때.</p>
+      <p><strong>(b)</strong> 패턴을 의도가 아니라 표면(조건문)으로 매칭했다. 상태 패턴의 의도는 "객체의 행동이 내부 상태에 따라 바뀌고, 그 <em><dfn class="term" id="term-state-transition" data-term="state-transition" title="객체가 사건에 따라 한 상태에서 다른 상태로 옮겨 가는 것; 전이표는 (현재 상태, 사건) → 다음 상태를 표로 적은 것이다.">상태 전이</dfn> 규칙</em>이 복잡할 때" 전이를 상태 객체로 옮기는 것이다. 상태 전이는 객체가 사건에 따라 한 상태에서 다른 상태로 옮겨 가는 것을 말한다. 단순한 값 분기, 한 번만 쓰이는 분기, 상태가 아니라 입력 종류에 따른 분기는 해당하지 않는다. 그것은 오히려 전략이나, 키에 따라 실행할 구현을 골라 부르는 <dfn class="term" id="term-dispatch" data-term="dispatch" title="이름·타입 같은 키에 따라 실행할 구현을 골라 호출하는 것.">디스패치</dfn>의 영역이다. 특히 if/elif 대신 키 → 함수 딕셔너리를 조회하는 <dfn class="term" id="term-dictionary-dispatch" data-term="dictionary-dispatch" title="if/elif 분기 대신 키 → 함수(또는 클래스) 딕셔너리를 조회해 실행할 것을 고르는 기법.">딕셔너리 디스패치</dfn>로 충분한 경우가 많다. 변하는 것이 무엇인지 먼저 물어야 한다. 조건문의 개수는 기준이 아니다. <em>일리가 있는 조건</em>: 같은 상태 분기가 여러 메서드에 반복되고 전이 규칙이 자주 바뀔 때.</p>
+      <p><strong>(c)</strong> "하나면 충분하다"와 "둘이면 틀린다"를 혼동했다. 4장의 주제다. 설정 객체는 운영에서 하나면 충분하지만 테스트에서는 경계값을 바꾼 설정이 여럿 필요하다. 싱글턴은 그것을 막고, 전역 접근으로 <dfn class="term" id="term-hidden-dependency" data-term="hidden-dependency" title="생성자·인자 등 시그니처에 드러나지 않고 메서드 본문 안에서 전역 객체를 직접 꺼내 쓰는 의존; 호출자가 알 수도 바꿀 수도 없다.">의존성을 숨긴다</dfn>. 숨은 의존성이란 생성자나 인자에 드러나지 않고 메서드 본문에서 전역 객체를 직접 꺼내 쓰는 의존으로, 호출자가 알 수도 바꿀 수도 없다. 파이썬에서는 <dfn class="term" id="term-composition-root" data-term="composition-root" title="프로그램 시작 지점에서 구체 클래스를 고르고 객체 그래프 전체를 한 번에 조립해 주입하는 단 한 곳; 구체 타입과 설정을 아는 코드를 여기로 모은다.">composition root</dfn>(프로그램 시작 지점에서 구체 클래스를 고르고 객체들을 한 번에 조립하는 단 한 곳)에서 하나 읽어 <dfn class="term" id="term-dependency-injection" data-term="dependency-injection" title="객체가 필요한 협력 객체를 스스로 만들거나 전역에서 꺼내지 않고 생성자·인자로 바깥에서 받게 하는 기법; 의존성이 시그니처에 드러나 테스트에서 교체할 수 있다.">주입하거나</dfn>(필요한 객체를 스스로 만들거나 전역에서 꺼내지 않고 생성자·인자로 바깥에서 받게 하는 것을 의존성 주입이라 한다), 정 전역이 필요하면 모듈 수준 객체가 더 단순하다. <em>일리가 있는 조건</em>: 거의 없다. 둘이 존재하면 논리적으로 틀리고, 테스트가 그 상태를 신경 쓰지 않는 드문 경우뿐이다.</p>
+      <p>세 문장의 공통점은 <strong>원칙을 규칙으로 바꿨다</strong>는 것이다. 원칙은 "이런 힘이 작용할 때 이쪽으로 기울어라"라는 판단 기준인데, 그것을 "항상 이렇게 하라"로 바꾸는 순간 패턴은 과잉 적용된다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 분실 배상금 규칙</h3>
+    <p>새솔도서관의 분실 배상금도 연체료처럼 한 함수로 관리된다. 아래 함수를 "변하는 것 / 변하지 않는 것"으로 나눈 뒤 (1) <code>ABC</code> 기반, (2) 함수 기반 두 버전으로 리팩터링하라. 두 버전이 같은 결과를 내는지 확인하고, 규칙의 적용 순서가 결과를 바꾸는 사례를 하나 찾아라.</p>
+    <pre><code class="language-python">def compensation(price: int, donated: bool, out_of_print: bool, member: str) -> int:
+    """분실 배상금(원). 규칙이 생길 때마다 이 함수에 if가 늘었다."""
+    if donated:
+        amount = 5000            # 기증 자료: 정가와 무관하게 고정액
+    else:
+        amount = price
+    if out_of_print and not donated:
+        amount = amount * 3 // 2 # 절판: 재구매가 어려워 1.5배
+    if member == "child":
+        amount = amount // 2     # 아동 50% 감면
+    if amount &lt; 1000:
+        amount = 1000            # 최소 배상금 — 이 줄이 감면 '뒤'에 있다는 것이 정책이다
+    return amount
+
+# 시청 요구: 바다 지점은 아동 감면 없음, 하늘 지점은 최소 배상금 2,000원.
+# 이대로라면 branch 인자를 추가하고 if를 또 늘려야 한다.</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>변하지 않는 것은 "기준 금액(정가)에서 출발해 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 규칙 각각과, 규칙의 목록과 순서다. 원래 코드의 <code>out_of_print and not donated</code>라는 결합 조건은 "기증 고정액이 먼저 적용되면 절판 할증은 의미가 없다"는 <em>순서 의존</em>을 조건문으로 우회한 흔적이다. 고정액 규칙을 목록 맨 앞에 두는 것만으로는 이 의존을 다 표현하지 못한다. 기증이면서 절판인 자료에 할증이 붙어 5,000원이 7,500원이 되기 때문이다. 리팩터링은 동작을 보존해야 하므로, 해설은 절판 규칙 안에 "기증이 아닐 때만"이라는 조건을 남겼고 데모의 마지막 사례(기증+절판 → 5,000원)로 그것을 확인한다. 이런 숨은 의존을 발견하면 몰래 바꾸지 말고 "어느 쪽이 정책인가"를 묻는 것이 옳다. 지점별 차이는 규칙 목록의 조립으로 해결된다. 바다 지점은 목록에서 <code>child_half</code>를 빼고, 하늘 지점은 <code>minimum(2000)</code>을 쓴다.</p>
+      <p>두 버전의 차이는 절차 함수 안의 한 줄(<code>rule.apply(...)</code> 대 <code>rule(...)</code>)뿐이다. ABC판은 규칙이 이름 있는 타입이라 문서화와 구현 누락 검사에 유리하고, 함수판은 짧고 테스트 대역이 쉽다. 설정이 있는 규칙(<code>MinimumFee</code>/<code>minimum</code>)에서만 두 방식의 성격 차이가 드러난다. 데모 [2]는 하한을 감면 앞에 두면 아동 1,500원 자료의 배상금이 750원이 되어 하한이 무력화된다는 것을 보여준다.</p>
+      <p>흔한 오답은 지점마다 <code>SaesolCompensation</code>, <code>HaneulCompensation</code> 하위 클래스를 만드는 것이다. 지점의 차이가 행동이 아니라 조합이므로, 상속은 조합의 수만큼 클래스를 만든다. 합성 우선 원칙이 정확히 이 경우를 위해 있다.</p>
+      <figure class="code"><figcaption>src/00_intro/solutions/ex2_lost_item_two_ways.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 분실 배상금 if/elif 함수를 &#x27;변하는 것/변하지 않는 것&#x27;으로 나눠 ABC판과 함수판으로.
+
+상황: 새솔도서관은 연체료에 이어 분실 배상금 규칙도 if/elif 한 함수로 관리했다(문제 본문 코드).
+기증 자료는 정가 대신 고정 5,000원, 절판 자료는 정가의 1.5배, 아동 회원은 50% 감면, 그리고
+배상금은 최소 1,000원이다. 본문 02/03과 같은 순서로 리팩터링한다.
+
+변하지 않는 것: &quot;기준 금액을 정한다 → 조정 규칙을 차례로 적용한다&quot;는 절차.
+변하는 것   : (a) 기준 금액을 정하는 방식(정가/고정액/배수), (b) 조정 규칙의 목록과 순서.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Callable
+
+
+@dataclass(frozen=True)
+class LostItem:
+    &quot;&quot;&quot;분실 자료 한 건.&quot;&quot;&quot;
+
+    price: int
+    donated: bool
+    out_of_print: bool
+    member: str
+
+
+# ---------------------------------------------------------------------------
+# 버전 A: ABC 기반 — 규칙이 &#x27;이름 있는 타입&#x27;이 된다
+# ---------------------------------------------------------------------------
+
+class Rule(ABC):
+    &quot;&quot;&quot;조정 규칙의 명목적 계약.&quot;&quot;&quot;
+
+    @abstractmethod
+    def apply(self, item: LostItem, amount: int) -&gt; int:
+        &quot;&quot;&quot;조정된 금액.&quot;&quot;&quot;
+
+
+class DonatedFlat(Rule):
+    &quot;&quot;&quot;기증 자료는 정가와 무관하게 5,000원. 기준 금액을 &#x27;덮어쓰는&#x27; 규칙이라 맨 앞에 둬야 한다.&quot;&quot;&quot;
+
+    def apply(self, item: LostItem, amount: int) -&gt; int:
+        &quot;&quot;&quot;기증이면 고정액.&quot;&quot;&quot;
+        return 5000 if item.donated else amount
+
+
+class OutOfPrintSurcharge(Rule):
+    &quot;&quot;&quot;절판 자료는 재구매가 어려워 1.5배. 단, 기증 자료(고정액)에는 붙지 않는다.
+
+    원래 코드의 `out_of_print and not donated`를 그대로 옮겼다. 규칙을 목록 순서에만 맡기면
+    기증+절판 자료가 5,000 → 7,500원이 되어 동작이 바뀐다. 리팩터링은 동작을 보존해야 하므로
+    이 결합 조건은 규칙 안에 남긴다(정책을 바꾸고 싶다면 그것은 별도의 결정이다).
+    &quot;&quot;&quot;
+
+    def apply(self, item: LostItem, amount: int) -&gt; int:
+        &quot;&quot;&quot;정수 연산으로 1.5배(× 3 // 2).&quot;&quot;&quot;
+        return amount * 3 // 2 if item.out_of_print and not item.donated else amount
+
+
+class ChildHalf(Rule):
+    &quot;&quot;&quot;아동 50% 감면.&quot;&quot;&quot;
+
+    def apply(self, item: LostItem, amount: int) -&gt; int:
+        &quot;&quot;&quot;아동이면 절반.&quot;&quot;&quot;
+        return amount // 2 if item.member == &quot;child&quot; else amount
+
+
+@dataclass(frozen=True)
+class MinimumFee(Rule):
+    &quot;&quot;&quot;최소 배상금. 감면 &#x27;뒤에&#x27; 와야 의미가 있다 — 순서가 리스트에 드러난다.&quot;&quot;&quot;
+
+    floor: int
+
+    def apply(self, item: LostItem, amount: int) -&gt; int:
+        &quot;&quot;&quot;하한을 보장한다.&quot;&quot;&quot;
+        return max(amount, self.floor)
+
+
+def compensation_abc(item: LostItem, rules: list[Rule]) -&gt; int:
+    &quot;&quot;&quot;변하지 않는 절차(ABC판).&quot;&quot;&quot;
+    amount = item.price
+    for rule in rules:
+        amount = rule.apply(item, amount)
+    return amount
+
+
+# ---------------------------------------------------------------------------
+# 버전 B: 함수 기반 — 상태 없는 규칙은 함수, 설정 있는 규칙은 클로저
+# ---------------------------------------------------------------------------
+
+RuleFn = Callable[[LostItem, int], int]
+
+
+def donated_flat(item: LostItem, amount: int) -&gt; int:
+    &quot;&quot;&quot;기증 자료 고정액.&quot;&quot;&quot;
+    return 5000 if item.donated else amount
+
+
+def out_of_print(item: LostItem, amount: int) -&gt; int:
+    &quot;&quot;&quot;절판 1.5배(기증 자료 제외 — ABC판과 같은 이유).&quot;&quot;&quot;
+    return amount * 3 // 2 if item.out_of_print and not item.donated else amount
+
+
+def child_half(item: LostItem, amount: int) -&gt; int:
+    &quot;&quot;&quot;아동 감면.&quot;&quot;&quot;
+    return amount // 2 if item.member == &quot;child&quot; else amount
+
+
+def minimum(floor: int) -&gt; RuleFn:
+    &quot;&quot;&quot;하한 규칙을 만드는 함수. floor를 캡처한다.&quot;&quot;&quot;
+    return lambda item, amount: max(amount, floor)
+
+
+def compensation_fn(item: LostItem, rules: list[RuleFn]) -&gt; int:
+    &quot;&quot;&quot;변하지 않는 절차(함수판). ABC판과 한 줄만 다르다: rule.apply(...) → rule(...).&quot;&quot;&quot;
+    amount = item.price
+    for rule in rules:
+        amount = rule(item, amount)
+    return amount
+
+
+if __name__ == &quot;__main__&quot;:
+    cases = [
+        LostItem(18000, donated=False, out_of_print=False, member=&quot;adult&quot;),
+        LostItem(18000, donated=True, out_of_print=False, member=&quot;adult&quot;),
+        LostItem(18000, donated=False, out_of_print=True, member=&quot;adult&quot;),
+        LostItem(1500, donated=False, out_of_print=False, member=&quot;child&quot;),
+        LostItem(18000, donated=True, out_of_print=True, member=&quot;adult&quot;),  # 원래 코드에서 5,000원
+    ]
+    abc_rules: list[Rule] = [DonatedFlat(), OutOfPrintSurcharge(), ChildHalf(), MinimumFee(1000)]
+    fn_rules: list[RuleFn] = [donated_flat, out_of_print, child_half, minimum(1000)]
+    print(&quot;[1] 두 버전은 같은 결과를 낸다&quot;)
+    for item in cases:
+        a, b = compensation_abc(item, abc_rules), compensation_fn(item, fn_rules)
+        print(f&quot;  정가 {item.price:&gt;6} 기증={item.donated!s:5} 절판={item.out_of_print!s:5} &quot;
+              f&quot;{item.member:5} → ABC {a:&gt;6} / 함수 {b:&gt;6}&quot;)
+    print(&quot;\n[2] 순서를 바꾸면 결과가 바뀐다: 하한 → 감면 순서로 두면 아동 1,500원 자료가&quot;)
+    wrong = [donated_flat, out_of_print, minimum(1000), child_half]
+    # 하한을 감면 &#x27;앞&#x27;에 두면 1,500원(하한 통과) → 감면 750원. 원래 코드는 감면 뒤에 하한을 둔다.
+    print(f&quot;  {compensation_fn(cases[3], wrong)}원 — 하한(1,000원)이 무력화된다&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_lost_item_two_ways.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 이 리팩터링은 과잉인가</h3>
+    <p>시청이 방침을 바꿔, 연체료 정책은 지점별로 정하되 <strong>1년에 한 번, 1월에만</strong> 바꿀 수 있다고 공지했다. 지점은 앞으로도 세 곳이다. 이 조건에서 2절의 리팩터링(<code>Adjustment</code> 계층 + <code>FeePolicy</code> 조립)은 과잉인가? 변경 빈도와 변경 주체(누가 고치는가) 두 관점에서 근거를 쓰라.</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>변경 빈도만 보면 과잉 쪽으로 기운다.</strong> 1년에 한 번 바뀌는 규칙을 위해 확장 지점을 만들어 두는 것은, 그 1년 동안 모든 독자가 <dfn class="term" id="term-indirection-layer" data-term="indirection-layer" title="호출하는 쪽과 실제 일을 하는 쪽 사이에 끼워 넣은 중간 단계(퍼사드, 프록시, 인터페이스 등). 변경을 흡수하지만 읽는 사람이 거쳐야 할 단계도 늘린다.">간접층</dfn>(호출하는 쪽과 실제 일을 하는 쪽 사이에 끼워 넣은 중간 단계. 변경을 흡수하지만 읽는 사람이 거쳐야 할 단계도 늘린다)을 읽는 비용을 치르는 일이다. 지점 세 곳의 고정 규칙이라면 지점별 함수 세 개(<code>saesol_fee</code>, <code>haneul_fee</code>, <code>bada_fee</code>)가 더 읽기 쉬울 수 있다. 각 함수는 짧고, 1월에 한 번 고치면 된다.</p>
+      <p><strong>그러나 판단을 바꾸는 사실이 둘 있다.</strong> 첫째, 지민의 함수가 아팠던 원인은 변경 <em>빈도</em>보다 변경 이유의 <em>뒤엉킴</em>이었다. 지점 함수 세 개로 나누면 요율과 감면 규칙이 세 곳에 복제되고, 시험 기간이 바뀌면 세 곳을 고쳐야 한다. 공통 규칙(아동 감면, 시험 기간 면제)을 작은 함수로 뽑아 세 지점 함수가 호출하게 하는 정도가 균형점이다. 이것은 2절 구조의 함수판(4절)과 거의 같다. 클래스 계층과 조립 표만 빠졌다. 둘째, 변경 주체다. 1월에 정책을 바꾸는 사람이 개발자라면 코드 수정이 자연스럽다. 사서가 직접 바꿔야 한다면 정책이 <em>데이터</em>(설정 파일의 규칙 목록)가 되어야 하고, 그때는 2절의 조립 구조가 정확히 필요한 것이 된다.</p>
+      <p>정리하면, "변경이 드물다"는 패턴을 미룰 이유이지 원칙을 버릴 이유가 아니다. 변하는 것과 변하지 않는 것을 나누는 일(함수 추출)은 거의 항상 값을 하고, 그것을 클래스 계층과 조립 표로 일반화하는 일은 변경 빈도와 변경 주체가 정당화할 때 한다. 흔한 오답은 "나중에 늘 수 있으니 처음부터 전략 패턴"과 "자주 안 바뀌니 원래 <code>if/elif</code> 그대로"인데, 둘 다 위 두 관점 중 하나만 본 답이다.</p>
+    </details>
+  </div>
+</section>
+
+<!--
+설계서 대비 변경 사항:
+- 연습문제 2를 연체료 함수가 아닌 '분실 배상금' 함수로 바꿨다. 연체료는 본문 2·4절에서 이미 두 가지로 리팩터링했으므로,
+  같은 도메인의 새 함수로 학생이 직접 같은 과정을 밟게 하는 편이 낫다고 판단했다.
+- 섹션 구성에 pattern-map(15개 패턴 의도 한 줄 + 장 링크 + 연결 표)을 별도로 두었다(코디네이터 요청).
+- 설계서가 권장한 '장 간 연결 지도 SVG'는 15개 상자와 교차 화살표가 좁은 화면에서 읽히지 않아 표('장 사이의 연결')로 대체했다.
+-->
+    <nav class="pager"><a class="next" href="01-factory-method.html"><small>다음 · 1장 →</small>팩토리 메서드 (Factory Method)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

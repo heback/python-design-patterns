@@ -1,0 +1,42 @@
+[
+  {
+    "id": "macro-2",
+    "aliases_add": ["매크로 녹화", "\"매크로\"로 녹화"],
+    "aliases_remove": ["매크로"],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive. The bare '매크로' alias also matches the Lisp-macro term (id macro) in ch00's Norvig paragraph ('멀티메서드, 매크로 등'). Every mention of the Lisp macro contains '매크로', so this violation can't be fixed in the manuscript. The recording-macro sense first appears in ch12 (01_naive.py '매크로 녹화'; text '\"매크로\"로 녹화'). Note that 'macro-command' (매크로 커맨드) is a separate term defined in ch07."
+  },
+  {
+    "id": "sql-injection",
+    "aliases_add": ["SQL injection"],
+    "aliases_remove": ["injection"],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive caused by check_terms.py. The ASCII alias 'injection' matches inside the dfn marker id of 'dependency-injection' (the stream contains '\\x01dependency-injection\\x02', and '-' is not a word character). The bare 'injection' is also too generic as an alias. Recommended tool fix: blank out the DFN_OPEN…DFN_CLOSE marker text before alias search (or exclude marker spans), so that ids can't match aliases."
+  },
+  {
+    "id": "iterator",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "",
+    "drop": false,
+    "reason": "False positive caused by the same check_terms.py marker bug: the alias 'iterator' matches the dfn marker id 'iterator-protocol' in ch00. No alias in ch00's text actually refers to the iterator term ('__iter__' is not one of its aliases). The real first appearance stays in a later chapter once the tool ignores marker ids."
+  },
+  {
+    "id": "forces",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "",
+    "drop": false,
+    "reason": "No change needed for ch00 (defined at '힘(forces)'). Caution: the one-syllable Korean alias '힘' matches any occurrence by substring. Today every hit refers to design forces (e.g. 99 '서로 당기는 힘들'), but future prose like '힘들다' would produce false first appearances."
+  },
+  {
+    "id": "init-subclass",
+    "aliases_add": [],
+    "aliases_remove": [],
+    "short_new": "",
+    "drop": false,
+    "reason": "No registry change. Its first appearance is now ch00, inside the general hook definition the coordinator asked for (it names __init_subclass__ as an example). It is defined there in one clause: the method Python calls on the superclass when a subclass is defined. Chapter 01 must therefore NOT add another dfn for it, only use it."
+  }
+]

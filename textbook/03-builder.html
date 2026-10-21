@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3장 빌더 (Builder) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="생성 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">3장 · 빌더 (Builder)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">3장 · 생성 패턴</span><h1>빌더 (Builder)</h1><p class="subtitle">한 번에 만들기 어려운 객체를, 단계적으로 읽히게 조립하기</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ol>
+    <li>점층적 생성자(telescoping constructor)와 반쯤 만들어진 가변 객체가 만드는 문제를 진단하고, 단계적 조립과 최종 검증을 분리하는 빌더를 적용할 수 있다.</li>
+    <li>GoF 빌더(Director + Builder로 같은 절차에서 다른 표현 생성)와 유창한 인터페이스(fluent) 빌더가 이름만 같고 목적이 다르다는 점을 설명할 수 있다.</li>
+    <li>파이썬의 키워드 인자·<code>dataclass</code>·<code>dataclasses.replace</code>가 빌더 수요를 얼마나 줄이는지, 그럼에도 빌더가 필요한 조건(조건부 단계 조립, 교차 검증, 다중 표현)을 판단할 수 있다.</li>
+  </ol>
+</section>
+
+<section id="context">
+  <h2>1. 상황</h2>
+  <p>이커머스 회사 '장바구니랩'의 데이터 분석가 하은은 사내 <dfn class="term" id="term-business-intelligence" data-term="business-intelligence" title="비즈니스 인텔리전스 — 사내 데이터를 집계·시각화해 의사 결정을 돕는 분석 체계(대시보드 등).">BI</dfn>(비즈니스 인텔리전스: 사내 데이터를 집계·시각화해 의사 결정을 돕는 분석 체계) 대시보드의 첫 차트인 "기간별 매출"을 맡았다. 처음에는 f-string 한 줄로 <code>SELECT month, SUM(amount) FROM orders WHERE order_date &gt;= '...' <dfn class="term" id="term-group-by-having" data-term="group-by-having" title="GROUP BY는 행을 열 값별 그룹으로 묶어 집계(SUM 등)하는 기준이고, HAVING은 집계가 끝난 그룹에 거는 조건이다(WHERE는 집계 전 행에 거는 조건).">GROUP BY</dfn> month</code>를 만들면 충분했다. <code>GROUP BY</code>는 행을 열 값별로 묶어 <code>SUM</code> 같은 집계를 내는 기준이고, 뒤에 나올 <code>HAVING</code>은 집계가 끝난 그룹에 거는 조건이다(<code>WHERE</code>는 집계 전 행에 거는 조건). 이것을 <code>SalesQuery</code> 클래스로 감싸 두었다.</p>
+  <p>대시보드가 열 개, 스무 개로 늘었다. 영업팀은 지역 필터를, 상품기획팀은 카테고리 필터를, <dfn class="term" id="term-customer-relationship-management" data-term="customer-relationship-management" title="고객 관계 관리 — 고객 정보·등급·이력을 관리하는 업무(또는 그 팀·시스템).">CRM</dfn>(고객 관계 관리)팀은 회원 등급 필터를 원했다. 어떤 차트는 카테고리별로 묶어 매출 100만 원 초과만 보여 주고(<code>GROUP BY</code> + <code>HAVING</code>), 어떤 차트는 상위 10개만 정렬해 보여 준다. 하은은 요구가 들어올 때마다 생성자에 선택 인자를 하나씩 추가했고, 생성자는 매개변수 11개가 되었다. 호출부에는 <code>None, None, "month", None, "month", None</code> 같은 행렬이 늘어섰다.</p>
+  <p>사고가 연달아 났다. 기간 없이 지역만 거는 차트를 만들자 <code>WHERE AND region = ...</code>라는 문법 오류가 났다. 누군가 <code>group_by</code> 인자를 빠뜨려 <code>HAVING</code>만 붙은 쿼리가 운영 DB에서 에러를 냈다. 보안 점검에서는 대시보드 검색창에 따옴표를 넣으면 쿼리 조건이 바뀐다는 지적(<dfn class="term" id="term-structured-query-language" data-term="structured-query-language" title="관계형 데이터베이스에 질의하고 데이터를 다루는 표준 언어.">SQL</dfn> <dfn class="term" id="term-sql-injection" data-term="sql-injection" title="입력 값이 SQL 텍스트에 그대로 섞여 들어가 쿼리의 의미 자체가 바뀌는 보안 취약점.">주입</dfn>)을 받았다. SQL은 관계형 데이터베이스에 질의하는 표준 언어이고, SQL 주입은 입력 값이 SQL 텍스트에 그대로 섞여 들어가 쿼리의 의미 자체가 바뀌는 보안 취약점이다. 마지막으로 분석 팀장이 "차트마다 이 숫자가 무슨 조건으로 집계된 건지 한국어 요약을 같이 띄워 달라"고 요청했다. 하은은 <code>to_sql()</code>을 복사해 <code>to_summary()</code>를 만들었는데, 한 달 뒤 VIP 매출 차트의 요약에 "회원 등급" 조건이 빠져 있다는 문의가 왔다.</p>
+  <p>문제는 세 겹이다. (1) 객체를 <em>한 번의 생성자 호출로</em> 만들려니 선택 사항이 위치 인자로 폭발한다. (2) 부분들 사이의 제약을 검사할 시점이 없다. SQL 문법 자체는 <code>GROUP BY</code> 없는 <code>HAVING</code>을 허용하지만(전체를 한 그룹으로 본다), <dfn class="term" id="term-non-aggregated-column" data-term="non-aggregated-column" title="SELECT에서 SUM·COUNT 같은 집계식으로 감싸지 않은 열; GROUP BY가 있으면 그 열은 GROUP BY에도 있어야 한다.">비집계 열</dfn>(<code>SUM</code> 같은 집계식으로 감싸지 않은 열)이 섞이면 DB가 거부하고, 이 팀의 대시보드에서 <code>HAVING</code>만 단독으로 붙은 쿼리는 언제나 <code>group_by</code>를 빠뜨린 실수였다. 그래서 팀은 "<code>HAVING</code>을 쓰려면 <code>GROUP BY</code>도 있어야 한다"를 대시보드 규칙으로 정했다. (3) 같은 정의를 두 가지 표현(SQL, 요약)으로 내는 조립 절차가 복제된다.</p>
+</section>
+
+<section id="naive">
+  <h2>2. 순진한 설계와 그 한계</h2>
+  <p class="lead-in">하은의 <code>SalesQuery</code>다. 생성자 docstring이 말하는 <dfn class="term" id="term-telescoping-constructor" data-term="telescoping-constructor" title="선택 인자가 늘 때마다 생성자 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록(None 행렬)을 쓰게 되는 안티패턴.">점층적 생성자</dfn>(telescoping constructor)는 선택 인자가 늘 때마다 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록을 쓰게 되는 모양을 말한다. 생성자 시그니처와 데모 [1]의 호출부를 먼저 비교해 보라. 그다음 <code>to_sql()</code>이 <code>WHERE</code>와 <code>AND</code>를 붙이는 방식, 그리고 <code>to_summary()</code>가 <code>to_sql()</code>의 분기를 어떻게 따라 하다 하나를 놓쳤는지에 주목하라.</p>
+  <figure class="code"><figcaption>src/03_builder/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 매개변수 11개짜리 생성자와 문자열 이어 붙이기로 SQL을 만든다.
+
+상황: 이커머스 회사 &#x27;장바구니랩&#x27;의 데이터 분석가 하은은 사내 BI 대시보드의 &quot;기간별 매출&quot;
+차트용 SQL을 문자열 포매팅으로 만들었다. 대시보드가 늘면서 지역·카테고리·회원 등급 필터,
+GROUP BY·HAVING·ORDER BY·LIMIT 조합이 차트마다 달라졌고, 하은은 그때마다 생성자에
+선택 인자를 하나씩 추가했다. 이어서 &quot;같은 쿼리를 사람이 읽는 요약으로도 보여 달라&quot;는
+요청이 와서 to_summary()를 만들었다.
+
+읽을 때 주목할 점:
+- 호출부의 None 행렬: 어느 None이 어느 인자인지 위치로만 알 수 있다.
+- 조건부 문자열 이어 붙이기가 만드는 문법 오류(&quot;WHERE AND&quot;)와 팀 규칙상 실수인 조합(GROUP BY 없는 HAVING — 비집계 열이 섞이면 DB도 거부한다).
+- 값이 SQL 문자열에 직접 들어가는 주입(injection) 위험.
+- to_sql()과 to_summary()가 같은 분기 구조를 복제한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+
+class SalesQuery:
+    &quot;&quot;&quot;대시보드 매출 쿼리. 모든 선택 사항이 생성자 인자다.&quot;&quot;&quot;
+
+    def __init__(self, table: str, columns: str, start: str | None = None,
+                 end: str | None = None, region: str | None = None,
+                 category: str | None = None, grade: str | None = None,
+                 group_by: str | None = None, having: str | None = None,
+                 order_by: str | None = None, limit: int | None = None) -&gt; None:
+        &quot;&quot;&quot;⚠ 문제: 점층적 생성자(telescoping constructor). 선택 인자가 하나 늘 때마다
+        모든 호출부가 &#x27;위치&#x27;를 다시 맞춰야 하고, 인자 사이의 제약(HAVING은 GROUP BY가
+        있어야 의미가 있다)은 시그니처에 전혀 드러나지 않는다.
+        &quot;&quot;&quot;
+        self.table, self.columns = table, columns
+        self.start, self.end = start, end
+        self.region, self.category, self.grade = region, category, grade
+        self.group_by, self.having = group_by, having
+        self.order_by, self.limit = order_by, limit
+
+    def to_sql(self) -&gt; str:
+        &quot;&quot;&quot;SQL 문자열을 만든다.&quot;&quot;&quot;
+        sql = f&quot;SELECT {self.columns} FROM {self.table}&quot;
+        if self.start or self.end or self.region or self.category or self.grade:
+            sql += &quot; WHERE&quot;
+        # ⚠ 문제: 첫 조건만 AND 없이 붙는다고 &#x27;가정&#x27;했다. start가 없으면 &quot;WHERE AND&quot;가 된다.
+        if self.start:
+            sql += f&quot; order_date &gt;= &#x27;{self.start}&#x27;&quot;
+        if self.end:
+            sql += f&quot; AND order_date &lt; &#x27;{self.end}&#x27;&quot;
+        # ⚠ 문제: 값을 문자열에 그대로 끼워 넣는다 → SQL 주입. 따옴표가 든 값이면 쿼리가 바뀐다.
+        if self.region:
+            sql += f&quot; AND region = &#x27;{self.region}&#x27;&quot;
+        if self.category:
+            sql += f&quot; AND category = &#x27;{self.category}&#x27;&quot;
+        if self.grade:
+            sql += f&quot; AND member_grade = &#x27;{self.grade}&#x27;&quot;
+        if self.group_by:
+            sql += f&quot; GROUP BY {self.group_by}&quot;
+        # ⚠ 문제: GROUP BY 없이도 HAVING이 붙는다. SQL 문법상 허용되지만(전체를 한 그룹으로 봄)
+        #   SELECT에 비집계 열(category)이 있으면 DB가 거부한다. 이런 조합을 미리 막을 시점이 없다.
+        if self.having:
+            sql += f&quot; HAVING {self.having}&quot;
+        if self.order_by:
+            sql += f&quot; ORDER BY {self.order_by}&quot;
+        if self.limit:
+            sql += f&quot; LIMIT {self.limit}&quot;
+        return sql
+
+    def to_summary(self) -&gt; str:
+        &quot;&quot;&quot;사람이 읽는 요약. ⚠ 문제: to_sql()의 분기를 거의 그대로 복제했다.
+        새 필터를 추가하면 두 메서드를 모두 고쳐야 하고, 한쪽을 잊으면 둘이 어긋난다.
+        &quot;&quot;&quot;
+        parts = [f&quot;{self.table}에서 {self.columns}&quot;]
+        if self.start or self.end:
+            parts.append(f&quot;기간 {self.start or &#x27;처음&#x27;}~{self.end or &#x27;현재&#x27;}&quot;)
+        if self.region:
+            parts.append(f&quot;지역={self.region}&quot;)
+        if self.category:
+            parts.append(f&quot;카테고리={self.category}&quot;)
+        # (grade 요약을 깜빡했다 — 바로 위 docstring이 말한 어긋남이 실제로 일어났다)
+        if self.group_by:
+            parts.append(f&quot;{self.group_by}별 집계&quot;)
+        return &quot;, &quot;.join(parts)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 정상 경로: 기간 + 지역 필터, 월별 집계&quot;)
+    q = SalesQuery(&quot;orders&quot;, &quot;month, SUM(amount)&quot;, &quot;2026-01-01&quot;, &quot;2026-07-01&quot;, &quot;서울&quot;,
+                   None, None, &quot;month&quot;, None, &quot;month&quot;, None)  # ← None 하나하나가 무엇인지?
+    print(&quot;  &quot;, q.to_sql())
+
+    print(&quot;\n[2] 기간 없이 지역만 걸면&quot;)
+    print(&quot;  &quot;, SalesQuery(&quot;orders&quot;, &quot;*&quot;, region=&quot;부산&quot;).to_sql())
+
+    print(&quot;\n[3] GROUP BY 없이 HAVING (오타로 group_by 인자를 빠뜨림)&quot;)
+    print(&quot;  &quot;, SalesQuery(&quot;orders&quot;, &quot;category, SUM(amount)&quot;, having=&quot;SUM(amount) &gt; 1000000&quot;).to_sql())
+
+    print(&quot;\n[4] 대시보드 검색창에 누군가 따옴표를 입력하면&quot;)
+    # start를 넣어 [2]의 &#x27;WHERE AND&#x27; 버그를 피했다 — 그래야 문법상 &#x27;유효한&#x27; 주입 쿼리가 보인다.
+    # OR이 AND보다 우선순위가 낮으므로 기간 조건까지 무력화되어 전체 주문이 조회된다.
+    print(&quot;  &quot;, SalesQuery(&quot;orders&quot;, &quot;*&quot;, start=&quot;2026-01-01&quot;, region=&quot;서울&#x27; OR &#x27;1&#x27;=&#x27;1&quot;).to_sql())
+
+    print(&quot;\n[5] 같은 쿼리의 요약 — 회원 등급 필터가 사라졌다&quot;)
+    vip = SalesQuery(&quot;orders&quot;, &quot;SUM(amount)&quot;, start=&quot;2026-01-01&quot;, region=&quot;서울&quot;, grade=&quot;VIP&quot;)
+    print(&quot;   SQL :&quot;, vip.to_sql())
+    print(&quot;   요약:&quot;, vip.to_summary())</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[2]의 <code>WHERE AND</code>는 사소한 버그처럼 보이지만 구조적 원인이 있다. 문자열을 순서대로 이어 붙이면 "지금이 첫 조건인가"라는 숨은 상태를 코드 전체가 공유하게 되는데, 그 상태를 아무도 관리하지 않는다. [3]의 쿼리는 <code>category</code>가 <code>GROUP BY</code>에 없으므로 <dfn class="term" id="term-postgresql" data-term="postgresql" title="널리 쓰이는 오픈 소스 관계형 데이터베이스.">PostgreSQL</dfn>(널리 쓰이는 오픈 소스 관계형 데이터베이스)이 거부한다. 문제는 그 거부가 <em>운영 DB에 보낸 뒤에야</em> 일어난다는 점이다. 객체를 만드는 시점에 검사할 자리가 없다. [4]는 값이 SQL 텍스트에 섞여 들어가는 순간 피할 수 없는 결과다. 이 쿼리는 문법상 유효하고, <code>OR</code>가 <code>AND</code>보다 우선순위가 낮아 기간 조건까지 무력화되므로 전체 주문이 조회된다.</p>
+  <p>[5]가 가장 교훈적이다. <code>to_sql()</code>과 <code>to_summary()</code>는 "어떤 부분이 있으면 무엇을 덧붙인다"는 <em>조립 절차</em>를 각자 들고 있다. 절차가 둘이니 언젠가 어긋난다. 필요한 것은 절차를 한 곳에 두고 "각 부분을 어떻게 표현하는가"만 바꾸는 구조다. 이것이 GoF가 빌더라고 부른 것이다.</p>
+  <div class="callout warn">
+    <span class="label">파이썬에서는 점층적 생성자 문제가 덜하지 않은가?</span>
+    맞다. 하은이 키워드 인자로 호출하기만 했어도 [1]의 None 행렬은 사라진다. 그러나 [2]~[5]는 키워드 인자로 해결되지 않는다. 이 장은 "파이썬이 해결해 주는 부분"과 "여전히 빌더가 필요한 부분"을 구분하는 데 시간을 쓴다(5절).
+  </div>
+</section>
+
+<section id="structure">
+  <h2>3. 패턴의 구조</h2>
+  <p>GoF의 의도는 이렇다. "복잡한 객체의 생성 과정과 표현 방법을 분리하여, 동일한 생성 절차에서 서로 다른 표현 결과를 만들 수 있게 한다." 원전의 예제는 <dfn class="term" id="term-rich-text-format" data-term="rich-text-format" title="서식 정보를 담는 문서 교환용 텍스트 형식.">RTF</dfn>(서식 정보를 담는 문서 교환용 텍스트 형식) 문서를 읽는 하나의 파서(Director)가 ASCII 변환기, TeX 변환기, 텍스트 위젯 변환기(Builder) 중 무엇을 받느냐에 따라 다른 결과를 만드는 구조다. 핵심 단어는 <em>같은 절차</em>와 <em>다른 표현</em>이다.</p>
+  <p>그런데 오늘날 "빌더"라고 하면 대부분 <code>Builder().a(1).b(2).build()</code> 같은 <dfn class="term" id="term-fluent-interface" data-term="fluent-interface" title="메서드가 자신(self)을 돌려주어 `b.select(...).where(...).build()`처럼 호출을 한 문장으로 이어 쓰게 만든 API 스타일; 빌더에서 선택 사항이 많은 객체를 읽히게 조립하는 데 흔히 쓴다.">유창한 인터페이스</dfn>를 떠올린다. 메서드가 자기 자신을 돌려주어 호출을 점(<code>.</code>)으로 한 문장에 이어 쓰게 만든 API 설계 방식이다. 아래 그림 3-2의 반환 타입 <code><dfn class="term" id="term-typing-self" data-term="typing-self" title="&#x27;이 메서드가 호출된 객체의 실제 클래스&#x27;를 뜻하는 반환 타입 힌트(3.11+); 하위 클래스에서 체이닝해도 타입이 유지된다.">Self</dfn></code>(<code>typing.Self</code>)는 "이 메서드가 불린 객체의 실제 클래스"를 뜻하는 타입 힌트로, 하위 클래스에서 이어 불러도 타입이 유지된다. 이것은 Joshua Bloch가 <em>Effective Java</em>에서 점층적 생성자의 대안으로 대중화한 것으로, Director도 없고 다중 표현도 없다. 목적은 "선택 사항이 많은 불변 객체 하나를 읽히게, 검증된 상태로 만들기"다. 이름은 같지만 해결하는 문제가 다르다. 이 장은 둘을 모두 다룬다.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 640 360" role="img" aria-label="GoF 빌더 구조: QueryDirector와 두 렌더러"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">[Director]</text>
+      <g class="uml-class" transform="translate(20,30)">
+        <rect width="210" height="60"/>
+        <text class="uml-name" x="105" y="22">QueryDirector</text>
+        <line x1="0" y1="32" x2="210" y2="32"/>
+        <text class="uml-member" x="10" y="50">+ construct(query, renderer)</text>
+      </g>
+      <text class="uml-note" x="300" y="22">[Builder]</text>
+      <g class="uml-class" transform="translate(300,30)">
+        <rect width="240" height="110"/>
+        <text class="uml-name uml-abstract" x="120" y="22">QueryRenderer</text>
+        <line x1="0" y1="32" x2="240" y2="32"/>
+        <text class="uml-member uml-abstract" x="10" y="52">+ add_source(table, select)</text>
+        <text class="uml-member uml-abstract" x="10" y="70">+ add_filters(conds)</text>
+        <text class="uml-member uml-abstract" x="10" y="88">+ add_grouping(group_by, having)</text>
+        <text class="uml-member uml-abstract" x="10" y="104">+ add_limit(n)</text>
+      </g>
+      <path class="uml-dep" d="M230 60 H300" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="238" y="52">단계 호출</text>
+
+      <text class="uml-note" x="20" y="232">[Concrete Builder]</text>
+      <g class="uml-class highlight" transform="translate(200,210)">
+        <rect width="190" height="56"/>
+        <text class="uml-name" x="95" y="22">PostgresRenderer</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ result(): SqlStatement</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(410,210)">
+        <rect width="190" height="56"/>
+        <text class="uml-name" x="95" y="22">SummaryRenderer</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="8" y="48">+ result(): str</text>
+      </g>
+      <path class="uml-inherit" d="M295 210 V175 H420 V140" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M505 210 V175 H420 V140" marker-end="url(#triangle)"/>
+
+      <text class="uml-note" x="20" y="322">[Product]</text>
+      <g class="uml-class" transform="translate(200,300)">
+        <rect width="190" height="40"/>
+        <text class="uml-name" x="95" y="25">SqlStatement</text>
+      </g>
+      <g class="uml-class" transform="translate(410,300)">
+        <rect width="190" height="40"/>
+        <text class="uml-name" x="95" y="25">str (요약 문장)</text>
+      </g>
+      <path class="uml-dep" d="M295 266 V300" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M505 266 V300" marker-end="url(#arrow)"/>
+    </svg>
+    <figcaption>그림 3-1. GoF 빌더. 두 제품은 공통 부모 타입이 없으므로 result()는 추상 인터페이스에 두지 않는다.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+    <tbody>
+      <tr><td>감독(Director)</td><td><code>QueryDirector</code></td><td>조립 절차를 소유한다. 어떤 단계를, 어떤 순서로, 언제 생략할지.</td></tr>
+      <tr><td>빌더(Builder)</td><td><code>QueryRenderer</code></td><td>단계별 조립 인터페이스. 순서는 모른다.</td></tr>
+      <tr><td>구체 빌더(Concrete Builder)</td><td><code>PostgresRenderer</code>, <code>SummaryRenderer</code></td><td>각 단계를 자기 표현으로 쌓고, 완성품을 <code>result()</code>로 내준다.</td></tr>
+      <tr><td>제품(Product)</td><td><code>SqlStatement</code>, 요약 <code>str</code></td><td>서로 무관한 타입이어도 된다.</td></tr>
+    </tbody>
+  </table></div>
+  <figure class="diagram">
+    <svg viewBox="0 0 600 150" role="img" aria-label="유창한 빌더 구조: QueryBuilder와 Query"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="16">[Builder] 가변</text>
+      <g class="uml-class highlight" transform="translate(20,22)">
+        <rect width="230" height="120"/>
+        <text class="uml-name" x="115" y="22">QueryBuilder</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="52">+ select(*exprs): Self</text>
+        <text class="uml-member" x="10" y="70">+ where(expr, op, value): Self</text>
+        <text class="uml-member" x="10" y="88">+ group_by(...), having(...): Self</text>
+        <text class="uml-member" x="10" y="108">+ build(): Query</text>
+      </g>
+      <text class="uml-note" x="350" y="16">[Product] frozen dataclass</text>
+      <g class="uml-class" transform="translate(350,22)">
+        <rect width="220" height="80"/>
+        <text class="uml-name" x="110" y="22">Query</text>
+        <line x1="0" y1="32" x2="220" y2="32"/>
+        <text class="uml-member" x="10" y="52">table, select, where, ...</text>
+        <text class="uml-member" x="10" y="70">+ to_sql(): (text, params)</text>
+      </g>
+      <path class="uml-dep" d="M250 82 H350" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="262" y="74">build()가 생성</text>
+    </svg>
+    <figcaption>그림 3-2. 유창한 빌더. 조립 중의 불완전한 상태는 빌더에만 있고, 제품은 검증된 불변 값으로만 존재한다.</figcaption>
+  </figure>
+</section>
+
+<section id="implementation">
+  <h2>4. 패턴 적용</h2>
+  <h3>4.1 유창한 빌더: 조립과 완성을 분리한다</h3>
+  <p class="lead-in">먼저 현업에서 더 흔한 유창한 빌더로 [1]~[4]의 문제를 푼다. 읽을 때 세 가지를 확인하라. 가변 상태(<code>_where</code> 등의 리스트)는 어디에만 있는가? <dfn class="term" id="term-cross-field-validation" data-term="cross-field-validation" title="필드 하나가 아니라 여러 필드의 조합에 걸린 제약(예: HAVING이 있으면 GROUP BY도 있어야 함)을 검사하는 것.">교차 검증</dfn>은 각 단계가 아니라 왜 <code>build()</code>에 모여 있는가(docstring에 이유가 있다)? <code>to_sql()</code>에서 값은 어디로 가는가? 교차 검증이란 필드 하나가 아니라 여러 필드의 조합에 걸린 제약(예: HAVING을 쓰려면 GROUP BY도 있어야 한다는 팀 규칙)을 검사하는 것이다.</p>
+  <div class="callout">
+    <span class="label">용어</span>
+    코드에 처음 나오는 말들이다. <dfn class="term" id="term-method-chaining" data-term="method-chaining" title="메서드가 객체 자신을 돌려주게 하여 여러 호출을 점(.)으로 이어 붙이는 기법.">체이닝</dfn>(메서드 체이닝)은 메서드가 객체 자신을 돌려주게 해 여러 호출을 점으로 이어 붙이는 기법이다. <dfn class="term" id="term-parameter-binding" data-term="parameter-binding" title="SQL 텍스트에는 `%s` 같은 자리표시자만 두고 값은 별도로 넘겨 DB 드라이버가 안전하게 결합하게 하는 방식; 식별자는 바인딩할 수 없다.">매개변수 바인딩</dfn>은 SQL 텍스트에는 <code>%s</code> 같은 자리표시자만 두고 값은 따로 넘겨, 데이터베이스와 통신하는 라이브러리인 <dfn class="term" id="term-database-driver" data-term="database-driver" title="애플리케이션과 특정 데이터베이스 사이의 통신을 맡는 라이브러리(`cursor.execute(sql, params)` 등을 제공).">DB 드라이버</dfn>가 안전하게 결합하게 하는 방식이다(테이블·열 이름 같은 식별자는 바인딩할 수 없다). 그래서 식별자는 <dfn class="term" id="term-allowlist" data-term="allowlist" title="허용할 값·패턴을 명시해 그 밖의 것은 모두 거부하는 검사 방식.">화이트리스트</dfn>, 곧 허용할 패턴을 명시하고 그 밖은 모두 거부하는 검사로 막는다. <code><dfn class="term" id="term-frozenset" data-term="frozenset" title="생성 후 바꿀 수 없는 집합 타입(해시 가능).">frozenset</dfn></code>은 생성 후 바꿀 수 없는 집합이다. docstring의 "<dfn class="term" id="term-hashable" data-term="hashable" title="수명 동안 해시값이 변하지 않아 dict 키·set 원소가 될 수 있는 성질. frozen dataclass는 해시 가능하다.">해시</dfn> 가능"은 수명 동안 해시값이 변하지 않아 딕셔너리 키나 집합 원소가 될 수 있다는 뜻이다. 줄 끝의 <code><dfn class="term" id="term-type-ignore-comment" data-term="type-ignore-comment" title="그 줄에 대해 정적 타입 검사기의 경고를 끄는 주석 지시문(대괄호 안에 무시할 오류 코드를 적을 수 있다)."># type: ignore</dfn>[arg-type]</code>는 그 줄에 대해 정적 타입 검사기의 특정 경고(대괄호 안의 오류 코드)를 끄는 주석 지시문이다.
+  </div>
+  <figure class="code"><figcaption>src/03_builder/02_builder.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;유창한(fluent) 빌더: 단계적으로 조립하고, build()에서 한 번에 검증해 불변 Query를 낸다.
+
+상황: 01_naive.py의 SalesQuery는 (1) None 투성이 점층적 생성자, (2) &quot;WHERE AND&quot; 같은
+문자열 조립 오류, (3) GROUP BY 없는 HAVING 같은 팀 규칙 위반 조합, (4) 값 직접 삽입에 의한
+SQL 주입 위험을 안고 있었다. 하은의 팀은 쿼리를 &#x27;조립하는 객체(QueryBuilder)&#x27;와
+&#x27;완성된 쿼리(Query)&#x27;를 분리하기로 했다.
+
+설계 결정 요약:
+- Query는 frozen dataclass: 완성·검증된 상태로만 존재한다(반쯤 만들어진 Query는 없다).
+- QueryBuilder는 가변: 조립 도중의 불완전한 상태는 빌더 안에만 머문다.
+- 교차 검증(HAVING ⇒ GROUP BY 등)은 각 단계가 아니라 build()에서 한다 — 단계 호출 순서가
+  자유로워야 대시보드 코드가 조건부로 단계를 붙일 수 있기 때문이다.
+- 값은 SQL 문자열에 넣지 않고 params로 분리한다(매개변수 바인딩).
+
+역할 대응: [Builder] QueryBuilder, [Product] Query. GoF의 Director와 &#x27;여러 표현&#x27;은
+03_director.py에서 다룬다 — 이 파일은 현업에서 더 흔한 유창한 빌더 형태다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from typing import Self
+
+# 식별자(테이블·열 이름)는 매개변수로 바인딩할 수 없으므로 화이트리스트 정규식으로 막는다.
+_IDENT = re.compile(r&quot;^[a-z_][a-z0-9_]*$&quot;)
+_AGG = re.compile(r&quot;^(SUM|COUNT|AVG|MIN|MAX)\(([a-z_][a-z0-9_]*|\*)\)$&quot;)
+_OPS = frozenset({&quot;=&quot;, &quot;&lt;&gt;&quot;, &quot;&lt;&quot;, &quot;&lt;=&quot;, &quot;&gt;&quot;, &quot;&gt;=&quot;, &quot;IN&quot;})
+
+
+def _check_expr(expr: str) -&gt; str:
+    &quot;&quot;&quot;열 이름이나 집계식만 허용한다. 주입은 값뿐 아니라 식별자로도 들어오기 때문이다.&quot;&quot;&quot;
+    if not (_IDENT.match(expr) or _AGG.match(expr)):
+        raise ValueError(f&quot;허용되지 않는 식별자/식: {expr!r}&quot;)
+    return expr
+
+
+@dataclass(frozen=True)
+class Condition:
+    &quot;&quot;&quot;WHERE/HAVING 조건 하나. 값(value)은 SQL 텍스트가 아니라 바인딩될 데이터다.&quot;&quot;&quot;
+
+    expr: str
+    op: str
+    value: object
+
+
+@dataclass(frozen=True)
+class Query:
+    &quot;&quot;&quot;[Product] 완성된 쿼리 정의. 표현(SQL, 요약)과 무관한 &#x27;무엇을 질의하는가&#x27;만 담는다.
+
+    frozen=True + 컬렉션 필드는 전부 tuple: 빌더가 build() 후에도 계속 수정되더라도 이미 만든
+    Query는 변하지 않는다. 대시보드 캐시의 키로도 쓸 수 있다(해시 가능).
+    &quot;&quot;&quot;
+
+    table: str
+    select: tuple[str, ...]
+    where: tuple[Condition, ...] = ()
+    group_by: tuple[str, ...] = ()
+    having: tuple[Condition, ...] = ()
+    order_by: tuple[tuple[str, bool], ...] = ()  # (식, 내림차순 여부)
+    limit: int | None = None
+
+    def to_sql(self) -&gt; tuple[str, list[object]]:
+        &quot;&quot;&quot;PostgreSQL용 (SQL 텍스트, 매개변수 목록)을 돌려준다.
+
+        &quot;WHERE AND&quot; 버그가 사라진 이유: 조건을 리스트로 모은 뒤 &quot; AND &quot;.join()으로
+        한 번에 잇는다. &#x27;첫 조건인가&#x27;를 판단하는 상태 자체가 없다.
+        &quot;&quot;&quot;
+        params: list[object] = []
+
+        def render(conds: tuple[Condition, ...]) -&gt; str:
+            &quot;&quot;&quot;조건들을 자리표시자(%s)로 렌더링하고 값은 params에 쌓는다.&quot;&quot;&quot;
+            parts = []
+            for c in conds:
+                if c.op == &quot;IN&quot;:
+                    # IN은 값 개수만큼 자리표시자를 만든다. 리스트를 문자열로 펼쳐 넣으면 주입이 되살아난다.
+                    parts.append(f&quot;{c.expr} IN ({&#x27;, &#x27;.join([&#x27;%s&#x27;] * len(c.value))})&quot;)  # type: ignore[arg-type]
+                    params.extend(c.value)  # type: ignore[arg-type]
+                else:
+                    parts.append(f&quot;{c.expr} {c.op} %s&quot;)
+                    params.append(c.value)
+            return &quot; AND &quot;.join(parts)
+
+        # 절을 리스트에 모아 마지막에 공백으로 잇는다. 절 순서는 SQL 문법이 정한 고정 순서다.
+        # 식별자는 빌더 단계에서 화이트리스트를 통과한 것만 여기 도달하므로 텍스트로 넣어도 된다.
+        sql = [f&quot;SELECT {&#x27;, &#x27;.join(self.select)} FROM {self.table}&quot;]
+        if self.where:
+            sql.append(&quot;WHERE &quot; + render(self.where))
+        if self.group_by:
+            sql.append(&quot;GROUP BY &quot; + &quot;, &quot;.join(self.group_by))
+        if self.having:
+            # WHERE와 같은 render()를 쓰므로 params 순서가 SQL 속 자리표시자 순서와 일치한다.
+            sql.append(&quot;HAVING &quot; + render(self.having))
+        if self.order_by:
+            sql.append(&quot;ORDER BY &quot; + &quot;, &quot;.join(f&quot;{e}{&#x27; DESC&#x27; if d else &#x27;&#x27;}&quot; for e, d in self.order_by))
+        if self.limit is not None:
+            sql.append(f&quot;LIMIT {self.limit}&quot;)  # limit()가 양의 int만 통과시키므로 텍스트에 넣어도 안전하다
+        return &quot; &quot;.join(sql), params
+
+
+class QueryBuilder:
+    &quot;&quot;&quot;[Builder] Query를 단계적으로 조립한다. 각 단계는 self를 돌려줘 체이닝된다.
+
+    반환 타입이 Self(3.11+)인 이유: 하위 클래스(예: 특정 대시보드 전용 빌더)에서 체이닝해도
+    타입 검사기가 하위 클래스 메서드를 계속 인식하게 하려는 것이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, table: str) -&gt; None:
+        &quot;&quot;&quot;필수 값(테이블)만 생성자에서 받는다. 선택 사항은 전부 이름 붙은 단계가 된다.&quot;&quot;&quot;
+        self._table = _check_expr(table)
+        # 조립 중 상태는 모두 가변 리스트다. 이 가변성이 빌더 밖으로 새지 않게 build()가 tuple로 복사한다.
+        self._select: list[str] = []
+        self._where: list[Condition] = []
+        self._group_by: list[str] = []
+        self._having: list[Condition] = []
+        self._order_by: list[tuple[str, bool]] = []
+        self._limit: int | None = None
+
+    def select(self, *exprs: str) -&gt; Self:
+        &quot;&quot;&quot;조회할 열·집계식을 더한다. 여러 번 불러도 누적된다.&quot;&quot;&quot;
+        self._select.extend(_check_expr(e) for e in exprs)
+        return self
+
+    def where(self, expr: str, op: str, value: object) -&gt; Self:
+        &quot;&quot;&quot;WHERE 조건을 더한다. 연산자도 화이트리스트로 검사한다(연산자 자리 주입 방지).&quot;&quot;&quot;
+        if op not in _OPS:
+            raise ValueError(f&quot;허용되지 않는 연산자: {op!r}&quot;)
+        if op == &quot;IN&quot;:
+            value = tuple(value)  # type: ignore[arg-type]  # list는 해시 불가 → Query가 해시 가능하도록 tuple로
+        self._where.append(Condition(_check_expr(expr), op, value))
+        return self
+
+    def group_by(self, *exprs: str) -&gt; Self:
+        &quot;&quot;&quot;집계 기준 열을 더한다.&quot;&quot;&quot;
+        self._group_by.extend(_check_expr(e) for e in exprs)
+        return self
+
+    def having(self, expr: str, op: str, value: object) -&gt; Self:
+        &quot;&quot;&quot;HAVING 조건을 더한다. GROUP BY와의 관계는 여기서 검사하지 않는다(아래 build() 참고).&quot;&quot;&quot;
+        if op not in _OPS:
+            raise ValueError(f&quot;허용되지 않는 연산자: {op!r}&quot;)
+        self._having.append(Condition(_check_expr(expr), op, value))
+        return self
+
+    def order_by(self, expr: str, *, desc: bool = False) -&gt; Self:
+        &quot;&quot;&quot;정렬 기준을 더한다. desc는 키워드 전용 — order_by(&quot;x&quot;, True)의 True가 무엇인지 모호하므로.&quot;&quot;&quot;
+        self._order_by.append((_check_expr(expr), desc))
+        return self
+
+    def limit(self, n: int) -&gt; Self:
+        &quot;&quot;&quot;행 수 제한. 개별 값 검사는 즉시 한다(다른 단계와 무관한 제약이므로).&quot;&quot;&quot;
+        # bool은 int의 하위 클래스라 따로 거른다(limit(True)가 LIMIT True가 되지 않게).
+        if not isinstance(n, int) or isinstance(n, bool) or n &lt;= 0:
+            raise ValueError(&quot;LIMIT은 양의 정수여야 한다&quot;)
+        self._limit = n
+        return self
+
+    def build(self) -&gt; Query:
+        &quot;&quot;&quot;교차 검증 후 불변 Query를 만든다.
+
+        단계별로 검사하지 않고 여기서 모아 검사하는 이유: having()이 group_by()보다 먼저
+        호출되는 것도 정당한 조립 순서다. &#x27;조립 순서는 자유, 완성 조건은 엄격&#x27;이 빌더의 계약이다.
+        &quot;&quot;&quot;
+        if not self._select:
+            raise ValueError(&quot;SELECT할 열이 없다&quot;)
+        if self._having and not self._group_by:
+            # SQL 문법은 GROUP BY 없는 HAVING을 허용하지만, 이 팀에서 그것은 언제나 group_by()를
+            # 빠뜨린 실수였다. 그래서 문법보다 엄격한 &#x27;대시보드 규칙&#x27;으로 막는다.
+            raise ValueError(&quot;HAVING은 GROUP BY와 함께 써야 한다(대시보드 규칙)&quot;)
+        if self._group_by:
+            # 집계식이 아닌 SELECT 열은 모두 GROUP BY에 있어야 한다(PostgreSQL 규칙).
+            loose = [e for e in self._select if not _AGG.match(e) and e not in self._group_by]
+            if loose:
+                raise ValueError(f&quot;GROUP BY에 없는 비집계 열: {loose}&quot;)
+        # list → tuple 복사: 빌더를 계속 쓰더라도 이 Query는 영향받지 않는다.
+        return Query(self._table, tuple(self._select), tuple(self._where), tuple(self._group_by),
+                     tuple(self._having), tuple(self._order_by), self._limit)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 월별 서울 매출 — 각 단계가 이름을 가지므로 None 행렬이 없다&quot;)
+    monthly = (QueryBuilder(&quot;orders&quot;)
+               .select(&quot;month&quot;, &quot;SUM(amount)&quot;)
+               .where(&quot;order_date&quot;, &quot;&gt;=&quot;, &quot;2026-01-01&quot;)
+               .where(&quot;order_date&quot;, &quot;&lt;&quot;, &quot;2026-07-01&quot;)
+               .where(&quot;region&quot;, &quot;=&quot;, &quot;서울&quot;)
+               .group_by(&quot;month&quot;)
+               .order_by(&quot;month&quot;)
+               .build())
+    # 결과는 (텍스트, 값) 쌍이다. 실제로는 cursor.execute(sql, params)로 드라이버에 넘긴다.
+    sql, params = monthly.to_sql()
+    print(&quot;  SQL   :&quot;, sql)
+    print(&quot;  params:&quot;, params)
+
+    print(&quot;\n[2] 기간 없이 지역만 — &#x27;WHERE AND&#x27;가 생길 수 없는 구조&quot;)
+    print(&quot;  &quot;, QueryBuilder(&quot;orders&quot;).select(&quot;order_id&quot;).where(&quot;region&quot;, &quot;=&quot;, &quot;부산&quot;).build().to_sql())
+
+    print(&quot;\n[3] 대시보드 UI 토글에 따라 단계를 조건부로 붙인다 (빌더가 빛나는 지점)&quot;)
+    # 실제 대시보드라면 요청 파라미터에서 온다. None은 &#x27;사용자가 이 필터를 고르지 않음&#x27;.
+    ui_filters = {&quot;category&quot;: &quot;가전&quot;, &quot;member_grade&quot;: None, &quot;region&quot;: [&quot;서울&quot;, &quot;경기&quot;]}
+    b = QueryBuilder(&quot;orders&quot;).select(&quot;category&quot;, &quot;SUM(amount)&quot;).group_by(&quot;category&quot;)
+    for column, chosen in ui_filters.items():
+        if chosen is None:
+            continue  # 선택하지 않은 필터는 단계 자체를 건너뛴다
+        # 여러 값을 고르면 IN, 하나면 =. 이런 분기가 호출부에 자연스럽게 섞일 수 있는 것이 빌더의 장점이다.
+        b.where(column, &quot;IN&quot; if isinstance(chosen, list) else &quot;=&quot;, chosen)
+    b.having(&quot;SUM(amount)&quot;, &quot;&gt;&quot;, 1_000_000).order_by(&quot;SUM(amount)&quot;, desc=True).limit(10)
+    print(&quot;  &quot;, b.build().to_sql())
+
+    print(&quot;\n[4] 잘못된 조합은 build()에서 막힌다&quot;)
+    # 람다로 감싼 이유: 실패가 build() 호출 시점에 일어난다는 것을 각 경우마다 따로 보여 주기 위해.
+    for label, make in [
+        (&quot;GROUP BY 없는 HAVING&quot;, lambda: QueryBuilder(&quot;orders&quot;).select(&quot;category&quot;, &quot;SUM(amount)&quot;)
+            .having(&quot;SUM(amount)&quot;, &quot;&gt;&quot;, 1).build()),
+        (&quot;비집계 열 누락&quot;, lambda: QueryBuilder(&quot;orders&quot;).select(&quot;region&quot;, &quot;SUM(amount)&quot;)
+            .group_by(&quot;month&quot;).build()),
+    ]:
+        try:
+            make()
+        except ValueError as e:
+            print(f&quot;  {label}: ValueError — {e}&quot;)
+
+    print(&quot;\n[5] Query는 불변·해시 가능 → 대시보드 결과 캐시의 키로 쓸 수 있다&quot;)
+    top10 = b.build()
+    cache = {top10: &quot;어제 계산한 결과&quot;}
+    b.limit(20)  # 같은 빌더를 계속 바꿔도 이미 만든 Query(top10)는 그대로다
+    print(f&quot;  빌더 수정 후에도 top10.limit = {top10.limit}, 새 build().limit = {b.build().limit}&quot;)
+    print(f&quot;  limit을 10으로 되돌려 다시 build하면 값이 같은 Query → 같은 키: {cache.get(b.limit(10).build(), &#x27;캐시 없음&#x27;)}&quot;)
+
+    print(&quot;\n[6] 주입 시도는 값이면 바인딩되고, 식별자면 거부된다&quot;)
+    sql, params = QueryBuilder(&quot;orders&quot;).select(&quot;order_id&quot;).where(&quot;region&quot;, &quot;=&quot;, &quot;서울&#x27; OR &#x27;1&#x27;=&#x27;1&quot;).build().to_sql()
+    print(f&quot;  값 자리: {sql}  params={params}&quot;)
+    try:
+        # 식별자는 바인딩할 수 없으므로(DB 드라이버는 값만 바인딩한다) 단계 호출 즉시 거부한다.
+        QueryBuilder(&quot;orders&quot;).select(&quot;order_id; DROP TABLE orders&quot;)
+    except ValueError as e:
+        print(f&quot;  식별자 자리: ValueError — {e}&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_builder.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]의 호출부는 그 자체로 쿼리를 설명한다. 단계마다 이름이 있으니 None 행렬이 생길 수 없다. [2]에서 <code>WHERE AND</code>가 사라진 이유는 영리한 분기 때문이 아니라 조건을 리스트에 모은 뒤 <code>" AND ".join()</code>으로 <em>한 번에</em> 렌더링하기 때문이다. "첫 조건인가"라는 숨은 상태 자체가 없어졌다.</p>
+  <p>[3]이 빌더가 정말 값을 하는 장면이다. UI 토글에 따라 단계를 붙이거나 건너뛰는 코드가 반복문과 조건문 사이에 자연스럽게 섞인다. 조립 순서는 자유롭다. <code>having()</code>을 <code>group_by()</code>보다 먼저 불러도 된다. 대신 완성 조건은 엄격하다. [4]처럼 <code>build()</code>가 교차 제약을 한 번에 검사하고, 통과하지 못하면 <code>Query</code>는 아예 존재하지 않는다. "조립 중에는 관대하게, 완성 시에는 엄격하게"가 빌더의 계약이다.</p>
+  <p>[5]는 <code>Query</code>가 <code>frozen=True</code>이고 컬렉션 필드가 전부 튜플이라 얻는 이득이다. 빌더를 계속 바꿔도 이미 만든 <code>Query</code>는 영향받지 않고, 해시 가능하므로 대시보드 결과 캐시의 키로 쓸 수 있다. [6]은 주입 방어가 두 겹이라는 것을 보여준다. 값은 <code>%s</code> 자리표시자와 <code>params</code>로 분리해 DB 드라이버가 바인딩하게 하고, 매개변수로 바인딩할 수 없는 식별자(테이블·열 이름)와 연산자는 화이트리스트로 검사한다.</p>
+
+  <h3>4.2 GoF 빌더: 같은 절차, 다른 표현</h3>
+  <p class="lead-in">이제 [5]의 문제, 즉 SQL과 요약이 조립 절차를 복제하다 어긋난 문제를 원전의 빌더로 푼다. <code>QueryDirector.construct()</code>가 절차의 유일한 소유자라는 점, 두 렌더러는 단계 하나하나를 자기 방식으로 표현만 한다는 점, 그리고 <code>QueryRenderer</code>에 <code>result()</code>가 없는 이유에 주목하라. docstring이 예로 드는 <dfn class="term" id="term-pandas" data-term="pandas" title="표 형태 데이터(데이터프레임)를 다루는 파이썬 데이터 분석 라이브러리.">데이터프레임</dfn> 코드 생성기의 데이터프레임은 표 형태 데이터를 다루는 파이썬 분석 라이브러리 pandas의 핵심 자료형이다.</p>
+  <figure class="code"><figcaption>src/03_builder/03_director.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;GoF 빌더: 같은 조립 절차(Director)로 서로 다른 표현(SQL, 사람이 읽는 요약)을 만든다.
+
+상황: 02_builder.py로 쿼리 정의(Query)는 안전해졌다. 그런데 분석 팀이 &quot;대시보드마다
+이 차트가 무엇을 집계하는지 한국어 요약을 같이 보여 달라&quot;고 요청했다. 01_naive.py에서는
+to_sql()과 to_summary()가 같은 분기를 복제했고, 결국 회원 등급 필터가 요약에서 빠지는
+불일치가 났다. 여기서는 &quot;어떤 순서로 무엇을 조립하는가&quot;를 Director 한 곳에 두고,
+&quot;각 조각을 어떻게 표현하는가&quot;만 Concrete Builder마다 다르게 한다.
+
+GoF 의도(intent): &quot;복잡한 객체의 생성 과정과 표현 방법을 분리하여, 동일한 생성 절차에서
+서로 다른 표현 결과를 만들 수 있게 한다.&quot;
+
+역할 대응:
+- [Director]          QueryDirector — 조립 절차(단계 순서와 생략 규칙)를 소유
+- [Builder]           QueryRenderer — 단계별 조립 인터페이스
+- [Concrete Builder]  PostgresRenderer, SummaryRenderer — 각자의 표현을 쌓는다
+- [Product]           SqlStatement, 요약 문자열 — 서로 공통 타입이 없다는 점이 GoF 빌더의 특징
+
+02와의 차이: 02의 &#x27;빌더&#x27;는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
+이 파일의 &#x27;빌더&#x27;는 GoF 원전의 의미(같은 절차, 다른 표현)다. 둘은 이름만 같고 목적이 다르다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+# ---------------------------------------------------------------------------
+# 입력: 02_builder.py의 Query를 간추린 것. (파일 간 import를 하지 않는 교재 규칙 때문에 다시 정의)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Condition:
+    &quot;&quot;&quot;조건 하나.&quot;&quot;&quot;
+
+    expr: str
+    op: str
+    value: object
+
+
+@dataclass(frozen=True)
+class Query:
+    &quot;&quot;&quot;검증이 끝난 쿼리 정의. 실제로는 02의 QueryBuilder.build()가 만든다.&quot;&quot;&quot;
+
+    table: str
+    select: tuple[str, ...]
+    where: tuple[Condition, ...] = ()
+    group_by: tuple[str, ...] = ()
+    having: tuple[Condition, ...] = ()
+    limit: int | None = None
+
+
+# ---------------------------------------------------------------------------
+# Builder 계층
+# ---------------------------------------------------------------------------
+
+class QueryRenderer(ABC):
+    &quot;&quot;&quot;[Builder] 조립 단계의 인터페이스. 단계 &#x27;순서&#x27;는 모른다 — 그것은 Director의 지식이다.
+
+    result()를 이 인터페이스에 두지 않은 이유: 제품 타입이 빌더마다 다르다(SQL 객체 vs 문자열).
+    GoF도 &quot;제품들은 공통 부모 클래스를 가질 이유가 거의 없다&quot;고 하며, 결과는 클라이언트가
+    구체 빌더에서 직접 꺼낸다. 억지로 공통 타입(object)을 두면 타입 정보만 잃는다.
+    &quot;&quot;&quot;
+
+    @abstractmethod
+    def add_source(self, table: str, select: tuple[str, ...]) -&gt; None:
+        &quot;&quot;&quot;무엇을 어디서 조회하는가.&quot;&quot;&quot;
+
+    @abstractmethod
+    def add_filters(self, conds: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;행 필터.&quot;&quot;&quot;
+
+    @abstractmethod
+    def add_grouping(self, group_by: tuple[str, ...], having: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;집계 기준과 집계 후 필터. HAVING은 GROUP BY와 &#x27;한 단계&#x27;로 묶었다 — 둘은 따로 의미가 없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def add_limit(self, n: int) -&gt; None:
+        &quot;&quot;&quot;행 수 제한.&quot;&quot;&quot;
+
+
+@dataclass(frozen=True)
+class SqlStatement:
+    &quot;&quot;&quot;[Product] PostgreSQL용 표현: 텍스트와 바인딩 값.&quot;&quot;&quot;
+
+    text: str
+    params: tuple[object, ...]
+
+
+class PostgresRenderer(QueryRenderer):
+    &quot;&quot;&quot;[Concrete Builder] 단계마다 SQL 조각과 매개변수를 쌓는다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;조립 중인 상태. 빌더는 가변이고, 완성품(SqlStatement)은 불변이다.&quot;&quot;&quot;
+        self._clauses: list[str] = []
+        self._params: list[object] = []
+
+    def _render(self, conds: tuple[Condition, ...]) -&gt; str:
+        &quot;&quot;&quot;조건을 자리표시자로 바꾸고 값은 params로 보낸다.&quot;&quot;&quot;
+        self._params.extend(c.value for c in conds)
+        return &quot; AND &quot;.join(f&quot;{c.expr} {c.op} %s&quot; for c in conds)
+
+    def add_source(self, table: str, select: tuple[str, ...]) -&gt; None:
+        &quot;&quot;&quot;SELECT ... FROM ...&quot;&quot;&quot;
+        self._clauses.append(f&quot;SELECT {&#x27;, &#x27;.join(select)} FROM {table}&quot;)
+
+    def add_filters(self, conds: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;WHERE 절.&quot;&quot;&quot;
+        self._clauses.append(&quot;WHERE &quot; + self._render(conds))
+
+    def add_grouping(self, group_by: tuple[str, ...], having: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;GROUP BY와 (있으면) HAVING.&quot;&quot;&quot;
+        self._clauses.append(&quot;GROUP BY &quot; + &quot;, &quot;.join(group_by))
+        if having:
+            self._clauses.append(&quot;HAVING &quot; + self._render(having))
+
+    def add_limit(self, n: int) -&gt; None:
+        &quot;&quot;&quot;LIMIT 절.&quot;&quot;&quot;
+        self._clauses.append(f&quot;LIMIT {n}&quot;)
+
+    def result(self) -&gt; SqlStatement:
+        &quot;&quot;&quot;완성품을 꺼낸다. 구체 타입(SqlStatement)을 돌려주므로 호출자가 타입을 잃지 않는다.&quot;&quot;&quot;
+        return SqlStatement(&quot; &quot;.join(self._clauses), tuple(self._params))
+
+
+class SummaryRenderer(QueryRenderer):
+    &quot;&quot;&quot;[Concrete Builder] 같은 단계에서 분석 팀용 한국어 요약을 쌓는다.&quot;&quot;&quot;
+
+    _OPS = {&quot;=&quot;: &quot;&quot;, &quot;&gt;=&quot;: &quot; 이상&quot;, &quot;&lt;&quot;: &quot; 미만&quot;, &quot;&gt;&quot;: &quot; 초과&quot;, &quot;&lt;=&quot;: &quot; 이하&quot;, &quot;&lt;&gt;&quot;: &quot; 제외&quot;}
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;요약 문장 조각들.&quot;&quot;&quot;
+        self._parts: list[str] = []
+
+    def _describe(self, conds: tuple[Condition, ...]) -&gt; str:
+        &quot;&quot;&quot;조건을 &#x27;열 값 이상&#x27; 같은 말로 바꾼다.&quot;&quot;&quot;
+        return &quot;, &quot;.join(f&quot;{c.expr} {c.value}{self._OPS.get(c.op, &#x27; &#x27; + c.op)}&quot; for c in conds)
+
+    def add_source(self, table: str, select: tuple[str, ...]) -&gt; None:
+        &quot;&quot;&quot;무엇을 보는가.&quot;&quot;&quot;
+        self._parts.append(f&quot;[{table}] {&#x27; · &#x27;.join(select)}&quot;)
+
+    def add_filters(self, conds: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;조건. 01_naive.py처럼 필터 종류마다 분기하지 않으므로 &#x27;빠뜨릴&#x27; 필터가 없다.&quot;&quot;&quot;
+        self._parts.append(f&quot;조건: {self._describe(conds)}&quot;)
+
+    def add_grouping(self, group_by: tuple[str, ...], having: tuple[Condition, ...]) -&gt; None:
+        &quot;&quot;&quot;집계.&quot;&quot;&quot;
+        text = f&quot;{&#x27;·&#x27;.join(group_by)}별 집계&quot;
+        if having:
+            text += f&quot; (집계 후 {self._describe(having)})&quot;
+        self._parts.append(text)
+
+    def add_limit(self, n: int) -&gt; None:
+        &quot;&quot;&quot;상위 n개.&quot;&quot;&quot;
+        self._parts.append(f&quot;상위 {n}개&quot;)
+
+    def result(self) -&gt; str:
+        &quot;&quot;&quot;완성된 요약 문장.&quot;&quot;&quot;
+        return &quot; / &quot;.join(self._parts)
+
+
+# ---------------------------------------------------------------------------
+# Director
+# ---------------------------------------------------------------------------
+
+class QueryDirector:
+    &quot;&quot;&quot;[Director] 조립 절차를 소유한다: 어떤 단계를, 어떤 순서로, 언제 생략하는가.
+
+    이 지식(예: &quot;WHERE가 없으면 필터 단계를 건너뛴다&quot;, &quot;SQL 절 순서는 FROM-WHERE-GROUP-LIMIT&quot;)을
+    한 곳에 두었기 때문에 새 표현(예: 데이터프레임 코드 생성기)을 추가해도 절차를 다시 쓰지 않는다.
+    절차가 고정되고 단계 구현만 바뀐다는 점에서 템플릿 메서드(14장)와 닮았지만, 변이를 상속이
+    아니라 &#x27;건네받은 빌더 객체&#x27;(합성)로 다룬다.
+    &quot;&quot;&quot;
+
+    def construct(self, query: Query, renderer: QueryRenderer) -&gt; None:
+        &quot;&quot;&quot;query를 renderer에 단계적으로 흘려 넣는다. 결과는 renderer에 쌓인다.&quot;&quot;&quot;
+        renderer.add_source(query.table, query.select)
+        if query.where:
+            renderer.add_filters(query.where)
+        if query.group_by:
+            renderer.add_grouping(query.group_by, query.having)
+        if query.limit is not None:
+            renderer.add_limit(query.limit)
+
+
+if __name__ == &quot;__main__&quot;:
+    vip_by_category = Query(
+        table=&quot;orders&quot;,
+        select=(&quot;category&quot;, &quot;SUM(amount)&quot;),
+        where=(Condition(&quot;region&quot;, &quot;=&quot;, &quot;서울&quot;), Condition(&quot;member_grade&quot;, &quot;=&quot;, &quot;VIP&quot;),
+               Condition(&quot;order_date&quot;, &quot;&gt;=&quot;, &quot;2026-01-01&quot;)),
+        group_by=(&quot;category&quot;,),
+        having=(Condition(&quot;SUM(amount)&quot;, &quot;&gt;&quot;, 1_000_000),),
+        limit=5,
+    )
+    director = QueryDirector()
+
+    print(&quot;[1] 같은 Query, 같은 절차 → PostgreSQL 표현&quot;)
+    pg = PostgresRenderer()
+    director.construct(vip_by_category, pg)
+    stmt = pg.result()
+    print(&quot;  text  :&quot;, stmt.text)
+    print(&quot;  params:&quot;, stmt.params)
+
+    print(&quot;\n[2] 같은 Query, 같은 절차 → 사람이 읽는 요약 (회원 등급 필터가 빠지지 않는다)&quot;)
+    summary = SummaryRenderer()
+    director.construct(vip_by_category, summary)
+    print(&quot;  &quot;, summary.result())
+
+    print(&quot;\n[3] 필터·집계 없는 단순 쿼리 — 생략 규칙도 Director 한 곳에서 두 표현에 똑같이 적용&quot;)
+    simple = Query(table=&quot;orders&quot;, select=(&quot;order_id&quot;, &quot;amount&quot;), limit=3)
+    for renderer in (PostgresRenderer(), SummaryRenderer()):
+        director.construct(simple, renderer)
+        print(f&quot;  {type(renderer).__name__:16}: {renderer.result()}&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_director.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]과 [2]는 같은 <code>Query</code>를 같은 <code>construct()</code>에 통과시켰다. 다른 것은 건네준 렌더러뿐이다. 요약에서 회원 등급 조건이 더 이상 빠지지 않는 이유는 요약 렌더러가 꼼꼼해서가 아니라, 조건을 "종류별로" 다루는 분기 자체가 사라졌기 때문이다. 렌더러는 Director가 넘겨준 조건 묶음을 표현만 한다. [3]은 "WHERE가 없으면 필터 단계를 건너뛴다" 같은 생략 규칙까지 Director에 있으므로 두 표현에 똑같이 적용된다는 것을 보여준다. 새 표현, 예컨대 pandas 필터 코드를 생성하는 렌더러를 추가해도 절차는 다시 쓰지 않는다.</p>
+  <p><code>QueryRenderer</code>에 <code>result()</code>를 두지 않은 것은 의도적이다. GoF도 지적하듯 구체 빌더들이 만드는 제품은 공통 부모 타입이 있을 이유가 거의 없다. <code>SqlStatement</code>와 <code>str</code>을 하나의 추상 반환 타입으로 묶으면 <code>object</code>밖에 남지 않는다. 그래서 클라이언트는 자기가 만든 구체 빌더에서 결과를 직접 꺼낸다. 이 점이 같은 생성 패턴인 추상 팩토리(제품이 공통 인터페이스를 갖는다)와 구별되는 지점이다.</p>
+  <div class="callout ok">
+    <span class="label">핵심 정리</span>
+    유창한 빌더는 <strong>"선택 사항이 많은 객체 하나를 검증된 불변 상태로"</strong> 만드는 도구이고, GoF 빌더는 <strong>"하나의 조립 절차로 여러 표현을"</strong> 만드는 도구다. 앞의 것은 생성자의 대안이고, 뒤의 것은 절차와 표현의 분리(SRP)다. 리뷰에서 "빌더를 쓰자"는 말이 나오면 둘 중 무엇을 말하는지부터 확인하라.
+  </div>
+</section>
+
+<section id="pythonic">
+  <h2>5. 파이썬다운 변형</h2>
+  <p>Bloch의 빌더가 Java에서 필요했던 가장 큰 이유는 이름 있는 인자와 기본값이 없어서였다. 파이썬에는 둘 다 있다. 거기에 <code>dataclass</code>의 <code><dfn class="term" id="term-kw-only-true" data-term="kw-only-true" title="`@dataclass(kw_only=True)`(3.10+)로 생성자를 키워드 전용으로 만들어 위치 인자 호출을 막는 옵션.">kw_only</dfn></code>(<code>@dataclass(kw_only=True)</code>, 3.10+: 생성자를 키워드 전용으로 만들어 위치 인자 호출을 막는 옵션), <code>frozen</code>, <code>__post_init__</code>, 그리고 <code>dataclasses.replace</code>가 더해지면 유창한 빌더가 하던 일의 상당 부분이 언어 기능으로 흡수된다. 그렇다면 남는 것은 무엇인가?</p>
+  <p class="lead-in">아래 코드는 빌더 없이 같은 <code>Query</code>를 다룬다. <code>kw_only=True</code>가 무엇을 막는지, <code>__post_init__</code>이 <code>build()</code>의 역할을 어떻게 대신하는지, <code>replace()</code>가 검증을 다시 거치는지를 확인하라. docstring의 "<dfn class="term" id="term-value-object" data-term="value-object" title="정체성 없이 담긴 값으로만 의미가 정해지는, 대개 불변인 작은 객체(예: FeeInput, Tick).">값 객체</dfn>"는 담긴 값만으로 의미가 정해지는, 대개 불변인 작은 객체를 말한다(같은 값을 담았으면 같은 것으로 본다). 코드의 <code><dfn class="term" id="term-compare-false" data-term="compare-false" title="데이터클래스 필드를 동등성 비교와 해시에서 빼는 옵션; 정의의 일부가 아닌 메모 같은 정보에 쓴다.">field(compare=False)</dfn></code>는 그 필드를 동등성 비교와 해시에서 빼는 옵션으로, 정의의 일부가 아닌 메모 같은 정보에 쓴다. 마지막 <code>assemble_from_ui()</code>는 이 방식이 어색해지는 지점이다.</p>
+  <figure class="code"><figcaption>src/03_builder/04_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형: 키워드 전용 dataclass + __post_init__ 검증 + dataclasses.replace 파생.
+
+상황: 02_builder.py의 QueryBuilder는 70줄 남짓한 클래스였다. 하은의 동료 민재가 물었다.
+&quot;Java라면 이름 있는 인자가 없으니 빌더가 필요하지만, 파이썬에는 키워드 인자와 기본값이 있잖아요.
+점층적 생성자 문제는 그걸로 이미 풀리는 것 아닌가요?&quot; 이 파일은 그 질문에 답한다.
+
+결론 미리보기:
+- 점층적 생성자(None 행렬)와 반쯤 만든 객체 문제 → 키워드 전용 + frozen dataclass로 충분히 풀린다.
+- 교차 검증 → __post_init__에서 할 수 있다(생성 = 검증 시점).
+- 기존 쿼리에서 조금 바꾼 쿼리 파생 → dataclasses.replace가 빌더보다 간결하고, 검증도 다시 돈다.
+- 그러나 &#x27;여러 코드 경로에서 조각을 조금씩 모아야 하는&#x27; 조립은 결국 손으로 만든 빌더가 된다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field, replace
+
+
+@dataclass(frozen=True, kw_only=True)
+class Query:
+    &quot;&quot;&quot;[Product이자 스스로 검증하는 값 객체] 빌더 없이 키워드 인자로 만든다.
+
+    kw_only=True(3.10+)인 이유: 위치 인자로 부를 수 없게 막아야 01_naive.py의 None 행렬이
+    원천적으로 생기지 않는다. 기본값이 있는 필드와 없는 필드의 순서 제약도 사라진다.
+    &quot;&quot;&quot;
+
+    table: str
+    select: tuple[str, ...]
+    where: tuple[tuple[str, str, object], ...] = ()
+    group_by: tuple[str, ...] = ()
+    having: tuple[tuple[str, str, object], ...] = ()
+    limit: int | None = None
+    # 비교·해시에서 제외되는 메모. field(compare=False)는 &#x27;정의의 일부가 아닌&#x27; 정보를 표시하는 방법.
+    note: str = field(default=&quot;&quot;, compare=False)
+
+    def __post_init__(self) -&gt; None:
+        &quot;&quot;&quot;교차 검증. 02의 build()가 하던 일을 &#x27;생성 시점&#x27;으로 옮겼다.
+
+        frozen 객체는 생성 후 바뀌지 않으므로, 여기를 통과한 Query는 영원히 유효하다.
+        replace()도 내부적으로 __init__을 호출하므로 이 검증을 다시 거친다.
+        &quot;&quot;&quot;
+        if not self.select:
+            raise ValueError(&quot;SELECT할 열이 없다&quot;)
+        if self.having and not self.group_by:
+            raise ValueError(&quot;HAVING은 GROUP BY와 함께 써야 한다(대시보드 규칙)&quot;)
+        if self.limit is not None and self.limit &lt;= 0:
+            raise ValueError(&quot;LIMIT은 양수여야 한다&quot;)
+
+
+def assemble_from_ui(toggles: dict[str, object]) -&gt; Query:
+    &quot;&quot;&quot;대시보드 UI 토글에서 쿼리를 조립한다 — dataclass만으로는 어색해지는 경우.
+
+    조각이 조건부로 하나씩 결정되므로, 생성자를 한 번에 부르려면 임시 리스트들에 먼저 모아야 한다.
+    아래 where/group_by 리스트가 바로 &#x27;손으로 만든 빌더 상태&#x27;다. 이런 조립이 여러 곳에서
+    반복되면 그 리스트와 규칙을 클래스로 묶는 것, 즉 02의 QueryBuilder가 정당화된다.
+    &quot;&quot;&quot;
+    where: list[tuple[str, str, object]] = []
+    group_by: list[str] = []
+    for column, chosen in toggles.items():
+        if column == &quot;group&quot;:
+            group_by.append(str(chosen))
+        elif chosen is not None:
+            where.append((column, &quot;=&quot;, chosen))
+    select = (*group_by, &quot;SUM(amount)&quot;)
+    return Query(table=&quot;orders&quot;, select=select, where=tuple(where), group_by=tuple(group_by))
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 키워드 인자만으로 — 무엇이 무엇인지 호출부에 이름이 남는다&quot;)
+    monthly = Query(table=&quot;orders&quot;, select=(&quot;month&quot;, &quot;SUM(amount)&quot;),
+                    where=((&quot;region&quot;, &quot;=&quot;, &quot;서울&quot;),), group_by=(&quot;month&quot;,), note=&quot;월간 리포트&quot;)
+    print(&quot;  &quot;, monthly)
+
+    print(&quot;\n[2] 위치 인자는 아예 거부된다 (kw_only)&quot;)
+    try:
+        Query(&quot;orders&quot;, (&quot;month&quot;,))  # type: ignore[misc]
+    except TypeError as e:
+        print(f&quot;   TypeError: {e}&quot;)
+
+    print(&quot;\n[3] replace로 파생: 월별 쿼리에 LIMIT 3을 더한 변형. 원본은 그대로, 검증은 다시 돈다&quot;)
+    top3 = replace(monthly, limit=3)
+    print(f&quot;   원본 limit={monthly.limit}, 파생 limit={top3.limit}&quot;)
+    try:
+        # GROUP BY를 지우면서 HAVING을 더한 파생 — 생성 시점 검증에 걸린다
+        replace(monthly, group_by=(), having=((&quot;SUM(amount)&quot;, &quot;&gt;&quot;, 1),))
+    except ValueError as e:
+        print(f&quot;   잘못된 파생은 거부: {e}&quot;)
+
+    print(&quot;\n[4] note는 compare=False — 메모만 다른 두 쿼리는 같은 캐시 키&quot;)
+    print(&quot;  &quot;, monthly == replace(monthly, note=&quot;다른 메모&quot;))
+
+    print(&quot;\n[5] 조건부 조립이 필요해지면 임시 리스트(=손수 만든 빌더)가 등장한다&quot;)
+    print(&quot;  &quot;, assemble_from_ui({&quot;region&quot;: &quot;부산&quot;, &quot;category&quot;: None, &quot;group&quot;: &quot;category&quot;}))</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>[1]과 [2]가 보여주듯 키워드 전용 생성자는 점층적 생성자 문제를 완전히 없앤다. [3]의 <code>replace()</code>는 "기존 쿼리에서 하나만 바꾼 쿼리"를 만드는 가장 간결한 방법이고, 내부적으로 <code>__init__</code>을 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다. 불변 객체의 단계적 파생에는 빌더가 필요 없다. [4]의 <code>field(compare=False)</code>는 "정의의 일부가 아닌 정보"를 동등성과 해시에서 빼는 방법이다.</p>
+  <p>[5]의 <code>assemble_from_ui()</code>가 경계선이다. 조각들이 조건문과 반복문 속에서 하나씩 결정되면, 생성자를 한 번에 부르기 위해 임시 리스트에 먼저 모아야 한다. 그 임시 리스트들과 "다 모은 뒤 생성자를 부른다"는 규칙이 바로 <em>손으로 만든 빌더</em>다. 이런 조립이 한 곳뿐이면 그대로 두는 편이 낫다. 여러 곳에서 반복되거나 단계마다 검증·정규화가 붙기 시작하면 그것을 클래스로 묶은 것이 02의 <code>QueryBuilder</code>다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>요구</th><th>파이썬 기본 도구로 충분한가</th><th>도구</th></tr></thead>
+    <tbody>
+      <tr><td>선택 인자가 많다</td><td>충분</td><td>키워드 전용 인자 + 기본값</td></tr>
+      <tr><td>완성된 객체는 불변이어야 한다</td><td>충분</td><td><code>dataclass(frozen=True)</code></td></tr>
+      <tr><td>필드 간 교차 검증</td><td>충분</td><td><code>__post_init__</code></td></tr>
+      <tr><td>기존 객체에서 조금 바꾼 객체 파생</td><td>충분(빌더보다 낫다)</td><td><code>dataclasses.replace</code></td></tr>
+      <tr><td>조건부·누적적 조립이 여러 곳에서 반복된다</td><td>부족</td><td>유창한 빌더</td></tr>
+      <tr><td>같은 조립 절차로 여러 표현</td><td>부족</td><td>GoF 빌더(Director + 렌더러)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout">
+    <span class="label"><code>return self</code> 체이닝의 득실</span>
+    체이닝은 읽기 좋지만 비용이 있다. 디버거에서 체인 중간에 중단점을 걸기 어렵고, 예외 트레이스백이 긴 한 줄을 가리킨다. 또 <code>b.where(...)</code>처럼 반환값을 버리는 호출과 체이닝이 섞이면 "이 메서드가 새 객체를 돌려주는가, 자신을 바꾸는가"가 모호해진다(<code>str.replace</code>는 새 객체, <code>list.sort</code>는 <code>None</code>). 02의 빌더는 항상 자신을 바꾸고 자신을 돌려준다는 규칙 하나를 지킨다. 반환 타입을 <code>typing.Self</code>로 두면 하위 클래스 빌더에서도 체이닝 타입이 유지된다.
+  </div>
+</section>
+
+<section id="tradeoffs">
+  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <p><strong>얻는 것.</strong> 선택 사항이 많은 객체의 생성 코드가 읽힌다. 제품은 검증된 불변 상태로만 존재한다. 조건부 조립이 자연스럽다. GoF 형태에서는 조립 절차가 한 곳에 있어 표현이 늘어도 절차가 어긋나지 않는다.</p>
+  <p><strong>치르는 것.</strong> 클래스가 하나(유창한 빌더) 또는 여럿(GoF) 늘어난다. 제품에 필드를 추가하면 빌더에도 단계를 추가해야 하므로 두 곳이 함께 움직인다. 검증이 <code>build()</code>로 미뤄지므로 오류가 단계 호출 시점이 아니라 완성 시점에 보고되어, 어느 단계가 잘못이었는지 메시지로 잘 알려 줘야 한다.</p>
+  <div class="callout warn">
+    <span class="label">이 패턴을 쓰지 말아야 할 때</span>
+    <ul>
+      <li><strong>키워드 인자로 끝나는 경우.</strong> 선택 인자가 많다는 것만으로는 파이썬에서 빌더의 이유가 되지 않는다. <code>dataclass(kw_only=True)</code>와 <code>__post_init__</code>으로 충분한데 빌더를 쓰면 같은 필드 목록을 두 번 유지하게 된다.</li>
+      <li><strong>객체가 한 번에 결정되는 경우.</strong> 모든 값이 한 자리에서 정해진다면 조립 "단계"가 없다. 빌더 체인은 생성자 호출을 길게 늘인 것에 불과하다.</li>
+      <li><strong>표현이 하나뿐인 경우의 Director.</strong> SQL만 낸다면 Director와 렌더러 계층은 과하다. <code>Query.to_sql()</code> 하나로 족하다. 두 번째 표현이 실제로 생길 때 분리해도 늦지 않다.</li>
+      <li><strong>조합이 소수로 고정된 경우.</strong> 쿼리가 다섯 종류로 고정되어 있다면 이름 붙은 팩토리 함수 다섯 개가 더 명확하다(연습문제 3).</li>
+    </ul>
+  </div>
+  <p><strong>관련 패턴.</strong></p>
+  <ul>
+    <li><strong>추상 팩토리(2장)</strong>: 대비가 핵심이다. 추상 팩토리는 "함께 쓰여야 하는 <em>여러</em> 객체를 즉시" 돌려주고, 빌더는 "<em>하나</em>의 복합 객체를 단계적으로 조립해 마지막에" 돌려준다.</li>
+    <li><strong>컴포지트(7장)</strong>: 빌더는 트리 구조를 조립하는 데 자주 쓰인다. 쿼리의 조건을 <code>AND</code>/<code>OR</code> 트리로 확장하면 빌더가 컴포지트를 만드는 구조가 된다.</li>
+    <li><strong>템플릿 메서드(14장)</strong>: Director의 <code>construct()</code>는 고정된 절차라는 점에서 템플릿 메서드와 닮았다. 차이는 변이를 상속으로 받는가(템플릿 메서드), 건네받은 객체로 받는가(빌더)다.</li>
+  </ul>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. dataclass면 충분한가</h3>
+    <p><code>@dataclass</code> 하나로 충분한 경우와 빌더가 필요한 경우를 가르는 기준 세 가지를 들고, 기준마다 이 장의 쿼리 도메인이 아닌 예를 하나씩 제시하라.</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>기준 1. 조립이 여러 코드 지점에 걸쳐 조건부·누적적으로 일어나는가.</strong> 값이 한자리에서 모두 정해지면 키워드 인자로 충분하다. 반복문이나 여러 함수를 거치며 조각이 쌓이면 빌더가 그 중간 상태를 맡는다. 예: 이메일 메시지. 수신자·첨부를 플러그인들이 하나씩 추가한다면 <code>MessageBuilder.add_recipient()</code>, <code>attach()</code>가 자연스럽다.</p>
+      <p><strong>기준 2. 검증이 단일 필드가 아니라 조립 결과 전체에 걸쳐 있고, 조립 순서가 자유로워야 하는가.</strong> 교차 검증 자체는 <code>__post_init__</code>으로도 된다. 빌더가 필요한 것은 기준 1과 결합할 때, 즉 "중간에는 불완전해도 되고 마지막에만 유효하면 되는" 경우다. 예: 시험 문제지 조립. 문항을 아무 순서로 넣되, 완성 시 총점이 100점이고 단원별 비율이 맞아야 한다.</p>
+      <p><strong>기준 3. 같은 조립 절차에서 여러 표현이 필요한가.</strong> 이것은 GoF 빌더의 고유 영역으로 dataclass와 무관하다. 예: 하나의 문서 구조에서 HTML·Markdown·PDF 출력.</p>
+      <p>흔한 오답은 "필드가 많으면 빌더"다. 필드 수는 파이썬에서 기준이 되지 않는다. 필드가 20개여도 한 번에 정해지고 불변이면 <code>dataclass(kw_only=True, frozen=True)</code>가 낫다. 또 "검증이 필요하면 빌더"도 오답이다. <code>__post_init__</code>이 생성 시점 검증을 이미 제공한다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. HTTP 요청 빌더</h3>
+    <p>BI 팀의 데이터 수집 스크립트는 외부 광고 플랫폼 API를 아래처럼 부른다. 이것을 유창한 빌더로 바꾸라. <code>GET</code>(또는 <code>HEAD</code>)에 본문이 있으면 <code>build()</code>에서 예외를 내야 하고, 완성된 요청 객체는 불변이어야 한다. 코드 주석의 "일부 <dfn class="term" id="term-http-proxy" data-term="http-proxy" title="클라이언트와 서버 사이에서 HTTP 요청을 중계하는 네트워크 서버(9장의 프록시 패턴과는 다른 뜻).">프록시</dfn>"는 클라이언트와 서버 사이에서 HTTP 요청을 중계하는 네트워크 서버를 말한다(9장의 프록시 패턴과는 다른 뜻이다).</p>
+    <pre><code class="language-python">from dataclasses import dataclass
+
+@dataclass
+class Request:
+    """가변 dataclass — 만든 뒤에도 누구나 필드를 바꿀 수 있다."""
+    method: str
+    url: str
+    headers: dict | None = None
+    params: dict | None = None
+    body: bytes | None = None
+    timeout: float | None = None
+    retries: int | None = None
+    auth: str | None = None
+
+# 문제 1: 위치 인자 None 행렬 — 무엇이 timeout이고 무엇이 retries인가?
+r1 = Request("GET", "https://ads.example.com/v2/reports", None, None, None, 10, 3, "tok-123")
+
+# 문제 2: 실제로 났던 사고 — GET 본문은 일부 프록시가 버린다.
+#   필터가 적용되지 않은 전체 데이터가 내려왔다.
+r2 = Request("GET", "https://ads.example.com/v2/reports",
+             body=b'{"from": "2026-09-01"}', auth="tok-123")
+
+# 문제 3: 타임아웃 없는 재시도 — '영원히 기다리기'를 5번
+r3 = Request("POST", "https://ads.example.com/v2/jobs", body=b"{}", retries=5)</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>필수 값(메서드, URL)만 빌더 생성자로 받고 나머지는 이름 붙은 단계로 만든다. <code>auth</code> 문자열 대신 <code><dfn class="term" id="term-bearer-token" data-term="bearer-token" title="가진 사람(bearer)에게 권한을 주는 접근 토큰으로, HTTP `Authorization: Bearer &lt;토큰&gt;` 헤더로 보낸다.">bearer</dfn>(token)</code>이라는 도메인 어휘(Bearer 토큰: 가진 사람에게 권한을 주는 접근 토큰으로, <code>Authorization: Bearer &lt;토큰&gt;</code> 헤더로 보낸다)를 더할 수 있다는 것도 빌더의 이점이다. "GET에 본문 금지"와 "재시도에는 타임아웃 필수"는 두 필드 이상에 걸친 제약이므로 <code>build()</code>에서 검사한다. 재시도 제약이 좋은 예다. <code>.retries(3).timeout(10)</code>처럼 재시도를 먼저 지정하는 것도 정당한 조립 순서인데, <code>retries()</code> 단계에서 "타임아웃이 아직 없다"며 거부하면 이 정당한 조립을 막게 된다. GET 본문 검사는 이 해설 코드에서는 메서드가 생성자에서 고정되므로 <code>body()</code> 단계에서 해도 동작은 같다. 그래도 <code>build()</code>에 두는 이유는 교차 제약을 한 곳에 모아 "완성 조건"을 한눈에 읽히게 하려는 것이다.</p>
+      <p>불변성은 <code>frozen=True</code>만으로는 부족하다. <code>headers</code>가 <code>dict</code>이면 <code>req.headers["Authorization"] = ...</code>처럼 <em>내부</em>를 바꿀 수 있다. 해설은 <code><dfn class="term" id="term-types-mappingproxytype" data-term="types-mappingproxytype" title="딕셔너리를 감싸 읽기 전용으로 보여 주는 뷰; 원본이 바뀌면 그대로 비춰 보이므로 복사본을 감싸야 불변이 된다.">MappingProxyType</dfn></code>으로 읽기 전용 뷰를 씌우고, 빌더의 dict를 복사해서 넘겨 빌더를 재사용해도 완성품이 영향받지 않게 했다. <code>MappingProxyType</code>은 딕셔너리를 감싸 읽기 전용으로 보여 주는 뷰라서, 원본이 바뀌면 그 변화를 그대로 비춰 보인다. 복사본을 감싸야 하는 이유다. 코드 docstring의 <dfn class="term" id="term-query-string" data-term="query-string" title="URL의 `?` 뒤에 `이름=값&amp;…`으로 붙는 요청 매개변수.">쿼리 문자열</dfn>은 URL의 <code>?</code> 뒤에 <code>이름=값&amp;…</code>으로 붙는 요청 매개변수다.</p>
+      <p>흔한 오답 두 가지. 첫째, 기존 가변 <code>Request</code>를 그대로 두고 빌더만 얹는 것. <code>build()</code>를 통과한 뒤 누군가 <code>r.body = ...</code>를 하면 검증이 무의미해진다. 빌더의 검증은 제품이 불변일 때만 보장이 된다. 둘째, 각 단계에서 <code>self</code>가 아니라 새 빌더를 돌려주게 만들고 일부 호출부만 반환값을 받는 것. 반환값을 버리는 호출의 단계가 조용히 사라진다.</p>
+      <figure class="code"><figcaption>src/03_builder/solutions/ex2_request_builder.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 매개변수 8개짜리 Request 생성자를 유창한 빌더로, GET 본문은 build()에서 거부.
+
+상황: BI 팀의 데이터 수집 스크립트는 외부 광고 플랫폼 API를 부를 때
+`Request(method, url, headers=None, params=None, body=None, timeout=None, retries=None, auth=None)`를
+썼다(문제 본문 코드). 호출부마다 None이 늘어섰고, 누군가 GET 요청에 본문을 실어 보내
+일부 프록시가 본문을 버리는 바람에 필터가 적용되지 않은 전체 데이터가 내려온 사고가 있었다.
+
+해설의 설계 결정:
+- Request는 frozen dataclass(완성품), RequestBuilder는 가변(조립 중 상태).
+- header()·param()은 &#x27;하나씩 누적&#x27;하는 단계로 만든다 — dict를 통째로 받는 것보다 조건부 조립에 유리.
+- GET+본문 금지, 재시도에는 타임아웃 필수 같은 교차 제약은 build()에서 한 번에 검사한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping, Self
+
+
+@dataclass(frozen=True)
+class Request:
+    &quot;&quot;&quot;[Product] 완성된 HTTP 요청 정의. 매핑 필드는 읽기 전용 뷰로 감싸 불변을 끝까지 지킨다.&quot;&quot;&quot;
+
+    method: str
+    url: str
+    headers: Mapping[str, str]
+    params: Mapping[str, str]
+    body: bytes | None
+    timeout: float
+    retries: int
+
+
+class RequestBuilder:
+    &quot;&quot;&quot;[Builder] Request를 단계적으로 조립한다.&quot;&quot;&quot;
+
+    def __init__(self, method: str, url: str) -&gt; None:
+        &quot;&quot;&quot;필수 두 가지만 생성자로. 나머지는 이름 붙은 단계와 합리적 기본값.&quot;&quot;&quot;
+        self._method, self._url = method.upper(), url
+        # 메서드를 대문자로 정규화해 두어야 build()의 &quot;GET&quot; 비교가 &quot;get&quot; 입력에도 동작한다.
+        # 아래 필드들은 조립 중 상태다. None은 &#x27;아직 지정하지 않음&#x27;을 뜻하며 build()에서 기본값으로 바뀐다.
+        self._headers: dict[str, str] = {}
+        self._params: dict[str, str] = {}
+        self._body: bytes | None = None
+        self._timeout: float | None = None
+        self._retries = 0
+
+    def header(self, name: str, value: str) -&gt; Self:
+        &quot;&quot;&quot;헤더 하나를 더한다.&quot;&quot;&quot;
+        self._headers[name] = value
+        return self
+
+    def bearer(self, token: str) -&gt; Self:
+        &quot;&quot;&quot;auth 인자 대신 의도가 드러나는 편의 단계. 빌더는 &#x27;도메인 어휘&#x27;를 더하기 좋은 자리다.&quot;&quot;&quot;
+        return self.header(&quot;Authorization&quot;, f&quot;Bearer {token}&quot;)
+
+    def param(self, name: str, value: str) -&gt; Self:
+        &quot;&quot;&quot;쿼리 문자열 매개변수 하나를 더한다.&quot;&quot;&quot;
+        self._params[name] = value
+        return self
+
+    def body(self, data: bytes) -&gt; Self:
+        &quot;&quot;&quot;본문을 정한다. GET 여부는 여기서 검사하지 않는다(build()의 몫).&quot;&quot;&quot;
+        self._body = data
+        return self
+
+    def timeout(self, seconds: float) -&gt; Self:
+        &quot;&quot;&quot;타임아웃.&quot;&quot;&quot;
+        self._timeout = seconds
+        return self
+
+    def retries(self, n: int) -&gt; Self:
+        &quot;&quot;&quot;재시도 횟수.&quot;&quot;&quot;
+        self._retries = n
+        return self
+
+    def build(self) -&gt; Request:
+        &quot;&quot;&quot;교차 검증 후 불변 Request를 만든다.&quot;&quot;&quot;
+        if self._method in (&quot;GET&quot;, &quot;HEAD&quot;) and self._body is not None:
+            raise ValueError(f&quot;{self._method} 요청에는 본문을 둘 수 없다 — 필터는 param()으로&quot;)
+        if self._retries and self._timeout is None:
+            # 타임아웃 없는 재시도는 &#x27;영원히 기다리기 × n&#x27;이 된다.
+            raise ValueError(&quot;재시도를 쓰려면 timeout()을 지정해야 한다&quot;)
+        # dict(...)로 복사한 뒤 읽기 전용 뷰로 감싼다. 복사하지 않으면 빌더를 재사용해 헤더를 더할 때
+        # 이미 만든 Request의 헤더까지 바뀐다 — 뷰는 원본의 변경을 그대로 비춰 주기 때문이다.
+        # timeout 기본값 30초는 &#x27;지정 안 함&#x27;이 &#x27;무한 대기&#x27;가 되지 않게 하려는 안전장치다.
+        return Request(self._method, self._url, MappingProxyType(dict(self._headers)),
+                       MappingProxyType(dict(self._params)), self._body,
+                       self._timeout if self._timeout is not None else 30.0, self._retries)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 광고 성과 조회 — 필터는 쿼리 매개변수로&quot;)
+    # 소문자 &quot;get&quot;도 받아 준다 — 정규화는 빌더의 일이다. 단계 순서는 자유롭다.
+    req = (RequestBuilder(&quot;get&quot;, &quot;https://ads.example.com/v2/reports&quot;)
+           .bearer(&quot;tok-123&quot;).param(&quot;from&quot;, &quot;2026-09-01&quot;).param(&quot;to&quot;, &quot;2026-09-30&quot;)
+           .timeout(10).retries(3).build())
+    print(f&quot;  {req.method} {req.url} params={dict(req.params)} retries={req.retries}&quot;)
+
+    print(&quot;\n[2] 사고를 낸 조합: GET + 본문&quot;)
+    try:
+        # body() 단계 자체는 통과한다. 거부는 교차 검증 시점인 build()에서 일어난다.
+        RequestBuilder(&quot;GET&quot;, &quot;https://ads.example.com/v2/reports&quot;).body(b&#x27;{&quot;from&quot;: &quot;2026-09-01&quot;}&#x27;).build()
+    except ValueError as e:
+        print(f&quot;  ValueError: {e}&quot;)
+
+    print(&quot;\n[3] 타임아웃 없는 재시도&quot;)
+    try:
+        RequestBuilder(&quot;POST&quot;, &quot;https://ads.example.com/v2/jobs&quot;).body(b&quot;{}&quot;).retries(5).build()
+    except ValueError as e:
+        print(f&quot;  ValueError: {e}&quot;)
+
+    print(&quot;\n[4] 완성된 Request의 헤더는 바꿀 수 없다&quot;)
+    try:
+        # frozen=True만으로는 dict 내부 수정을 못 막는다. MappingProxyType이 그 구멍을 막는다.
+        req.headers[&quot;Authorization&quot;] = &quot;탈취&quot;  # type: ignore[index]
+    except TypeError as e:
+        print(f&quot;  TypeError: {e}&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_request_builder.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 쿼리가 다섯 종류로 고정이라면</h3>
+    <p>다른 팀의 대시보드는 쿼리가 다섯 종류(일별 매출, 월별 매출, 카테고리 Top 10, 지역별 주문 수, VIP 재구매율)로 고정되어 있고, 각 쿼리의 매개변수는 기간뿐이다. 이 팀에 <code>QueryBuilder</code>를 권하겠는가, 아니면 "이름 붙은 팩토리 함수 다섯 개"가 나은가? 근거를 쓰고, 결론이 바뀌는 조건도 쓰라.</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>이름 붙은 팩토리 함수 다섯 개가 낫다.</strong> 예: <code>daily_sales(start, end) -&gt; Query</code>. 근거는 세 가지다. (1) 조립에 변이가 없다. 매개변수가 기간뿐이면 "조건부로 단계를 붙인다"는 빌더의 핵심 이점이 쓰이지 않는다. (2) 이름이 의도를 전달한다. 호출부의 <code>category_top10(...)</code>은 일곱 줄짜리 빌더 체인보다 무엇을 하는지 바로 말해 준다. (3) 허용되는 조합이 다섯 개뿐이라는 사실이 API 자체로 표현된다. 빌더를 공개하면 아무 조합이나 만들 수 있게 되어 오히려 표면이 넓어진다.</p>
+      <p>이것은 빌더를 버리라는 뜻이 아니다. 다섯 함수의 <em>내부 구현</em>에서 <code>QueryBuilder</code>를 쓰는 것은 좋은 선택이다. 주입 방어와 교차 검증을 그대로 재사용할 수 있다. <dfn class="term" id="term-public-api" data-term="public-api" title="모듈·패키지·클래스가 바깥 사용자에게 쓰라고 약속한 이름들의 집합. 그 밖의 것은 내부 구현으로 취급한다.">공개 API</dfn>(바깥 사용자에게 쓰라고 약속한 이름들. 그 밖은 내부 구현으로 취급한다)는 함수, 구현 도구는 빌더다.</p>
+      <p><strong>결론이 바뀌는 조건</strong>: 사용자가 필터를 자유롭게 조합하는 "탐색형" 대시보드가 생기면 조합의 수가 폭발하므로 빌더를 공개해야 한다. 또 같은 쿼리를 SQL과 요약 둘 다로 내야 한다면 함수 다섯 개 각각이 두 표현을 만들게 하지 말고, 함수는 <code>Query</code>만 돌려주고 렌더링은 Director와 렌더러에 맡긴다.</p>
+      <p>흔한 오답은 "나중에 늘어날 수 있으니 빌더"다. 팩토리 함수 안에서 이미 빌더를 쓰고 있다면, 나중에 빌더를 공개하는 비용은 거의 없다. 미리 넓은 API를 열어 두는 비용이 더 크다.</p>
+    </details>
+  </div>
+</section>
+
+<!--
+설계서 대비 변경 사항:
+- 코드 파일을 02_builder.py(유창한 빌더) / 03_director.py(GoF 빌더: Director + 두 렌더러) / 04_pythonic.py로 나눴다.
+  학습목표 2(두 빌더의 차이)를 코드로 대비하려면 파일을 분리하는 편이 명확하기 때문이다.
+- 03_director.py는 표현 분리 논점에 집중하려고 Query를 간추렸다(order_by 생략, 검증 생략).
+-->
+    <nav class="pager"><a class="prev" href="02-abstract-factory.html"><small>← 이전 · 2장</small>추상 팩토리 (Abstract Factory)</a><a class="next" href="04-singleton.html"><small>다음 · 4장 →</small>싱글턴 (Singleton)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

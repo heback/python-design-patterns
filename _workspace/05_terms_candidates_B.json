@@ -1,0 +1,3384 @@
+[
+  {
+    "term": "훅",
+    "en": "hook",
+    "aliases": [
+      "훅",
+      "hook"
+    ],
+    "category": "설계",
+    "short": "상위 코드(골격·프레임워크)가 정해 둔 시점에 불러 주는, 사용자가 끼워 넣을 수 있는 확장 지점. GoF 템플릿 메서드에서는 좁게 '기본 구현이 있어 하위 클래스가 선택적으로 재정의하는 연산'을 뜻한다.",
+    "defined": "14 · 기본 동작이 있고 필요한 하위 클래스만 재정의한다",
+    "note": "범위 안 첫 사용은 12장 03_pythonic.py docstring('from_payload()/retarget() 훅만 재정의')과 13장 원고('스케줄러 훅')로, 일반 의미(정해진 자리에서 불리는 확장 지점)이며 설명이 없다. 책 전체로는 00·01·04장(생성 훅, 리셋 훅, __init_subclass__는 훅)에서 이미 정의 없이 쓰인다. 14장 #structure 표는 GoF의 좁은 의미(기본 구현이 있는 선택적 재정의 연산)를 '추상 단계(primitive operation, 기본값 없음·반드시 구현)'와 대비해 정의하지만, 이것이 일반 의미의 한 종류라는 관계는 명시하지 않는다. 14장은 같은 장 안에서 '데이터 훅'(클래스 속성 separator), unittest setUp/tearDown, None 허용 필드(03의 Toolchain.validate/compile)도 훅이라 부르므로 좁은 의미를 넓혀 쓴다."
+  },
+  {
+    "term": "할리우드 원칙",
+    "en": "Hollywood Principle",
+    "aliases": [
+      "할리우드 원칙"
+    ],
+    "category": "설계",
+    "short": "\"우리에게 전화하지 마라, 우리가 전화하겠다\" — 하위 코드는 상위 코드를 부르지 않고, 상위 코드(골격·프레임워크)가 언제 하위 코드를 부를지 정한다는 설계 원칙.",
+    "defined": "14 · 하위 클래스는 judge()를 부르지도, 단계를 부르는",
+    "note": "14장 02 코드 docstring에서 정의, 04 docstring에서 재사용."
+  },
+  {
+    "term": "제어의 역전",
+    "en": "Inversion of Control",
+    "aliases": [
+      "제어의 역전",
+      "제어가 역전"
+    ],
+    "category": "설계",
+    "short": "흐름의 제어권이 사용자 코드가 아니라 골격·프레임워크 쪽에 있어서, 사용자 코드는 불리기만 하는 구조.",
+    "defined": "14 · 하위 클래스는 단계만 채우고, 언제 불릴지는",
+    "note": "14장 그림 14-1 메모 '(제어의 역전)'이 docstring보다 먼저 읽힌다."
+  },
+  {
+    "term": "푸시 모델·풀 모델",
+    "en": "push model / pull model",
+    "aliases": [
+      "푸시 모델",
+      "푸시(push)",
+      "풀(pull)"
+    ],
+    "category": "설계",
+    "short": "옵저버 통지 방식. 푸시는 주체가 바뀐 내용을 메시지에 담아 보내고, 풀은 '바뀌었다'는 신호만 보낸 뒤 관찰자가 주체를 조회해 가져간다.",
+    "defined": "11 · 주체가 바뀐 내용을 메시지에 담아 보내면 푸시",
+    "note": "15장 관련 패턴에서 반복자=풀, 옵저버=푸시로 다시 쓴다."
+  },
+  {
+    "term": "재진입",
+    "en": "reentrancy",
+    "aliases": [
+      "재진입"
+    ],
+    "category": "설계",
+    "short": "어떤 작업이 아직 끝나지 않은 도중에, 그 작업이 부른 코드(예: 관찰자)가 같은 시스템 상태를 바꾸어 진행 중인 작업 안으로 다시 들어가는 일.",
+    "defined": "99 · 이것을 재진입이라 부른다",
+    "note": "99장 03_wms.py BatteryGuard docstring('1) 재진입: 관찰자는 통지가…')이 원고 3.1절 정의보다 먼저 읽힌다. docstring은 결과만 말하고 뜻은 설명하지 않는다. 책 전체 첫 등장은 04장 코드 주석('threading.Lock은 재진입이 안 되므로')으로, 재진입 가능 잠금이라는 다른 폭의 의미다."
+  },
+  {
+    "term": "지연 로딩",
+    "en": "lazy loading",
+    "aliases": [
+      "지연 로딩",
+      "지연 초기화"
+    ],
+    "category": "설계",
+    "short": "비싼 객체나 데이터를 미리 만들지 않고, 실제로 처음 필요해지는 순간에 만들거나 불러오는 기법.",
+    "defined": "09 · 비싼 객체를 정말 필요할 때까지 만들지 않는다",
+    "note": "인용은 가상 프록시 표 행이다. 09장 01_naive.py docstring('지연 로딩·권한·캐시 검사')이 먼저 나온다. 04장(싱글턴)에서 '지연 초기화'가 먼저 쓰였을 수 있음."
+  },
+  {
+    "term": "지연 평가",
+    "en": "lazy evaluation",
+    "aliases": [
+      "지연 평가",
+      "지연성"
+    ],
+    "category": "일반 CS",
+    "short": "값이 실제로 요구될 때까지 계산(또는 요청)을 미루는 평가 방식. 제너레이터는 소비자가 next()를 부를 때만 다음 값까지 진행한다.",
+    "defined": "15 · 제너레이터는 소비자가 값을 요구할 때만 진행",
+    "note": "15장 03_pythonic.py docstring('섞는 시점이 첫 next() 이후라는 점이 제너레이터의 지연성이다')이 5.2절 제목보다 먼저 나온다."
+  },
+  {
+    "term": "스냅샷",
+    "en": "snapshot",
+    "aliases": [
+      "스냅샷"
+    ],
+    "category": "설계",
+    "short": "어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것. 커맨드의 undo에서 실행 직전 값을 기억해 두었다가 그대로 되돌리는 데 쓴다.",
+    "defined": "12 · execute() 때 이전 좌표를 기억한다(스냅샷)",
+    "note": "12장 4절 표('스냅샷(snapshot)')가 역연산과 대비해 장단점을 정리한다. 15장 6절은 '스냅샷(이 장의 tuple 복사)'으로 다른 맥락에 쓴다."
+  },
+  {
+    "term": "역연산",
+    "en": "inverse operation",
+    "aliases": [
+      "역연산"
+    ],
+    "category": "설계",
+    "short": "어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(예: +1 ↔ −1). 연산이 정보를 잃으면(자르기·삭제·반올림) 존재하지 않는다.",
+    "defined": "12 · 역연산(inverse) 온도 +1 ↔ −1",
+    "note": "12장 01_naive.py 주석('역연산이 0에서 자르기를 모른다')이 4절 표보다 먼저 나온다."
+  },
+  {
+    "term": "간접층",
+    "en": "indirection layer",
+    "aliases": [
+      "간접 층",
+      "간접층"
+    ],
+    "category": "설계",
+    "short": "호출하는 쪽과 실제 일을 하는 쪽 사이에 끼워 넣은 중간 단계(퍼사드, 프록시, 인터페이스 등). 변경을 흡수하지만 읽는 사람이 거쳐야 할 단계도 늘린다.",
+    "defined": null,
+    "note": "01장에서 먼저 쓰였음(정의 여부 확인 필요). 08·09장에서 정의 없이 '간접 층'으로 쓰인다."
+  },
+  {
+    "term": "서브시스템",
+    "en": "subsystem",
+    "aliases": [
+      "서브시스템"
+    ],
+    "category": "설계",
+    "short": "하나의 기능 영역을 함께 이루는 여러 클래스·서비스의 묶음. 퍼사드는 서브시스템 앞에 단순한 진입점을 둔다.",
+    "defined": "08 · 대상은 객체 하나가 아니라 서브시스템(여러 객체)",
+    "note": "GoF 퍼사드의 참여자 'Subsystem classes'이기도 하다. 08장 2절·01_naive.py에서 #structure보다 먼저 설명 없이 쓰인다."
+  },
+  {
+    "term": "디미터 법칙",
+    "en": "Law of Demeter",
+    "aliases": [
+      "디미터 법칙"
+    ],
+    "category": "설계",
+    "short": "객체는 직접 협력하는 객체에게만 말을 걸어야 하며, 받은 결과의 내부 구조를 따라 들어가 판단하지 말라는 원칙(최소 지식 원칙).",
+    "defined": null,
+    "note": "08장은 위반 사례(UI가 booking.passport_verified를 들여다봄)만 들고 법칙 자체는 정의하지 않는다."
+  },
+  {
+    "term": "신 객체",
+    "en": "God object",
+    "aliases": [
+      "신 객체",
+      "God object"
+    ],
+    "category": "설계",
+    "short": "너무 많은 책임과 지식을 떠안아 시스템의 대부분이 의존하게 된 거대한 클래스.",
+    "defined": null,
+    "note": "08장 02_facade.py docstring에 영문 병기만 있고, 원고 '함정' 상자는 징후만 나열한다."
+  },
+  {
+    "term": "통과용 메서드",
+    "en": "pass-through method",
+    "aliases": [
+      "통과용 메서드",
+      "통과용(pass-through) 메서드",
+      "pass-through"
+    ],
+    "category": "설계",
+    "short": "받은 호출을 아무 가공 없이 다른 객체의 같은 메서드로 넘기기만 하는 메서드.",
+    "defined": "08 · seats.get_seat_map() 을 그대로 부르기만",
+    "note": "08장 '함정' ④에서 영문 병기로 먼저 나오고, 정의는 6절 '쓰지 말아야 할 때'에 있다."
+  },
+  {
+    "term": "단일 출처",
+    "en": "single source of truth",
+    "aliases": [
+      "단일 출처"
+    ],
+    "category": "설계",
+    "short": "같은 지식(규칙·데이터)이 시스템 안에 오직 한 곳에만 정의되어 있는 상태. 복제본이 어긋날 여지가 없다.",
+    "defined": null,
+    "note": "08·99장 표에서 '흐름 규칙의 단일 출처'로만 쓰인다."
+  },
+  {
+    "term": "합성 루트",
+    "en": "composition root",
+    "aliases": [
+      "composition root",
+      "Composition root",
+      "조립 지점"
+    ],
+    "category": "설계",
+    "short": "애플리케이션 시작점 근처의 한 곳에서 객체들을 만들고 서로 연결(주입)하는 자리. 나머지 코드는 만들어진 객체를 받기만 한다.",
+    "defined": "08 · 서브시스템을 한 번 만들어 퍼사드와",
+    "note": "08장 02_facade.py 주석 '조립 지점: …'이 사실상 정의. 영문 'composition root'는 99장에서 쓰이며 04장에서 먼저 나왔을 가능성."
+  },
+  {
+    "term": "의존성 주입",
+    "en": "dependency injection",
+    "aliases": [
+      "의존성 주입",
+      "생성자 주입",
+      "생성자로 주입"
+    ],
+    "category": "설계",
+    "short": "객체가 필요한 협력 객체를 스스로 만들지 않고 생성자·인자로 바깥에서 받는 방식. 테스트에서 가짜로 바꾸거나 인스턴스를 공유하기 쉬워진다.",
+    "defined": null,
+    "note": "08장은 이유(테스트용 가짜, 인스턴스 공유)만 설명. 04장 등 앞 장에서 정의되었을 가능성."
+  },
+  {
+    "term": "테스트 더블",
+    "en": "test double",
+    "aliases": [
+      "가짜를 넣",
+      "가짜 판독기",
+      "가짜 클래스"
+    ],
+    "category": "설계",
+    "short": "테스트에서 실제 협력 객체 대신 끼워 넣는 가짜 객체(스텁·목 등). 외부 장치·네트워크 없이 동작을 확인하게 해 준다.",
+    "defined": null,
+    "note": "본문은 '가짜'라는 일상어로만 쓴다. 대표 표기는 오케스트레이터 판단."
+  },
+  {
+    "term": "업무 로직",
+    "en": "business logic",
+    "aliases": [
+      "업무 로직",
+      "비즈니스 흐름"
+    ],
+    "category": "설계",
+    "short": "도메인의 규칙 자체(요금 계산, 좌석 배정 등)를 구현한 코드. 화면 표시·통신·조율 같은 기술적 코드와 구별된다.",
+    "defined": null
+  },
+  {
+    "term": "보상 처리",
+    "en": "compensating action",
+    "aliases": [
+      "보상 처리",
+      "보상 규칙"
+    ],
+    "category": "설계",
+    "short": "여러 단계 중 뒤 단계가 실패했을 때, 이미 끝난 앞 단계의 효과를 되돌리는 별도의 처리(예: 저장한 원본 삭제).",
+    "defined": "08 · 실패 시 원본 삭제라는 보상 규칙",
+    "note": "08장 연습문제 2 문제 코드 주석('보상 처리: CLI에서 빠뜨리기 쉽다')이 먼저."
+  },
+  {
+    "term": "도메인 예외",
+    "en": "domain exception",
+    "aliases": [
+      "도메인 예외"
+    ],
+    "category": "설계",
+    "short": "HTTP 상태 코드 같은 특정 클라이언트의 표현이 아니라 업무 의미(예: 업로드 실패)로 이름 붙인 예외 타입.",
+    "defined": null
+  },
+  {
+    "term": "공개 API",
+    "en": "public API",
+    "aliases": [
+      "공개 API",
+      "공개 표면"
+    ],
+    "category": "설계",
+    "short": "모듈·패키지·클래스가 바깥 사용자에게 쓰라고 약속한 이름들의 집합. 그 밖의 것은 내부 구현으로 취급한다.",
+    "defined": null
+  },
+  {
+    "term": "보호 프록시",
+    "en": "protection proxy",
+    "aliases": [
+      "보호 프록시"
+    ],
+    "category": "설계",
+    "short": "호출자의 권한에 따라 실제 객체로의 접근을 허용하거나 거부하는 프록시.",
+    "defined": "09 · 접근 권한 : 호출자에 따라 허용·거부",
+    "note": "08장(퍼사드)에서 '(9장)' 예고와 함께 세 번 먼저 쓰인다."
+  },
+  {
+    "term": "가상 프록시",
+    "en": "virtual proxy",
+    "aliases": [
+      "가상 프록시"
+    ],
+    "category": "설계",
+    "short": "비싼 실제 객체를 정말 필요할 때까지 만들지 않고, 첫 사용 시점에 만들어 위임하는 프록시.",
+    "defined": "09 · 생성 시점 : 비싼 객체를 정말 필요할 때까지"
+  },
+  {
+    "term": "캐싱 프록시",
+    "en": "caching proxy",
+    "aliases": [
+      "캐싱 프록시"
+    ],
+    "category": "설계",
+    "short": "실제 객체 호출 결과를 기억해 두었다가 같은 요청에 재사용함으로써 반복 비용을 줄이는 프록시.",
+    "defined": "09 · 반복 비용 : 결과를 재사용"
+  },
+  {
+    "term": "원격 프록시",
+    "en": "remote proxy",
+    "aliases": [
+      "원격 프록시"
+    ],
+    "category": "설계",
+    "short": "다른 프로세스·머신에 있는 객체를 로컬 객체처럼 호출할 수 있게 대신 서 있는 프록시.",
+    "defined": "09 · 다른 프로세스·머신의 객체를 로컬처럼"
+  },
+  {
+    "term": "스마트 참조",
+    "en": "smart reference",
+    "aliases": [
+      "smart reference"
+    ],
+    "category": "설계",
+    "short": "실제 객체에 접근할 때 참조 횟수 세기·잠금·캐시 같은 부가 동작을 함께 수행하는 프록시(GoF의 분류).",
+    "defined": null,
+    "note": "09장 표에 영문으로만 등장."
+  },
+  {
+    "term": "생명주기",
+    "en": "lifecycle",
+    "aliases": [
+      "생명주기",
+      "수명 관리"
+    ],
+    "category": "설계",
+    "short": "객체가 생성되어 쓰이다가 해제·소멸되기까지의 전 과정. 누가 그 시점을 결정하는가가 설계 쟁점이 된다.",
+    "defined": null
+  },
+  {
+    "term": "UML 스테레오타입",
+    "en": "stereotype",
+    "aliases": [
+      "«create»",
+      "«uses»",
+      "«function»",
+      "«functions»",
+      "«frozen dataclass»",
+      "«Context»",
+      "«State»",
+      "«Concrete State»",
+      "«Abstract Class»",
+      "«Client»",
+      "«Aggregate»",
+      "«Iterator»",
+      "«Concrete Iterator»"
+    ],
+    "category": "설계",
+    "short": "UML 요소에 « » 꺾쇠로 붙이는 꼬리표. 그 요소의 종류나 관계의 의미(예: «create» = 생성 관계)를 표시한다.",
+    "defined": null,
+    "note": "09·10·11·13·15장 그림에 쓰인다. 앞 장 그림에서 먼저 나왔을 가능성(«create»)."
+  },
+  {
+    "term": "투명성",
+    "en": "transparency",
+    "aliases": [
+      "투명성",
+      "투명하"
+    ],
+    "category": "설계",
+    "short": "대리 객체가 실제 객체와 완전히 똑같이 보여서, 클라이언트가 그 차이를 알 수도 알 필요도 없는 성질.",
+    "defined": null
+  },
+  {
+    "term": "기본 거부",
+    "en": "default deny",
+    "aliases": [
+      "기본 거부",
+      "기본은 거부"
+    ],
+    "category": "설계",
+    "short": "명시적으로 허용되지 않은 것은 모두 거부하는 정책. 새 동작을 추가하면서 규칙을 빠뜨려도 '허용'이 아니라 '거부'로 실패한다.",
+    "defined": "09 · 표에 없는 동작은 기본 거부 하는 것",
+    "note": "13장에서 상태 패턴의 '기본은 거부' 정책으로 다시 쓴다."
+  },
+  {
+    "term": "불변식",
+    "en": "invariant",
+    "aliases": [
+      "불변식"
+    ],
+    "category": "설계",
+    "short": "객체나 시스템이 어떤 연산 전후에도 항상 참으로 유지해야 하는 조건(예: 모든 경로가 캐시를 거친다).",
+    "defined": null
+  },
+  {
+    "term": "보안 경계",
+    "en": "security boundary",
+    "aliases": [
+      "보안 경계"
+    ],
+    "category": "설계",
+    "short": "신뢰할 수 없는 코드가 넘을 수 없도록 강제되는 경계(프로세스·서비스 경계 등). 같은 프로세스 안의 파이썬 객체 경계는 이에 해당하지 않는다.",
+    "defined": null
+  },
+  {
+    "term": "값 객체",
+    "en": "value object",
+    "aliases": [
+      "값 객체"
+    ],
+    "category": "설계",
+    "short": "정체성 없이 담긴 값으로만 의미가 정해지는, 대개 불변인 작은 객체(예: FeeInput, Tick).",
+    "defined": null
+  },
+  {
+    "term": "엔티티",
+    "en": "entity",
+    "aliases": [
+      "엔티티"
+    ],
+    "category": "설계",
+    "short": "값이 바뀌어도 같은 대상으로 추적되는 정체성(ID)을 가진 도메인 객체(예: 주문).",
+    "defined": null
+  },
+  {
+    "term": "입력 계약",
+    "en": "contract",
+    "aliases": [
+      "입력 계약"
+    ],
+    "category": "설계",
+    "short": "메서드가 무엇을 받고 무엇을 보장하는지에 대한 약속. 10장은 시그니처뿐 아니라 '넘기는 인자의 폭'까지 계약이라 한다.",
+    "defined": "10 · calculate() 의 시그니처만이 아니라 인자의 폭",
+    "note": "본문에는 '계약'이라는 일반어가 장마다 넓게 쓰여 별칭은 구체 표기만 넣었다."
+  },
+  {
+    "term": "인터페이스에 프로그래밍",
+    "en": "program to an interface",
+    "aliases": [
+      "인터페이스에 프로그래밍",
+      "구현에 프로그래밍"
+    ],
+    "category": "설계",
+    "short": "구체 클래스가 아니라 추상 타입(인터페이스)에 의존하도록 코드를 쓰라는 GoF 원칙.",
+    "defined": null,
+    "note": "00장 서론의 세 원칙 중 하나로 이미 정의되었을 가능성."
+  },
+  {
+    "term": "등록부",
+    "en": "registry",
+    "aliases": [
+      "등록부",
+      "레지스트리"
+    ],
+    "category": "설계",
+    "short": "이름(키)을 클래스·함수·팩토리에 대응시켜 둔 표. 분기 대신 조회로 구현을 고르게 해 준다.",
+    "defined": null,
+    "note": "01장에서 '레지스트리'로 먼저 쓰였음."
+  },
+  {
+    "term": "객체 그래프",
+    "en": "object graph",
+    "aliases": [
+      "객체 그래프"
+    ],
+    "category": "설계",
+    "short": "서로 참조로 연결된 객체들 전체의 구조.",
+    "defined": null
+  },
+  {
+    "term": "과잉 설계",
+    "en": "over-engineering",
+    "aliases": [
+      "과잉 설계",
+      "패턴 과잉"
+    ],
+    "category": "설계",
+    "short": "현재 문제에 필요한 것보다 많은 추상화·구조를 미리 넣는 것.",
+    "defined": null
+  },
+  {
+    "term": "클래스 폭발",
+    "en": "class explosion",
+    "aliases": [
+      "클래스 폭발",
+      "클래스가 폭발"
+    ],
+    "category": "설계",
+    "short": "변이의 축 여러 개를 상속으로 조합할 때 클래스 수가 축들의 곱만큼 늘어나는 현상.",
+    "defined": null
+  },
+  {
+    "term": "변경 축",
+    "en": "axis of change",
+    "aliases": [
+      "변경 축",
+      "변이 축",
+      "변이의 축"
+    ],
+    "category": "설계",
+    "short": "서로 다른 이유·주체·시점으로 독립적으로 바뀌는 요구의 방향. 축마다 분리하는 것이 설계의 기준이 된다.",
+    "defined": null
+  },
+  {
+    "term": "구조적 타이핑",
+    "en": "structural typing",
+    "aliases": [
+      "구조적 타이핑"
+    ],
+    "category": "파이썬",
+    "short": "상속 관계가 아니라 메서드·호출 모양이 맞는지로 타입 호환을 판정하는 방식(파이썬의 Protocol, Callable 타입 별칭).",
+    "defined": "10 · 전략 여부는 상속 관계가 아니라 호출 모양"
+  },
+  {
+    "term": "덕 타이핑",
+    "en": "duck typing",
+    "aliases": [
+      "덕 타이핑"
+    ],
+    "category": "파이썬",
+    "short": "객체의 선언된 타입이 아니라 필요한 메서드·속성을 가졌는지만으로 쓰임을 결정하는 파이썬의 동적 관례.",
+    "defined": null,
+    "note": "앞 장에서 정의되었을 가능성."
+  },
+  {
+    "term": "순수 함수",
+    "en": "pure function",
+    "aliases": [
+      "순수 계산"
+    ],
+    "category": "일반 CS",
+    "short": "같은 입력에 항상 같은 출력을 내고, 바깥 상태를 바꾸는 부수 효과가 없는 함수.",
+    "defined": null
+  },
+  {
+    "term": "복사본 순회",
+    "en": "iterate over a copy",
+    "aliases": [
+      "복사본 순회",
+      "복사본을 순회"
+    ],
+    "category": "설계",
+    "short": "통지를 시작할 때의 구독자 목록을 복사해 그 복사본을 도는 것. 통지 도중 구독·해제가 일어나도 건너뛰기가 생기지 않는다.",
+    "defined": "11 · 지금 이 순간의' 목록을 떠서 돈다"
+  },
+  {
+    "term": "예외 격리",
+    "en": "exception isolation",
+    "aliases": [
+      "예외 격리",
+      "실패 격리"
+    ],
+    "category": "설계",
+    "short": "한 관찰자(구독자)가 던진 예외를 잡아 기록하고 다음으로 넘어가, 실패가 다른 관찰자에게 번지지 않게 하는 것.",
+    "defined": "11 · 관찰자 하나의 실패가 나머지 관찰자를 막지 않게"
+  },
+  {
+    "term": "멱등",
+    "en": "idempotent",
+    "aliases": [
+      "멱등"
+    ],
+    "category": "일반 CS",
+    "short": "같은 연산을 여러 번 수행해도 한 번 수행한 것과 결과가 같은 성질.",
+    "defined": "11 · 다시 불러도 조용히 넘어간다(멱등)"
+  },
+  {
+    "term": "파이프라인",
+    "en": "pipeline",
+    "aliases": [
+      "파이프라인"
+    ],
+    "category": "설계",
+    "short": "앞 단계의 결과가 다음 단계의 입력이 되도록 순서가 고정된 처리 흐름. 앞 단계가 실패하면 뒤가 멈춰야 한다.",
+    "defined": null
+  },
+  {
+    "term": "발행/구독",
+    "en": "publish/subscribe",
+    "aliases": [
+      "발행/구독",
+      "Pub/Sub",
+      "주제(topic)"
+    ],
+    "category": "설계",
+    "short": "발행자가 주제(이벤트 이름)로 메시지를 내보내고, 그 주제를 구독한 쪽들이 받는 통신 방식. 발행자는 구독자를 모른다.",
+    "defined": null
+  },
+  {
+    "term": "이벤트 버스",
+    "en": "event bus",
+    "aliases": [
+      "이벤트 버스"
+    ],
+    "category": "설계",
+    "short": "여러 모듈이 이벤트를 발행·구독하는 공용 통지 허브.",
+    "defined": null
+  },
+  {
+    "term": "갱신 폭포",
+    "en": "update cascade",
+    "aliases": [
+      "갱신 폭포"
+    ],
+    "category": "설계",
+    "short": "통지를 받은 관찰자가 다른 주체를 바꾸고, 그 주체가 또 통지하는 식으로 갱신이 연쇄적으로 번지는 현상.",
+    "defined": "11 · 관찰자가 다른 주체의 상태를 바꾸고, 그 주체가"
+  },
+  {
+    "term": "도메인 이벤트",
+    "en": "domain event",
+    "aliases": [
+      "도메인 이벤트"
+    ],
+    "category": "설계",
+    "short": "도메인에서 이미 일어난 사실(예: UserSignedUp)을 과거형 이름으로 알리는 메시지. 무엇을 하라고 지시하지 않는다.",
+    "defined": "11 · 과거형 이름: '일어난 사실'을 알릴 뿐"
+  },
+  {
+    "term": "아웃박스 패턴",
+    "en": "transactional outbox",
+    "aliases": [
+      "아웃박스 테이블"
+    ],
+    "category": "설계",
+    "short": "보낼 메시지를 업무 데이터와 같은 트랜잭션으로 DB 테이블에 먼저 기록하고, 커밋 후 별도로 발행해 '롤백됐는데 메시지는 나간' 사고를 막는 기법.",
+    "defined": null
+  },
+  {
+    "term": "이벤트 소싱",
+    "en": "event sourcing",
+    "aliases": [
+      "이벤트 소싱"
+    ],
+    "category": "설계",
+    "short": "현재 상태 대신 상태를 바꾼 이벤트들의 기록을 저장하고, 그 기록을 재생해 상태를 얻는 설계 방식.",
+    "defined": null
+  },
+  {
+    "term": "상태 전이",
+    "en": "state transition",
+    "aliases": [
+      "상태 전이",
+      "전이 규칙",
+      "시간 기반 전이"
+    ],
+    "category": "설계",
+    "short": "객체가 사건(명령·시간·센서)에 반응해 한 상태에서 다른 상태로 바뀌는 것.",
+    "defined": null,
+    "note": "13장 1절('시간이 흐르기만 하면 일어나는 전이다')부터 '전이'가 설명 없이 쓰인다."
+  },
+  {
+    "term": "불법 전이",
+    "en": "illegal transition",
+    "aliases": [
+      "불법 전이"
+    ],
+    "category": "설계",
+    "short": "현재 상태에서 허용되지 않은 동작이 요청되어 일어나서는 안 되는 상태 변화.",
+    "defined": "13 · 현재 상태에서 허용되지 않는 동작을 요청했을 때",
+    "note": "13장 01_naive.py docstring이 IllegalTransition docstring보다 먼저 쓴다."
+  },
+  {
+    "term": "가드 조건",
+    "en": "guard condition",
+    "aliases": [
+      "가드(guard)",
+      "가드 조건",
+      "전이 가드"
+    ],
+    "category": "설계",
+    "short": "전이가 일어나기 위해 추가로 만족해야 하는 조건(예: 예약자 본인만 잠금 해제).",
+    "defined": "13 · 가드 조건(예약자 본인만 잠금 해제 가능)",
+    "note": "예시로만 정의된다."
+  },
+  {
+    "term": "진입 동작",
+    "en": "entry action",
+    "aliases": [
+      "진입 동작",
+      "entry action"
+    ],
+    "category": "설계",
+    "short": "어떤 상태로 들어갈 때마다 실행되는 동작(예: 그 상태에 필요 없는 데이터 정리).",
+    "defined": "13 · 진입 동작(entry action). 상태별 데이터의 수명을"
+  },
+  {
+    "term": "상태 기계",
+    "en": "state machine",
+    "aliases": [
+      "상태 기계",
+      "유한 상태 기계"
+    ],
+    "category": "일반 CS",
+    "short": "유한한 상태 집합과, (현재 상태, 사건) → 다음 상태로 정해진 전이 규칙으로 동작을 기술하는 모델.",
+    "defined": null,
+    "note": "13장 03 docstring에서 처음, 04 docstring에서 '유한 상태 기계'로 쓰인다."
+  },
+  {
+    "term": "전이표",
+    "en": "transition table",
+    "aliases": [
+      "전이표"
+    ],
+    "category": "설계",
+    "short": "(현재 상태, 사건) → 다음 상태를 데이터(dict)로 적은 표. 표에 없는 조합은 불법 전이가 된다.",
+    "defined": "13 · (현재 상태, 사건) → 다음 상태. 표에 없는"
+  },
+  {
+    "term": "보일러플레이트",
+    "en": "boilerplate",
+    "aliases": [
+      "보일러플레이트"
+    ],
+    "category": "일반 CS",
+    "short": "구조상 반드시 써야 하지만 매번 거의 똑같아 정보가 없는 반복 코드.",
+    "defined": null
+  },
+  {
+    "term": "무상태",
+    "en": "stateless",
+    "aliases": [
+      "무상태"
+    ],
+    "category": "일반 CS",
+    "short": "인스턴스마다 다른 필드(상태)를 갖지 않는 성질. 무상태 객체는 여러 곳이 하나를 공유해도 안전하다.",
+    "defined": "13 · 필드를 갖지 않는 상태",
+    "note": "13장 02 docstring('무상태 상태 객체는 … 공유할 수도')이 05의 정의보다 먼저."
+  },
+  {
+    "term": "취약한 기반 클래스",
+    "en": "fragile base class",
+    "aliases": [
+      "취약한 기반 클래스",
+      "fragile base class"
+    ],
+    "category": "설계",
+    "short": "상위 클래스의 내부 호출 순서를 조금만 바꿔도 그것에 암묵적으로 의존하던 하위 클래스가 깨지는 문제.",
+    "defined": "14 · 상위 클래스가 골격을 조금만 바꿔도 하위 클래스가",
+    "note": "14장 4절 비교표에 먼저 이름만 나오고, 정의는 6절."
+  },
+  {
+    "term": "요요 문제",
+    "en": "yo-yo problem",
+    "aliases": [
+      "요요 문제"
+    ],
+    "category": "설계",
+    "short": "상속 계층이 깊을 때 동작을 이해하려고 하위·상위 클래스를 계속 오가야 하는 문제.",
+    "defined": "14 · 상위 클래스를 오가야 한다(요요 문제)"
+  },
+  {
+    "term": "DRY",
+    "en": "Don't Repeat Yourself",
+    "aliases": [
+      "DRY"
+    ],
+    "category": "설계",
+    "short": "같은 지식을 두 곳 이상에 쓰지 말라는 원칙(Don't Repeat Yourself).",
+    "defined": null,
+    "note": "약어 풀이 없음."
+  },
+  {
+    "term": "믹스인",
+    "en": "mixin",
+    "aliases": [
+      "믹스인"
+    ],
+    "category": "파이썬",
+    "short": "단독으로 쓰기보다 상속해서 메서드 묶음을 얻기 위해 만든 클래스(예: collections.abc.Sequence가 __iter__·__contains__ 등을 제공).",
+    "defined": "15 · 두 메서드만 쓰고 나머지 순회 관련 연산을 물려받는다"
+  },
+  {
+    "term": "코드 냄새",
+    "en": "code smell",
+    "aliases": [
+      "냄새"
+    ],
+    "category": "설계",
+    "short": "당장 버그는 아니지만 설계 문제가 있을 가능성을 알려 주는 코드의 징후.",
+    "defined": null,
+    "note": "04장에서 '같은 냄새가 난다'로 먼저 쓰였음. 99장 6절 제목."
+  },
+  {
+    "term": "포트",
+    "en": "port (ports and adapters)",
+    "aliases": [
+      "소유하는 포트"
+    ],
+    "category": "설계",
+    "short": "헥사고날(포트와 어댑터) 아키텍처에서 도메인이 소유하고 바깥 구현이 맞춰야 하는 인터페이스.",
+    "defined": null,
+    "note": "99장 표('Target은 도메인이 소유하는 포트')에만 등장. 별칭 '포트'는 '리포트'·'시리얼 포트'에 오검출되어 구체 표기만 넣었다."
+  },
+  {
+    "term": "객체 어댑터",
+    "en": "object adapter",
+    "aliases": [
+      "객체 어댑터"
+    ],
+    "category": "설계",
+    "short": "Adaptee를 상속하지 않고 필드로 가져 위임하는(합성) 방식의 어댑터.",
+    "defined": null,
+    "note": "5장에서 정의되었을 가능성."
+  },
+  {
+    "term": "컨텍스트 매니저",
+    "en": "context manager",
+    "aliases": [
+      "컨텍스트 관리자",
+      "컨텍스트 매니저",
+      "contextmanager",
+      "with 블록"
+    ],
+    "category": "파이썬",
+    "short": "with 문에 쓰여 블록 진입 시 준비, 빠져나올 때(예외 포함) 정리를 보장하는 객체. @contextmanager는 yield 하나 있는 제너레이터 함수로 이를 만든다.",
+    "defined": null,
+    "note": "08장에서 @contextmanager로 범위 안 처음 쓰이고, 14장은 '컨텍스트 관리자'로 표기한다. 앞 장(6장 등)에서 정의되었을 가능성."
+  },
+  {
+    "term": "제너레이터",
+    "en": "generator",
+    "aliases": [
+      "제너레이터",
+      "yield"
+    ],
+    "category": "파이썬",
+    "short": "yield가 있는 함수(제너레이터 함수)를 부르면 나오는 반복자 객체. 값을 하나 내고 실행을 멈췄다가 다음 next()에서 이어 간다.",
+    "defined": "15 · yield 가 있는 함수를 호출하면 반복자 객체가 나온다",
+    "note": "08장 @contextmanager 예제의 yield, 14장 '@contextmanager 제너레이터'가 15장 정의보다 먼저."
+  },
+  {
+    "term": "yield from",
+    "en": "yield from",
+    "aliases": [
+      "yield from"
+    ],
+    "category": "파이썬",
+    "short": "하위 이터러블의 값을 하나씩 그대로 흘려보내는(순회를 위임하는) 제너레이터 문법.",
+    "defined": "15 · 하위 반복자에 순회를 위임한다"
+  },
+  {
+    "term": "제너레이터 표현식",
+    "en": "generator expression",
+    "aliases": [
+      "제너레이터 식"
+    ],
+    "category": "파이썬",
+    "short": "(x for x in ...) 꼴로 쓰는, 리스트를 만들지 않고 값을 하나씩 내는 표현식.",
+    "defined": null,
+    "note": "10장 이후 코드(next((f for … ), default), sum(… for …))에서 이름 없이 쓰이고 15장에서 '제너레이터 식'으로 불린다."
+  },
+  {
+    "term": "이터레이터",
+    "en": "iterator",
+    "aliases": [
+      "이터레이터",
+      "iterator",
+      "Iterator"
+    ],
+    "category": "파이썬",
+    "short": "__next__()로 다음 값을 주고 끝나면 StopIteration을 던지는, '한 번 쓰면 닳는 커서' 객체. __iter__()는 자기 자신을 돌려준다.",
+    "defined": "15 · __next__() 로 다음 값을 주고, 끝나면 StopIteration",
+    "note": "08장 03_pythonic.py의 typing.Iterator 타입 힌트가 먼저. 15장의 한국어 대표어는 '반복자'(패턴명과 겹침)."
+  },
+  {
+    "term": "이터러블",
+    "en": "iterable",
+    "aliases": [
+      "이터러블",
+      "Iterable",
+      "iterable"
+    ],
+    "category": "파이썬",
+    "short": "__iter__()를 호출할 때마다 새 이터레이터를 돌려주는 객체. for 문으로 몇 번이든 처음부터 돌 수 있다.",
+    "defined": "15 · __iter__() 가 새 반복자를 돌려준다"
+  },
+  {
+    "term": "이터레이터 프로토콜",
+    "en": "iterator protocol",
+    "aliases": [
+      "반복자 프로토콜",
+      "__next__",
+      "StopIteration"
+    ],
+    "category": "파이썬",
+    "short": "__iter__/__next__ 메서드와 StopIteration 예외로 이루어진 파이썬의 순회 규약. for·list()·next()가 이 규약을 호출한다.",
+    "defined": "15 · first()/next()/is_done()/current_item() 네 메서드가"
+  },
+  {
+    "term": "itertools",
+    "en": "itertools",
+    "aliases": [
+      "itertools",
+      "islice",
+      "cycle",
+      "tee"
+    ],
+    "category": "파이썬",
+    "short": "반복자를 조립하는 표준 라이브러리 모듈(cycle 무한 반복, islice 앞 n개 자르기, chain 이어 붙이기, repeat, tee 복제 등).",
+    "defined": "15 · 반복자를 조립하는 부품 상자"
+  },
+  {
+    "term": "고갈",
+    "en": "exhaustion",
+    "aliases": [
+      "고갈"
+    ],
+    "category": "파이썬",
+    "short": "이터레이터(제너레이터 객체)를 끝까지 소비해 더 이상 값이 나오지 않는 상태. 두 번째 순회는 예외 없이 빈 결과가 된다.",
+    "defined": "15 · 제너레이터 객체를 변수에 담아 두 번 쓰는' 고갈"
+  },
+  {
+    "term": "collections.abc",
+    "en": "collections.abc",
+    "aliases": [
+      "collections.abc",
+      "Sequence"
+    ],
+    "category": "파이썬",
+    "short": "Iterator·Sequence 같은 컨테이너 추상 기반 클래스를 모은 표준 모듈. 필수 메서드만 구현하면 나머지를 믹스인으로 제공한다.",
+    "defined": null
+  },
+  {
+    "term": "__getattr__",
+    "en": "__getattr__",
+    "aliases": [
+      "__getattr__"
+    ],
+    "category": "파이썬",
+    "short": "일반 속성 조회가 실패했을 때만 불리는 특수 메서드. 정의되지 않은 속성 접근을 다른 객체로 위임하는 데 쓴다.",
+    "defined": "09 · '일반 조회가 실패했을 때만' 불리므로",
+    "note": "앞 장(5·6장)에서 정의되었을 가능성."
+  },
+  {
+    "term": "특수 메서드",
+    "en": "special (dunder) method",
+    "aliases": [
+      "특수 메서드"
+    ],
+    "category": "파이썬",
+    "short": "__len__, __eq__, __iter__처럼 이중 밑줄로 감싼 이름의 메서드. len()·==·for 같은 언어 기능이 호출하며, 인스턴스가 아니라 타입에서 직접 조회된다.",
+    "defined": null,
+    "note": "6장에서 정의되었을 가능성."
+  },
+  {
+    "term": "약한 참조",
+    "en": "weak reference",
+    "aliases": [
+      "약한 참조",
+      "weakref"
+    ],
+    "category": "파이썬",
+    "short": "대상 객체를 살려 두지 않는 참조. 다른 참조가 모두 사라지면 대상은 회수되고, 약한 참조는 죽은 참조가 된다.",
+    "defined": "09 · 실제 객체의 생명주기를 '소유하지 않는' 참조"
+  },
+  {
+    "term": "WeakMethod",
+    "en": "weakref.WeakMethod",
+    "aliases": [
+      "WeakMethod"
+    ],
+    "category": "파이썬",
+    "short": "바운드 메서드를 약하게 참조하는 weakref 도구. 메서드 객체가 아니라 그 주인 객체의 생존에 맞춰 살아 있다.",
+    "defined": "11 · 바운드 메서드 객체는 속성 접근 때마다 새로 만들어지는"
+  },
+  {
+    "term": "바운드 메서드",
+    "en": "bound method",
+    "aliases": [
+      "바운드 메서드",
+      "바인딩된"
+    ],
+    "category": "파이썬",
+    "short": "인스턴스에 묶인 메서드 객체(chart.redraw). 호출할 때 self가 자동으로 채워지며, 속성 접근 때마다 새로 만들어진다.",
+    "defined": "11 · 속성 접근 때마다 새로 만들어지는 임시 객체"
+  },
+  {
+    "term": "참조 카운트",
+    "en": "reference counting",
+    "aliases": [
+      "참조 카운트"
+    ],
+    "category": "파이썬",
+    "short": "객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식.",
+    "defined": null
+  },
+  {
+    "term": "가비지 컬렉션",
+    "en": "garbage collection",
+    "aliases": [
+      "GC",
+      "gc.collect"
+    ],
+    "category": "파이썬",
+    "short": "더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. gc.collect()는 순환 참조까지 찾아 회수하도록 강제한다.",
+    "defined": null
+  },
+  {
+    "term": "CPython·PyPy",
+    "en": "CPython / PyPy",
+    "aliases": [
+      "CPython",
+      "PyPy"
+    ],
+    "category": "파이썬",
+    "short": "파이썬 언어의 구현체들. CPython은 C로 만든 표준 구현, PyPy는 JIT 컴파일러를 쓰는 대안 구현으로 메모리 회수 시점 등이 다르다.",
+    "defined": null
+  },
+  {
+    "term": "순환 참조",
+    "en": "reference cycle",
+    "aliases": [
+      "순환 참조"
+    ],
+    "category": "일반 CS",
+    "short": "객체들이 서로를 참조해 고리를 이루는 것. 참조 카운트만으로는 회수되지 않는다.",
+    "defined": null
+  },
+  {
+    "term": "cached_property",
+    "en": "functools.cached_property",
+    "aliases": [
+      "cached_property"
+    ],
+    "category": "파이썬",
+    "short": "첫 접근 때 한 번 계산한 값을 인스턴스 __dict__에 저장해, 이후에는 일반 속성처럼 읽히게 하는 데코레이터.",
+    "defined": "09 · 첫 접근 때 한 번 계산되어 인스턴스 __dict__에"
+  },
+  {
+    "term": "lru_cache",
+    "en": "functools.lru_cache",
+    "aliases": [
+      "lru_cache",
+      "cache_info"
+    ],
+    "category": "파이썬",
+    "short": "함수 인자를 키로 결과를 기억하고, 용량을 넘으면 가장 오래 안 쓴 항목부터 버리는 캐시 데코레이터.",
+    "defined": "09 · 함수 결과 캐시 — 캐싱 프록시의 가장 가벼운 형태"
+  },
+  {
+    "term": "인스턴스 __dict__",
+    "en": "__dict__",
+    "aliases": [
+      "__dict__"
+    ],
+    "category": "파이썬",
+    "short": "인스턴스의 속성 이름과 값을 담은 딕셔너리. vars(obj)로 볼 수 있다.",
+    "defined": null
+  },
+  {
+    "term": "__class__",
+    "en": "__class__",
+    "aliases": [
+      "__class__"
+    ],
+    "category": "파이썬",
+    "short": "객체가 속한 클래스를 가리키는 속성. 대입하면 객체의 클래스 자체가 바뀐다.",
+    "defined": null,
+    "note": "13장 5.2절에서 교체 트릭으로 다룬다."
+  },
+  {
+    "term": "unittest.mock",
+    "en": "unittest.mock",
+    "aliases": [
+      "unittest.mock"
+    ],
+    "category": "파이썬",
+    "short": "테스트용 가짜 객체(Mock)를 만드는 표준 라이브러리. 어떤 속성 접근에도 응답하는 범용 대역을 제공한다.",
+    "defined": null
+  },
+  {
+    "term": "프로퍼티",
+    "en": "property",
+    "aliases": [
+      "@property",
+      "프로퍼티",
+      "property setter",
+      "@price.setter"
+    ],
+    "category": "파이썬",
+    "short": "메서드를 속성처럼 읽고(getter) 대입하게(setter) 만드는 데코레이터. 대입 시점에 검사·통지 같은 코드를 끼울 수 있다.",
+    "defined": null
+  },
+  {
+    "term": "OrderedDict",
+    "en": "collections.OrderedDict",
+    "aliases": [
+      "OrderedDict",
+      "move_to_end",
+      "popitem"
+    ],
+    "category": "파이썬",
+    "short": "삽입 순서를 다루는 연산(move_to_end, popitem(last=False))을 제공하는 딕셔너리. LRU 캐시를 몇 줄로 구현할 수 있다.",
+    "defined": null
+  },
+  {
+    "term": "센티널",
+    "en": "sentinel",
+    "aliases": [
+      "_UNSET"
+    ],
+    "category": "파이썬",
+    "short": "None 같은 정상 값과 구별되도록 만든 '표시용' 고유 객체(object()). '아직 없음'을 None과 헷갈리지 않게 표현한다.",
+    "defined": "09 · '아직 안 만듦' 표시. None을 쓰면 factory가",
+    "note": "용어 '센티널' 자체는 쓰이지 않는다. 15장 연습문제 4의 iter(p.skip, None)도 센티널 형태의 iter()를 설명 없이 쓴다."
+  },
+  {
+    "term": "Callable",
+    "en": "typing.Callable",
+    "aliases": [
+      "Callable"
+    ],
+    "category": "파이썬",
+    "short": "호출 가능한 객체의 타입 힌트. Callable[[인자 타입들], 반환 타입] 꼴로 함수 모양을 적는다.",
+    "defined": null
+  },
+  {
+    "term": "Any",
+    "en": "typing.Any",
+    "aliases": [
+      "Any"
+    ],
+    "category": "파이썬",
+    "short": "어떤 타입이든 허용한다는 타입 힌트. 타입 검사를 사실상 끈다.",
+    "defined": null
+  },
+  {
+    "term": "람다",
+    "en": "lambda",
+    "aliases": [
+      "람다",
+      "lambda"
+    ],
+    "category": "파이썬",
+    "short": "이름 없이 식 하나로 만드는 작은 함수(lambda x: ...).",
+    "defined": null
+  },
+  {
+    "term": "클로저",
+    "en": "closure",
+    "aliases": [
+      "클로저"
+    ],
+    "category": "파이썬",
+    "short": "바깥 함수의 지역 변수를 붙잡아(캡처) 기억하는 안쪽 함수. 바깥 함수가 끝난 뒤에도 그 값을 쓸 수 있다.",
+    "defined": "10 · 클로저가 생성자 역할, 캡처 변수가 필드 역할",
+    "note": "00장에서 먼저 쓰였음."
+  },
+  {
+    "term": "functools.partial",
+    "en": "functools.partial",
+    "aliases": [
+      "partial",
+      "functools.partial"
+    ],
+    "category": "파이썬",
+    "short": "함수의 일부 인자를 미리 채워 둔 새 호출 가능 객체를 만든다. repr에 채운 인자가 보인다.",
+    "defined": "10 · 키워드 인자를 미리 채운 함수",
+    "note": "08장 원고(functools.partial(check_in, …))가 먼저 쓴다."
+  },
+  {
+    "term": "콜러블",
+    "en": "callable",
+    "aliases": [
+      "콜러블",
+      "호출 가능한",
+      "__call__"
+    ],
+    "category": "파이썬",
+    "short": "() 로 호출할 수 있는 모든 객체(함수, 람다, partial, __call__을 정의한 인스턴스).",
+    "defined": null
+  },
+  {
+    "term": "타입 별칭",
+    "en": "type alias",
+    "aliases": [
+      "타입 별칭"
+    ],
+    "category": "파이썬",
+    "short": "복잡한 타입 힌트에 이름을 붙인 것(FeePolicy = Callable[[FeeInput], int]).",
+    "defined": null
+  },
+  {
+    "term": "일급 객체",
+    "en": "first-class object",
+    "aliases": [
+      "일급 객체",
+      "일급 함수"
+    ],
+    "category": "파이썬",
+    "short": "변수에 담고, 인자로 넘기고, 반환값으로 돌려줄 수 있는 값. 파이썬에서 함수는 일급 객체다.",
+    "defined": null,
+    "note": "00장에서 '일급 함수'로 먼저 쓰였음."
+  },
+  {
+    "term": "키워드 전용 인자",
+    "en": "keyword-only argument",
+    "aliases": [
+      "키워드 전용 인자",
+      "키워드 인자로"
+    ],
+    "category": "파이썬",
+    "short": "매개변수 목록의 * 뒤에 두어 반드시 이름=값으로만 넘길 수 있게 한 인자.",
+    "defined": null
+  },
+  {
+    "term": "**kwargs",
+    "en": "keyword arguments unpacking",
+    "aliases": [
+      "**kwargs",
+      "kwargs"
+    ],
+    "category": "파이썬",
+    "short": "정의에서는 남는 키워드 인자를 dict로 모으고, 호출에서는 dict를 키워드 인자로 풀어 넘기는 문법.",
+    "defined": null
+  },
+  {
+    "term": "데코레이터 문법",
+    "en": "decorator syntax",
+    "aliases": [
+      "@ 문법",
+      "데코레이터 문법"
+    ],
+    "category": "파이썬",
+    "short": "@이름을 함수·클래스 정의 위에 붙여 '정의 = 이름(정의)'로 감싸게 하는 파이썬 문법. GoF 데코레이터 패턴과는 다른 범주다.",
+    "defined": null,
+    "note": "본문의 '<code>@</code> 문법' 표기는 태그가 공백으로 바뀌어 별칭 '@ 문법'이 범위 안(09·99장)에서 잡히지 않는다(검사기 한계). 6장에서 정의되었을 가능성. 10·11·12장 @register, @events.subscribe가 인자 받는 데코레이터(데코레이터 팩토리)를 설명 없이 쓴다."
+  },
+  {
+    "term": "nonlocal",
+    "en": "nonlocal",
+    "aliases": [
+      "nonlocal"
+    ],
+    "category": "파이썬",
+    "short": "안쪽 함수에서 바깥 함수의 지역 변수에 다시 대입할 수 있게 하는 선언.",
+    "defined": null
+  },
+  {
+    "term": "해시 가능",
+    "en": "hashable",
+    "aliases": [
+      "해시 가능",
+      "해시"
+    ],
+    "category": "파이썬",
+    "short": "수명 동안 해시값이 변하지 않아 dict 키·set 원소가 될 수 있는 성질. frozen dataclass는 해시 가능하다.",
+    "defined": null
+  },
+  {
+    "term": "dataclasses.asdict",
+    "en": "dataclasses.asdict",
+    "aliases": [
+      "asdict"
+    ],
+    "category": "파이썬",
+    "short": "dataclass 인스턴스를 필드 이름→값 dict로 바꾸는 함수.",
+    "defined": null
+  },
+  {
+    "term": "dataclass",
+    "en": "dataclasses.dataclass",
+    "aliases": [
+      "@dataclass",
+      "dataclass"
+    ],
+    "category": "파이썬",
+    "short": "필드 선언만으로 __init__·__repr__·__eq__ 등을 자동 생성하는 클래스 데코레이터.",
+    "defined": null,
+    "note": "앞 장에서 정의되었을 가능성."
+  },
+  {
+    "term": "frozen dataclass",
+    "en": "frozen=True",
+    "aliases": [
+      "frozen=True",
+      "frozen dataclass"
+    ],
+    "category": "파이썬",
+    "short": "필드 대입을 금지해 불변으로 만든 dataclass. 공유해도 안전하고 해시 가능해진다.",
+    "defined": "10 · 정책이 입력을 고쳐서 다음 계산에 영향을 주는 일을"
+  },
+  {
+    "term": "default_factory",
+    "en": "field(default_factory=...)",
+    "aliases": [
+      "default_factory"
+    ],
+    "category": "파이썬",
+    "short": "dataclass 필드의 기본값을 인스턴스마다 새로 만들어 주는 함수(list 등). 가변 기본값 공유 문제를 피한다.",
+    "defined": null
+  },
+  {
+    "term": "init=False 필드",
+    "en": "field(init=False)",
+    "aliases": [
+      "init=False"
+    ],
+    "category": "파이썬",
+    "short": "생성자 인자로 받지 않는 dataclass 필드. 12장에서는 execute() 때 채워지는 undo 정보를 담는다.",
+    "defined": "12 · execute() 때 채워지는 undo 정보"
+  },
+  {
+    "term": "dataclasses.replace",
+    "en": "dataclasses.replace",
+    "aliases": [
+      "dataclasses.replace"
+    ],
+    "category": "파이썬",
+    "short": "기존 dataclass 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수(init=False 필드는 기본값으로).",
+    "defined": "12 · init=False 필드를 기본값으로 둔 새 객체를 만든다",
+    "note": "99장 표에서 'replace 파생'으로도 쓰인다."
+  },
+  {
+    "term": "__init_subclass__",
+    "en": "__init_subclass__",
+    "aliases": [
+      "__init_subclass__"
+    ],
+    "category": "파이썬",
+    "short": "하위 클래스가 정의되는 순간 부모 클래스에서 자동으로 불리는 훅. 등록·규칙 검사를 클래스 정의 시점에 할 수 있다.",
+    "defined": "12 · 하위 클래스를 정의하는 순간 등록부에 올린다",
+    "note": "01장에서 먼저 소개됨."
+  },
+  {
+    "term": "ClassVar",
+    "en": "typing.ClassVar",
+    "aliases": [
+      "ClassVar"
+    ],
+    "category": "파이썬",
+    "short": "dataclass 필드가 아니라 클래스 속성임을 표시하는 타입 힌트. 생성자 인자로 바꿀 수 없다.",
+    "defined": "99 · 취소 가능성은 명령 '종류'의 성질이다",
+    "note": "12·14장에서 설명 없이 먼저 쓰인다."
+  },
+  {
+    "term": "classmethod",
+    "en": "@classmethod",
+    "aliases": [
+      "@classmethod",
+      "classmethod",
+      "대체 생성자"
+    ],
+    "category": "파이썬",
+    "short": "인스턴스 대신 클래스를 첫 인자(cls)로 받는 메서드. 대체 생성자(from_api 등)에 흔히 쓴다.",
+    "defined": null,
+    "note": "01장에서 '대체 생성자'가 먼저 다뤄짐."
+  },
+  {
+    "term": "staticmethod",
+    "en": "@staticmethod",
+    "aliases": [
+      "@staticmethod",
+      "staticmethod"
+    ],
+    "category": "파이썬",
+    "short": "self도 cls도 받지 않는, 클래스 안에 둔 평범한 함수.",
+    "defined": null
+  },
+  {
+    "term": "defaultdict",
+    "en": "collections.defaultdict",
+    "aliases": [
+      "defaultdict"
+    ],
+    "category": "파이썬",
+    "short": "없는 키를 조회하면 지정한 함수(list 등)로 기본값을 만들어 넣어 주는 딕셔너리.",
+    "defined": null
+  },
+  {
+    "term": "inspect.ismethod",
+    "en": "inspect.ismethod",
+    "aliases": [
+      "inspect.ismethod",
+      "inspect"
+    ],
+    "category": "파이썬",
+    "short": "객체가 바운드 메서드인지 확인하는 표준 라이브러리 함수.",
+    "defined": null
+  },
+  {
+    "term": "noqa",
+    "en": "# noqa",
+    "aliases": [
+      "noqa"
+    ],
+    "category": "파이썬",
+    "short": "린터(flake8 등)에게 그 줄의 특정 경고(예: BLE001 너무 넓은 except)를 무시하라고 알리는 주석.",
+    "defined": null
+  },
+  {
+    "term": "type: ignore",
+    "en": "# type: ignore",
+    "aliases": [
+      "type: ignore"
+    ],
+    "category": "파이썬",
+    "short": "타입 검사기에게 그 줄의 특정 오류를 무시하라고 알리는 주석.",
+    "defined": null
+  },
+  {
+    "term": "타입 검사기",
+    "en": "static type checker",
+    "aliases": [
+      "타입 검사기",
+      "mypy",
+      "pyright"
+    ],
+    "category": "파이썬",
+    "short": "실행하지 않고 타입 힌트를 읽어 타입 불일치를 찾아 주는 도구(mypy, pyright).",
+    "defined": null
+  },
+  {
+    "term": "typing.final",
+    "en": "@final",
+    "aliases": [
+      "@final",
+      "typing.final"
+    ],
+    "category": "파이썬",
+    "short": "메서드·클래스를 재정의·상속하지 말라고 타입 검사기에 알리는 데코레이터. 런타임에는 아무것도 막지 않는다.",
+    "defined": "14 · 하위 클래스가 '순서'를 재정의하지 말라는 선언"
+  },
+  {
+    "term": "NoReturn",
+    "en": "typing.NoReturn",
+    "aliases": [
+      "NoReturn"
+    ],
+    "category": "파이썬",
+    "short": "함수가 정상적으로 반환하지 않음(항상 예외를 던짐)을 표시하는 반환 타입 힌트.",
+    "defined": null
+  },
+  {
+    "term": "Enum",
+    "en": "enum.Enum",
+    "aliases": [
+      "Enum",
+      "auto()"
+    ],
+    "category": "파이썬",
+    "short": "이름 붙은 상수들의 닫힌 집합을 만드는 클래스. 오타는 AttributeError로 즉시 드러나며 auto()로 값을 자동 부여한다.",
+    "defined": null,
+    "note": "앞 장에서 쓰였을 가능성."
+  },
+  {
+    "term": "match 문",
+    "en": "match statement",
+    "aliases": [
+      "match 문",
+      "case _"
+    ],
+    "category": "파이썬",
+    "short": "값의 구조를 패턴과 대조해 분기하는 문(파이썬 3.10+). | 로 여러 패턴, if로 가드, _ 로 나머지를 표현한다.",
+    "defined": null
+  },
+  {
+    "term": "와일드카드 패턴",
+    "en": "wildcard pattern",
+    "aliases": [
+      "와일드카드"
+    ],
+    "category": "파이썬",
+    "short": "match 문에서 어떤 값과도 맞는 case _ 패턴.",
+    "defined": "13 · 와일드카드 = 표의 '키 없음'"
+  },
+  {
+    "term": "예외 연결 끊기",
+    "en": "raise ... from None",
+    "aliases": [
+      "from None"
+    ],
+    "category": "파이썬",
+    "short": "raise 새예외 from None으로 원래 예외의 연쇄 표시를 숨기는 문법. 호출자에게 구현 세부(KeyError)를 감춘다.",
+    "defined": "13 · KeyError 연쇄를 숨긴다",
+    "note": "10장 build_policy 코드가 먼저 설명 없이 쓴다."
+  },
+  {
+    "term": "deque",
+    "en": "collections.deque",
+    "aliases": [
+      "deque"
+    ],
+    "category": "파이썬",
+    "short": "양쪽 끝에서 빠르게 넣고 뺄 수 있는 큐 자료구조.",
+    "defined": null
+  },
+  {
+    "term": "__slots__",
+    "en": "__slots__",
+    "aliases": [
+      "__slots__"
+    ],
+    "category": "파이썬",
+    "short": "인스턴스가 가질 속성 이름을 고정해 __dict__를 없애는 클래스 속성. 메모리를 아끼고 새 속성 추가를 막는다.",
+    "defined": "13 · 인스턴스 속성 추가를 막는다"
+  },
+  {
+    "term": "바이트코드",
+    "en": "bytecode",
+    "aliases": [
+      "바이트코드",
+      "co_names",
+      "__code__"
+    ],
+    "category": "파이썬",
+    "short": "파이썬 소스를 컴파일한 중간 명령어. 함수의 __code__.co_names에는 그 함수가 참조하는 전역 이름이 담긴다.",
+    "defined": null
+  },
+  {
+    "term": "repr",
+    "en": "repr / __repr__",
+    "aliases": [
+      "repr",
+      "__repr__",
+      "!r"
+    ],
+    "category": "파이썬",
+    "short": "객체를 개발자용 문자열로 나타내는 방식. repr()·f-string의 !r·로그 출력이 __repr__을 부른다.",
+    "defined": null,
+    "note": "00장에서 먼저 쓰였음."
+  },
+  {
+    "term": "대입 표현식",
+    "en": "assignment expression (walrus)",
+    "aliases": [
+      ":="
+    ],
+    "category": "파이썬",
+    "short": "식 안에서 값을 이름에 대입하면서 그 값을 쓰는 := 연산자.",
+    "defined": null
+  },
+  {
+    "term": "argparse",
+    "en": "argparse",
+    "aliases": [
+      "argparse"
+    ],
+    "category": "파이썬",
+    "short": "명령행 인자와 하위 명령(subparser)을 해석하는 표준 라이브러리.",
+    "defined": null
+  },
+  {
+    "term": "python -O",
+    "en": "-O optimize flag",
+    "aliases": [
+      "python -O"
+    ],
+    "category": "파이썬",
+    "short": "assert 문을 제거하고 실행하는 최적화 옵션.",
+    "defined": "09 · assert는 python -O 실행 시 통째로 사라져"
+  },
+  {
+    "term": "__abstractmethods__",
+    "en": "__abstractmethods__",
+    "aliases": [
+      "__abstractmethods__"
+    ],
+    "category": "파이썬",
+    "short": "ABC 클래스가 아직 구현되지 않은 추상 메서드 이름을 담아 두는 집합.",
+    "defined": null
+  },
+  {
+    "term": "__all__",
+    "en": "__all__",
+    "aliases": [
+      "__all__"
+    ],
+    "category": "파이썬",
+    "short": "from 모듈 import * 로 노출할 이름 목록. 패키지의 공개 API를 선언하는 관례로도 쓰인다.",
+    "defined": "08 · 'from 이모듈 import *'로 노출할 이름"
+  },
+  {
+    "term": "__init__.py",
+    "en": "package __init__.py",
+    "aliases": [
+      "__init__.py"
+    ],
+    "category": "파이썬",
+    "short": "디렉터리를 파이썬 패키지로 만드는 파일. import 패키지 시 실행되며 공개 이름을 모아 내보낼 수 있다.",
+    "defined": null
+  },
+  {
+    "term": "밑줄 접두사 관례",
+    "en": "leading underscore convention",
+    "aliases": [
+      "밑줄 접두사",
+      "이름 앞 밑줄"
+    ],
+    "category": "파이썬",
+    "short": "이름 앞 밑줄(_name)은 '내부용, 공개 API 아님'을 뜻하는 관례. 접근을 실제로 막지는 않는다.",
+    "defined": "08 · 파이썬 관례상 '모듈 내부용'"
+  },
+  {
+    "term": "from __future__ import annotations",
+    "en": "postponed evaluation of annotations",
+    "aliases": [
+      "from __future__ import annotations"
+    ],
+    "category": "파이썬",
+    "short": "타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.",
+    "defined": null,
+    "note": "모든 예제 파일 첫머리에 있다. 앞 장에서 이미 등장."
+  },
+  {
+    "term": "subprocess",
+    "en": "subprocess",
+    "aliases": [
+      "subprocess",
+      "Popen"
+    ],
+    "category": "파이썬",
+    "short": "자식 프로세스를 실행하고 입출력·종료 코드를 다루는 표준 라이브러리. run()은 Popen·파이프·대기를 감싼 퍼사드다.",
+    "defined": null
+  },
+  {
+    "term": "shutil",
+    "en": "shutil",
+    "aliases": [
+      "shutil.copytree",
+      "shutil.rmtree"
+    ],
+    "category": "파이썬",
+    "short": "파일·디렉터리 복사(copytree)와 삭제(rmtree) 같은 고수준 파일 작업 표준 라이브러리.",
+    "defined": null
+  },
+  {
+    "term": "tempfile",
+    "en": "tempfile",
+    "aliases": [
+      "tempfile",
+      "mkdtemp"
+    ],
+    "category": "파이썬",
+    "short": "임시 파일·디렉터리를 안전하게 만드는 표준 라이브러리.",
+    "defined": null
+  },
+  {
+    "term": "pathlib",
+    "en": "pathlib.Path",
+    "aliases": [
+      "pathlib"
+    ],
+    "category": "파이썬",
+    "short": "파일 경로를 객체로 다루는 표준 라이브러리(/ 연산자로 경로 결합).",
+    "defined": null
+  },
+  {
+    "term": "time.perf_counter",
+    "en": "time.perf_counter",
+    "aliases": [
+      "perf_counter"
+    ],
+    "category": "파이썬",
+    "short": "짧은 구간의 경과 시간을 재는 고해상도 시계 함수.",
+    "defined": null
+  },
+  {
+    "term": "urllib.request.urlopen",
+    "en": "urllib.request.urlopen",
+    "aliases": [
+      "urlopen"
+    ],
+    "category": "파이썬",
+    "short": "URL을 열어 응답을 돌려주는 표준 라이브러리 함수.",
+    "defined": null
+  },
+  {
+    "term": "xmlrpc.client.ServerProxy",
+    "en": "xmlrpc.client.ServerProxy",
+    "aliases": [
+      "ServerProxy",
+      "xmlrpc"
+    ],
+    "category": "파이썬",
+    "short": "원격 XML-RPC 서버의 메서드를 로컬 메서드처럼 부르게 해 주는 표준 라이브러리의 원격 프록시.",
+    "defined": null
+  },
+  {
+    "term": "json.dumps",
+    "en": "json.dumps",
+    "aliases": [
+      "json.dumps"
+    ],
+    "category": "파이썬",
+    "short": "파이썬 객체를 JSON 문자열로 직렬화하는 함수.",
+    "defined": null
+  },
+  {
+    "term": "ThreadPoolExecutor",
+    "en": "concurrent.futures.ThreadPoolExecutor",
+    "aliases": [
+      "ThreadPoolExecutor"
+    ],
+    "category": "파이썬",
+    "short": "작업 함수를 스레드 풀에 나눠 실행하는 표준 라이브러리 클래스.",
+    "defined": null
+  },
+  {
+    "term": "operator.attrgetter",
+    "en": "operator.attrgetter",
+    "aliases": [
+      "attrgetter"
+    ],
+    "category": "파이썬",
+    "short": "객체에서 지정한 속성을 꺼내는 함수를 만들어 주는 도구(정렬 key 등에 사용).",
+    "defined": null
+  },
+  {
+    "term": "NamedTuple",
+    "en": "typing.NamedTuple",
+    "aliases": [
+      "NamedTuple"
+    ],
+    "category": "파이썬",
+    "short": "필드 이름으로 접근할 수 있는 불변 튜플을 만드는 클래스.",
+    "defined": null
+  },
+  {
+    "term": "contextlib.redirect_stdout",
+    "en": "contextlib.redirect_stdout",
+    "aliases": [
+      "redirect_stdout",
+      "StringIO"
+    ],
+    "category": "파이썬",
+    "short": "with 블록 안의 print 출력을 다른 파일 객체(예: io.StringIO 메모리 버퍼)로 돌리는 컨텍스트 매니저.",
+    "defined": null
+  },
+  {
+    "term": "unittest",
+    "en": "unittest",
+    "aliases": [
+      "unittest",
+      "TestCase",
+      "setUp",
+      "tearDown"
+    ],
+    "category": "파이썬",
+    "short": "표준 테스트 프레임워크. TestCase의 run()이 setUp → 테스트 메서드 → tearDown 순서를 정해 부른다.",
+    "defined": null
+  },
+  {
+    "term": "pytest 픽스처",
+    "en": "pytest fixture",
+    "aliases": [
+      "pytest",
+      "픽스처"
+    ],
+    "category": "파이썬",
+    "short": "pytest에서 테스트에 필요한 준비·정리를 제공하는 함수. yield 앞이 준비, 뒤가 정리다.",
+    "defined": null
+  },
+  {
+    "term": "tracemalloc",
+    "en": "tracemalloc",
+    "aliases": [
+      "tracemalloc"
+    ],
+    "category": "파이썬",
+    "short": "파이썬 메모리 할당을 추적해 최대 사용량 등을 재는 표준 라이브러리.",
+    "defined": null
+  },
+  {
+    "term": "logging.getLogger",
+    "en": "logging.getLogger",
+    "aliases": [
+      "getLogger"
+    ],
+    "category": "파이썬",
+    "short": "이름별로 같은 로거 객체를 돌려주는 표준 라이브러리 함수(이름별 레지스트리).",
+    "defined": null
+  },
+  {
+    "term": "functools.wraps",
+    "en": "functools.wraps",
+    "aliases": [
+      "functools.wraps"
+    ],
+    "category": "파이썬",
+    "short": "래퍼 함수에 원래 함수의 이름·docstring·시그니처 정보를 복사하는 데코레이터.",
+    "defined": null,
+    "note": "6장에서 먼저 다뤄졌을 가능성."
+  },
+  {
+    "term": "functools.reduce",
+    "en": "functools.reduce",
+    "aliases": [
+      "reduce"
+    ],
+    "category": "파이썬",
+    "short": "시퀀스의 값을 왼쪽부터 누적 함수로 하나로 접는 함수.",
+    "defined": null
+  },
+  {
+    "term": "singledispatch",
+    "en": "functools.singledispatch",
+    "aliases": [
+      "singledispatch"
+    ],
+    "category": "파이썬",
+    "short": "첫 인자의 타입에 따라 등록된 구현을 골라 부르는 제네릭 함수 데코레이터.",
+    "defined": null,
+    "note": "7장에서 소개됨."
+  },
+  {
+    "term": "collections.Counter",
+    "en": "collections.Counter",
+    "aliases": [
+      "Counter",
+      "most_common"
+    ],
+    "category": "파이썬",
+    "short": "원소별 등장 횟수를 세는 딕셔너리(most_common으로 상위 항목 조회).",
+    "defined": null
+  },
+  {
+    "term": "dataclass kw_only·__post_init__",
+    "en": "kw_only / __post_init__",
+    "aliases": [
+      "kw_only",
+      "__post_init__"
+    ],
+    "category": "파이썬",
+    "short": "kw_only=True는 필드를 키워드로만 받게 하고, __post_init__은 생성 직후 검증 코드를 넣는 자리다.",
+    "defined": null,
+    "note": "3장에서 정의되었을 가능성."
+  },
+  {
+    "term": "import 캐시",
+    "en": "sys.modules",
+    "aliases": [
+      "import 캐시"
+    ],
+    "category": "파이썬",
+    "short": "한 번 import된 모듈을 sys.modules에 보관해 다시 실행하지 않는 파이썬의 동작.",
+    "defined": null,
+    "note": "4장에서 sys.modules로 설명됨."
+  },
+  {
+    "term": "PEP",
+    "en": "Python Enhancement Proposal",
+    "aliases": [
+      "PEP"
+    ],
+    "category": "파이썬",
+    "short": "파이썬 언어·표준 라이브러리 변경을 제안·기록하는 공식 문서(예: PEP 479).",
+    "defined": null
+  },
+  {
+    "term": "실행 프레임",
+    "en": "frame",
+    "aliases": [
+      "실행 프레임",
+      "gi_frame"
+    ],
+    "category": "파이썬",
+    "short": "함수 실행 중의 지역 변수와 현재 위치를 담은 객체. 제너레이터의 상태가 여기에 갇혀 있다.",
+    "defined": null
+  },
+  {
+    "term": "컴프리헨션",
+    "en": "comprehension",
+    "aliases": [
+      "컴프리헨션"
+    ],
+    "category": "파이썬",
+    "short": "[식 for x in … if …] 꼴로 리스트·dict·set을 만드는 문법.",
+    "defined": null
+  },
+  {
+    "term": "올림 나눗셈",
+    "en": "ceiling division",
+    "aliases": [
+      "올림 나눗셈"
+    ],
+    "category": "파이썬",
+    "short": "-(-a // b)처럼 써서 나눗셈 결과를 올림하는 정수 관용구.",
+    "defined": "99 · 올림 나눗셈: 31분은 2구간"
+  },
+  {
+    "term": "Protocol",
+    "en": "typing.Protocol",
+    "aliases": [
+      "Protocol"
+    ],
+    "category": "파이썬",
+    "short": "메서드 모양만 선언해 두면 상속 없이도 그 모양을 갖춘 클래스를 호환 타입으로 인정하는(구조적 타이핑) 인터페이스 선언 방식. 검사는 타입 검사기가 한다.",
+    "defined": null,
+    "note": "00장에서 이미 쓰였음. 10·12·99장에서 'Protocol 대신 ABC를 쓴 이유'로 비교된다."
+  },
+  {
+    "term": "ABC·abstractmethod",
+    "en": "abc.ABC / @abstractmethod",
+    "aliases": [
+      "ABC",
+      "abstractmethod"
+    ],
+    "category": "파이썬",
+    "short": "파이썬에서 추상 클래스를 만드는 도구. @abstractmethod가 남은 클래스는 인스턴스화할 때 TypeError가 난다(시그니처는 검사하지 않음).",
+    "defined": null,
+    "note": "기준선의 '추상 클래스'를 구현하는 파이썬 장치라 정의 대상인지 애매. 14장이 '이름만 확인하고 시그니처는 보지 않는다'는 동작을 설명한다."
+  },
+  {
+    "term": "UI",
+    "en": "User Interface",
+    "aliases": [
+      "UI"
+    ],
+    "category": "일반 CS",
+    "short": "사용자가 보고 조작하는 화면(사용자 인터페이스).",
+    "defined": null
+  },
+  {
+    "term": "URL",
+    "en": "Uniform Resource Locator",
+    "aliases": [
+      "URL"
+    ],
+    "category": "일반 CS",
+    "short": "웹 자원의 주소.",
+    "defined": null
+  },
+  {
+    "term": "프레임워크",
+    "en": "framework",
+    "aliases": [
+      "프레임워크"
+    ],
+    "category": "일반 CS",
+    "short": "전체 흐름을 쥐고 사용자 코드를 정해진 자리에서 불러 주는 재사용 골격 코드.",
+    "defined": null,
+    "note": "01장에서 먼저 쓰였음."
+  },
+  {
+    "term": "테스트 러너",
+    "en": "test runner",
+    "aliases": [
+      "러너"
+    ],
+    "category": "파이썬",
+    "short": "테스트를 찾아 실행하고 결과를 모으는 도구(unittest의 TextTestRunner 등).",
+    "defined": null
+  },
+  {
+    "term": "리팩터링",
+    "en": "refactoring",
+    "aliases": [
+      "리팩터링"
+    ],
+    "category": "일반 CS",
+    "short": "겉으로 드러나는 동작은 그대로 두고 코드의 내부 구조를 개선하는 것.",
+    "defined": null
+  },
+  {
+    "term": "APIS",
+    "en": "Advance Passenger Information System",
+    "aliases": [
+      "APIS",
+      "사전 승객정보"
+    ],
+    "category": "도메인",
+    "short": "항공사가 발권 전에 승객 정보를 도착국 당국에 보내는 사전 승객정보 제도. 미전송 시 항공사가 벌금을 문다.",
+    "defined": "08 · 발권 전에 승객 정보를 미국 당국에 보내지 않으면"
+  },
+  {
+    "term": "PNR",
+    "en": "Passenger Name Record",
+    "aliases": [
+      "pnr"
+    ],
+    "category": "도메인",
+    "short": "항공 예약 기록 번호(예약 번호).",
+    "defined": "08 · 예약 번호와 성으로 예약을 찾는다",
+    "note": "약어 풀이 없음. 코드 매개변수명으로만 등장."
+  },
+  {
+    "term": "MRZ",
+    "en": "Machine Readable Zone",
+    "aliases": [
+      "MRZ",
+      "mrz"
+    ],
+    "category": "도메인",
+    "short": "여권 하단의 기계 판독 영역. 이름·여권번호 등이 정해진 형식으로 인쇄되어 있다.",
+    "defined": "08 · MRZ(기계 판독 영역)의 성이 예약과"
+  },
+  {
+    "term": "트랜스코딩",
+    "en": "transcoding",
+    "aliases": [
+      "트랜스코딩",
+      "트랜스코더",
+      "Transcoder"
+    ],
+    "category": "도메인",
+    "short": "동영상을 다른 해상도·코덱 형식으로 다시 인코딩하는 작업.",
+    "defined": null
+  },
+  {
+    "term": "코덱",
+    "en": "codec",
+    "aliases": [
+      "코덱"
+    ],
+    "category": "도메인",
+    "short": "영상·음성을 압축(인코딩)하고 푸는(디코딩) 방식.",
+    "defined": null
+  },
+  {
+    "term": "오버부킹",
+    "en": "overbooking",
+    "aliases": [
+      "오버부킹"
+    ],
+    "category": "도메인",
+    "short": "좌석 수보다 예약을 더 받는 항공사 관행. 초과 승객 처리 절차가 따른다.",
+    "defined": null
+  },
+  {
+    "term": "객체 저장소",
+    "en": "object storage (S3)",
+    "aliases": [
+      "객체 저장소",
+      "S3",
+      "s3://"
+    ],
+    "category": "도메인",
+    "short": "파일을 키로 저장·조회하는 클라우드 저장 서비스(Amazon S3 등).",
+    "defined": null
+  },
+  {
+    "term": "GIS",
+    "en": "Geographic Information System",
+    "aliases": [
+      "GIS"
+    ],
+    "category": "도메인",
+    "short": "지리 정보를 저장·분석·표시하는 시스템.",
+    "defined": null
+  },
+  {
+    "term": "래스터",
+    "en": "raster",
+    "aliases": [
+      "래스터",
+      "raster"
+    ],
+    "category": "도메인",
+    "short": "영상을 격자(픽셀) 값의 배열로 표현한 데이터.",
+    "defined": null
+  },
+  {
+    "term": "원본 타일",
+    "en": "tile",
+    "aliases": [
+      "원본 타일",
+      "타일"
+    ],
+    "category": "도메인",
+    "short": "큰 위성 영상을 나눈 사각형 조각 단위의 원본 데이터.",
+    "defined": null
+  },
+  {
+    "term": "DEM",
+    "en": "Digital Elevation Model",
+    "aliases": [
+      "DEM",
+      "수치표고모델"
+    ],
+    "category": "도메인",
+    "short": "지표면의 고도를 격자 값으로 나타낸 수치표고모델.",
+    "defined": null,
+    "note": "한국어 명칭만 병기."
+  },
+  {
+    "term": "토지피복",
+    "en": "land cover",
+    "aliases": [
+      "토지피복"
+    ],
+    "category": "도메인",
+    "short": "지표가 농경지·산림·수계 등 무엇으로 덮여 있는지 분류한 정보.",
+    "defined": null
+  },
+  {
+    "term": "초분광 영상",
+    "en": "hyperspectral image",
+    "aliases": [
+      "초분광",
+      "HyperspectralCube"
+    ],
+    "category": "도메인",
+    "short": "수백 개의 좁은 파장 대역(밴드)으로 찍어 화소마다 스펙트럼을 가진 영상(데이터 큐브).",
+    "defined": null
+  },
+  {
+    "term": "인가 등급",
+    "en": "security clearance",
+    "aliases": [
+      "인가 등급",
+      "clearance"
+    ],
+    "category": "도메인",
+    "short": "사용자가 볼 수 있는 기밀 수준. 영상의 민감도보다 낮으면 접근이 거부된다.",
+    "defined": "09 · clearance가 높을수록 민감 영상을 볼 수 있다"
+  },
+  {
+    "term": "CS 팀",
+    "en": "customer service",
+    "aliases": [
+      "CS 팀"
+    ],
+    "category": "도메인",
+    "short": "고객 문의를 처리하는 고객 서비스 팀.",
+    "defined": null,
+    "note": "약어 풀이 없음."
+  },
+  {
+    "term": "A/B 테스트",
+    "en": "A/B test",
+    "aliases": [
+      "A/B 테스트",
+      "A/B 실험",
+      "실험군"
+    ],
+    "category": "도메인",
+    "short": "사용자(또는 지역)를 무작위로 나눠 두 안을 동시에 적용하고 결과를 비교하는 실험.",
+    "defined": null
+  },
+  {
+    "term": "구간제 요금",
+    "en": "tiered pricing",
+    "aliases": [
+      "구간제"
+    ],
+    "category": "도메인",
+    "short": "거리 구간마다 정해진 요금을 매기는 방식.",
+    "defined": "10 · tiers는 (최대 km, 요금) 목록"
+  },
+  {
+    "term": "보간",
+    "en": "interpolation",
+    "aliases": [
+      "보간"
+    ],
+    "category": "도메인",
+    "short": "알려진 값들 사이의 값을 추정해 채우는 계산(이미지 리사이즈에 쓰임).",
+    "defined": null
+  },
+  {
+    "term": "최근접 이웃 보간",
+    "en": "nearest-neighbor interpolation",
+    "aliases": [
+      "최근접 이웃"
+    ],
+    "category": "도메인",
+    "short": "목표 위치에 가장 가까운 원본 픽셀 값을 그대로 쓰는 보간.",
+    "defined": "10 · 가장 가까운 픽셀을 고른다"
+  },
+  {
+    "term": "선형 보간",
+    "en": "linear interpolation",
+    "aliases": [
+      "선형 보간"
+    ],
+    "category": "도메인",
+    "short": "이웃 두 값을 거리 비율로 섞는 보간.",
+    "defined": "10 · 이웃 두 픽셀을 거리 비율로 섞는다"
+  },
+  {
+    "term": "앨리어싱",
+    "en": "aliasing",
+    "aliases": [
+      "앨리어싱"
+    ],
+    "category": "도메인",
+    "short": "표본을 너무 듬성하게 뽑아 원래 없던 무늬·톱니가 생기는 왜곡.",
+    "defined": null
+  },
+  {
+    "term": "계단 현상",
+    "en": "jaggies",
+    "aliases": [
+      "계단 현상"
+    ],
+    "category": "도메인",
+    "short": "확대·축소한 이미지의 경계가 계단처럼 각지는 현상.",
+    "defined": null
+  },
+  {
+    "term": "회색조",
+    "en": "grayscale",
+    "aliases": [
+      "회색조"
+    ],
+    "category": "도메인",
+    "short": "색 없이 밝기 하나로만 픽셀을 나타내는 이미지 형식.",
+    "defined": null
+  },
+  {
+    "term": "푸시 알림",
+    "en": "push notification",
+    "aliases": [
+      "푸시 알림",
+      "푸시 서버"
+    ],
+    "category": "도메인",
+    "short": "앱이 실행 중이 아니어도 서버가 사용자 기기로 보내는 알림.",
+    "defined": null
+  },
+  {
+    "term": "체결",
+    "en": "trade execution",
+    "aliases": [
+      "체결"
+    ],
+    "category": "도메인",
+    "short": "매수·매도 주문이 서로 맞아 거래가 성립하는 것.",
+    "defined": null
+  },
+  {
+    "term": "QA",
+    "en": "Quality Assurance",
+    "aliases": [
+      "QA"
+    ],
+    "category": "도메인",
+    "short": "제품 품질을 검증하는 품질 보증(테스트) 업무·팀.",
+    "defined": null
+  },
+  {
+    "term": "노쇼",
+    "en": "no-show",
+    "aliases": [
+      "노쇼"
+    ],
+    "category": "도메인",
+    "short": "예약해 두고 나타나지 않는 것.",
+    "defined": "13 · 예약 후 나타나지 않으면 부과",
+    "note": "13장 1절 원고가 상수 주석보다 먼저."
+  },
+  {
+    "term": "GPS",
+    "en": "Global Positioning System",
+    "aliases": [
+      "GPS"
+    ],
+    "category": "도메인",
+    "short": "위성 신호로 위치를 측정하는 시스템.",
+    "defined": null
+  },
+  {
+    "term": "QR",
+    "en": "QR code",
+    "aliases": [
+      "QR"
+    ],
+    "category": "도메인",
+    "short": "스마트폰으로 읽는 2차원 바코드.",
+    "defined": null
+  },
+  {
+    "term": "TTL",
+    "en": "Time To Live",
+    "aliases": [
+      "RESERVATION_TTL"
+    ],
+    "category": "일반 CS",
+    "short": "데이터·예약 등이 유효한 유지 시간. 지나면 만료된다.",
+    "defined": "13 · 예약 유지 시간(초) — 10분",
+    "note": "약어 풀이 없음(상수 주석이 의미만 설명)."
+  },
+  {
+    "term": "상신",
+    "en": "submission for approval",
+    "aliases": [
+      "상신",
+      "전자결재"
+    ],
+    "category": "도메인",
+    "short": "전자결재에서 작성한 문서를 결재권자에게 올리는 것.",
+    "defined": null
+  },
+  {
+    "term": "HTTP 상태 코드",
+    "en": "HTTP status code",
+    "aliases": [
+      "HTTP 상태 코드",
+      "상태 코드",
+      "409 Conflict"
+    ],
+    "category": "일반 CS",
+    "short": "HTTP 응답의 결과를 나타내는 세 자리 숫자(201 생성됨, 409 충돌, 422 처리 불가 등).",
+    "defined": null
+  },
+  {
+    "term": "온라인 저지",
+    "en": "online judge",
+    "aliases": [
+      "온라인 저지"
+    ],
+    "category": "도메인",
+    "short": "제출된 프로그램을 테스트 입력으로 자동 실행·채점하는 시스템.",
+    "defined": null
+  },
+  {
+    "term": "샌드박스",
+    "en": "sandbox",
+    "aliases": [
+      "샌드박스",
+      "sandbox"
+    ],
+    "category": "도메인",
+    "short": "신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경.",
+    "defined": "14 · 제출물마다 격리된 디렉터리",
+    "note": "14장 1절 원고에서 먼저 설명 없이 쓰인다."
+  },
+  {
+    "term": "AC",
+    "en": "Accepted",
+    "aliases": [
+      "AC"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 모든 테스트를 통과한 정답.",
+    "defined": null
+  },
+  {
+    "term": "WA",
+    "en": "Wrong Answer",
+    "aliases": [
+      "WA"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 출력이 기대값과 다른 오답.",
+    "defined": null
+  },
+  {
+    "term": "TLE",
+    "en": "Time Limit Exceeded",
+    "aliases": [
+      "TLE"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 시간 제한 초과.",
+    "defined": null,
+    "note": "'느린 오답은 TLE'처럼 쓰임새만 드러난다."
+  },
+  {
+    "term": "RE",
+    "en": "Runtime Error",
+    "aliases": [
+      "RE",
+      "런타임 에러"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 실행 중 예외로 비정상 종료.",
+    "defined": "14 · 제출물이 던진 예외 = 런타임 에러"
+  },
+  {
+    "term": "CE",
+    "en": "Compile Error",
+    "aliases": [
+      "CE"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 컴파일(또는 사전 검증) 실패.",
+    "defined": null
+  },
+  {
+    "term": "MLE",
+    "en": "Memory Limit Exceeded",
+    "aliases": [
+      "MLE"
+    ],
+    "category": "도메인",
+    "short": "온라인 저지 판정: 메모리 제한 초과.",
+    "defined": "14 · 모든 언어에 메모리 제한(MLE 판정)"
+  },
+  {
+    "term": "테스트 케이스",
+    "en": "test case",
+    "aliases": [
+      "테스트 케이스"
+    ],
+    "category": "일반 CS",
+    "short": "입력과 기대 출력의 한 쌍.",
+    "defined": null
+  },
+  {
+    "term": "특수 저지",
+    "en": "special judge",
+    "aliases": [
+      "특수 저지"
+    ],
+    "category": "도메인",
+    "short": "답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 출력을 판정하는 채점 방식.",
+    "defined": "14 · 답이 여러 개인 문제"
+  },
+  {
+    "term": "체커",
+    "en": "checker",
+    "aliases": [
+      "체커",
+      "Checker"
+    ],
+    "category": "도메인",
+    "short": "실제 출력과 기대 출력을 받아 일치 여부를 판정하는 함수.",
+    "defined": "14 · (실제 출력, 기대 출력) → 일치 여부"
+  },
+  {
+    "term": "툴체인",
+    "en": "toolchain",
+    "aliases": [
+      "Toolchain"
+    ],
+    "category": "일반 CS",
+    "short": "한 언어의 소스를 검증·컴파일·실행하는 도구 묶음.",
+    "defined": "14 · 언어별 단계 묶음"
+  },
+  {
+    "term": "페이지네이션",
+    "en": "pagination",
+    "aliases": [
+      "페이지네이션",
+      "페이지 토큰",
+      "커서 토큰"
+    ],
+    "category": "일반 CS",
+    "short": "큰 목록을 페이지 단위로 나눠 주고, 다음 페이지를 토큰으로 요청하게 하는 API 방식.",
+    "defined": "15 · 서버는 이를 50곡씩 페이지 토큰과 함께 준다"
+  },
+  {
+    "term": "크로스페이드",
+    "en": "crossfade",
+    "aliases": [
+      "크로스페이드"
+    ],
+    "category": "도메인",
+    "short": "앞 곡이 작아지며 다음 곡이 커지도록 겹쳐 전환하는 재생 효과.",
+    "defined": null
+  },
+  {
+    "term": "피킹",
+    "en": "picking",
+    "aliases": [
+      "피킹"
+    ],
+    "category": "도메인",
+    "short": "물류 창고에서 주문 상품을 보관 위치에서 꺼내 모으는 작업.",
+    "defined": null
+  },
+  {
+    "term": "WMS",
+    "en": "Warehouse Management System",
+    "aliases": [
+      "WMS"
+    ],
+    "category": "도메인",
+    "short": "창고의 재고·입출고·작업을 관리하는 창고 관리 시스템.",
+    "defined": "99 · 로봇 창고 관리 시스템(WMS)",
+    "note": "99장 2.1절 원고('WMS 클래스')가 코드 docstring보다 먼저."
+  },
+  {
+    "term": "SDK",
+    "en": "Software Development Kit",
+    "aliases": [
+      "SDK"
+    ],
+    "category": "일반 CS",
+    "short": "특정 장치·서비스를 프로그램에서 쓰도록 제조사가 제공하는 라이브러리·도구 묶음.",
+    "defined": null
+  },
+  {
+    "term": "SKU",
+    "en": "Stock Keeping Unit",
+    "aliases": [
+      "SKU",
+      "sku"
+    ],
+    "category": "도메인",
+    "short": "재고 관리 단위(상품 식별 코드).",
+    "defined": null
+  },
+  {
+    "term": "랙",
+    "en": "rack",
+    "aliases": [
+      "랙"
+    ],
+    "category": "도메인",
+    "short": "창고에서 상품을 쌓는 선반 구조물.",
+    "defined": null
+  },
+  {
+    "term": "ERP",
+    "en": "Enterprise Resource Planning",
+    "aliases": [
+      "ERP"
+    ],
+    "category": "도메인",
+    "short": "기업의 재고·회계·구매 등을 통합 관리하는 전사적 자원 관리 시스템.",
+    "defined": null
+  },
+  {
+    "term": "BOM",
+    "en": "Bill of Materials",
+    "aliases": [
+      "BOM"
+    ],
+    "category": "도메인",
+    "short": "제품을 이루는 부품과 수량의 계층 목록(자재 명세서).",
+    "defined": null,
+    "note": "3·7장에서 정의되었을 가능성."
+  },
+  {
+    "term": "맨해튼 거리",
+    "en": "Manhattan distance",
+    "aliases": [
+      "맨해튼 거리"
+    ],
+    "category": "일반 CS",
+    "short": "두 점의 x 차이와 y 차이의 절댓값 합.",
+    "defined": null
+  },
+  {
+    "term": "배치 작업",
+    "en": "batch job",
+    "aliases": [
+      "야간 배치",
+      "정산 배치"
+    ],
+    "category": "일반 CS",
+    "short": "사람의 개입 없이 정해진 시점에 모아서 실행하는 작업.",
+    "defined": null
+  },
+  {
+    "term": "API",
+    "en": "Application Programming Interface",
+    "aliases": [
+      "API"
+    ],
+    "category": "일반 CS",
+    "short": "프로그램이 다른 프로그램·서비스의 기능을 호출하기 위해 약속한 인터페이스.",
+    "defined": null,
+    "note": "앞 장에서 이미 쓰였을 가능성."
+  },
+  {
+    "term": "CLI",
+    "en": "Command-Line Interface",
+    "aliases": [
+      "CLI"
+    ],
+    "category": "일반 CS",
+    "short": "명령행(터미널)에서 텍스트 명령으로 쓰는 프로그램 인터페이스.",
+    "defined": null
+  },
+  {
+    "term": "JSON",
+    "en": "JavaScript Object Notation",
+    "aliases": [
+      "JSON"
+    ],
+    "category": "일반 CS",
+    "short": "키-값과 배열로 데이터를 표현하는 텍스트 형식.",
+    "defined": null
+  },
+  {
+    "term": "XML",
+    "en": "Extensible Markup Language",
+    "aliases": [
+      "XML"
+    ],
+    "category": "일반 CS",
+    "short": "태그로 구조를 표현하는 텍스트 데이터 형식.",
+    "defined": null
+  },
+  {
+    "term": "CSV",
+    "en": "Comma-Separated Values",
+    "aliases": [
+      "CSV"
+    ],
+    "category": "일반 CS",
+    "short": "쉼표로 열을 구분한 표 형식 텍스트.",
+    "defined": null
+  },
+  {
+    "term": "HTTP",
+    "en": "HyperText Transfer Protocol",
+    "aliases": [
+      "HTTP"
+    ],
+    "category": "일반 CS",
+    "short": "웹에서 요청·응답을 주고받는 프로토콜.",
+    "defined": null
+  },
+  {
+    "term": "파이프",
+    "en": "pipe",
+    "aliases": [
+      "파이프 연결",
+      "subprocess.PIPE"
+    ],
+    "category": "일반 CS",
+    "short": "한 프로세스의 출력을 다른 프로세스의 입력으로 잇는 운영체제 통로.",
+    "defined": null
+  },
+  {
+    "term": "종료 코드",
+    "en": "exit code",
+    "aliases": [
+      "종료 코드",
+      "종료코드",
+      "returncode"
+    ],
+    "category": "일반 CS",
+    "short": "프로세스가 끝날 때 돌려주는 정수(0은 성공).",
+    "defined": null
+  },
+  {
+    "term": "리다이렉트",
+    "en": "redirect",
+    "aliases": [
+      "리다이렉트"
+    ],
+    "category": "일반 CS",
+    "short": "HTTP 서버가 다른 URL로 다시 요청하라고 안내하는 응답.",
+    "defined": null
+  },
+  {
+    "term": "스트리밍",
+    "en": "streaming",
+    "aliases": [
+      "스트리밍"
+    ],
+    "category": "일반 CS",
+    "short": "데이터를 전부 받은 뒤가 아니라 도착하는 대로 조금씩 처리하는 방식.",
+    "defined": null
+  },
+  {
+    "term": "캐시",
+    "en": "cache",
+    "aliases": [
+      "캐시"
+    ],
+    "category": "일반 CS",
+    "short": "다시 계산·요청하지 않도록 결과를 가까운 곳에 저장해 두는 것.",
+    "defined": null,
+    "note": "앞 장에서 이미 쓰였을 가능성."
+  },
+  {
+    "term": "캐시 적중",
+    "en": "cache hit",
+    "aliases": [
+      "캐시 적중"
+    ],
+    "category": "일반 CS",
+    "short": "요청한 값이 캐시에 있어 실제 계산·요청 없이 돌려준 경우.",
+    "defined": null
+  },
+  {
+    "term": "LRU",
+    "en": "Least Recently Used",
+    "aliases": [
+      "LRU"
+    ],
+    "category": "일반 CS",
+    "short": "용량이 차면 가장 오래 쓰이지 않은 항목부터 버리는 캐시 교체 정책.",
+    "defined": "09 · 아니면 받아서 넣고 가장 오래된 것을 내보낸다",
+    "note": "약어 풀이 없음. 메서드 docstring이 동작을 설명한다."
+  },
+  {
+    "term": "캐시 무효화",
+    "en": "cache invalidation",
+    "aliases": [
+      "무효화"
+    ],
+    "category": "일반 CS",
+    "short": "원본이 바뀌었을 때 캐시의 낡은 항목을 지우거나 갱신하는 일.",
+    "defined": null
+  },
+  {
+    "term": "직렬화",
+    "en": "serialization",
+    "aliases": [
+      "직렬화"
+    ],
+    "category": "일반 CS",
+    "short": "메모리 속 객체를 저장·전송할 수 있는 바이트·텍스트 형태로 바꾸는 것(반대는 역직렬화).",
+    "defined": null,
+    "note": "09장에서 처음, 12장에서 본격적으로 쓰인다."
+  },
+  {
+    "term": "원격 호출",
+    "en": "remote procedure call",
+    "aliases": [
+      "원격 호출"
+    ],
+    "category": "일반 CS",
+    "short": "다른 프로세스·머신의 함수를 네트워크를 거쳐 호출하는 것(RPC).",
+    "defined": null
+  },
+  {
+    "term": "부분 실패",
+    "en": "partial failure",
+    "aliases": [
+      "부분 실패"
+    ],
+    "category": "일반 CS",
+    "short": "분산 시스템에서 일부 구성 요소나 요청만 실패하는 상황.",
+    "defined": null
+  },
+  {
+    "term": "메모리 누수",
+    "en": "memory leak",
+    "aliases": [
+      "메모리 누수",
+      "누수"
+    ],
+    "category": "일반 CS",
+    "short": "더 이상 쓰지 않는 객체가 참조에 붙잡혀 회수되지 않고 메모리를 계속 차지하는 것.",
+    "defined": null
+  },
+  {
+    "term": "스레드",
+    "en": "thread",
+    "aliases": [
+      "스레드"
+    ],
+    "category": "일반 CS",
+    "short": "한 프로세스 안에서 동시에 실행되는 실행 흐름. 스레드 풀은 미리 만든 스레드들에 작업을 나눠 준다.",
+    "defined": null,
+    "note": "4장에서 먼저 쓰였음."
+  },
+  {
+    "term": "잠금",
+    "en": "lock",
+    "aliases": [
+      "내부 잠금",
+      "잠금 없이"
+    ],
+    "category": "일반 CS",
+    "short": "여러 스레드가 같은 자원에 동시에 접근하지 못하도록 막는 장치(락).",
+    "defined": null,
+    "note": "14장은 '락'으로 표기. '락'은 '연락' 등과 겹쳐 별칭에서 뺐다."
+  },
+  {
+    "term": "세션",
+    "en": "session",
+    "aliases": [
+      "세션"
+    ],
+    "category": "일반 CS",
+    "short": "한 사용자·연결이 시작해 끝날 때까지의 상호작용 단위와 그 상태.",
+    "defined": null
+  },
+  {
+    "term": "시그니처",
+    "en": "signature",
+    "aliases": [
+      "시그니처"
+    ],
+    "category": "일반 CS",
+    "short": "함수의 이름·매개변수·반환 타입의 모양.",
+    "defined": null,
+    "note": "4장에서 먼저 쓰였음."
+  },
+  {
+    "term": "런타임",
+    "en": "runtime",
+    "aliases": [
+      "런타임"
+    ],
+    "category": "일반 CS",
+    "short": "프로그램이 실제로 실행되는 시점(또는 실행 환경). 정적 검사 시점과 대비된다.",
+    "defined": null
+  },
+  {
+    "term": "배포",
+    "en": "deployment",
+    "aliases": [
+      "배포",
+      "재배포"
+    ],
+    "category": "일반 CS",
+    "short": "작성한 코드를 운영 서버에 올려 실제 서비스에 반영하는 것.",
+    "defined": null
+  },
+  {
+    "term": "단위 테스트",
+    "en": "unit test",
+    "aliases": [
+      "단위 테스트"
+    ],
+    "category": "일반 CS",
+    "short": "함수·클래스 하나를 다른 부분과 떼어 놓고 검증하는 테스트.",
+    "defined": null,
+    "note": "4장에서 먼저 쓰였음."
+  },
+  {
+    "term": "백엔드",
+    "en": "backend",
+    "aliases": [
+      "백엔드"
+    ],
+    "category": "일반 CS",
+    "short": "사용자 화면 뒤에서 데이터와 업무 처리를 맡는 서버 쪽 코드.",
+    "defined": null
+  },
+  {
+    "term": "핸들러",
+    "en": "handler",
+    "aliases": [
+      "핸들러",
+      "이벤트 핸들러"
+    ],
+    "category": "일반 CS",
+    "short": "이벤트나 요청이 들어왔을 때 그것을 처리하도록 등록된 함수.",
+    "defined": null
+  },
+  {
+    "term": "콜백",
+    "en": "callback",
+    "aliases": [
+      "콜백"
+    ],
+    "category": "일반 CS",
+    "short": "다른 코드에 넘겨 두었다가 특정 시점에 그쪽이 불러 주는 함수.",
+    "defined": null
+  },
+  {
+    "term": "동기 통지",
+    "en": "synchronous notification",
+    "aliases": [
+      "동기 통지"
+    ],
+    "category": "일반 CS",
+    "short": "통지자가 각 수신자의 처리가 끝날 때까지 기다리는 통지 방식.",
+    "defined": null
+  },
+  {
+    "term": "큐",
+    "en": "queue",
+    "aliases": [
+      "큐에 넣",
+      "큐잉",
+      "작업 큐",
+      "큐에서"
+    ],
+    "category": "일반 CS",
+    "short": "먼저 넣은 것을 먼저 꺼내는 대기열 자료구조.",
+    "defined": null,
+    "note": "'큐'는 '큐브'와 겹쳐 구체 표기만 별칭으로 넣었다."
+  },
+  {
+    "term": "스택",
+    "en": "stack",
+    "aliases": [
+      "스택"
+    ],
+    "category": "일반 CS",
+    "short": "마지막에 넣은 것을 먼저 꺼내는 자료구조(undo 이력에 쓰임).",
+    "defined": null
+  },
+  {
+    "term": "원자성",
+    "en": "atomicity",
+    "aliases": [
+      "원자성",
+      "원자적"
+    ],
+    "category": "일반 CS",
+    "short": "여러 단계가 전부 적용되거나 전부 적용되지 않거나 둘 중 하나여서 중간 상태가 남지 않는 성질.",
+    "defined": null
+  },
+  {
+    "term": "트랜잭션",
+    "en": "transaction",
+    "aliases": [
+      "트랜잭션"
+    ],
+    "category": "일반 CS",
+    "short": "원자적으로 처리되어야 하는 작업 단위(전부 커밋 또는 전부 롤백).",
+    "defined": null
+  },
+  {
+    "term": "롤백",
+    "en": "rollback",
+    "aliases": [
+      "롤백"
+    ],
+    "category": "일반 CS",
+    "short": "진행한 변경을 취소해 이전 상태로 되돌리는 것.",
+    "defined": null
+  },
+  {
+    "term": "커밋",
+    "en": "commit",
+    "aliases": [
+      "커밋"
+    ],
+    "category": "일반 CS",
+    "short": "트랜잭션의 변경을 확정하는 것.",
+    "defined": null
+  },
+  {
+    "term": "크래시",
+    "en": "crash",
+    "aliases": [
+      "크래시"
+    ],
+    "category": "일반 CS",
+    "short": "프로그램이 처리되지 않은 오류로 갑자기 비정상 종료되는 것.",
+    "defined": null
+  },
+  {
+    "term": "타임아웃",
+    "en": "timeout",
+    "aliases": [
+      "타임아웃"
+    ],
+    "category": "일반 CS",
+    "short": "정해진 시간 안에 응답이 없어 요청을 실패로 처리하는 것.",
+    "defined": null
+  },
+  {
+    "term": "SMTP",
+    "en": "Simple Mail Transfer Protocol",
+    "aliases": [
+      "SMTP"
+    ],
+    "category": "일반 CS",
+    "short": "이메일 전송 프로토콜.",
+    "defined": null
+  },
+  {
+    "term": "스키마",
+    "en": "schema",
+    "aliases": [
+      "스키마"
+    ],
+    "category": "일반 CS",
+    "short": "데이터·메시지가 가져야 할 필드와 타입의 구조 정의.",
+    "defined": null
+  },
+  {
+    "term": "하위 호환",
+    "en": "backward compatibility",
+    "aliases": [
+      "하위 호환"
+    ],
+    "category": "일반 CS",
+    "short": "새 버전이 기존 사용 코드를 깨지 않고 그대로 동작하게 하는 성질.",
+    "defined": null
+  },
+  {
+    "term": "영속성",
+    "en": "persistence",
+    "aliases": [
+      "영속성"
+    ],
+    "category": "일반 CS",
+    "short": "프로세스가 끝나도 데이터가 저장되어 남는 성질.",
+    "defined": null
+  },
+  {
+    "term": "전달 보장",
+    "en": "delivery guarantee",
+    "aliases": [
+      "전달 보장"
+    ],
+    "category": "일반 CS",
+    "short": "메시지가 최소 한 번·최대 한 번·정확히 한 번 전달되는지에 대한 시스템의 약속.",
+    "defined": null
+  },
+  {
+    "term": "메시지 브로커",
+    "en": "message broker",
+    "aliases": [
+      "메시지 브로커",
+      "Kafka",
+      "Redis"
+    ],
+    "category": "일반 CS",
+    "short": "발행자와 소비자 사이에서 메시지를 받아 보관·전달하는 별도 서버(Kafka, Redis 등).",
+    "defined": null
+  },
+  {
+    "term": "비결정적",
+    "en": "nondeterministic",
+    "aliases": [
+      "비결정적"
+    ],
+    "category": "일반 CS",
+    "short": "같은 입력이라도 실행할 때마다 시점·결과가 달라질 수 있는 성질.",
+    "defined": null
+  },
+  {
+    "term": "의미론",
+    "en": "semantics",
+    "aliases": [
+      "의미론"
+    ],
+    "category": "일반 CS",
+    "short": "코드나 연산이 정확히 무엇을 뜻하고 어떻게 동작하는지에 대한 규정.",
+    "defined": null
+  },
+  {
+    "term": "undo/redo",
+    "en": "undo/redo",
+    "aliases": [
+      "undo",
+      "redo",
+      "실행 취소"
+    ],
+    "category": "일반 CS",
+    "short": "직전 작업을 되돌리기(undo)와 되돌린 작업을 다시 하기(redo).",
+    "defined": null
+  },
+  {
+    "term": "매크로",
+    "en": "macro",
+    "aliases": [
+      "매크로"
+    ],
+    "category": "일반 CS",
+    "short": "여러 동작을 하나로 기록해 두었다가 한 번에 재생하는 기능.",
+    "defined": "12 · 반복 작업을 \"매크로\"로 녹화해 다른 도형에"
+  },
+  {
+    "term": "z-순서",
+    "en": "z-order",
+    "aliases": [
+      "z-순서"
+    ],
+    "category": "도메인",
+    "short": "화면에서 겹친 도형의 앞뒤(그리기) 순서.",
+    "defined": "12 · 순서(그리기 순서)도 의미가 있다"
+  },
+  {
+    "term": "OT·CRDT",
+    "en": "Operational Transformation / CRDT",
+    "aliases": [
+      "OT",
+      "CRDT"
+    ],
+    "category": "일반 CS",
+    "short": "여러 사용자의 동시 편집 충돌을 자동으로 맞추는 알고리즘 계열.",
+    "defined": null,
+    "note": "약어 풀이 없음."
+  },
+  {
+    "term": "undo 트리",
+    "en": "undo tree",
+    "aliases": [
+      "undo tree"
+    ],
+    "category": "일반 CS",
+    "short": "되돌린 뒤 새로 편집한 분기까지 보존하도록 이력을 트리로 저장하는 방식(Emacs).",
+    "defined": null
+  },
+  {
+    "term": "부수 효과",
+    "en": "side effect",
+    "aliases": [
+      "부수 효과"
+    ],
+    "category": "일반 CS",
+    "short": "함수가 반환값 외에 바깥 상태(파일, 네트워크, 전역 변수)를 바꾸는 것.",
+    "defined": null
+  },
+  {
+    "term": "지연 실행",
+    "en": "deferred execution",
+    "aliases": [
+      "지연 실행"
+    ],
+    "category": "일반 CS",
+    "short": "요청을 만들어 두고 실제 실행은 나중으로 미루는 것.",
+    "defined": null
+  },
+  {
+    "term": "디스패치",
+    "en": "dispatch",
+    "aliases": [
+      "디스패치"
+    ],
+    "category": "일반 CS",
+    "short": "이름·타입 같은 키에 따라 실행할 구현을 골라 호출하는 것.",
+    "defined": null
+  },
+  {
+    "term": "워커",
+    "en": "worker",
+    "aliases": [
+      "워커"
+    ],
+    "category": "일반 CS",
+    "short": "큐에서 작업을 꺼내 실행하는 별도 프로세스·스레드.",
+    "defined": null,
+    "note": "4장에서 먼저 쓰였음."
+  },
+  {
+    "term": "컴파일러",
+    "en": "compiler",
+    "aliases": [
+      "컴파일러",
+      "컴파일"
+    ],
+    "category": "일반 CS",
+    "short": "소스 코드를 실행 가능한 형태(기계어·바이트코드)로 번역하는 프로그램.",
+    "defined": null
+  },
+  {
+    "term": "링크",
+    "en": "linking",
+    "aliases": [
+      "링크 실패"
+    ],
+    "category": "일반 CS",
+    "short": "컴파일된 조각들과 라이브러리를 이어 실행 파일을 만드는 단계.",
+    "defined": null
+  },
+  {
+    "term": "인터프리터",
+    "en": "interpreter",
+    "aliases": [
+      "인터프리터"
+    ],
+    "category": "일반 CS",
+    "short": "소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램.",
+    "defined": null
+  },
+  {
+    "term": "스케줄러",
+    "en": "scheduler",
+    "aliases": [
+      "스케줄러"
+    ],
+    "category": "일반 CS",
+    "short": "정해진 시각·주기에 작업을 실행해 주는 장치.",
+    "defined": null
+  },
+  {
+    "term": "정적 분석",
+    "en": "static analysis",
+    "aliases": [
+      "정적 분석기",
+      "정적 검증"
+    ],
+    "category": "일반 CS",
+    "short": "프로그램을 실행하지 않고 코드·데이터를 검사하는 것.",
+    "defined": null
+  },
+  {
+    "term": "BFS",
+    "en": "Breadth-First Search",
+    "aliases": [
+      "BFS"
+    ],
+    "category": "일반 CS",
+    "short": "가까운 노드부터 차례로 방문하는 그래프 너비 우선 탐색.",
+    "defined": null
+  },
+  {
+    "term": "깊이 우선 순회",
+    "en": "depth-first traversal",
+    "aliases": [
+      "깊이 우선"
+    ],
+    "category": "일반 CS",
+    "short": "한 가지를 끝까지 내려간 뒤 돌아와 다음 가지로 가는 트리·그래프 순회.",
+    "defined": null
+  },
+  {
+    "term": "간선",
+    "en": "edge",
+    "aliases": [
+      "간선"
+    ],
+    "category": "일반 CS",
+    "short": "그래프에서 두 노드를 잇는 연결.",
+    "defined": null
+  },
+  {
+    "term": "CI",
+    "en": "Continuous Integration",
+    "aliases": [
+      "CI"
+    ],
+    "category": "일반 CS",
+    "short": "코드가 올라올 때마다 자동으로 빌드·테스트를 돌리는 지속적 통합.",
+    "defined": null
+  },
+  {
+    "term": "DB",
+    "en": "database",
+    "aliases": [
+      "DB"
+    ],
+    "category": "일반 CS",
+    "short": "데이터베이스.",
+    "defined": null
+  },
+  {
+    "term": "감사 로그",
+    "en": "audit log",
+    "aliases": [
+      "감사 로그"
+    ],
+    "category": "일반 CS",
+    "short": "누가 언제 무엇을 했는지 사후 검증용으로 남기는 기록.",
+    "defined": null
+  },
+  {
+    "term": "지표 수집",
+    "en": "metrics collection",
+    "aliases": [
+      "지표 수집"
+    ],
+    "category": "일반 CS",
+    "short": "시스템 동작 수치(횟수·지연 등)를 모아 모니터링하는 것.",
+    "defined": null
+  },
+  {
+    "term": "no-op",
+    "en": "no operation",
+    "aliases": [
+      "no-op"
+    ],
+    "category": "일반 CS",
+    "short": "아무 일도 하지 않는 연산.",
+    "defined": null
+  },
+  {
+    "term": "부동소수점",
+    "en": "floating point",
+    "aliases": [
+      "부동소수"
+    ],
+    "category": "일반 CS",
+    "short": "실수를 유한한 이진 자릿수로 근사하는 표현. 작은 오차가 생긴다.",
+    "defined": null
+  },
+  {
+    "term": "플러그인",
+    "en": "plugin",
+    "aliases": [
+      "플러그인"
+    ],
+    "category": "일반 CS",
+    "short": "본체를 고치지 않고 외부에서 끼워 기능을 더하는 모듈.",
+    "defined": null
+  },
+  {
+    "term": "cgroup·setrlimit",
+    "en": "cgroup / setrlimit",
+    "aliases": [
+      "cgroup",
+      "setrlimit"
+    ],
+    "category": "일반 CS",
+    "short": "운영체제가 프로세스의 메모리·CPU 사용량을 제한하는 수단.",
+    "defined": null
+  },
+  {
+    "term": "JVM",
+    "en": "Java Virtual Machine",
+    "aliases": [
+      "JVM"
+    ],
+    "category": "일반 CS",
+    "short": "자바 바이트코드를 실행하는 가상 머신.",
+    "defined": null
+  },
+  {
+    "term": "힙",
+    "en": "heap",
+    "aliases": [
+      "힙"
+    ],
+    "category": "일반 CS",
+    "short": "실행 중 동적으로 할당되는 객체가 놓이는 메모리 영역.",
+    "defined": null
+  },
+  {
+    "term": "오버헤드",
+    "en": "overhead",
+    "aliases": [
+      "오버헤드"
+    ],
+    "category": "일반 CS",
+    "short": "본래 작업 외에 추가로 드는 시간·메모리 비용.",
+    "defined": null
+  },
+  {
+    "term": "커서",
+    "en": "cursor",
+    "aliases": [
+      "커서"
+    ],
+    "category": "일반 CS",
+    "short": "순회 중 '어디까지 왔는가'를 가리키는 위치 상태.",
+    "defined": "15 · 순회 상태(커서)를 컬렉션에서 떼어 내",
+    "note": "15장 1절에서 먼저 설명 없이 쓰인다."
+  },
+  {
+    "term": "빅오 표기",
+    "en": "Big-O notation",
+    "aliases": [
+      "O(n)"
+    ],
+    "category": "일반 CS",
+    "short": "입력 크기에 따라 비용이 늘어나는 정도를 나타내는 표기.",
+    "defined": null
+  },
+  {
+    "term": "peek",
+    "en": "peek",
+    "aliases": [
+      "peek"
+    ],
+    "category": "일반 CS",
+    "short": "다음 값을 소비하지 않고 미리 보기만 하는 연산.",
+    "defined": null
+  },
+  {
+    "term": "무작위 접근",
+    "en": "random access",
+    "aliases": [
+      "무작위 접근"
+    ],
+    "category": "일반 CS",
+    "short": "임의 위치의 원소에 바로 접근하는 것(인덱스 접근).",
+    "defined": null
+  },
+  {
+    "term": "구체화",
+    "en": "materialization",
+    "aliases": [
+      "구체화"
+    ],
+    "category": "일반 CS",
+    "short": "지연된 이터러블을 list() 등으로 끝까지 펼쳐 메모리에 실제 컬렉션으로 만드는 것.",
+    "defined": null
+  },
+  {
+    "term": "전수 탐색",
+    "en": "exhaustive search",
+    "aliases": [
+      "전수 탐색"
+    ],
+    "category": "일반 CS",
+    "short": "가능한 모든 경우를 빠짐없이 확인하는 방법.",
+    "defined": null
+  },
+  {
+    "term": "난수 시드",
+    "en": "random seed",
+    "aliases": [
+      "seed"
+    ],
+    "category": "일반 CS",
+    "short": "난수 생성기의 시작값. 같은 시드면 같은 난수열이 나와 결과가 재현된다.",
+    "defined": null
+  },
+  {
+    "term": "GUI",
+    "en": "Graphical User Interface",
+    "aliases": [
+      "GUI"
+    ],
+    "category": "일반 CS",
+    "short": "창·버튼 등 그래픽 요소로 조작하는 사용자 인터페이스.",
+    "defined": null
+  },
+  {
+    "term": "UX",
+    "en": "User Experience",
+    "aliases": [
+      "UX"
+    ],
+    "category": "일반 CS",
+    "short": "사용자가 제품을 쓰며 겪는 경험 전체.",
+    "defined": null
+  },
+  {
+    "term": "소켓",
+    "en": "socket",
+    "aliases": [
+      "소켓"
+    ],
+    "category": "일반 CS",
+    "short": "네트워크 연결의 양 끝점. 이를 통해 데이터를 주고받는다.",
+    "defined": null
+  }
+]

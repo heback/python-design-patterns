@@ -1,0 +1,260 @@
+<!--meta
+title: 어댑터 (Adapter)
+subtitle: 고칠 수 없는 남의 인터페이스를 우리 언어로 번역하기
+part: 구조 패턴
+-->
+
+<section id="goals">
+<h2>학습 목표</h2>
+<ol>
+  <li>수정할 수 없는 외부 인터페이스(adaptee)를 클라이언트가 기대하는 인터페이스(target)로 변환하는 어댑터를 설계·구현할 수 있다.</li>
+  <li>객체 어댑터(합성)와 클래스 어댑터(다중 상속)의 차이를 파이썬 맥락에서 비교할 수 있다.</li>
+  <li>어댑터가 숨겨야 하는 차이(이름, 단위, 예외 체계, 동기/비동기, 오류 코드)를 목록화하고, 변환 책임의 경계를 정할 수 있다.</li>
+</ol>
+</section>
+
+<section id="context">
+<h2>1. 상황</h2>
+<p>수제 캠핑용품을 파는 중소 쇼핑몰 '솔숲상회'의 백엔드 개발자 예린은 입사 첫 달에 결제를 붙였다. 계약한 <dfn data-term="payment-gateway-provider">PG사</dfn>(전자결제대행사: 가맹점 대신 카드사 등과 결제 승인·취소·정산을 처리해 주는 회사) A는 파이썬 SDK를 제공했고, 사용법은 단순했다. <code>charge(amount_krw, card_token)</code>을 부르면 거래번호가 담긴 딕셔너리가 돌아오고, 실패하면 <code>PgAError</code>가 날아온다. 주문 서비스, 관리자 환불 화면, 야간 <dfn data-term="settlement-batch">정산 배치</dfn>(하루치 거래를 밤에 한꺼번에 집계해 PG사 기록과 맞춰 보는 일괄 작업)가 모두 이 SDK를 직접 불렀다. 아무 문제가 없었다.</p>
+<p>반년 뒤 재무팀이 수수료 협상 끝에 PG사 B를 추가하기로 했다. B의 SDK는 결이 달랐다. 요청은 <code>PaymentRequest(amount=<dfn data-term="decimal-decimal">Decimal</dfn>, currency="KRW")</code> 객체로 감싸야 하고(<code>Decimal</code>은 이진 부동소수점 오차 없이 10진수를 정확히 표현하는 표준 라이브러리의 수 타입으로, 금액 계산에 쓰인다), 실패해도 예외를 던지지 않는다. 대신 응답의 <code>status_code</code>가 0이 아니다. 예린은 주문 서비스에 <code>if pg == "B":</code> 분기를 넣었다. 환불 화면에도, 정산 배치에도 같은 분기를 넣었다.</p>
+<p>석 달 뒤에는 해외 고객을 위한 간편결제 C가 들어왔다. C는 금액을 <dfn data-term="minor-unit">최소 화폐 단위(minor unit)</dfn>로 받는다. 통화를 소수 둘째 자리(센트)까지 쪼갠 단위로 센 정수라서, 원화 15,000원은 <code>1500000</code>이다. 결과는 반환값이 아니라 <dfn data-term="asynchronous-callback">콜백</dfn>으로 온다. 콜백은 호출할 때 함께 넘겨 둔 함수로, SDK가 작업을 마치면 그 함수를 불러 결과를 알린다. C의 콜백은 그것도 다른 스레드에서, 나중에 온다. 분기는 세 갈래가 되었고, 그 세 갈래가 세 곳에 복제되었다.</p>
+<p>그리고 사고가 났다. 해외 고객의 15,000원 환불 요청에 150원이 환불되었다. 환불 화면에 복제된 C 분기에서 ×100 변환을 빠뜨린 것이다. 원인은 개인의 실수처럼 보이지만, 구조가 그 실수를 부추겼다. <strong>"PG C의 금액 단위는 minor unit이다"라는 번역 규칙이 한 곳에 있지 않고, PG를 부르는 모든 곳에 흩어져 있었다.</strong> 게다가 SDK는 남의 코드라 고칠 수도 없다. 바꿀 수 있는 것은 우리 쪽 코드뿐이다.</p>
+</section>
+
+<section id="naive">
+<h2>2. 순진한 설계와 그 한계</h2>
+<p>문제를 정확히 보기 위해 사고 직전의 코드를 재현한다. 파일 앞부분은 세 SDK를 흉내 낸 것이고(실제로는 우리가 고칠 수 없는 부분), 뒷부분의 <code>OrderService</code>가 예린의 코드다.</p>
+<p class="lead-in">세 SDK가 서로 어떻게 다른지(이름, 금액 타입, 실패 보고 방식)를 먼저 훑고(SDK 흉내 코드의 거래번호는 <dfn data-term="itertools"><code>itertools</code></dfn>의 <code>count()</code>로 매긴다. <code>itertools</code>는 연속 번호처럼 값을 차례로 내놓는 도구들을 모아 둔 표준 라이브러리 모듈이다), <code>OrderService.pay()</code>와 <code>refund()</code>에서 그 차이가 어떻게 '비즈니스 로직 한가운데'에 녹아드는지 보라. <code># ⚠ 문제:</code> 주석이 아픈 곳이다.</p>
+<pre data-src="05_adapter/01_naive.py"></pre>
+<pre data-run="05_adapter/01_naive.py"></pre>
+<p>출력 [2]가 보여주는 것은 실패의 모양이 PG마다 제각각이라는 사실이다. A는 예외, B는 상태 코드, C는 콜백 인자로 실패를 알리고, <code>OrderService</code>는 그 셋을 모두 해석해야 한다. 출력 [3]은 그 결과로 생긴 버그다. 이 코드의 결함을 정리하면 다음과 같다.</p>
+<ul>
+  <li><strong>번역 규칙이 흩어져 있다.</strong> "B는 Decimal", "C는 ×100"이라는 지식이 <code>pay()</code>와 <code>refund()</code>에 따로 존재한다. 같은 지식의 사본이 둘 이상이면 언젠가 어긋난다.</li>
+  <li><strong>주문 서비스가 남의 어휘로 말한다.</strong> <code>status_code</code>, <code>PgAError</code>, 콜백 같은 SDK의 개념이 도메인 코드에 침투했다. 주문 서비스의 책임은 '주문'인데 'PG 프로토콜 해석'까지 떠안았다(SRP 위반).</li>
+  <li><strong>의존 방향이 거꾸로다.</strong> 고수준 정책(주문)이 저수준 세부(특정 SDK)에 직접 의존한다(DIP 위반). PG가 하나 늘면 주문 서비스를 연다(OCP 위반).</li>
+  <li><strong>테스트가 어렵다.</strong> 주문 로직만 시험하고 싶어도 세 SDK를 모두 흉내 내야 한다.</li>
+</ul>
+<p>그런데 SDK를 고칠 수는 없다. 그렇다면 남는 선택은 하나다. 우리가 원하는 인터페이스를 먼저 정의하고, SDK마다 그 인터페이스로 '번역'하는 얇은 층을 두는 것이다.</p>
+</section>
+
+<section id="structure">
+<h2>3. 패턴의 구조</h2>
+<p>GoF는 어댑터의 의도를 이렇게 적는다. <em>"클래스의 인터페이스를 클라이언트가 기대하는 다른 인터페이스로 변환한다. 어댑터는 인터페이스 호환성 문제 때문에 함께 쓸 수 없던 클래스들이 함께 동작하게 해 준다."</em> 핵심 단어는 '변환'이다. 어댑터는 기능을 추가하지 않는다. 이미 있는 기능을 다른 모양으로 보이게 할 뿐이다.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 760 360" role="img" aria-label="결제 어댑터 구조: OrderService는 PaymentGateway에 의존하고, PG별 어댑터가 이를 구현하며 각 SDK를 감싼다">
+    <g class="uml-class" transform="translate(20,20)">
+      <rect width="170" height="70"/>
+      <text class="uml-name" x="85" y="24">OrderService</text>
+      <line x1="0" y1="34" x2="170" y2="34"/>
+      <text class="uml-member" x="10" y="54">+ checkout() / cancel()</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(290,15)">
+      <rect width="230" height="80"/>
+      <text class="uml-name uml-abstract" x="115" y="24">PaymentGateway</text>
+      <line x1="0" y1="34" x2="230" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ pay(amount_krw, card_token)</text>
+      <text class="uml-member" x="10" y="70">+ refund(transaction_id, amount_krw)</text>
+    </g>
+    <path class="uml-assoc" d="M190 55 H290" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="205" y="48">의존</text>
+
+    <g class="uml-class" transform="translate(30,160)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgAAdapter</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _client: PgAClient</text>
+    </g>
+    <g class="uml-class" transform="translate(290,160)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgBAdapter</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _client: PgBClient</text>
+    </g>
+    <g class="uml-class" transform="translate(550,160)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgCAdapter</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _client: PgCClient</text>
+    </g>
+    <path class="uml-inherit" d="M120 160 V128 H405 V95" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M380 160 V128 H405"/>
+    <path class="uml-inherit" d="M640 160 V128 H405"/>
+
+    <g class="uml-class" transform="translate(30,270)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgAClient</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ charge() / cancel()</text>
+    </g>
+    <g class="uml-class" transform="translate(290,270)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgBClient</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ create_payment()</text>
+    </g>
+    <g class="uml-class" transform="translate(550,270)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">PgCClient</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ submit(..., on_complete)</text>
+    </g>
+    <path class="uml-assoc" d="M120 220 V270" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M380 220 V270" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M640 220 V270" marker-end="url(#arrow)"/>
+
+    <text class="uml-note" x="20" y="112">Client</text>
+    <text class="uml-note" x="540" y="40">Target (우리가 정의)</text>
+    <text class="uml-note" x="540" y="148">Adapter</text>
+    <text class="uml-note" x="20" y="350">Adaptee — 외부 SDK, 수정 불가</text>
+  </svg>
+  <figcaption>그림 5-1. 결제 연동에 적용한 <dfn data-term="object-adapter-class-adapter">객체 어댑터</dfn>(Adaptee를 필드로 갖고 위임하는 어댑터. 상속으로 만드는 클래스 어댑터와의 비교는 아래). 어댑터는 Target을 구현하고 Adaptee를 합성으로 감싼다.</figcaption>
+</figure>
+<table>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr><td>Client</td><td><code>OrderService</code></td><td>Target 인터페이스로만 결제를 요청한다.</td></tr>
+    <tr><td>Target</td><td><code>PaymentGateway</code></td><td>클라이언트가 기대하는 인터페이스. <strong>우리가 정의하고 우리 도메인의 언어로 말한다.</strong></td></tr>
+    <tr><td>Adaptee</td><td><code>PgAClient</code>, <code>PgBClient</code>, <code>PgCClient</code></td><td>쓸모 있지만 모양이 맞지 않는 기존 클래스. 수정할 수 없다.</td></tr>
+    <tr><td>Adapter</td><td><code>PgAAdapter</code> 등</td><td>Target을 구현하고, 요청을 Adaptee의 어휘로 번역해 전달한다.</td></tr>
+  </tbody>
+</table>
+<p>구조에서 가장 중요한 결정은 화살표의 방향이다. <code>PaymentGateway</code>는 SDK 쪽이 아니라 <strong>주문 서비스 쪽 패키지</strong>에 속한다. <dfn data-term="hexagonal-architecture-ports-and-adapters">헥사고날 아키텍처(포트와 어댑터)</dfn>는 도메인이 바깥 세계와 만나는 인터페이스(포트)를 도메인 쪽이 정의하고, 외부 기술마다 그 포트에 꽂히는 어댑터를 두는 아키텍처다. 그 용어로 말하면 <code>PaymentGateway</code>는 도메인이 바깥 세계에 내미는 '포트'이고, 각 어댑터는 그 포트에 꽂히는 플러그다. 그래서 Target의 시그니처를 정할 때 "SDK들의 공통분모"를 찾으면 안 된다. "주문 서비스가 결제에 대해 알고 싶은 최소한"을 정해야 한다.</p>
+<p>GoF는 두 가지 변형을 구분한다. 위 그림처럼 Adaptee를 필드로 갖는 <strong>객체 어댑터(object adapter)</strong>와, Target과 Adaptee를 모두 상속하는 <strong>클래스 어댑터(class adapter)</strong>다. 다중 상속이 되는 파이썬에서는 둘 다 가능하지만, 이 장은 객체 어댑터를 기본으로 한다. 그 이유는 연습문제 1에서 실제 코드로 확인한다.</p>
+</section>
+
+<section id="implementation">
+<h2>4. 패턴 적용</h2>
+<p>예린은 먼저 "우리가 결제에 대해 말하는 방식"을 정했다. 금액은 원 단위 <code>int</code>, 결과는 즉시 반환, 실패는 우리 예외 하나. 이 결정은 SDK 문서를 보기 전에 내려야 한다. SDK 문서를 먼저 보면 Target이 특정 SDK를 닮아 간다.</p>
+<p class="lead-in">파일 <code>02_adapter.py</code>의 Target 부분이다. SDK 흉내 코드는 01과 같되, C SDK만 실제처럼 다른 스레드에서 콜백하도록 바꿨으므로(01은 단순화를 위해 즉시 콜백했다) 여기서는 생략했다(전체 파일은 저장소에 있다). <code>PaymentDeclined</code>의 docstring이 말하는 "남의 어휘를 몰라도 된다"가 이 설계의 목적이다.</p>
+<pre data-src="05_adapter/02_adapter.py" data-lines="96-135"></pre>
+<p><code>PaymentResult</code>를 <code>frozen=True</code> 데이터클래스로 둔 것도 Target 설계의 일부다. SDK마다 다른 결과 모양(dict, 응답 객체, 콜백 인자)이 우리 쪽에서는 하나의 불변 값으로 수렴한다.</p>
+<p class="lead-in">이제 세 어댑터다. 각 어댑터의 docstring 첫 줄에 "번역할 것" 목록을 적어 두었다. A는 예외만, B는 단위와 상태 코드, C는 단위와 호출 모델까지 번역한다. 어댑터의 두께가 '차이의 양'에 비례한다는 점에 주목하라.</p>
+<div class="callout"><span class="label">용어</span><p><dfn data-term="exception-translation">예외 변환</dfn>: 외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것. 호출자가 남의 예외 이름을 몰라도 되게 한다. <dfn data-term="staticmethod"><code>@staticmethod</code></dfn>: 메서드 정의 위에 붙이면 그 메서드가 <code>self</code>를 받지 않는 보통 함수처럼 동작한다(<code>@staticmethod</code> 같은 표기 자체는 6장에서 다룬다). <code>PgBAdapter._check</code>처럼 인스턴스 상태를 쓰지 않는 도우미에 쓴다. <dfn data-term="future"><code>concurrent.futures.Future</code></dfn>: 아직 끝나지 않은 작업의 결과를 담을 자리. 다른 스레드가 <code>set_result()</code>로 채우면 <code>result(timeout=…)</code>로 기다렸다가 꺼낸다.</p></div>
+<pre data-src="05_adapter/02_adapter.py" data-lines="136-244"></pre>
+<p>세 어댑터는 각각 다른 종류의 차이를 숨긴다. 이를 목록으로 만들어 두면 새 SDK를 붙일 때 점검표가 된다.</p>
+<table>
+  <thead><tr><th>차이의 종류</th><th>예</th><th>이 장에서 번역한 곳</th></tr></thead>
+  <tbody>
+    <tr><td>이름</td><td><code>cancel</code> → <code>refund</code></td><td><code>PgAAdapter.refund</code></td></tr>
+    <tr><td>데이터 타입·단위</td><td><code>int</code> → <code>Decimal</code>, 원 → minor unit</td><td><code>PgBAdapter.pay</code>, <code>PgCAdapter.MINOR_PER_KRW</code></td></tr>
+    <tr><td>오류 체계</td><td>SDK 예외, 상태 코드 → <code>PaymentDeclined</code></td><td><code>PgAAdapter.pay</code>, <code>PgBAdapter._check</code></td></tr>
+    <tr><td>호출 모델</td><td>콜백(다른 스레드) → 동기 반환</td><td><code>PgCAdapter._await</code></td></tr>
+  </tbody>
+</table>
+<p><code>PgCAdapter._await</code>는 특히 눈여겨볼 만하다. 비동기 콜백을 동기 반환으로 바꾸는 것은 단순한 이름 바꾸기보다 훨씬 큰 결정이다. 호출자가 결과를 기다리며 <dfn data-term="blocking">블로킹</dfn>되기(결과가 준비될 때까지 호출한 쪽의 실행이 멈춰 서기) 때문이다. 그래서 <code>timeout</code>을 반드시 두었고, 시간 초과 역시 <code>PaymentDeclined</code>로 번역했으며, 콜백이 같은 스레드에서 즉시 오든 다른 스레드에서 나중에 오든 똑같이 동작하도록 <code>concurrent.futures.Future</code>를 썼다. 만약 우리 서비스 전체가 <dfn data-term="asyncio"><code>asyncio</code></dfn>(한 스레드 안에서 <code>async def</code>로 정의한 함수들이 기다리는 동안 서로 실행을 넘겨주며 여러 작업을 동시에 진행하게 하는 표준 라이브러리) 기반이라면 Target을 <code>async def pay(...)</code>로 정하고 어댑터가 <code>loop.create_future()</code>로 번역하는 편이 맞다. 어떤 방향으로 번역할지는 Target이 정하고, 어댑터는 그 결정을 따른다.</p>
+<p class="lead-in">마지막으로 클라이언트와 조립 코드다. <code>OrderService</code>에 PG 이름도, SDK 타입도, 단위 변환도 없다는 것을 확인하라. 구체 클래스를 아는 곳은 <code>__main__</code>의 조립 지점 하나뿐이다.</p>
+<pre data-src="05_adapter/02_adapter.py" data-lines="245-289"></pre>
+<pre data-run="05_adapter/02_adapter.py"></pre>
+<p>출력 [1]의 C 환불을 보라. 이번에는 <code>1500000</code> minor unit이 나갔다. 단위 규칙이 <code>MINOR_PER_KRW</code> 한 곳에 있고 <code>pay()</code>와 <code>refund()</code>가 그것을 공유하므로, 01의 사고는 구조적으로 재발할 수 없다. 출력 [2]는 세 가지 실패 방식이 <code>PaymentDeclined</code> 하나로 수렴했음을 보여준다. A의 경우 <code>raise ... from e</code> 덕분에 원래의 <code>PgAError</code>가 <code>__cause__</code>로 남아 있어, 로그를 볼 때 원인 정보도 잃지 않는다.</p>
+<div class="callout ok">
+  <span class="label">핵심 정리</span>
+  <p>어댑터의 가치는 '변환 코드를 작성한다'에 있지 않다. 그 코드는 어차피 어딘가에 있어야 한다. 가치는 <strong>변환 지식이 정확히 한 곳에 모이고, 그 바깥은 우리 어휘만으로 말할 수 있게 된다</strong>는 데 있다.</p>
+</div>
+</section>
+
+<section id="pythonic">
+<h2>5. 파이썬다운 변형</h2>
+<p>팀 리드 도윤은 코드 리뷰에서 세 가지를 물었다. 어댑터가 꼭 Target을 상속해야 하는가? 함수 하나만 필요한 곳에도 클래스를 만들어야 하는가? 부가 메서드가 스무 개인 SDK라면 <code>__getattr__</code> 한 줄로 위임하면 되지 않는가? 셋 다 파이썬이라서 나오는 질문이다.</p>
+<p class="lead-in">아래 파일은 세 질문에 차례로 답한다. (1) <code>Protocol</code> Target과 상속하지 않는 <code>PgBAdapter</code>(Target에 붙은 <dfn data-term="typing-runtime-checkable"><code>runtime_checkable</code></dfn>을 Protocol 정의 위에 붙이면 <code>isinstance</code> 검사를 할 수 있게 되는데, 메서드 이름이 있는지만 보고 시그니처는 보지 않는다), (2) <code>functools.partial</code>과 클로저로 만든 함수 어댑터, (3) 일부러 나쁘게 만든 <code>LeakyPgBAdapter</code>, (4) <code>raise ... from</code>의 의미 순서로 읽어라.</p>
+<pre data-src="05_adapter/03_pythonic.py"></pre>
+<pre data-run="05_adapter/03_pythonic.py"></pre>
+<h3>Protocol: 어댑터는 Target을 상속하지 않아도 된다</h3>
+<p>Java의 어댑터는 Target 인터페이스를 <code>implements</code>해야 한다. 파이썬에서 Target을 <code>typing.Protocol</code>로 정의하면 어댑터는 '모양만 맞으면' Target이다. 이는 어댑터가 서드파티 라이브러리에 이미 존재하는 경우에 특히 중요하다. 남의 클래스가 우연히 <code>pay</code>/<code>refund</code>를 갖고 있다면 어댑터 없이 바로 쓸 수 있다. 대가는 검사 시점이다. ABC는 구현 누락을 인스턴스화할 때 잡지만, Protocol은 mypy 같은 정적 검사기를 돌려야 잡는다. <code>@runtime_checkable</code>의 <code>isinstance</code>는 메서드 이름의 존재만 본다는 점도 기억하라. 팀이 정적 타입 검사를 <dfn data-term="continuous-integration">CI</dfn>(지속적 통합: 변경을 올릴 때마다 빌드·테스트·정적 검사를 자동으로 돌리는 체계)에서 돌린다면 Protocol, 그렇지 않다면 ABC가 더 안전하다.</p>
+<h3>함수 하나짜리 인터페이스는 함수 어댑터로</h3>
+<p>정산 배치가 원하는 것이 "(금액, 토큰)을 받아 거래번호를 돌려주는 것" 하나라면 Target은 클래스가 아니라 <code>Callable[[int, str], str]</code>이다. 이때 어댑터는 <code>partial</code>로 인자를 맞추고 작은 클로저로 반환값을 바꾼 함수가 된다. GoF가 클래스로 어댑터를 그린 이유는 1994년의 C++/Smalltalk에서 '<dfn data-term="function-object">함수 객체</dfn>'(함수처럼 호출할 수 있는 값. 함수를 값으로 넘기기 어려운 언어에서는 호출 연산을 가진 객체로 흉내 낸다)가 번거로웠기 때문이지, 어댑터의 본질이 클래스여서가 아니다. 다만 메서드가 둘 이상이고 그것들이 상태(SDK 클라이언트, 설정)를 공유한다면 다시 클래스가 자연스럽다.</p>
+<h3><code>__getattr__</code> 위임: 편리함과 맞바꾸는 것</h3>
+<p><code>__getattr__</code>은 일반 속성 조회가 실패했을 때만 호출되므로, 어댑터에 정의한 메서드는 그대로 쓰이고 나머지만 SDK로 넘어간다. 한 줄로 스무 개 메서드를 노출할 수 있다는 유혹이 강하다. 그러나 출력 [3]이 보이듯 대가가 크다. 번역을 거치지 않은 <code>create_payment</code>가 새어 나와 호출자가 다시 <code>status_code</code>를 알게 되고, 오타가 SDK 이름으로 보고되며, 타입 검사기는 이 객체에 무엇이 있는지 알 수 없다. <strong>어댑터의 존재 이유가 '경계'인데, <code>__getattr__</code>은 그 경계에 구멍을 뚫는다.</strong> 위임이 필요한 메서드가 정말 많다면, 그것은 Target이 너무 넓다는 신호일 수 있다. 쓰지 않는 메서드를 Target에서 빼는 것이 먼저다(ISP).</p>
+<h3>예외 변환은 <code>raise ... from</code>으로</h3>
+<p>예외 체계의 번역은 어댑터의 일 중에서도 가장 자주 빠뜨리는 부분이다. 번역할 때는 반드시 <code>raise OurError(...) from e</code>로 쓴다. <code>from</code>을 빼면 파이썬은 원래 예외를 <code>__context__</code>에 담고 "처리 도중 다른 예외가 발생했다"는 메시지를 출력하는데, 이는 번역 코드 자체가 고장 난 것처럼 읽힌다. <code>from e</code>는 "의도된 변환이며 원인은 이것"이라는 선언이다.</p>
+</section>
+
+<section id="tradeoffs">
+<h2>6. 트레이드오프와 관련 패턴</h2>
+<h3>얻는 것과 치르는 것</h3>
+<ul>
+  <li><strong>얻는 것:</strong> 번역 규칙의 <dfn data-term="single-source-of-truth">단일 출처</dfn>(같은 지식이 시스템 안에 한 곳에만 정의되어 사본이 어긋날 여지가 없는 상태), 도메인 코드의 어휘 정화, 외부 SDK 교체 비용의 국소화, 가짜 어댑터를 이용한 쉬운 테스트.</li>
+  <li><strong>치르는 것:</strong> 클래스와 간접 층이 하나씩 늘어난다. Target을 우리가 정의했기 때문에 SDK의 새 기능을 쓰려면 Target을 넓히거나 어댑터에 명시적 메서드를 추가해야 한다. 그리고 번역은 정보를 잃을 수 있다. B의 상세 오류 코드 51을 <code>PaymentDeclined</code> 하나로 뭉개면, "잔액 부족이면 다른 카드를 권하라" 같은 <dfn data-term="user-experience">UX</dfn>(사용자 경험)를 만들기 어려워진다. 필요한 구분은 Target의 예외 계층(<code>InsufficientFunds(PaymentDeclined)</code> 등)으로 올려야 한다.</li>
+</ul>
+<h3>쓰지 말아야 할 때</h3>
+<ul>
+  <li><strong>통합 대상이 하나뿐이고 바뀔 계획도 없을 때.</strong> PG가 A 하나라면 <code>PaymentGateway</code>와 <code>PgAAdapter</code>는 <dfn data-term="speculative-generality">투기적 일반화</dfn>(아직 오지 않은 요구를 짐작해 미리 만들어 둔 추상화. 쓰이지 않는 채로 읽는 비용만 늘린다)다. 다만 "SDK 예외가 도메인에 새는 것"만은 막고 싶다면 얇은 래퍼 함수 하나로 충분하다.</li>
+  <li><strong>인터페이스를 고칠 수 있을 때.</strong> 양쪽 모두 우리 코드라면 어댑터를 두지 말고 한쪽 이름을 바꾸는 리팩터링을 하라. 어댑터는 '수정할 수 없음'을 전제로 한 패턴이다.</li>
+  <li><strong>의미가 다를 때.</strong> 어댑터는 <em>같은 일을 다른 모양으로</em> 하는 것을 맞춘다. 한쪽은 승인(카드 한도를 확보하는 단계)만, 다른 쪽은 <dfn data-term="authorization-capture">승인+매입</dfn>(매입은 승인된 금액을 실제로 청구하는 단계)을 한 번에 한다면 그것은 번역으로 해결되지 않는 의미 차이이며, 억지로 맞추면 어댑터 안에 비즈니스 로직이 자란다.</li>
+</ul>
+<h3>관련 패턴</h3>
+<table>
+  <thead><tr><th>패턴</th><th>공통점</th><th>차이</th></tr></thead>
+  <tbody>
+    <tr><td>퍼사드(8장)</td><td>다른 객체를 감싼다</td><td>어댑터는 <strong>이미 정해진</strong> Target으로 <strong>변환</strong>한다. 퍼사드는 여러 객체 위에 <strong>새로운, 더 단순한</strong> 인터페이스를 만든다.</td></tr>
+    <tr><td>데코레이터(6장)</td><td>감싸고 위임한다</td><td>데코레이터는 인터페이스를 <strong>바꾸지 않고</strong> 책임을 더한다. 어댑터는 인터페이스를 <strong>바꾸고</strong> 책임은 더하지 않는다.</td></tr>
+    <tr><td>프록시(9장)</td><td>감싸고 위임한다</td><td>프록시는 실제 객체와 <strong>같은</strong> 인터페이스로 접근을 통제한다.</td></tr>
+    <tr><td><dfn data-term="bridge">브리지</dfn>(범위 밖)</td><td>추상과 구현을 분리한다. 브리지 패턴은 추상 계층과 구현 계층을 따로 두어 각자 독립적으로 확장하게 하는 GoF 구조 패턴이다</td><td>브리지는 <strong>설계 초기에</strong> 두 계층을 분리하려고 쓰고, 어댑터는 <strong>이미 존재하는</strong> 것들을 사후에 맞춘다.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="exercises">
+<h2>7. 연습문제</h2>
+
+<div class="exercise" id="ex1">
+  <h3><span class="ex-tag">개념</span> 문제 1. 클래스 어댑터를 권하지 않는 이유</h3>
+  <p>동료가 이렇게 제안했다. "<code>class PgBClassAdapter(PaymentGateway, PgBClient)</code>로 다중 상속하면 <code>_client</code> 필드도 위임 코드도 필요 없다." 파이썬에서 이것은 문법적으로 가능하다. 그런데도 이 장이 객체 어댑터를 기본으로 하는 이유를 <strong><dfn data-term="method-resolution-order">MRO</dfn></strong>와 <strong><dfn data-term="interface-pollution">인터페이스 오염</dfn></strong> 관점에서 설명하라. MRO(메서드 결정 순서)는 메서드를 찾을 때 클래스들을 훑는 순서이고, 인터페이스 오염은 의도하지 않은 메서드가 공개 인터페이스에 섞여 들어 경계가 흐려지는 것이다. B SDK가 <code>refund(payment_id, amount)</code>라는, Target과 같은 이름이지만 다른 시그니처의 메서드를 갖고 있다고 가정하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>세 가지 문제가 있다. 아래 코드가 각각을 실행으로 보인다.</p>
+    <ol>
+      <li><strong>인터페이스 오염:</strong> 클래스 어댑터는 SDK의 모든 공개 메서드를 상속하므로 <code>create_payment</code>, <code>refund_all</code>이 Target에 그대로 노출된다. 또 <code>isinstance(adapter, PgBClient)</code>가 참이 되어 "이 객체는 SDK 클라이언트이기도 하다"는, 우리가 의도하지 않은 약속을 외부에 하게 된다. 어댑터의 존재 이유인 '경계'가 사라진다.</li>
+      <li><strong>이름 충돌과 self 호출 납치:</strong> Target과 SDK가 같은 이름 <code>refund</code>를 쓰면 하나만 살아남는다. MRO가 <code>PgBClassAdapter → PaymentGateway → ABC → PgBClient</code>이므로 어댑터의 <code>refund</code>가 이긴다. 그 결과 SDK 내부의 <code>refund_all()</code>이 호출하는 <code>self.refund(...)</code>까지 <dfn data-term="dynamic-dispatch">동적 디스패치</dfn>(호출할 메서드 구현을 실행 시점에 객체의 실제 타입으로 고르는 것)에 의해 우리 메서드로 넘어가, SDK가 기대한 <code>PaymentResponse</code> 대신 <code>None</code>을 받고 터진다. SDK 작성자가 전혀 예상하지 못한 방식으로 SDK를 깨뜨린 것이다.</li>
+      <li><strong>MRO 의존:</strong> 어댑터 안에서 SDK의 원본 <code>refund</code>를 부르려면 <code>PgBClient.refund(self, ...)</code>처럼 MRO를 우회해야 한다. 부모 순서를 바꾸면 동작이 바뀌는 코드는 SDK 버전 업그레이드에도 취약하다.</li>
+    </ol>
+    <p><strong>흔한 오답:</strong> "다중 상속은 <dfn data-term="diamond-problem">다이아몬드 문제</dfn>가 있어서 위험하다." 다이아몬드 문제란 두 부모가 같은 조상을 공유할 때 조상의 메서드가 어느 경로로, 몇 번 불리는지 모호해지는 것이다. 파이썬은 <dfn data-term="c3-linearization">C3 선형화</dfn>(다중 상속 계층을 부모 순서를 지키는 한 줄의 MRO로 펴는 알고리즘)로 이를 결정적으로 해결하므로 그것 자체는 문제가 아니다. 문제는 is-a 관계가 공개 표면과 동적 디스패치를 통해 Adaptee의 내부 가정까지 끌어들인다는 점이다. "상속보다 합성"의 전형적 사례다.</p>
+    <pre data-src="05_adapter/solutions/ex1_class_adapter.py"></pre>
+    <pre data-run="05_adapter/solutions/ex1_class_adapter.py"></pre>
+  </details>
+</div>
+
+<div class="exercise" id="ex2">
+  <h3><span class="ex-tag">리팩터링</span> 문제 2. 두 온도 센서</h3>
+  <p>스마트 온실 컨트롤러가 구형 센서(<code>LegacyThermo</code>, 화씨, <code>read_f()</code>)와 신형 센서(<code>NewThermo</code>, 섭씨, <code>get_celsius()</code>)를 섞어 쓴다. 아래 코드를 어댑터로 리팩터링하라. 두 센서 라이브러리는 수정할 수 없다. Target 메서드 이름을 무엇으로 정할지도 근거와 함께 결정하라.</p>
+<pre><code class="language-python">def average_celsius(sensors):
+    # 센서 종류마다 분기한다 — 새 센서가 오면 이 함수를 또 연다
+    values = []
+    for s in sensors:
+        if isinstance(s, LegacyThermo):
+            # 구형은 화씨라 변환이 필요하다
+            values.append((s.read_f() - 32) * 5 / 9)
+        elif isinstance(s, NewThermo):
+            values.append(s.get_celsius())
+        else:
+            raise TypeError(f"모르는 센서: {s!r}")
+    return sum(values) / len(values)
+
+def max_celsius(sensors):
+    # 같은 분기가 여기에도 복제되어 있다
+    return max((s.read_f() - 32) * 5 / 9 if isinstance(s, LegacyThermo)
+               else s.get_celsius() for s in sensors)
+</code></pre>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>Target을 <code>CelsiusSource</code> Protocol(<code>get_celsius() -&gt; float</code>)로 정하고, 모양이 다른 구형 센서에만 <code>LegacyThermoAdapter</code>를 단다. 신형 센서는 Protocol 덕분에 어댑터 없이 그대로 Target이다. 단위(섭씨)를 인터페이스 계약에 포함시킨 것이 핵심이다. 원래 코드의 위험은 대부분 "이 숫자의 단위가 무엇이냐"에서 나왔다.</p>
+    <p>Target 이름에 대해서는 두 답이 모두 옳을 수 있다. 신형 센서의 이름을 따르면 어댑터가 하나로 줄어든다. 반면 <code>temperature_c()</code>처럼 중립적인 이름을 정하면 두 센서 모두 어댑터가 필요하지만 Target이 특정 벤더에 끌려가지 않는다. 벤더가 자주 바뀌는 환경이라면 후자가 낫다.</p>
+    <p><strong>흔한 오답:</strong> <code>LegacyThermo</code>를 상속해 <code>get_celsius()</code>를 추가하는 것. 이는 클래스 어댑터이며, 센서 객체를 라이브러리가 생성해 돌려주는 경우(팩토리 함수 등)에는 아예 쓸 수 없다. 이미 만들어진 객체를 감쌀 수 있다는 것이 객체 어댑터의 실용적 장점이다.</p>
+    <p>해설 코드의 클라이언트 함수는 매개변수 타입을 <dfn data-term="iterable"><code>Iterable</code></dfn>로 적었다. 이터러블은 <code>for</code> 문으로 처음부터 순회할 수 있는 객체(리스트, 튜플 등)를 말하며, 센서를 리스트로만 받겠다고 못 박지 않으려는 선택이다.</p>
+    <pre data-src="05_adapter/solutions/ex2_thermometer.py"></pre>
+    <pre data-run="05_adapter/solutions/ex2_thermometer.py"></pre>
+  </details>
+</div>
+
+<div class="exercise" id="ex3">
+  <h3><span class="ex-tag">판단</span> 문제 3. 이름만 다를 때</h3>
+  <p>새로 계약한 PG사 D의 SDK는 <code>make_payment(amount_krw, token) -&gt; str</code>, <code>cancel_payment(tid, amount_krw) -&gt; None</code>이다. 우리 <code>PaymentGateway</code>와 이름만 다르고 인자 순서·단위·반환·예외는 완전히 같다. (가) 클래스 어댑터, (나) <code>__getattr__</code> 위임, (다) 명시적 얇은 어댑터 클래스 또는 함수 중 무엇을 택하겠는가? 정산 배치처럼 함수 하나만 필요한 클라이언트라면 답이 달라지는가?</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><strong>(다)가 답이다.</strong> 위임할 메서드가 두 개뿐이라 (가)와 (나)가 아껴 주는 <dfn data-term="boilerplate">보일러플레이트</dfn>(본질적 로직 없이 형식 때문에 반복해 쓰는 상투적 코드)는 거의 없는 반면, 공개 표면이 <code>pay</code>/<code>refund</code>로 정확히 고정되는 이점은 크다. 무엇보다 지금 "의미가 같다"는 것은 지금의 사실일 뿐이다. D가 다음 버전에서 예외 방식을 바꾸면 (다)에서는 두 메서드에 번역을 <em>추가</em>하면 되지만, (가)나 (나)로 시작했다면 구조를 갈아엎어야 한다.</p>
+    <p>(나)는 특히 이 상황에 맞지 않는다. 이름이 <em>다르기</em> 때문에 <code>pay → make_payment</code> 매핑은 어차피 손으로 써야 하고, <code>__getattr__</code>은 그 외의 SDK 속성(예: <code>debug_dump</code>)만 새게 만든다. (가)는 연습문제 1의 문제를 모두 갖는다.</p>
+    <p>함수 하나만 필요한 클라이언트라면 <strong><dfn data-term="bound-method">바운드 메서드</dfn> <code>client.make_payment</code> 자체가 어댑터</strong>다. 바운드 메서드는 인스턴스에 묶인 메서드 객체로, 호출하면 <code>self</code>가 자동으로 채워진다. Target이 <code>Callable[[int, str], str]</code>이고 모양이 이미 맞으므로 아무것도 만들 필요가 없다. 파이썬에서 "어댑터가 필요 없어지는" 가장 흔한 경우다.</p>
+    <pre data-src="05_adapter/solutions/ex3_rename_only.py"></pre>
+    <pre data-run="05_adapter/solutions/ex3_rename_only.py"></pre>
+  </details>
+</div>
+</section>

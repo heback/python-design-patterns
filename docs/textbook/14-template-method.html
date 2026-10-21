@@ -1,0 +1,1198 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14장 템플릿 메서드 (Template Method) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="행위 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">14장 · 템플릿 메서드 (Template Method)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">14장 · 행위 패턴</span><h1>템플릿 메서드 (Template Method)</h1><p class="subtitle">절차의 골격은 한 곳에 고정하고, 달라지는 단계만 열어 둔다</p></header>
+    <section id="goals">
+  <h2>학습 목표</h2>
+  <ul>
+    <li>알고리즘의 골격을 상위 클래스에 고정하고 가변 단계를 하위 클래스에 맡기는 구조를 설계할 수 있다. 이때 추상 단계와 훅(hook)을 구분할 수 있다.</li>
+    <li>할리우드 원칙("우리에게 전화하지 마라, 우리가 전화하겠다")과 제어의 역전이 이 패턴에서 어떻게 나타나는지 설명할 수 있다.</li>
+    <li>상속 기반 템플릿 메서드와 합성 기반 전략(단계 주입) 가운데 어느 쪽이 맞는지 판단할 수 있다. 변이의 축이 늘어날 때 상속 계층이 왜 취약해지는지도 설명할 수 있다.</li>
+  </ul>
+</section>
+
+<section id="context">
+  <h2>1. 상황</h2>
+  <p>코딩 교육 플랫폼 '코드랩'의 개발자 도윤은 파이썬 제출물 채점기를 만들었다. 절차는 단순했다. 소스를 <dfn class="term" id="term-sandbox" data-term="sandbox" title="신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경.">샌드박스</dfn>(신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경)에 저장하고, 실행하고, 테스트 케이스마다 출력을 기대값과 비교한 뒤, 결과를 기록한다.</p>
+  <p>한 학기 뒤 C++와 Java 과목이 열렸다. C++는 실행 전에 컴파일 단계가 필요하다. Java는 컴파일 전에 공개 클래스 이름이 <code>Main</code>인지 검사해야 한다. 마감이 급했던 도윤은 파이썬 채점기를 복사해 C++ 채점기를 만들고, C++ 채점기를 다시 복사해 Java 채점기를 만들었다. 그렇게 채점기 세 개가 생겼다.</p>
+  <p>그 뒤 "모든 언어"에 해당하는 요구사항이 연달아 들어왔다. 시간 제한 측정, 채점 뒤 샌드박스 디렉터리 정리, 일부 문제에 대한 부동소수 오차 허용이다. 도윤은 세 파일에 같은 수정을 세 번 했고, 그 과정에서 두 군데가 어긋났다. Java 채점기에는 샌드박스 정리가 빠져서, 몇 주 뒤 채점 서버의 디스크가 가득 찼다. C++ 채점기는 다른 팀원이 "틀린 답이면 시간은 볼 필요 없다"며 비교와 시간 검사의 순서를 바꿔 놓았다. 그래서 같은 "느린 오답"이 파이썬에서는 시간 초과, C++에서는 오답으로 판정되었다. 학생들이 게시판에 항의 글을 올렸다.</p>
+  <p>도윤이 물어야 할 질문은 이것이다. <em>"절차의 순서와 반드시 거쳐야 할 단계는 한 곳에서 강제하고, 언어마다 정말로 다른 부분만 따로 쓰게 하려면 어떻게 해야 하는가?"</em></p>
+</section>
+
+<section id="naive">
+  <h2>2. 순진한 설계와 그 한계</h2>
+  <p class="lead-in">아래는 세 채점기가 공존하던 시점의 코드다. 컴파일러 없이도 실행되도록 컴파일과 실행은 흉내만 낸다. 반면 샌드박스 디렉터리 생성과 시간 측정은 실제로 한다. 세 <code>judge()</code> 메서드를 나란히 놓고 어디가 같고 어디가 미묘하게 다른지 찾아보라. 데모 [2]~[4]가 상황에서 말한 세 가지 사고를 재현한다.</p>
+  <div class="callout"><span class="label">용어</span>
+    <p>이 코드는 <dfn class="term" id="term-online-judge" data-term="online-judge" title="제출된 프로그램을 테스트 입력으로 자동 실행해 정답 여부·시간 초과 등을 판정하는 채점 시스템.">온라인 저지</dfn>, 곧 제출된 프로그램을 테스트 입력으로 자동 실행해 판정하는 채점 시스템의 일부다. 판정 문자열은 업계 관례를 따른다. <dfn class="term" id="term-accepted" data-term="accepted" title="온라인 저지 판정: 모든 테스트를 통과한 정답.">AC</dfn>(Accepted, 모든 테스트 통과), <dfn class="term" id="term-wrong-answer" data-term="wrong-answer" title="온라인 저지 판정: 출력이 기대값과 다른 오답.">WA</dfn>(Wrong Answer, 출력이 기대값과 다름), <dfn class="term" id="term-time-limit-exceeded" data-term="time-limit-exceeded" title="온라인 저지 판정: 시간 제한 초과.">TLE</dfn>(Time Limit Exceeded, 시간 제한 초과), <dfn class="term" id="term-runtime-error" data-term="runtime-error" title="온라인 저지 판정: 실행 중 예외로 비정상 종료.">RE</dfn>(Runtime Error, 실행 중 예외로 비정상 종료), <dfn class="term" id="term-compile-error" data-term="compile-error" title="온라인 저지 판정: 컴파일(또는 사전 검증) 실패.">CE</dfn>(Compile Error, 컴파일 또는 사전 검증 실패)다. 컴파일 흉내 주석의 <dfn class="term" id="term-linking" data-term="linking" title="컴파일된 조각들과 라이브러리를 이어 실행 파일을 만드는 단계.">링크</dfn>는 컴파일된 조각과 라이브러리를 이어 실행 파일을 만드는 단계다. 표준 라이브러리로는 임시 디렉터리를 안전하게 만드는 <dfn class="term" id="term-tempfile" data-term="tempfile" title="임시 파일·디렉터리를 안전하게 만드는 표준 라이브러리."><code>tempfile</code></dfn>, 파일 경로를 객체로 다루는 <dfn class="term" id="term-pathlib-path" data-term="pathlib-path" title="파일 경로를 객체로 다루는 표준 라이브러리(/ 연산자로 경로 결합)."><code>pathlib</code></dfn>(<code>/</code> 연산자로 경로를 잇는다), 짧은 구간의 경과 시간을 재는 고해상도 시계 <dfn class="term" id="term-time-perf-counter" data-term="time-perf-counter" title="짧은 구간의 경과 시간을 재는 고해상도 시계 함수."><code>time.perf_counter</code></dfn>를 쓴다.</p>
+  </div>
+  <figure class="code"><figcaption>src/14_template_method/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 순진한 설계] 언어별 채점기 세 개를 복사-붙여넣기로 만든 온라인 저지.
+
+상황: 코딩 교육 플랫폼 &#x27;코드랩&#x27;의 개발자 도윤은 파이썬 채점기를 먼저 만들었다.
+소스 저장 → 실행 → 테스트 케이스 출력 비교 → 결과 기록. 이어서 C++(컴파일 필요)와
+Java(클래스명 규칙 검사 + 컴파일) 채점기를 파이썬 채점기를 복사해 고쳐 만들었다.
+그 뒤 &#x27;모든 언어&#x27;에 시간 제한, 샌드박스 정리, 일부 문제의 부동소수 오차 허용이 추가되었다.
+이 파일은 그 결과를 보여 준다. 공통 절차가 세 벌이 되자 하나에서는 정리 단계가 빠졌고,
+다른 하나에서는 단계 순서가 어긋나 같은 제출물이 언어에 따라 다른 판정을 받는다.
+
+실행 환경: 교재 예제는 외부 컴파일러 없이 돌아가야 하므로 &#x27;컴파일&#x27;과 &#x27;실행&#x27;을 흉내 낸다.
+제출물의 실제 동작은 `solve` 함수(입력 문자열 → 출력 문자열)로 표현한다. 샌드박스 디렉터리와
+소스 파일 쓰기, 실행 시간 측정은 진짜로 수행한다. 디스크가 차는 버그를 실제로 보이기 위해서다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import shutil
+import tempfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable
+
+TIME_LIMIT = 0.05   # 초. 데모가 빨리 끝나도록 작게 잡았다.
+
+
+@dataclass
+class Submission:
+    &quot;&quot;&quot;학생 제출물. solve는 &#x27;컴파일된 프로그램의 동작&#x27;을 흉내 내는 함수다.&quot;&quot;&quot;
+
+    language: str
+    source: str
+    solve: Callable[[str], str]
+
+
+Tests = list[tuple[str, str]]   # (입력, 기대 출력)
+
+
+class PythonJudge:
+    &quot;&quot;&quot;파이썬 채점기 — 가장 먼저 만들어졌고, 이후 요구사항이 가장 꼼꼼히 반영된 원본.&quot;&quot;&quot;
+
+    def judge(self, sub: Submission, tests: Tests, float_tol: float | None = None) -&gt; str:
+        &quot;&quot;&quot;채점 후 판정 문자열(AC/WA/TLE/RE)을 돌려준다.&quot;&quot;&quot;
+        # 준비 단계: 제출물마다 격리된 디렉터리. 이 줄부터 finally까지가 세 클래스에 복제된다.
+        sandbox = Path(tempfile.mkdtemp(prefix=&quot;judge-py-&quot;))
+        try:
+            (sandbox / &quot;main.py&quot;).write_text(sub.source)
+            for i, (inp, expected) in enumerate(tests, 1):
+                start = time.perf_counter()
+                out = sub.solve(inp)
+                elapsed = time.perf_counter() - start
+                # 순서: 시간 제한을 &#x27;먼저&#x27; 본다. 느린 오답은 TLE다.
+                if elapsed &gt; TIME_LIMIT:
+                    return f&quot;TLE (#{i})&quot;
+                # 부동소수 오차 허용은 이 채점기에만 들어갔다.
+                if float_tol is not None:
+                    if abs(float(out) - float(expected)) &gt; float_tol:
+                        return f&quot;WA (#{i})&quot;
+                elif out.strip() != expected.strip():
+                    return f&quot;WA (#{i})&quot;
+            return &quot;AC&quot;
+        except Exception as e:                    # 제출물이 던진 예외 = 런타임 에러
+            return f&quot;RE ({type(e).__name__})&quot;
+        finally:
+            shutil.rmtree(sandbox)                # 정리 단계: 나중에 추가되었다
+
+
+class CppJudge:
+    &quot;&quot;&quot;C++ 채점기 — PythonJudge를 복사해 컴파일 단계를 끼워 넣었다.&quot;&quot;&quot;
+
+    def judge(self, sub: Submission, tests: Tests, float_tol: float | None = None) -&gt; str:
+        &quot;&quot;&quot;채점. 위 메서드와 80% 같은 코드다.&quot;&quot;&quot;
+        # PythonJudge.judge에서 복사해 온 줄. 파일명만 바뀌었다 — &#x27;다른 부분&#x27;은 이렇게 작다.
+        sandbox = Path(tempfile.mkdtemp(prefix=&quot;judge-cpp-&quot;))
+        try:
+            (sandbox / &quot;main.cpp&quot;).write_text(sub.source)
+            if &quot;int main&quot; not in sub.source:      # 컴파일 흉내: main이 없으면 링크 실패
+                return &quot;CE&quot;
+            for i, (inp, expected) in enumerate(tests, 1):
+                start = time.perf_counter()
+                out = sub.solve(inp)
+                elapsed = time.perf_counter() - start
+                # ⚠ 문제: 복사한 뒤 출력 비교를 먼저 하도록 순서가 바뀌었다(누군가 &quot;틀린 답이면
+                #   시간은 볼 필요 없다&quot;며 고쳤다). 그래서 느린 오답이 여기서는 WA가 된다.
+                # ⚠ 문제: float_tol 인자를 받기만 하고 쓰지 않는다. 시그니처만 복사되었다.
+                if out.strip() != expected.strip():
+                    return f&quot;WA (#{i})&quot;
+                if elapsed &gt; TIME_LIMIT:
+                    return f&quot;TLE (#{i})&quot;
+            return &quot;AC&quot;
+        except Exception as e:
+            return f&quot;RE ({type(e).__name__})&quot;
+        finally:
+            shutil.rmtree(sandbox)
+
+
+class JavaJudge:
+    &quot;&quot;&quot;Java 채점기 — CppJudge를 복사해 클래스명 검사를 추가했다.&quot;&quot;&quot;
+
+    def judge(self, sub: Submission, tests: Tests, float_tol: float | None = None) -&gt; str:
+        &quot;&quot;&quot;채점.&quot;&quot;&quot;
+        # ⚠ 문제: try가 없다. 이 아래에서 무엇이 실패하든 샌드박스는 남는다.
+        sandbox = Path(tempfile.mkdtemp(prefix=&quot;judge-java-&quot;))
+        (sandbox / &quot;Main.java&quot;).write_text(sub.source)
+        if &quot;public class Main&quot; not in sub.source:  # Java 규칙: 파일명과 공개 클래스명 일치
+            return &quot;CE (class Main 없음)&quot;
+        if &quot;static void main&quot; not in sub.source:
+            return &quot;CE&quot;
+        for i, (inp, expected) in enumerate(tests, 1):
+            start = time.perf_counter()
+            out = sub.solve(inp)
+            elapsed = time.perf_counter() - start
+            if out.strip() != expected.strip():
+                return f&quot;WA (#{i})&quot;
+            if elapsed &gt; TIME_LIMIT:
+                return f&quot;TLE (#{i})&quot;
+        # ⚠ 문제: 샌드박스 정리(try/finally + rmtree)가 &#x27;모든 언어에 추가&#x27;될 때 이 파일만
+        #   빠졌다. 채점할 때마다 임시 디렉터리가 남고, 몇 주 뒤 채점 서버 디스크가 가득 찬다.
+        # ⚠ 문제: 예외 처리(RE 판정)도 빠져 제출물의 예외가 채점 서버까지 전파된다.
+        return &quot;AC&quot;
+
+
+def slow_wrong(inp: str) -&gt; str:
+    &quot;&quot;&quot;시간 제한을 넘기면서 답도 틀리는 제출물.&quot;&quot;&quot;
+    time.sleep(0.08)
+    return &quot;42&quot;
+
+
+def leftover(prefix: str) -&gt; int:
+    &quot;&quot;&quot;임시 디렉터리에 남은 샌드박스 수. 디스크 누수의 증거.&quot;&quot;&quot;
+    return len(list(Path(tempfile.gettempdir()).glob(prefix + &quot;*&quot;)))
+
+
+if __name__ == &quot;__main__&quot;:
+    # 두 수의 합 문제. 모든 데모가 같은 테스트를 써서 &#x27;채점기 차이&#x27;만 드러나게 한다.
+    tests: Tests = [(&quot;1 2&quot;, &quot;3&quot;), (&quot;10 20&quot;, &quot;30&quot;)]
+    add = lambda s: str(sum(map(int, s.split())))   # 정답 제출물의 동작
+
+    print(&quot;[1] 세 언어 모두 정답 제출물은 AC&quot;)
+    print(&quot;    Python:&quot;, PythonJudge().judge(Submission(&quot;py&quot;, &quot;print(...)&quot;, add), tests))
+    print(&quot;    C++   :&quot;, CppJudge().judge(Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, add), tests))
+    java_src = &quot;public class Main { public static void main(String[] a){} }&quot;
+    print(&quot;    Java  :&quot;, JavaJudge().judge(Submission(&quot;java&quot;, java_src, add), tests))
+
+    print(&quot;[2] 같은 &#x27;느린 오답&#x27;인데 언어마다 판정이 다르다 — 단계 순서가 어긋났기 때문&quot;)
+    print(&quot;    Python:&quot;, PythonJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, slow_wrong), tests))
+    print(&quot;    C++   :&quot;, CppJudge().judge(Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, slow_wrong), tests))
+
+    print(&quot;[3] 부동소수 문제(1/3): Python만 오차 허용, C++은 인자를 무시한다&quot;)
+    third = lambda s: &quot;0.3333333&quot;
+    ftests: Tests = [(&quot;1 3&quot;, &quot;0.333333333&quot;)]
+    print(&quot;    Python:&quot;, PythonJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, third), ftests, float_tol=1e-6))
+    print(&quot;    C++   :&quot;, CppJudge().judge(Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, third), ftests, float_tol=1e-6))
+
+    print(&quot;[4] 샌드박스 정리 누락: 채점 후 남은 임시 디렉터리 수&quot;)
+    # 이전 실행의 잔여물과 섞이지 않도록 &#x27;증가분&#x27;만 센다.
+    before = leftover(&quot;judge-java-&quot;)
+    for _ in range(5):
+        JavaJudge().judge(Submission(&quot;java&quot;, java_src, add), tests)
+    print(f&quot;    judge-java-*: {leftover(&#x27;judge-java-&#x27;) - before}개 증가 (python/cpp: &quot;
+          f&quot;{leftover(&#x27;judge-py-&#x27;)}/{leftover(&#x27;judge-cpp-&#x27;)}개)&quot;)
+    # 데모가 실제 디스크를 더럽히지 않도록 뒷정리한다(교재 독자의 /tmp를 위해).
+    for d in Path(tempfile.gettempdir()).glob(&quot;judge-java-*&quot;):
+        shutil.rmtree(d, ignore_errors=True)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
+  <ul>
+    <li><strong>절차(순서)와 단계(내용)가 한 덩어리로 복제되었다.</strong> 세 메서드에서 정말로 다른 부분은 파일 이름, 컴파일, 클래스명 검사 정도로 20%가 안 된다. 그런데 나머지 80%까지 함께 복사되었다.</li>
+    <li><strong>공통 요구사항이 N번의 수정이 된다.</strong> "모든 언어에 정리 단계 추가"는 업무 관점에서는 변경 하나다. 하지만 코드에서는 세 군데를 고쳐야 하고, 한 군데라도 빠뜨리지 않는다는 보장이 어디에도 없다.</li>
+    <li><strong>순서가 불변식인데 아무도 그것을 지키지 않는다.</strong> "시간 검사 → 출력 비교"는 공정한 판정의 조건이다. 그런데 이 순서가 각 사본의 지역적인 선택처럼 보이기 때문에, 누구든 "개선"이라며 바꿀 수 있다.</li>
+  </ul>
+</section>
+
+<section id="structure">
+  <h2>3. 패턴의 구조</h2>
+  <p>GoF의 의도(intent)는 이렇다. <em>"연산 안에 알고리즘의 골격을 정의하고, 일부 단계를 하위 클래스로 미룬다. 템플릿 메서드는 알고리즘의 구조를 바꾸지 않고도 하위 클래스가 알고리즘의 특정 단계를 재정의할 수 있게 한다."</em> 핵심은 <strong>순서는 닫고 단계는 연다</strong>는 것이다. 이 패턴에서 OCP가 닫는 대상은 클래스 전체가 아니라 '절차'다.</p>
+  <p>그림의 메모에 적힌 <dfn class="term" id="term-inversion-of-control" data-term="inversion-of-control" title="흐름의 제어권이 사용자 코드가 아니라 골격·프레임워크 쪽에 있어서, 사용자 코드는 불리기만 하는 구조.">제어의 역전</dfn>은 흐름의 제어권이 사용자 코드가 아니라 골격(또는 프레임워크) 쪽에 있어서, 사용자 코드는 불리기만 하는 구조를 말한다. 보통은 내 코드가 라이브러리를 부르지만, 여기서는 상위 클래스의 골격이 하위 클래스의 단계를 부른다. 이를 한 문장으로 요약한 것이 <dfn class="term" id="term-hollywood-principle" data-term="hollywood-principle" title="&quot;우리에게 전화하지 마라, 우리가 전화하겠다&quot; — 하위 코드는 상위 코드를 부르지 않고, 상위 코드(골격·프레임워크)가 언제 하위 코드를 부를지 정한다는 설계 원칙.">할리우드 원칙</dfn>, 곧 "우리에게 전화하지 마라, 우리가 전화하겠다"다. 하위 클래스는 골격을 부르지 않고, 골격이 언제 하위 클래스를 부를지 정한다.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 330" role="img" aria-label="템플릿 메서드 구조: Judge가 골격 judge()를 가지며 PythonJudge, CppJudge, JavaJudge가 단계를 채운다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <g class="uml-class highlight" transform="translate(190,10)">
+        <rect width="320" height="190"/>
+        <text class="uml-stereo" x="160" y="16">«Abstract Class»</text>
+        <text class="uml-name uml-abstract" x="160" y="34">Judge</text>
+        <line x1="0" y1="44" x2="320" y2="44"/>
+        <text class="uml-member" x="10" y="62">+ judge(sub, tests) {final}  ← 템플릿 메서드</text>
+        <text class="uml-member" x="10" y="80">- _run_tests(...) {final}</text>
+        <text class="uml-member" x="10" y="102">+ language() {abstract}</text>
+        <text class="uml-member" x="10" y="120">+ source_filename() {abstract}</text>
+        <text class="uml-member" x="10" y="138">+ run(src, sub, stdin) {abstract}</text>
+        <text class="uml-member" x="10" y="160">+ validate(sub)  ← 훅: 기본 통과</text>
+        <text class="uml-member" x="10" y="178">+ compile(src, sub)  ← 훅: 기본 no-op</text>
+      </g>
+      <path class="uml-inherit" d="M350 240 V202" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M90 240 H610"/>
+      <path class="uml-inherit" d="M90 260 V240 M350 260 V240 M610 260 V240"/>
+      <g class="uml-class" transform="translate(10,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">PythonJudge</text><text class="uml-member" x="8" y="42">추상 단계 3개만</text></g>
+      <g class="uml-class" transform="translate(270,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">CppJudge</text><text class="uml-member" x="8" y="42">+ compile() 재정의</text></g>
+      <g class="uml-class" transform="translate(530,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">JavaJudge</text><text class="uml-member" x="8" y="42">+ validate(), compile()</text></g>
+      <text class="uml-note" x="520" y="40">judge()가 단계를</text>
+      <text class="uml-note" x="520" y="56">호출한다(제어의 역전).</text>
+      <text class="uml-note" x="520" y="72">하위 클래스는 judge()를</text>
+      <text class="uml-note" x="520" y="88">부르지 않는다.</text>
+      <text class="uml-note" x="10" y="40">outputs_match()도 훅</text>
+      <text class="uml-note" x="10" y="56">(기본: 정확 일치)</text>
+    </svg>
+    <figcaption>그림 14-1. 채점기 템플릿 메서드의 참여자. 골격(judge)과 단계(추상/훅)가 한 클래스 안에서 '부르는 쪽'과 '불리는 쪽'으로 나뉜다.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>역할</th><th>이 장의 요소</th><th>책임</th></tr></thead>
+    <tbody>
+      <tr><td>추상 클래스(Abstract Class)</td><td><code>Judge</code></td><td>템플릿 메서드 <code>judge()</code>로 단계의 <strong>순서</strong>와 <strong>공통 단계</strong>(샌드박스 준비·정리, 시간 검사, 예외의 판정 번역, 기록)를 소유한다.</td></tr>
+      <tr><td>추상 단계(primitive operation)</td><td><code>language</code>, <code>source_filename</code>, <code>run</code></td><td>언어마다 반드시 다르다. 기본값이 의미가 없으므로 하위 클래스가 반드시 구현해야 한다.</td></tr>
+      <tr><td>훅(hook)</td><td><code>validate</code>, <code>compile</code>, <code>outputs_match</code></td><td>기본 동작이 있고 필요한 하위 클래스만 재정의한다. 골격이 하위 클래스에 내준 선택적 확장 지점이다.</td></tr>
+      <tr><td>구체 클래스(Concrete Class)</td><td><code>PythonJudge</code>, <code>CppJudge</code>, <code>JavaJudge</code></td><td>다른 부분만 쓴다. 공통 절차 코드는 한 줄도 없다.</td></tr>
+    </tbody>
+  </table></div>
+  <p>추상 단계와 훅을 가르는 기준은 <em>"합리적인 기본값이 존재하는가"</em>다. 기본값이 없는 단계를 훅으로 만들면, 구현을 빠뜨린 하위 클래스가 조용히 잘못 동작한다. 반대로 기본값이 분명한 단계를 추상으로 만들면, 하위 클래스마다 똑같은 보일러플레이트가 생긴다.</p>
+</section>
+
+<section id="implementation">
+  <h2>4. 패턴 적용</h2>
+  <p class="lead-in">먼저 골격을 보자. <code>judge()</code>가 단계를 부르는 순서, 그리고 <code>try/finally</code>가 정리를 보장하는 방식에 주목하라. 01의 세 사본이 각자 들고 있던 책임이 이제 이 메서드 하나에 모인다. 추상 단계와 훅이 시각적으로도 분리되어 있다는 점도 보라. 전체 파일은 <code>src/14_template_method/02_template_method.py</code>이며, 여기서는 두 부분으로 나눠 싣는다. 골격 메서드에 붙은 <dfn class="term" id="term-final" data-term="final" title="메서드·클래스를 재정의·상속하지 말라고 타입 검사기에 알리는 데코레이터. 런타임에는 아무것도 막지 않는다."><code>@final</code></dfn>(<code>typing.final</code>)은 "재정의하지 말라"고 타입 검사기에 알리는 데코레이터다. <code>run()</code>의 docstring에 나오는 <dfn class="term" id="term-interpreter" data-term="interpreter" title="소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램.">인터프리터</dfn>는 소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램이다(파이썬이 그렇다).</p>
+  <figure class="code"><figcaption>src/14_template_method/02_template_method.py  (1–122행)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 패턴 적용] 채점 절차의 골격을 상위 클래스 한 곳에 고정한다.
+
+상황: 01_naive.py에서 도윤의 채점기 세 개는 같은 절차를 세 벌로 가졌다. 그 결과 Java 채점기는
+샌드박스를 정리하지 않았고, C++ 채점기는 시간 검사와 출력 비교의 순서가 뒤바뀌어 같은
+제출물이 언어마다 다른 판정을 받았다. 이 파일은 GoF 템플릿 메서드로 다시 짠 버전이다.
+
+  - `Judge.judge()`가 템플릿 메서드다. 준비 → 검증 → 컴파일 → (실행 → 시간 검사 → 비교)×N
+    → 정리 → 기록이라는 &#x27;순서&#x27;를 여기서만 정의한다. 하위 클래스는 이 순서를 바꿀 수 없다.
+  - 언어마다 반드시 달라야 하는 단계(소스 파일명, 실행)는 추상 메서드(abstract step)다.
+  - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
+    훅(hook)이다.
+
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(01과 같은 방식).
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import shutil
+import tempfile
+import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, final
+
+TIME_LIMIT = 0.05
+
+
+@dataclass
+class Submission:
+    &quot;&quot;&quot;학생 제출물. solve는 컴파일된 프로그램의 동작을 흉내 낸다.&quot;&quot;&quot;
+
+    language: str
+    source: str
+    solve: Callable[[str], str]
+
+
+Tests = list[tuple[str, str]]
+
+
+class CompileError(Exception):
+    &quot;&quot;&quot;검증·컴파일 단계의 실패. 훅이 이 예외를 던지면 골격이 CE 판정으로 번역한다.&quot;&quot;&quot;
+
+
+class Judge(ABC):
+    &quot;&quot;&quot;[Abstract Class] 채점 알고리즘의 골격을 소유한다.
+
+    할리우드 원칙(&quot;우리에게 전화하지 마라, 우리가 전화하겠다&quot;): 하위 클래스는 judge()를
+    부르지도, 단계를 부르는 순서를 정하지도 않는다. 하위 클래스는 단계만 채우고, 언제
+    불릴지는 이 클래스가 정한다. 제어가 역전되어 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;채점 기록. 기록 단계가 골격에 있으므로 어느 언어든 빠짐없이 쌓인다.&quot;&quot;&quot;
+        self.records: list[str] = []
+
+    # ---------------------------------------------------------------------
+    # 템플릿 메서드
+    # ---------------------------------------------------------------------
+    @final
+    def judge(self, sub: Submission, tests: Tests) -&gt; str:
+        &quot;&quot;&quot;[Template Method] 채점 절차. @final: 하위 클래스가 &#x27;순서&#x27;를 재정의하지 말라는 선언.
+
+        typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 04의 __init_subclass__를 보라.
+        &quot;&quot;&quot;
+        sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{self.language()}-&quot;))
+        try:
+            src = sandbox / self.source_filename()
+            src.write_text(sub.source)
+            self.validate(sub)                       # 훅: 기본은 통과
+            self.compile(src, sub)                   # 훅: 기본은 &#x27;컴파일 없음&#x27;
+            verdict = self._run_tests(src, sub, tests)
+        except CompileError as e:
+            verdict = f&quot;CE ({e})&quot;
+        except Exception as e:                       # 제출물 예외 = 런타임 에러
+            verdict = f&quot;RE ({type(e).__name__})&quot;
+        finally:
+            # 정리는 골격이 보장한다. 01의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
+            shutil.rmtree(sandbox, ignore_errors=True)
+        self.records.append(f&quot;{self.language()}: {verdict}&quot;)
+        return verdict
+
+    @final
+    def _run_tests(self, src: Path, sub: Submission, tests: Tests) -&gt; str:
+        &quot;&quot;&quot;테스트 루프도 골격의 일부다. 시간 검사 → 출력 비교 순서가 모든 언어에서 같다.&quot;&quot;&quot;
+        for i, (inp, expected) in enumerate(tests, 1):
+            start = time.perf_counter()
+            out = self.run(src, sub, inp)
+            if time.perf_counter() - start &gt; TIME_LIMIT:
+                return f&quot;TLE (#{i})&quot;                 # 느린 오답은 어느 언어든 TLE
+            if not self.outputs_match(out, expected):
+                return f&quot;WA (#{i})&quot;
+        return &quot;AC&quot;
+
+    # ---------------------------------------------------------------------
+    # 추상 단계: 하위 클래스가 반드시 채워야 한다
+    # ---------------------------------------------------------------------
+    @abstractmethod
+    def language(self) -&gt; str:
+        &quot;&quot;&quot;언어 식별자(샌드박스 이름·기록에 쓰인다).&quot;&quot;&quot;
+
+    @abstractmethod
+    def source_filename(self) -&gt; str:
+        &quot;&quot;&quot;샌드박스에 저장할 파일명. 언어마다 규칙이 다르므로 기본값이 있을 수 없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def run(self, src: Path, sub: Submission, stdin: str) -&gt; str:
+        &quot;&quot;&quot;프로그램 실행. 실제로는 subprocess로 인터프리터/바이너리를 부르는 자리다.&quot;&quot;&quot;
+
+    # ---------------------------------------------------------------------
+    # 훅: 기본 구현이 있고, 필요한 하위 클래스만 재정의한다
+    # ---------------------------------------------------------------------
+    def validate(self, sub: Submission) -&gt; None:
+        &quot;&quot;&quot;소스 규칙 검사. 대부분 언어에는 없으므로 기본은 아무것도 하지 않는다.&quot;&quot;&quot;
+
+    def compile(self, src: Path, sub: Submission) -&gt; None:
+        &quot;&quot;&quot;컴파일. 인터프리터 언어에는 없으므로 기본은 no-op.&quot;&quot;&quot;
+
+    def outputs_match(self, actual: str, expected: str) -&gt; bool:
+        &quot;&quot;&quot;출력 비교. 기본은 앞뒤 공백을 무시한 정확 일치.&quot;&quot;&quot;
+        return actual.strip() == expected.strip()
+</code></pre></figure>
+  <p>세 가지를 짚어 두자. 첫째, 시간 검사와 출력 비교의 순서가 <code>_run_tests()</code>에 고정되었다. 이제 하위 클래스는 단계의 <em>내용</em>만 바꿀 수 있고 <em>순서</em>는 바꿀 수 없다. 둘째, 정리 단계는 <code>finally</code>에 있으므로 하위 클래스가 빠뜨릴 방법이 없다. 셋째, 컴파일 오류와 런타임 예외를 판정 문자열로 바꾸는 일도 골격이 맡는다. 덕분에 하위 클래스의 훅은 <code>CompileError</code>를 던지기만 하면 된다.</p>
+  <p><code>@final</code>은 의도를 표시할 뿐, 런타임에는 아무것도 막지 않는다. mypy나 pyright가 오버라이드를 오류로 보고해 줄 뿐이다. 런타임에서도 막아야 한다면 5절의 <code>__init_subclass__</code>를 쓴다.</p>
+
+  <p class="lead-in">이제 구체 채점기들이다. 각 클래스가 "다른 부분"만 쓰고 있는지 확인하라. 마지막 <code>FloatTolerantCppJudge</code>는 이 설계가 한계에 부딪히는 지점이다. 오차 허용은 언어가 아니라 <em>문제</em>의 속성인데, 상속의 축은 언어 하나뿐이기 때문이다. 그 docstring이 말하는 <dfn class="term" id="term-axis-of-change" data-term="axis-of-change" title="서로 다른 이유·주체·시점으로 독립적으로 바뀌는 요구의 방향. 축마다 분리하는 것이 설계의 기준이 된다.">변이의 축</dfn>(변경 축)은 서로 다른 이유로, 서로 독립적으로 바뀌는 요구의 방향이다. 이 예에서는 "언어"와 "출력 비교 방식"이 두 축이다. 축이 몇 개냐가 상속과 합성 사이의 선택을 가른다.</p>
+  <figure class="code"><figcaption>src/14_template_method/02_template_method.py  (124–204행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+# 구체 채점기: 각자 &#x27;다른 부분&#x27;만 쓴다. 공통 절차는 한 줄도 없다.
+# ---------------------------------------------------------------------------
+
+class PythonJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] 훅을 하나도 재정의하지 않는다 — 기본값이 파이썬에 맞게 설계되었다.&quot;&quot;&quot;
+
+    def language(self) -&gt; str:
+        &quot;&quot;&quot;언어 식별자.&quot;&quot;&quot;
+        return &quot;py&quot;
+
+    def source_filename(self) -&gt; str:
+        &quot;&quot;&quot;파일명.&quot;&quot;&quot;
+        return &quot;main.py&quot;
+
+    def run(self, src: Path, sub: Submission, stdin: str) -&gt; str:
+        &quot;&quot;&quot;실행 흉내.&quot;&quot;&quot;
+        return sub.solve(stdin)
+
+
+class CppJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] compile 훅만 재정의한다.&quot;&quot;&quot;
+
+    def language(self) -&gt; str:
+        &quot;&quot;&quot;언어 식별자.&quot;&quot;&quot;
+        return &quot;cpp&quot;
+
+    def source_filename(self) -&gt; str:
+        &quot;&quot;&quot;파일명.&quot;&quot;&quot;
+        return &quot;main.cpp&quot;
+
+    def compile(self, src: Path, sub: Submission) -&gt; None:
+        &quot;&quot;&quot;컴파일 흉내: main이 없으면 링크 실패.&quot;&quot;&quot;
+        if &quot;int main&quot; not in src.read_text():
+            raise CompileError(&quot;undefined reference to main&quot;)
+
+    def run(self, src: Path, sub: Submission, stdin: str) -&gt; str:
+        &quot;&quot;&quot;실행 흉내.&quot;&quot;&quot;
+        return sub.solve(stdin)
+
+
+class JavaJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] validate와 compile 두 훅을 재정의한다.&quot;&quot;&quot;
+
+    def language(self) -&gt; str:
+        &quot;&quot;&quot;언어 식별자.&quot;&quot;&quot;
+        return &quot;java&quot;
+
+    def source_filename(self) -&gt; str:
+        &quot;&quot;&quot;Java는 공개 클래스명과 파일명이 같아야 한다.&quot;&quot;&quot;
+        return &quot;Main.java&quot;
+
+    def validate(self, sub: Submission) -&gt; None:
+        &quot;&quot;&quot;클래스명 규칙 검사. 컴파일 &#x27;전&#x27;에 불린다는 순서는 골격이 보장한다.&quot;&quot;&quot;
+        if &quot;public class Main&quot; not in sub.source:
+            raise CompileError(&quot;class Main 없음&quot;)
+
+    def compile(self, src: Path, sub: Submission) -&gt; None:
+        &quot;&quot;&quot;컴파일 흉내.&quot;&quot;&quot;
+        if &quot;static void main&quot; not in src.read_text():
+            raise CompileError(&quot;main 메서드 없음&quot;)
+
+    def run(self, src: Path, sub: Submission, stdin: str) -&gt; str:
+        &quot;&quot;&quot;실행 흉내.&quot;&quot;&quot;
+        return sub.solve(stdin)
+
+
+class FloatTolerantCppJudge(CppJudge):
+    &quot;&quot;&quot;[Concrete Class] 부동소수 문제용 C++ 채점기 — 상속 기반 설계의 한계가 드러나는 지점.
+
+    오차 허용은 &#x27;언어&#x27;가 아니라 &#x27;문제&#x27;의 속성이다. 그런데 상속 축은 언어 하나뿐이라,
+    오차 허용을 훅 재정의로 넣으려면 FloatTolerantPythonJudge, FloatTolerantJavaJudge…
+    언어 수만큼 클래스가 곱해진다. 변이의 축이 둘이 되는 순간 템플릿 메서드는 버거워진다.
+    03_strategy_version.py가 이 문제를 합성으로 푼다.
+    &quot;&quot;&quot;
+
+    tolerance = 1e-6
+
+    def outputs_match(self, actual: str, expected: str) -&gt; bool:
+        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리).&quot;&quot;&quot;
+        return abs(float(actual) - float(expected)) &lt;= self.tolerance</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_template_method.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>출력 [2]에서 느린 오답은 이제 모든 언어에서 TLE다. [3]과 [4]에서는 컴파일 오류와 런타임 에러가 하위 클래스의 <code>try/except</code> 없이 골격에서 판정으로 바뀐다. [6]은 이 데모가 남긴 샌드박스가 0개임을 보여 준다. 01의 세 증상이 모두 사라졌다.</p>
+  <p>[7]은 <code>abstractmethod</code>가 보장하는 범위를 정확히 보여 준다. <code>run()</code>을 아예 빠뜨린 <code>GoJudge</code>는 인스턴스화 시점에 거부된다. 그러나 <code>abstractmethod</code>는 <em>이름</em>만 확인하고 시그니처는 보지 않는다. 그래서 인자를 빠뜨린 <code>run(self)</code>를 가진 <code>SloppyJudge</code>는 문제없이 만들어지고, 채점 도중 <code>TypeError</code>가 나면 골격의 <code>except</code>가 이를 학생의 런타임 에러(RE)로 오판한다. 시그니처 불일치는 mypy 같은 타입 검사기만 잡는다.</p>
+  <p>[5]는 성공처럼 보이지만 설계의 균열이다. 부동소수 문제를 Python과 Java에서도 지원하려면 <code>FloatTolerantPythonJudge</code>와 <code>FloatTolerantJavaJudge</code>가 더 필요하다. 여기에 "답의 순서를 무시하는 <dfn class="term" id="term-special-judge" data-term="special-judge" title="답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 출력을 판정하는 채점 방식.">특수 저지</dfn>"(답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 판정하는 방식)까지 더하면 클래스 수는 언어 수 × 비교 방식 수가 된다. <strong>변이의 축이 둘 이상이 되는 순간, 상속 하나로는 표현할 수 없다.</strong></p>
+
+  <h3>같은 골격을 합성으로</h3>
+  <p class="lead-in">아래는 골격은 그대로 두고 가변 단계를 <em>주입</em>하는 버전이다. 10장의 전략 패턴을 그대로 적용했다. 언어 축은 단계 여럿을 묶은 <dfn class="term" id="term-toolchain" data-term="toolchain" title="한 언어의 소스를 검증·컴파일·실행하는 도구 묶음."><code>Toolchain</code></dfn> 값 객체가 맡고, 비교 축은 함수 하나(<dfn class="term" id="term-checker" data-term="checker" title="실제 출력과 기대 출력을 받아 일치 여부를 판정하는 함수."><code>Checker</code></dfn>)가 맡는다. <code>Judge.judge()</code>의 본문이 02와 거의 같다는 점, 그리고 무엇을 얻고 무엇을 잃었는지(데모 [3])를 함께 보라.</p>
+  <div class="callout"><span class="label">용어</span>
+    <p><code>Toolchain</code>(툴체인)은 한 언어의 소스를 검증·컴파일·실행하는 도구 묶음을 뜻한다. <code>Checker</code>(체커)는 실제 출력과 기대 출력을 받아 일치 여부를 판정하는 함수다.</p>
+  </div>
+  <figure class="code"><figcaption>src/14_template_method/03_strategy_version.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 합성 버전] 같은 채점 골격을, 상속 대신 단계 객체·함수를 주입해 만든다.
+
+상황: 02에서 부동소수 오차 허용을 훅 재정의로 넣자 FloatTolerantCppJudge가 생겼고,
+같은 일을 Python·Java에도 하려면 클래스가 &#x27;언어 × 비교 방식&#x27;으로 곱해진다는 것이 드러났다.
+코드랩 팀은 &quot;특수 저지(답이 여러 개인 문제)&quot;까지 예고했다. 변이의 축이 둘(언어, 비교 방식)이 된 것이다.
+
+이 파일은 골격은 그대로 두고, 가변 단계를 상속 대신 합성으로 공급한다(10장 전략 패턴).
+  - 언어 축: `Toolchain` 값 객체(파일명·실행 + 선택적 검증·컴파일). 단계가 여럿이고 함께 움직이므로 객체.
+  - 비교 축: `Checker = Callable[[str, str], bool]`. 단계가 하나이고 상태가 없으므로 함수.
+골격 `Judge.judge()`는 상속되지 않는 구체 클래스의 메서드다. 하위 클래스 자체가 없으니
+&#x27;골격을 오버라이드하지 말라&#x27;는 규칙(@final)도 필요 없어진다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import contextlib
+import io
+import shutil
+import tempfile
+import time
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
+from typing import Any, Callable
+
+TIME_LIMIT = 0.05
+
+
+@dataclass
+class Submission:
+    &quot;&quot;&quot;학생 제출물.&quot;&quot;&quot;
+
+    language: str
+    source: str
+    solve: Callable[[str], str]
+
+
+Tests = list[tuple[str, str]]
+Checker = Callable[[str, str], bool]     # (실제 출력, 기대 출력) → 일치 여부
+
+
+class CompileError(Exception):
+    &quot;&quot;&quot;검증·컴파일 실패.&quot;&quot;&quot;
+
+
+@dataclass(frozen=True)
+class Toolchain:
+    &quot;&quot;&quot;[Strategy: 언어 축] 언어별 단계 묶음. 클래스 계층 대신 &#x27;값&#x27;으로 언어를 표현한다.
+
+    기본값 없는 필드(name, filename, run)가 템플릿 메서드의 &#x27;추상 단계&#x27;에 대응한다. dataclass라서
+    빠뜨리면 생성 시점에 TypeError가 난다 — 02의 abstractmethod가 인스턴스화 시점에 잡는 것과 같다.
+    validate/compile에 None을 허용한 것이 &#x27;훅 기본값&#x27;에 대응한다. 상속 버전에서는 기본 구현이
+    상위 클래스에 숨어 있었지만, 여기서는 생성 코드에 드러난다.
+    &quot;&quot;&quot;
+
+    name: str
+    filename: str
+    run: Callable[[Submission, str], str]
+    validate: Callable[[str], None] | None = None
+    compile: Callable[[str], None] | None = None
+
+
+def simulate(sub: Submission, stdin: str) -&gt; str:
+    &quot;&quot;&quot;실행 단계 흉내. 실제로는 언어마다 subprocess로 인터프리터/바이너리를 부르는 자리다.&quot;&quot;&quot;
+    return sub.solve(stdin)
+
+
+def exact(actual: str, expected: str) -&gt; bool:
+    &quot;&quot;&quot;[Strategy: 비교 축] 정확 일치 — 기본 체커.&quot;&quot;&quot;
+    return actual.strip() == expected.strip()
+
+
+def within(actual: str, expected: str, tol: float) -&gt; bool:
+    &quot;&quot;&quot;[Strategy: 비교 축] 오차 허용. partial로 tol을 묶어 Checker 모양으로 만든다.
+
+    숫자가 아닌 출력(&quot;abc&quot;)은 float()에서 ValueError가 난다. 그대로 두면 골격의 except가
+    학생의 런타임 에러(RE)로 오판하므로, 여기서 &#x27;틀린 출력&#x27;(False → WA)으로 번역한다.
+    &quot;&quot;&quot;
+    try:
+        return abs(float(actual) - float(expected)) &lt;= tol
+    except ValueError:
+        return False
+
+
+def any_order(actual: str, expected: str) -&gt; bool:
+    &quot;&quot;&quot;[Strategy: 비교 축] 특수 저지 — 공백으로 구분된 답의 순서를 따지지 않는다.&quot;&quot;&quot;
+    return sorted(actual.split()) == sorted(expected.split())
+
+
+def _need(token: str, msg: str) -&gt; Callable[[str], None]:
+    &quot;&quot;&quot;&#x27;소스에 token이 있어야 한다&#x27;는 검사 함수를 만든다(컴파일 흉내용 팩토리).&quot;&quot;&quot;
+    def check(source: str) -&gt; None:
+        &quot;&quot;&quot;token이 없으면 CompileError.&quot;&quot;&quot;
+        if token not in source:
+            raise CompileError(msg)
+    return check
+
+
+PYTHON = Toolchain(&quot;py&quot;, &quot;main.py&quot;, simulate)
+CPP = Toolchain(&quot;cpp&quot;, &quot;main.cpp&quot;, simulate, compile=_need(&quot;int main&quot;, &quot;undefined reference to main&quot;))
+JAVA = Toolchain(&quot;java&quot;, &quot;Main.java&quot;, simulate, validate=_need(&quot;public class Main&quot;, &quot;class Main 없음&quot;),
+                 compile=_need(&quot;static void main&quot;, &quot;main 메서드 없음&quot;))
+
+
+class Judge:
+    &quot;&quot;&quot;[Context] 골격을 가진 구체 클래스. 상속받을 일이 없으므로 &#x27;닫혀 있음&#x27;이 구조로 보장된다.
+
+    02와 비교하면 judge() 본문은 거의 같다. 다른 점은 self.compile(...) 같은 자기 호출이
+    self.toolchain.compile(...) 같은 협력 객체 호출로 바뀐 것뿐이다. 그 작은 차이 덕분에
+    언어와 체커를 독립적으로 조합할 수 있다(3 × 3 = 9가지 채점기를 클래스 0개로).
+    &quot;&quot;&quot;
+
+    def __init__(self, toolchain: Toolchain, checker: Checker = exact) -&gt; None:
+        &quot;&quot;&quot;두 축을 주입받는다.&quot;&quot;&quot;
+        self.toolchain = toolchain
+        self.checker = checker
+
+    def judge(self, sub: Submission, tests: Tests) -&gt; str:
+        &quot;&quot;&quot;[골격] 02의 Judge.judge와 같은 순서. 바뀌는 것은 &#x27;누구에게 묻는가&#x27;뿐이다.&quot;&quot;&quot;
+        tc = self.toolchain                            # 지역 별칭: 골격이 &#x27;언어 축&#x27;에게 묻는 곳이 한눈에 보이게
+        sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{tc.name}-&quot;))
+        try:
+            (sandbox / tc.filename).write_text(sub.source)
+            if tc.validate:                            # 훅 = None 체크. 단순하지만 명시적이다.
+                tc.validate(sub.source)
+            if tc.compile:
+                tc.compile(sub.source)
+            for i, (inp, expected) in enumerate(tests, 1):
+                start = time.perf_counter()
+                out = tc.run(sub, inp)                 # 실행 단계도 언어 축에 묻는다
+                if time.perf_counter() - start &gt; TIME_LIMIT:
+                    return f&quot;TLE (#{i})&quot;
+                if not self.checker(out, expected):
+                    return f&quot;WA (#{i})&quot;
+            return &quot;AC&quot;
+        except CompileError as e:
+            return f&quot;CE ({e})&quot;
+        except Exception as e:
+            return f&quot;RE ({type(e).__name__})&quot;
+        finally:
+            shutil.rmtree(sandbox, ignore_errors=True)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 제출물 동작 두 가지: 부동소수 답(1/3)과, 답이 여러 개라 순서가 자유로운 문제의 답.
+    third = lambda s: &quot;0.3333333&quot;
+    pair = lambda s: &quot;7 3&quot;
+    java_src = &quot;public class Main { public static void main(String[] a){} }&quot;
+    cases = [
+        (&quot;Python + 정확 일치&quot;, Judge(PYTHON), Submission(&quot;py&quot;, &quot;...&quot;, third), &quot;0.333333333&quot;),
+        (&quot;C++ + 오차 허용&quot;, Judge(CPP, partial(within, tol=1e-6)),
+         Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, third), &quot;0.333333333&quot;),
+        (&quot;Java + 오차 허용&quot;, Judge(JAVA, partial(within, tol=1e-6)),
+         Submission(&quot;java&quot;, java_src, third), &quot;0.333333333&quot;),
+        (&quot;Java + 순서 무관(특수 저지)&quot;, Judge(JAVA, any_order),
+         Submission(&quot;java&quot;, java_src, pair), &quot;3 7&quot;),
+    ]
+    print(&quot;[1] 언어 축과 비교 축을 자유롭게 조합한다 — 추가 클래스 없음&quot;)
+    # 각 채점기는 Judge 하나에 (Toolchain, Checker) 조합만 다르다. 02라면 클래스 네 개가 필요했다.
+    for label, judge, sub, expected in cases:
+        print(f&quot;    {label:&lt;24}: {judge.judge(sub, [(&#x27;in&#x27;, expected)])}&quot;)
+
+    print(&quot;[2] 런타임에 체커를 바꿀 수도 있다(문제 설정을 DB에서 읽는 경우)&quot;)
+    # DB에서 읽은 설정은 값 타입이 섞이므로 dict[str, Any]로 받는다(예: 문제 #1042의 설정).
+    problem_config: dict[str, Any] = {&quot;checker&quot;: &quot;within&quot;, &quot;tol&quot;: 1e-3}
+    checker = partial(within, tol=problem_config[&quot;tol&quot;])
+    print(&quot;    &quot;, Judge(PYTHON, checker).judge(Submission(&quot;py&quot;, &quot;...&quot;, lambda s: &quot;3.1416&quot;),
+                                              [(&quot;pi&quot;, &quot;3.14159&quot;)]))
+
+    print(&quot;[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 02 데모 [7]과 대응)&quot;)
+    # (a) 필수 단계 누락: run을 빼면 dataclass가 생성 시점에 거부한다(02의 abstractmethod와 같은 효과).
+    try:
+        Toolchain(&quot;go&quot;, &quot;main.go&quot;)  # type: ignore[call-arg]
+    except TypeError as e:
+        print(&quot;     (a) run 누락 → 생성 시점 TypeError:&quot;, e)
+    # (b) 시그니처 불일치: 인자 0개짜리 compile. 생성은 통과하고, 채점하면 골격의 except가
+    #     &#x27;학생의 런타임 에러&#x27;로 오판한다. mypy는 arg-type 오류로 잡는다(실행 전 검사만이 잡는다).
+    bad_sig = Toolchain(&quot;go&quot;, &quot;main.go&quot;, simulate, compile=lambda: None)  # type: ignore[arg-type, misc]
+    print(&quot;     (b) compile=lambda: None →&quot;, Judge(bad_sig).judge(
+        Submission(&quot;go&quot;, &quot;...&quot;, lambda s: &quot;3&quot;), [(&quot;1 2&quot;, &quot;3&quot;)]), &quot;← 채점기 결함인데 학생 탓이 된다&quot;)
+    # (c) 시그니처는 맞지만 의미가 틀린 콜러블: print는 Callable[[str], None]과 호환된다.
+    #     mypy도 통과하고 런타임에도 실패하지 않는다. 컴파일 검사 없이 AC가 나온다 — 아무도 못 잡는다.
+    with contextlib.redirect_stdout(io.StringIO()):          # print가 소스를 찍는 소음을 숨긴다
+        verdict = Judge(Toolchain(&quot;go&quot;, &quot;main.go&quot;, simulate, compile=print)).judge(
+            Submission(&quot;go&quot;, &quot;no main here&quot;, lambda s: &quot;3&quot;), [(&quot;1 2&quot;, &quot;3&quot;)])
+    print(&quot;     (c) compile=print →&quot;, verdict, &quot;← 타입 검사기도 런타임도 잡지 못한다(테스트의 몫)&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_strategy_version.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <p>두 축을 독립적으로 조합할 수 있게 되었다. [1]처럼 추가 클래스 없이 네 가지 채점기가 만들어지고, [2]처럼 문제 설정에 따라 실행 중에 체커를 고를 수도 있다. 검사 범위는 생각만큼 달라지지 않는다([3]). 필수 단계를 빠뜨리면 dataclass가 생성 시점에 <code>TypeError</code>를 낸다. 이는 02의 <code>abstractmethod</code>(02 데모 [7])와 같은 효과다. 시그니처가 틀린 단계는 양쪽 모두 생성을 통과하고, 채점 도중 학생의 RE로 오판된다. 실행 전에 이를 잡는 것은 타입 검사기뿐이다. 시그니처는 맞지만 의미가 틀린 콜러블(<code>compile=print</code>)은 타입 검사기도 런타임도 잡지 못하고 AC를 낸다. 이런 결함은 테스트로만 잡힌다. 합성 쪽에만 있는 위험도 하나 있다. <code>None</code>을 허용한 훅은 '빠뜨림'이 조용히 '기본값'이 된다. 컴파일 언어의 <code>compile</code>을 깜빡해도 아무도 알려 주지 않는다. 단계 사이의 공유 상태(예: 컴파일 결과물 경로)를 넘기는 일도 상속에서는 <code>self</code>로 자연스러웠지만, 합성에서는 인자로 명시해야 한다.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>관점</th><th>템플릿 메서드(상속, 02)</th><th>단계 주입(합성, 03)</th></tr></thead>
+    <tbody>
+      <tr><td>변이 축의 수</td><td>하나일 때 자연스럽다</td><td>여럿이어도 조합이 곱해지지 않는다</td></tr>
+      <tr><td>필수 단계 누락 검출</td><td>인스턴스화 시점(<code>abstractmethod</code>, 이름만 검사)</td><td>생성 시점(dataclass 필수 필드). 단, <code>None</code> 허용 훅은 빠뜨림이 조용히 기본값이 된다</td></tr>
+      <tr><td>시그니처·의미 오류 검출</td><td colspan="2">양쪽 모두 런타임에는 못 잡는다(학생의 RE로 오판). 시그니처 불일치는 타입 검사기가 잡고, 의미가 틀린 콜러블은 테스트만 잡는다</td></tr>
+      <tr><td>단계 교체 시점</td><td>클래스 정의 시점(정적)</td><td>객체 생성·실행 중(동적)</td></tr>
+      <tr><td>단계 간 공유 상태</td><td><code>self</code>로 암묵적으로 공유</td><td>인자로 명시해야 한다</td></tr>
+      <tr><td>결합</td><td>하위 클래스가 상위 클래스의 내부 호출 순서에 의존한다(<dfn class="term" id="term-fragile-base-class" data-term="fragile-base-class" title="상위 클래스의 내부 호출 순서를 조금만 바꿔도 그것에 암묵적으로 의존하던 하위 클래스가 깨지는 문제.">취약한 기반 클래스</dfn>: 상위 클래스가 그 순서를 조금만 바꿔도 하위 클래스가 깨지는 문제. 6절에서 자세히)</td><td>단계는 골격을 모른다</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout ok"><span class="label">핵심 정리</span>
+    <p>템플릿 메서드와 전략은 "알고리즘 변이"라는 같은 문제를 푸는 두 방법이다. 템플릿 메서드는 <strong>상속으로 단계를 채우고</strong>, 전략은 <strong>합성으로 단계를 끼운다</strong>. 골격이 단단하고 변이의 축이 하나이며 단계들이 <code>self</code>의 상태를 많이 공유한다면 템플릿 메서드가 낫다. 축이 여럿이거나 실행 중에 바꿔야 한다면 합성이 낫다.</p>
+  </div>
+</section>
+
+<section id="pythonic">
+  <h2>5. 파이썬다운 변형</h2>
+  <p>채점기가 자리를 잡은 뒤, 동료 하은이 도윤에게 말했다. "준비-본문-정리 골격은 우리 코드 곳곳에 이미 있어요. 파이썬이 문법으로 제공하는 것도 있고요." 템플릿 메서드는 언어와 표준 라이브러리 안에 흔히 녹아 있다. 아래 파일은 그 세 가지 모습을 보여 준다.</p>
+  <p class="lead-in">A 부분에서는 <code>@contextmanager</code> 제너레이터의 <code>yield</code> 앞뒤가 골격의 고정 단계이고, <code>with</code> 블록 본문이 가변 단계라는 점을 보라. B 부분에서는 <code>__init_subclass__</code>가 <em>클래스를 정의하는 순간</em> 규칙 위반을 거부하는 모습을, C 부분에서는 <code>unittest</code>가 우리 메서드를 부르는 순서를 출력으로 확인하라.</p>
+  <figure class="code"><figcaption>src/14_template_method/04_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 파이썬다운 변형] 언어와 표준 라이브러리 속의 템플릿 메서드 읽기.
+
+상황: 코드랩의 채점기가 자리를 잡자, 도윤은 다른 팀원 하은에게 &quot;준비-본문-정리&quot; 골격이
+채점기 말고도 여기저기 있다는 이야기를 듣는다. 이 파일은 세 가지를 보인다.
+
+A. `contextlib.contextmanager`: 준비 → (호출자의 본문) → 정리라는 골격을 제너레이터 하나로.
+   상속 없이 &#x27;정리 단계를 빠뜨릴 수 없는&#x27; 구조를 얻는다. 샌드박스 관리에 딱 맞는다.
+B. `__init_subclass__`: 하위 클래스가 정의되는 &#x27;순간&#x27;에 규칙을 검사한다. typing.final은
+   타입 검사기만 보지만, 이것은 런타임에 골격 오버라이드와 필수 클래스 속성 누락을 막는다.
+C. `unittest.TestCase`: setUp → test_* → tearDown은 우리가 매일 쓰는 템플릿 메서드다.
+   프레임워크가 우리 메서드를 부른다(할리우드 원칙).
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import io
+import shutil
+import tempfile
+import unittest
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Callable, ClassVar, Iterator
+
+# ===========================================================================
+# A. contextmanager — 함수 하나짜리 템플릿 메서드
+# ===========================================================================
+
+@contextmanager
+def sandbox(language: str) -&gt; Iterator[Path]:
+    &quot;&quot;&quot;[골격] 준비(디렉터리 생성) → yield(호출자의 본문) → 정리(삭제).
+
+    yield 앞뒤가 템플릿 메서드의 고정 단계이고, with 블록 본문이 &#x27;가변 단계&#x27;다.
+    가변 단계를 하위 클래스 메서드가 아니라 호출자의 코드 블록으로 받는다는 점이 다르다.
+    try/finally 덕분에 본문이 예외로 끝나도 정리가 보장된다 — 01의 JavaJudge 버그가 불가능하다.
+    &quot;&quot;&quot;
+    path = Path(tempfile.mkdtemp(prefix=f&quot;judge-{language}-&quot;))
+    print(f&quot;    [준비] {language} 샌드박스 생성&quot;)  # 임시 이름은 실행마다 달라 출력하지 않는다
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+        print(f&quot;    [정리] {language} 샌드박스 삭제 (exists={path.exists()})&quot;)
+
+
+# ===========================================================================
+# B. __init_subclass__ — 하위 클래스 정의 시점 검증
+# ===========================================================================
+
+class Judge:
+    &quot;&quot;&quot;[Abstract Class] 하위 클래스가 지켜야 할 규칙을 &#x27;정의 시점&#x27;에 검사한다.
+
+    ABC의 abstractmethod는 &#x27;인스턴스화 시점&#x27;에 잡는다. __init_subclass__는 그보다 이른
+    &#x27;클래스 정의 시점&#x27;, 즉 import하는 순간에 실패한다. 플러그인처럼 하위 클래스를 다른
+    팀이 쓰는 경우, 서버 기동 시점에 바로 잡히는 편이 채점 도중 터지는 것보다 훨씬 낫다.
+    &quot;&quot;&quot;
+
+    language: ClassVar[str]          # 하위 클래스가 반드시 정해야 하는 클래스 속성
+    filename: ClassVar[str]
+    _FINAL = (&quot;judge&quot;,)              # 런타임에서 오버라이드를 금지할 골격 메서드
+
+    def __init_subclass__(cls, **kwargs: object) -&gt; None:
+        &quot;&quot;&quot;하위 클래스가 만들어질 때 파이썬이 자동으로 부른다.&quot;&quot;&quot;
+        super().__init_subclass__(**kwargs)
+        for name in cls._FINAL:
+            # cls.__dict__로 &#x27;이 클래스가 직접 정의했는지&#x27;만 본다(상속받은 것은 괜찮다).
+            if name in cls.__dict__:
+                raise TypeError(f&quot;{cls.__name__}: 골격 메서드 {name}()는 재정의할 수 없습니다&quot;)
+        missing = [a for a in (&quot;language&quot;, &quot;filename&quot;) if not hasattr(cls, a)]
+        if missing:
+            raise TypeError(f&quot;{cls.__name__}: 클래스 속성 {missing} 이(가) 필요합니다&quot;)
+
+    def judge(self, solve: Callable[[str], str], tests: list[tuple[str, str]]) -&gt; str:
+        &quot;&quot;&quot;[Template Method] A의 sandbox를 골격 안에서 재사용한다 — 두 기법은 함께 쓰인다.&quot;&quot;&quot;
+        with sandbox(self.language) as box:
+            (box / self.filename).write_text(&quot;...&quot;)
+            self.compile(box)
+            for inp, expected in tests:
+                if solve(inp).strip() != expected.strip():
+                    return &quot;WA&quot;
+            return &quot;AC&quot;
+
+    def compile(self, box: Path) -&gt; None:
+        &quot;&quot;&quot;훅: 기본은 컴파일 없음.&quot;&quot;&quot;
+
+
+class PythonJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] 클래스 속성 두 개만으로 끝나는 채점기.&quot;&quot;&quot;
+
+    language = &quot;py&quot;
+    filename = &quot;main.py&quot;
+
+
+# ===========================================================================
+# C. unittest.TestCase — 표준 라이브러리의 템플릿 메서드
+# ===========================================================================
+
+class SandboxTest(unittest.TestCase):
+    &quot;&quot;&quot;[Concrete Class] TestCase.run()이 템플릿 메서드이고, 우리는 훅 세 개를 채운다.
+
+    run()의 골격: setUp() → 테스트 메서드 → tearDown(), 그리고 setUp이 성공했다면
+    테스트가 실패해도 tearDown을 부른다. 우리는 run()을 부르지 않는다. 러너가 부른다.
+    &quot;&quot;&quot;
+
+    calls: ClassVar[list[str]] = []
+
+    def setUp(self) -&gt; None:
+        &quot;&quot;&quot;훅: 기본은 no-op. 테스트마다 새 샌드박스를 준비한다.&quot;&quot;&quot;
+        self.box = Path(tempfile.mkdtemp(prefix=&quot;judge-test-&quot;))
+        self.calls.append(&quot;setUp&quot;)
+
+    def tearDown(self) -&gt; None:
+        &quot;&quot;&quot;훅: 테스트가 실패해도 불린다 — 정리 보장이라는 골격의 약속.&quot;&quot;&quot;
+        shutil.rmtree(self.box, ignore_errors=True)
+        self.calls.append(&quot;tearDown&quot;)
+
+    def test_passes(self) -&gt; None:
+        &quot;&quot;&quot;가변 단계 1.&quot;&quot;&quot;
+        self.calls.append(&quot;test_passes&quot;)
+        self.assertTrue(self.box.exists())
+
+    def test_fails(self) -&gt; None:
+        &quot;&quot;&quot;가변 단계 2 — 일부러 실패한다. 그래도 tearDown이 불리는지 본다.&quot;&quot;&quot;
+        self.calls.append(&quot;test_fails&quot;)
+        self.assertEqual(1, 2)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[A] contextmanager: 본문이 예외로 끝나도 정리된다&quot;)
+    try:
+        with sandbox(&quot;cpp&quot;) as box:
+            (box / &quot;main.cpp&quot;).write_text(&quot;int main(){}&quot;)
+            raise RuntimeError(&quot;컴파일러 충돌&quot;)
+    except RuntimeError as e:
+        print(f&quot;    예외는 호출자에게 전파: {e}&quot;)
+
+    print(&quot;[B-1] 규칙을 지킨 하위 클래스는 평범하게 동작한다&quot;)
+    print(&quot;    &quot;, PythonJudge().judge(lambda s: &quot;3&quot;, [(&quot;1 2&quot;, &quot;3&quot;)]))
+
+    print(&quot;[B-2] 골격을 재정의하는 하위 클래스는 &#x27;정의하는 순간&#x27; 거부된다&quot;)
+    try:
+        class SneakyJudge(Judge):
+            &quot;&quot;&quot;골격을 덮어써 시간 제한을 건너뛰려는 하위 클래스.&quot;&quot;&quot;
+
+            language, filename = &quot;rb&quot;, &quot;main.rb&quot;
+
+            def judge(self, solve, tests):  # type: ignore[override]
+                &quot;&quot;&quot;정리 단계를 생략한 &#x27;빠른&#x27; 채점.&quot;&quot;&quot;
+                return &quot;AC&quot;
+    except TypeError as e:
+        print(&quot;    TypeError:&quot;, e)
+
+    print(&quot;[B-3] 필수 클래스 속성 누락도 정의 시점에 잡힌다&quot;)
+    try:
+        class KotlinJudge(Judge):
+            &quot;&quot;&quot;filename을 깜빡한 채점기.&quot;&quot;&quot;
+
+            language = &quot;kt&quot;
+    except TypeError as e:
+        print(&quot;    TypeError:&quot;, e)
+
+    print(&quot;[C] unittest의 골격: 호출 순서를 기록해 본다&quot;)
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(SandboxTest)
+    result = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
+    print(&quot;    호출 순서:&quot;, &quot; → &quot;.join(SandboxTest.calls))
+    print(f&quot;    실행 {result.testsRun}개, 실패 {len(result.failures)}개 — 실패한 테스트 뒤에도 tearDown이 불렸다&quot;)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <ul>
+    <li><strong>컨텍스트 관리자(A)</strong>는 "가운데 단계 하나만 다른" 템플릿 메서드를 상속 없이 표현한다. 가변 단계가 호출자의 코드 블록이므로 하위 클래스가 필요 없다. 정리를 보장하는 일이 골격의 핵심 책임인 경우(파일, 락, 트랜잭션, 샌드박스)라면 파이썬에서는 이것이 첫 번째 선택지다.</li>
+    <li><strong><code>__init_subclass__</code>(B)</strong>는 <code>abstractmethod</code>(인스턴스화 시점)보다 이른, 런타임에서 가장 이른 시점인 import 시에 실패한다. 실행 전에 검사하는 <code>typing.final</code>보다는 늦지만, 타입 검사기를 돌리지 않는 환경에서도 동작한다. 다른 팀이 플러그인처럼 하위 클래스를 작성하는 상황에서 특히 유용하다. 다만 이 장치 자체가 상속 계층을 전제로 한다는 점을 기억하라. 계층이 없다면(03) 지킬 대상도 없다.</li>
+    <li><strong><code>unittest.TestCase</code>(C)</strong>는 우리가 매일 쓰는 템플릿 메서드다. <code>run()</code>이 골격이고, <code>setUp</code>/<code>tearDown</code>이 훅이며, <code>test_*</code>가 가변 단계다. 실패한 테스트 뒤에도 <code>tearDown</code>이 불리는 것은 골격의 약속이다. pytest 픽스처는 같은 문제를 A 방식(제너레이터 픽스처의 <code>yield</code>)으로 푼다. 상속 기반 골격에서 합성·제너레이터 기반으로 옮겨 간 생태계의 흐름이 이 장의 논지를 그대로 보여 준다.</li>
+  </ul>
+</section>
+
+<section id="tradeoffs">
+  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h3>얻는 것과 잃는 것</h3>
+  <ul>
+    <li><strong>얻는 것</strong>: 공통 절차가 한 곳에 있다(<dfn class="term" id="term-don-t-repeat-yourself" data-term="don-t-repeat-yourself" title="같은 지식을 두 곳 이상에 쓰지 말라는 원칙(Don&#x27;t Repeat Yourself).">DRY</dfn>, Don't Repeat Yourself: 같은 지식을 두 곳 이상에 쓰지 말라는 원칙). 순서와 필수 단계를 강제할 수 있다. 공통 요구사항이 변경 한 번으로 모든 하위 클래스에 반영된다(연습문제 4의 메모리 제한).</li>
+    <li><strong>잃는 것</strong>: 상속은 가장 강한 결합이다. 하위 클래스는 상위 클래스가 단계를 <em>언제, 몇 번, 어떤 상태에서</em> 부르는지에 암묵적으로 의존한다. 상위 클래스가 골격을 조금만 바꿔도 하위 클래스가 깨질 수 있다. 이것이 취약한 기반 클래스(fragile base class) 문제다. 하위 클래스를 읽는 사람은 단계가 어떤 맥락에서 불리는지 알기 위해 상위 클래스를 오가야 한다(<dfn class="term" id="term-yo-yo-problem" data-term="yo-yo-problem" title="상속 계층이 깊을 때 동작을 이해하려고 하위·상위 클래스를 계속 오가야 하는 문제.">요요 문제</dfn>: 동작 하나를 이해하려고 하위·상위 클래스를 요요처럼 계속 오가야 하는 문제).</li>
+  </ul>
+  <h3>이 패턴을 쓰지 말아야 할 때</h3>
+  <ul>
+    <li><strong>변이의 축이 둘 이상일 때.</strong> 언어 × 비교 방식처럼 축이 곱해지면 클래스가 폭발한다. 단계를 주입하는 합성(03)으로 가라.</li>
+    <li><strong>가변 단계가 실행 중에 바뀌어야 할 때.</strong> 문제별 체커처럼 설정에서 고르는 단계는 클래스 정의 시점에 고정할 수 없다.</li>
+    <li><strong>구현체가 하나뿐이고 늘어날 계획도 없을 때.</strong> 추상 클래스와 훅을 미리 깔아 둔 계층은 읽기만 어렵게 만든다. 두 번째 구현이 생길 때 공통 부분을 끌어올려도 늦지 않다.</li>
+    <li><strong>골격이 "준비-본문-정리" 한 가지뿐일 때.</strong> 파이썬에서는 컨텍스트 관리자로 충분하다. 클래스 계층은 과하다.</li>
+    <li><strong>훅이 계속 늘어날 때.</strong> 하위 클래스가 골격의 의미를 추측해야 하는 지경이라면 골격을 쪼개야 한다는 신호다(연습문제 1).</li>
+  </ul>
+  <h3>관련 패턴</h3>
+  <ul>
+    <li><strong>전략(10장)</strong>: 같은 문제를 합성으로 푼다. 4절의 비교표를 보라.</li>
+    <li><strong>팩토리 메서드(1장)</strong>: 팩토리 메서드는 흔히 템플릿 메서드의 한 단계다. 골격 안의 "무엇을 만들 것인가" 단계를 하위 클래스에 위임한 것이다.</li>
+    <li><strong>빌더(3장)</strong>: Director의 고정된 조립 절차는 템플릿 메서드와 같은 발상을 합성으로 구현한 것이다.</li>
+    <li><strong>커맨드(12장)</strong>: 커맨드 실행기의 "로그 → 실행 → undo 스택 기록" 골격은 템플릿 메서드로 구현되는 경우가 많다.</li>
+  </ul>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. 추상 단계, 훅, 그리고 훅이 너무 많을 때</h3>
+    <p>(a) 02의 <code>Judge</code>에서 <code>run()</code>은 추상 단계이고 <code>compile()</code>은 훅이다. 둘을 바꾸면, 곧 <code>run()</code>을 기본 no-op 훅으로 하고 <code>compile()</code>을 추상으로 하면 각각 어떤 문제가 생기는가? (b) 팀원이 <code>before_compile</code>, <code>after_compile</code>, <code>before_each_test</code>, <code>after_each_test</code>, <code>on_tle</code>, <code>on_wa</code>, <code>should_skip_test</code> 같은 훅 일곱 개를 추가하자고 제안한다. 무엇이 걱정되는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>(a) <code>run()</code>을 no-op 훅으로 만들면, 구현을 빠뜨린 채점기가 빈 출력을 내고 모든 제출물을 WA로 판정한다. 실패가 <em>조용히, 잘못된 결과로</em> 드러난다. 기본값이 의미 없는 단계는 추상이어야 하며, 그래야 인스턴스화 시점에 크게 실패한다. 반대로 <code>compile()</code>을 추상으로 만들면, 인터프리터 언어 채점기마다 <code>def compile(...): pass</code>라는 보일러플레이트가 생긴다. 기본값이 분명한 단계는 훅이어야 한다.</p>
+      <p>(b) 훅 하나하나는 골격이 하위 클래스에게 하는 약속이다. "이 시점에, 이런 상태로, 한 번 부르겠다"는 약속이다. 훅이 일곱 개가 되면 하위 클래스 작성자는 <code>after_each_test</code>가 TLE일 때도 불리는지, <code>should_skip_test</code>가 <code>True</code>면 <code>before_each_test</code>는 불리는지 같은 질문에 답하려고 골격 코드를 읽어야 한다. 골격의 내부 순서가 사실상 공개 API가 되어 버리고, 이후 골격을 리팩터링할 자유도 사라진다. <strong>흔한 오답</strong>은 "훅이 많을수록 확장성이 좋다"이다. 확장 지점은 많을수록 골격이 굳는다. 대안은 제안된 훅이 실제로 해결하려는 요구를 묻는 것이다. 대개는 로깅이나 지표 수집이며, 이런 요구는 옵저버(11장)로 골격 밖에 두거나 골격을 더 작은 템플릿 둘로 쪼개는 편이 낫다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 리포트 생성기 세 개</h3>
+    <p>코드랩 운영팀은 주간 채점 통계를 CSV, JSON, <dfn class="term" id="term-extensible-markup-language" data-term="extensible-markup-language" title="태그로 구조를 표현하는 텍스트 데이터 형식.">XML</dfn>(태그로 구조를 표현하는 텍스트 데이터 형식)로 내려받는다. 아래 코드를 템플릿 메서드로 바꿔라. 원래 코드에 숨어 있는 형식 간 불일치 하나를 찾고, 리팩터링이 그것을 어떻게 구조적으로 막는지 설명하라.</p>
+    <pre><code class="language-python">class CsvReport:
+    def generate(self):
+        rows = [r for r in db.rows() if not r["deleted"]]   # 조회(삭제 문제 제외)
+        lines = ["problem,submissions,ac_rate"]              # 머리말
+        lines += [f"{r['problem']},{r['submissions']},{r['ac_rate']}" for r in rows]
+        return storage.save("\n".join(lines))                # 저장
+
+class JsonReport:
+    def generate(self):
+        rows = db.rows()                                     # 조회 — 필터가 빠졌다?
+        body = ",\n".join(f'  {{"problem": "{r["problem"]}"}}' for r in rows)
+        return storage.save("[\n" + body + "\n]")            # 머리말·꼬리말·저장
+
+class XmlReport:
+    def generate(self):
+        rows = [r for r in db.rows() if not r["deleted"]]
+        lines = ["&lt;report&gt;"]                                 # 머리말
+        lines += [f'  &lt;row problem="{r["problem"]}"/&gt;' for r in rows]
+        lines.append("&lt;/report&gt;")                            # 꼬리말
+        return storage.save("\n".join(lines))</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>불일치는 <code>JsonReport</code>의 조회 단계에 삭제 필터가 없다는 점이다. 같은 주간 통계인데 JSON에만 테스트용 문제가 섞인다. 리팩터링한 뒤에는 조회(<code>fetch</code>)와 저장(<code>save</code>)이 <code>@final</code> 공통 단계가 된다. 하위 클래스는 필터를 쓸 기회 자체가 없으므로, 빠뜨릴 수도 없다.</p>
+      <p>단계는 이렇게 분류했다. 행 서식은 모든 형식에 필요하고 기본값이 없으므로 추상 단계다. 머리말과 꼬리말은 CSV에 꼬리말이 없듯 없을 수도 있으므로 빈 문자열을 기본값으로 하는 훅이다. 행 구분자는 메서드가 아니라 클래스 속성(<code>separator</code>)으로 열었다. 값 하나를 바꾸려고 메서드를 재정의하게 하는 것은 과하기 때문이다. <strong>흔한 오답</strong>은 <code>generate()</code> 전체를 추상으로 두고 "공통 헬퍼"만 상위 클래스에 두는 것이다. 그러면 순서와 필터 적용 여부가 다시 하위 클래스의 선택이 되어, 원래 문제가 그대로 남는다.</p>
+      <figure class="code"><figcaption>src/14_template_method/solutions/ex2_report_template.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 연습문제 2 해설] CSV/JSON/XML 리포트 생성기 세 개를 템플릿 메서드로 리팩터링한다.
+
+상황: 코드랩 운영팀은 주간 채점 통계를 세 형식으로 내려받는다. 원래 코드는 형식마다
+&#x27;데이터 조회 → 머리말 → 본문 → 꼬리말 → 저장&#x27;을 각자 구현했고, JSON 생성기만 조회 단계에서
+삭제된 문제를 거르지 않아 숫자가 달랐다. 공통 단계(조회, 저장)는 골격으로 올리고,
+형식마다 다른 세 단계(머리말·행·꼬리말)만 하위 클래스에 남긴다.
+
+설계 판단: 머리말과 꼬리말은 CSV처럼 없는 형식이 있으므로 &#x27;훅&#x27;(기본값 빈 문자열),
+행 서식은 모든 형식에 반드시 필요하므로 &#x27;추상 단계&#x27;로 둔다. 행 사이 구분자(JSON의 쉼표)도
+형식마다 다르므로 클래스 속성으로 노출한다 — 메서드 훅보다 가벼운 &#x27;데이터 훅&#x27;이다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import final
+
+# 데모용 데이터. deleted=True인 문제는 어느 형식에서든 빠져야 한다.
+ROWS = [
+    {&quot;problem&quot;: &quot;A+B&quot;, &quot;submissions&quot;: 120, &quot;ac_rate&quot;: 0.92, &quot;deleted&quot;: False},
+    {&quot;problem&quot;: &quot;피보나치&quot;, &quot;submissions&quot;: 80, &quot;ac_rate&quot;: 0.55, &quot;deleted&quot;: False},
+    {&quot;problem&quot;: &quot;테스트용&quot;, &quot;submissions&quot;: 3, &quot;ac_rate&quot;: 0.0, &quot;deleted&quot;: True},
+]
+
+
+class ReportGenerator(ABC):
+    &quot;&quot;&quot;[Abstract Class] 리포트 생성 골격.&quot;&quot;&quot;
+
+    separator: str = &quot;\n&quot;     # 데이터 훅: 행 사이 구분자
+
+    @final
+    def generate(self) -&gt; str:
+        &quot;&quot;&quot;[Template Method] 조회 → 머리말 → 본문 → 꼬리말 → 저장. 순서와 필터는 여기서만 정한다.&quot;&quot;&quot;
+        rows = self.fetch()
+        body = self.separator.join(self.format_row(r) for r in rows)
+        parts = [p for p in (self.header(), body, self.footer()) if p]
+        return self.save(&quot;\n&quot;.join(parts))
+
+    @final
+    def fetch(self) -&gt; list[dict]:
+        &quot;&quot;&quot;공통 단계: 삭제된 문제 필터가 한 곳에만 있다(원래 JSON 버그의 원인 제거).&quot;&quot;&quot;
+        return [r for r in ROWS if not r[&quot;deleted&quot;]]
+
+    def header(self) -&gt; str:
+        &quot;&quot;&quot;훅: 머리말. 기본은 없음.&quot;&quot;&quot;
+        return &quot;&quot;
+
+    @abstractmethod
+    def format_row(self, row: dict) -&gt; str:
+        &quot;&quot;&quot;추상 단계: 행 하나의 서식.&quot;&quot;&quot;
+
+    def footer(self) -&gt; str:
+        &quot;&quot;&quot;훅: 꼬리말. 기본은 없음.&quot;&quot;&quot;
+        return &quot;&quot;
+
+    @final
+    def save(self, text: str) -&gt; str:
+        &quot;&quot;&quot;공통 단계: 실제로는 파일/S3에 쓴다. 데모에서는 바이트 수를 덧붙여 돌려준다.&quot;&quot;&quot;
+        return f&quot;{text}\n  ({type(self).__name__}: {len(text.encode())} bytes 저장)&quot;
+
+
+class CsvReport(ReportGenerator):
+    &quot;&quot;&quot;[Concrete Class] CSV는 열 이름 줄이 머리말이고 꼬리말이 없다.&quot;&quot;&quot;
+
+    def header(self) -&gt; str:
+        &quot;&quot;&quot;열 이름.&quot;&quot;&quot;
+        return &quot;problem,submissions,ac_rate&quot;
+
+    def format_row(self, row: dict) -&gt; str:
+        &quot;&quot;&quot;쉼표 구분.&quot;&quot;&quot;
+        return f&quot;{row[&#x27;problem&#x27;]},{row[&#x27;submissions&#x27;]},{row[&#x27;ac_rate&#x27;]}&quot;
+
+
+class JsonReport(ReportGenerator):
+    &quot;&quot;&quot;[Concrete Class] 배열 괄호가 머리말·꼬리말, 쉼표가 구분자.&quot;&quot;&quot;
+
+    separator = &quot;,\n&quot;
+
+    def header(self) -&gt; str:
+        &quot;&quot;&quot;배열 시작.&quot;&quot;&quot;
+        return &quot;[&quot;
+
+    def format_row(self, row: dict) -&gt; str:
+        &quot;&quot;&quot;json.dumps를 쓰지 않은 이유: 행 단위 단계 분할을 보여 주려는 데모이기 때문. 실무에선 dumps.&quot;&quot;&quot;
+        return f&#x27;  {{&quot;problem&quot;: &quot;{row[&quot;problem&quot;]}&quot;, &quot;submissions&quot;: {row[&quot;submissions&quot;]}}}&#x27;
+
+    def footer(self) -&gt; str:
+        &quot;&quot;&quot;배열 끝.&quot;&quot;&quot;
+        return &quot;]&quot;
+
+
+class XmlReport(ReportGenerator):
+    &quot;&quot;&quot;[Concrete Class] 루트 태그가 머리말·꼬리말.&quot;&quot;&quot;
+
+    def header(self) -&gt; str:
+        &quot;&quot;&quot;루트 시작.&quot;&quot;&quot;
+        return &quot;&lt;report&gt;&quot;
+
+    def format_row(self, row: dict) -&gt; str:
+        &quot;&quot;&quot;속성 형태의 행.&quot;&quot;&quot;
+        return f&#x27;  &lt;row problem=&quot;{row[&quot;problem&quot;]}&quot; ac_rate=&quot;{row[&quot;ac_rate&quot;]}&quot;/&gt;&#x27;
+
+    def footer(self) -&gt; str:
+        &quot;&quot;&quot;루트 끝.&quot;&quot;&quot;
+        return &quot;&lt;/report&gt;&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    for gen in (CsvReport(), JsonReport(), XmlReport()):
+        print(gen.generate())
+    print(&quot;세 형식 모두 &#x27;테스트용&#x27; 문제가 빠졌다 — 필터가 골격 한 곳에 있기 때문&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_report_template.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 상속인가, 주입인가</h3>
+    <p>코드랩이 다음 학기에 Go, Rust, Kotlin을 추가하고, 문제 출제자가 웹 화면에서 "출력 비교 방식"(정확 일치/오차 허용/순서 무관/출제자 체커 스크립트)을 고르게 하려 한다. 02(템플릿 메서드)와 03(단계 주입) 가운데 어느 것을 기반으로 삼겠는가? 선택한 쪽에서 잃는 것을 어떻게 보완하겠는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>03(단계 주입)을 택한다. 결정적인 근거는 두 가지다. 첫째, 비교 방식은 <em>출제자가 실행 중에</em> 고르는 값이다. 클래스 정의 시점에 고정되는 상속으로는 표현할 수 없다. 둘째, 언어 6개 × 비교 방식 4개를 상속으로 표현하면 클래스가 24개 필요하다. 합성이라면 <code>Toolchain</code> 6개와 체커 함수 4개로 충분하다.</p>
+      <p>다만 언어 축 <em>안</em>에서는 템플릿 메서드가 여전히 유효할 수 있다. 컴파일 언어들(C++, Go, Rust, Kotlin)은 "컴파일 → 산출물 확인 → 실행"이라는 하위 골격을 공유한다. 그래서 <code>Toolchain</code>을 추상 클래스로 만들고 <code>CompiledToolchain</code>이 그 하위 골격을 템플릿 메서드로 가지는 혼합형이 현실적이다. 이렇게 하면 기본 구현을 상속하고, 컴파일 단계를 클래스 단위로 강제할 수 있다. 03의 <code>None</code> 훅에서는 컴파일 단계를 빠뜨려도 조용히 넘어갔다. 시그니처 오류는 어느 쪽이든 타입 검사로 잡는다. <strong>흔한 오답</strong>은 둘 중 하나만 고르는 것이다. 축마다 따로 판단하라. 실행 중에 고르는 축은 합성으로, 정적이고 단계를 많이 공유하는 축은 상속으로 다룬다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex4">
+    <h3><span class="ex-tag">확장</span> 문제 4. 모든 언어에 메모리 제한 추가</h3>
+    <p>"리스트에 10만 개를 쌓는 풀이가 채점 서버를 죽였다." 모든 언어에 메모리 제한(<dfn class="term" id="term-memory-limit-exceeded" data-term="memory-limit-exceeded" title="온라인 저지 판정: 메모리 제한 초과.">MLE</dfn>, Memory Limit Exceeded 판정)을 추가하라. 판정 규칙(한도를 넘으면 MLE, 비교보다 먼저)은 모든 언어에서 같아야 하지만, 측정 방법은 언어 런타임마다 다를 수 있다. 무엇을 골격에 넣고 무엇을 훅으로 열겠는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>판정</strong>은 골격에, <strong>측정</strong>은 훅에 둔다. 테스트 루프에 "실행 → 시간 검사 → 메모리 검사 → 출력 비교"를 고정하고, 측정은 기본 구현(파이썬 메모리 할당을 추적해 최대 사용량을 재는 표준 라이브러리 <dfn class="term" id="term-tracemalloc" data-term="tracemalloc" title="파이썬 메모리 할당을 추적해 최대 사용량 등을 재는 표준 라이브러리."><code>tracemalloc</code></dfn>)이 있는 <code>measure()</code> 훅으로 연다. <code>PythonJudge</code>는 아무것도 고치지 않고 메모리 제한을 얻는다. <code>JavaJudge</code>는 측정 방식만 재정의하며, MLE 판정 규칙에는 손댈 수 없다. 01의 복붙 구조였다면 세 파일을 고쳐야 했고 순서가 또 어긋났을 것이다.</p>
+      <p><strong>흔한 오답</strong>은 측정과 판정을 함께 훅(<code>check_memory()</code>가 판정 문자열을 반환)으로 여는 것이다. 그러면 언어마다 한도 비교 방식이 달라질 수 있고(이상인가 초과인가), 시간 검사와의 순서도 하위 클래스가 정하게 된다. 공정성 규칙은 골격 밖으로 내보내지 않는다.</p>
+      <p>해설 코드 주석의 용어 몇 가지: 실제 채점기는 <dfn class="term" id="term-cgroup-setrlimit" data-term="cgroup-setrlimit" title="운영체제가 프로세스의 메모리·CPU 사용량을 제한하는 수단.">cgroup이나 setrlimit</dfn>(운영체제가 프로세스의 메모리·CPU 사용량을 제한하는 수단)로 메모리를 막는다. <dfn class="term" id="term-java-virtual-machine" data-term="java-virtual-machine" title="자바 바이트코드를 실행하는 가상 머신.">JVM</dfn>(Java Virtual Machine)은 자바 바이트코드를 실행하는 가상 머신이고, <dfn class="term" id="term-heap" data-term="heap" title="실행 중 동적으로 할당되는 객체가 놓이는 메모리 영역.">힙</dfn>은 실행 중 동적으로 할당되는 객체가 놓이는 메모리 영역이다. JVM은 힙을 미리 잡아 두므로 측정 방식이 파이썬과 달라진다.</p>
+      <figure class="code"><figcaption>src/14_template_method/solutions/ex4_memory_limit.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 연습문제 4 해설] 모든 언어에 메모리 제한을 추가한다 — 골격 한 곳만 고치면 끝나는가?
+
+상황: 코드랩에 &quot;리스트에 10만 개를 쌓는 풀이가 채점 서버를 죽였다&quot;는 장애가 났다.
+모든 언어에 메모리 제한(MLE 판정)을 넣어야 한다. 01의 복붙 구조였다면 세 파일을 고치고
+그중 하나를 빠뜨렸을 것이다. 템플릿 메서드에서는 골격의 테스트 루프만 고친다.
+
+메모리 측정은 `tracemalloc`으로 제출물(solve 함수)의 파이썬 할당 최대치를 잰다.
+실제 채점기라면 cgroup이나 setrlimit로 프로세스 메모리를 제한하겠지만, 골격의 어느 자리에
+들어가는지가 이 문제의 요점이다. 언어별로 측정 방식이 달라야 한다면 그것을 훅으로 연다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import tracemalloc
+import time
+from typing import Callable, final
+
+MEMORY_LIMIT = 1_000_000   # 바이트. 데모용으로 작게.
+TIME_LIMIT = 0.5           # 초. tracemalloc이 실행을 느리게 하므로 02보다 넉넉히.
+
+
+class Judge:
+    &quot;&quot;&quot;[Abstract Class] 02의 골격을 축약하고 메모리 검사를 추가했다.
+
+    축약판이라 추상 단계(언어·파일명)는 생략했다. 남은 가변 단계는 모두 기본값이 있는 훅이다.
+    &quot;&quot;&quot;
+
+    @final
+    def judge(self, solve: Callable[[str], str], tests: list[tuple[str, str]]) -&gt; str:
+        &quot;&quot;&quot;[Template Method] 순서: 실행 → 시간 검사 → [메모리 검사] → 비교. 추가된 것은 가운데 한 줄이다.
+
+        MLE를 TLE 다음, 출력 비교 앞에 둔 이유: 자원 제한 위반은 답의 정오와 무관하게 판정되어야
+        하고(느리거나 무거운 오답은 TLE/MLE), 두 제한 사이의 우선순위도 언어마다 같아야 한다.
+        &quot;&quot;&quot;
+        self.compile()
+        for i, (inp, expected) in enumerate(tests, 1):
+            start = time.perf_counter()
+            out, peak = self.measure(solve, inp)
+            if time.perf_counter() - start &gt; TIME_LIMIT:
+                return f&quot;TLE (#{i})&quot;
+            if peak &gt; MEMORY_LIMIT:                    # [추가] 모든 언어에 자동 적용
+                return f&quot;MLE (#{i}, {peak // 1000}KB)&quot;
+            if out.strip() != expected.strip():
+                return f&quot;WA (#{i})&quot;
+        return &quot;AC&quot;
+
+    def measure(self, solve: Callable[[str], str], inp: str) -&gt; tuple[str, int]:
+        &quot;&quot;&quot;[새 훅] 실행 + 최대 메모리. 기본은 tracemalloc. JVM처럼 측정 방식이 다른 언어는 재정의한다.
+
+        훅으로 연 이유: &#x27;MLE 판정 규칙&#x27;은 모든 언어에서 같아야 하지만(골격), &#x27;측정 방법&#x27;은
+        언어 런타임마다 다를 수 있다(가변 단계). 판정과 측정을 분리하면 규칙이 갈라지지 않는다.
+        &quot;&quot;&quot;
+        tracemalloc.start()
+        try:
+            out = solve(inp)
+            _, peak = tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        return out, peak
+
+    def compile(self) -&gt; None:
+        &quot;&quot;&quot;훅: 기본은 컴파일 없음(02와 같다). 인터프리터 언어는 재정의하지 않는다.&quot;&quot;&quot;
+
+
+class PythonJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] 본문이 비어 있다 — 메모리 제한을 공짜로 얻고, compile 보일러플레이트도 없다.&quot;&quot;&quot;
+
+
+class JavaJudge(Judge):
+    &quot;&quot;&quot;[Concrete Class] JVM 힙 기준 측정을 흉내 내 measure 훅을 재정의한다.&quot;&quot;&quot;
+
+    def compile(self) -&gt; None:
+        &quot;&quot;&quot;컴파일 흉내 — 컴파일 언어만 훅을 재정의한다.&quot;&quot;&quot;
+
+    def measure(self, solve: Callable[[str], str], inp: str) -&gt; tuple[str, int]:
+        &quot;&quot;&quot;JVM은 기본 힙 오버헤드가 있다고 보고 측정값에 더한다(흉내). 판정 규칙은 골격 그대로.&quot;&quot;&quot;
+        out, peak = super().measure(solve, inp)
+        return out, peak + 200_000
+
+
+def hungry(inp: str) -&gt; str:
+    &quot;&quot;&quot;정답이지만 메모리를 낭비하는 풀이: 필요 없는 리스트를 크게 만든다.&quot;&quot;&quot;
+    waste = list(range(100_000))
+    return str(sum(map(int, inp.split()))) if waste else &quot;&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    lean = lambda s: str(sum(map(int, s.split())))
+    tests = [(&quot;1 2&quot;, &quot;3&quot;)]
+    for judge in (PythonJudge(), JavaJudge()):
+        name = type(judge).__name__
+        print(f&quot;    {name:&lt;11} 절약형: {judge.judge(lean, tests):&lt;6} 낭비형: {judge.judge(hungry, tests)}&quot;)
+    print(&quot;    PythonJudge·JavaJudge 본문에 메모리 판정 코드는 한 줄도 없다&quot;)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex4_memory_limit.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    </details>
+  </div>
+</section>
+<!--
+설계서 대비 변경:
+- 연습문제 4(확장: 메모리 제한)를 추가했다. "골격 한 곳만 고치면 끝난다"는 템플릿 메서드의 핵심 이득을 직접 체험하게 하려는 목적이다.
+- 연습문제 3(판단)은 "같은 채점기를 전략으로 만들었다면"을 본문 03_strategy_version.py로 이미 보였으므로, 언어 추가 + 출제자 선택 체커라는 구체 시나리오의 판단 문제로 바꾸고 혼합형 답을 제시했다.
+- 컴파일·실행은 외부 도구 없이 흉내 내고, 샌드박스 디렉터리와 시간 측정은 실제로 수행한다.
+-->
+    <nav class="pager"><a class="prev" href="13-state.html"><small>← 이전 · 13장</small>상태 (State)</a><a class="next" href="15-iterator.html"><small>다음 · 15장 →</small>반복자 (Iterator)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

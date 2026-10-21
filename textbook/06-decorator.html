@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6장 데코레이터 (Decorator) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="구조 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">6장 · 데코레이터 (Decorator)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">6장 · 구조 패턴</span><h1>데코레이터 (Decorator)</h1><p class="subtitle">같은 인터페이스를 유지한 채 책임을 겹겹이 덧입히기</p></header>
+    <section id="goals">
+<h2>학습 목표</h2>
+<ol>
+  <li>같은 인터페이스를 유지하며 책임을 동적으로 덧붙이는 데코레이터를 구현하고, 서브클래스 폭발(조합 수만큼 클래스)을 피하는 원리를 설명할 수 있다.</li>
+  <li>데코레이터 체인의 순서가 의미를 바꾼다는 점(압축→암호화 vs 암호화→압축)을 분석할 수 있다.</li>
+  <li>GoF 데코레이터 패턴과 파이썬 <code>@decorator</code> 문법의 관계(겹치는 부분과 다른 부분)를 정확히 구분할 수 있다.</li>
+</ol>
+</section>
+
+<section id="context">
+<h2>1. 상황</h2>
+<p>스마트 농장 스타트업 '들빛팜'은 비닐하우스마다 토양 수분 센서를 꽂고, 하우스 한쪽에 있는 <dfn class="term" id="term-gateway" data-term="gateway" title="현장 센서들의 측정값을 모아 클라우드로 중계하는 장치.">게이트웨이</dfn>가 측정값을 모아 클라우드의 <dfn class="term" id="term-mqtt-broker" data-term="mqtt-broker" title="IoT에서 많이 쓰는 경량 발행-구독 메시징 프로토콜; 브로커는 발행된 메시지를 구독자에게 중계하는 서버다.">MQTT 브로커</dfn>로 올린다. 게이트웨이는 현장 센서들의 값을 모아 클라우드로 중계하는 장치이고, MQTT는 IoT에서 많이 쓰는 가벼운 메시징 프로토콜이며, 브로커는 발행된 메시지를 받아 구독자에게 나눠 주는 서버다. 이렇게 원격 장치가 측정값을 자동으로 수집해 보내는 데이터를 <dfn class="term" id="term-telemetry" data-term="telemetry" title="원격 장비가 측정값·상태를 자동으로 수집해 중앙으로 보내는 데이터(또는 그 전송).">텔레메트리</dfn>라 한다. 임베디드 개발자 준호가 만든 첫 버전은 단순했다. <code>MqttChannel.send(<dfn class="term" id="term-payload" data-term="payload" title="메시지·패킷에서 헤더 등을 뺀 실제 전달 데이터.">payload</dfn>)</code>가 JSON 한 줄을 받아 브로커에 publish한다(페이로드는 메시지에서 헤더 등을 뺀, 실제로 전달하는 데이터다).</p>
+<p>석 달 뒤 청구서가 왔다. 게이트웨이는 LTE 모뎀으로 통신하는데, 측정값 한 건이 60바이트 남짓이어도 하우스 300동에서 10초마다 보내니 데이터 요금이 만만치 않았다. 영업팀은 "압축해 주세요"라고 했다. 같은 주에 대형 납품처 한 곳이 보안 감사를 이유로 "전송 데이터는 암호화돼야 한다"고 요구했다. 다른 농장들은 암호화가 필요 없었고, 저사양 게이트웨이는 암호화 연산이 부담스러웠다.</p>
+<p>요구는 계속 쌓였다. 태양광으로 버티는 외곽 하우스는 모뎀을 켜는 횟수를 줄여야 해서 "10건씩 모아서 보내기"(<dfn class="term" id="term-batching" data-term="batching" title="여러 건을 모아 한 번에 처리·전송하는 것; 호출 횟수를 줄이는 대신 버퍼를 비우는(flush) 책임이 생긴다.">배치</dfn>)가 필요했고(배치는 여러 건을 모아 한 번에 보내는 것이다. 모아 두는 임시 공간을 버퍼, 버퍼에 남은 것을 모두 내보내는 연산을 <dfn class="term" id="term-buffer-flush" data-term="buffer-flush" title="버퍼는 데이터를 바로 내보내지 않고 모아 두는 임시 저장 공간이고, flush는 버퍼에 남은 것을 모두 내보내는 연산이다.">flush</dfn>라 한다), 현장 장애를 추적하던 운영팀은 "몇 바이트를 언제 보냈는지 로그를 남겨 달라"고 했다. 결정적으로 현장 설치 기사들이 <strong>"농장마다 조합을 설정 파일로 바꾸게 해 달라"</strong>고 요청했다. 어떤 농장은 배치+압축, 어떤 농장은 압축+암호화+로그, 어떤 농장은 로그만.</p>
+<p>준호는 처음에 기능 조합마다 서브클래스를 만들다가, <code>CompressedEncryptedBatchedMqttChannel</code>이라는 이름을 쓰는 순간 손을 멈췄다. 기능이 넷이면 조합은 열여섯이다. 다음으로 하나의 <code>send()</code>에 플래그를 넣었는데, 이번에는 다른 문제가 생겼다. 테스트를 모두 통과한 리팩터링 이후 한 농장의 데이터 요금이 여섯 배로 뛰었다. 누군가 압축 블록과 암호화 블록의 줄 순서를 바꾼 것이다. <strong>"압축은 반드시 암호화보다 먼저"라는 규칙이 코드 어디에도 명시되어 있지 않았다.</strong></p>
+</section>
+
+<section id="naive">
+<h2>2. 순진한 설계와 그 한계</h2>
+<p>준호가 거친 두 시도를 함께 재현한다. (A)는 기능 조합을 상속 계층으로, (B)는 플래그로 표현한다. 둘은 정반대 방향의 실패다. (A)는 클래스가 너무 많고, (B)는 한 클래스가 너무 많이 안다.</p>
+<div class="callout"><span class="label">용어</span><p>아래 코드가 쓰는 도구들이다. <dfn class="term" id="term-zlib" data-term="zlib" title="DEFLATE 알고리즘으로 데이터를 압축·해제하는 라이브러리(파이썬 표준 모듈)."><code>zlib</code></dfn>: DEFLATE 알고리즘으로 데이터를 압축·해제하는 파이썬 표준 모듈. <dfn class="term" id="term-json-dumps" data-term="json-dumps" title="파이썬 객체를 JSON 문자열로 직렬화하는 함수."><code>json.dumps</code></dfn>: 파이썬 객체를 JSON 문자열로 바꾸는 함수. <dfn class="term" id="term-stream-cipher" data-term="stream-cipher" title="키로부터 만든 의사난수 바이트열(키스트림)을 평문과 XOR해 암호화하는 방식; 출력이 무작위처럼 보여 압축되지 않는다.">스트림 암호</dfn>: 키로부터 만든 무작위처럼 보이는 바이트열(키스트림)을 평문과 XOR해 암호화하는 방식으로, 출력이 무작위처럼 보여 압축되지 않는다. 이 장의 <code>toy_encrypt</code>는 교육용이며, 실제 제품에서는 <dfn class="term" id="term-aes-gcm" data-term="aes-gcm" title="AES 블록 암호를 GCM 모드로 써서 암호화와 변조 검증을 함께 제공하는 표준 방식(nonce와 인증 태그가 붙는다).">AES-GCM</dfn>(AES 암호를 GCM 모드로 써서 암호화와 변조 검증을 함께 제공하는 표준 방식. 메시지마다 nonce라는 일회용 값과 인증 태그가 붙는다) 같은 검증된 방식을 쓴다.</p></div>
+<p class="lead-in"><code>CompressedEncryptedMqttChannel</code>에서 순서를 맞추느라 부모를 건너뛰고 압축 로직을 복제하는 부분, 그리고 <code>FlagMqttChannel.send()</code>에서 순서 규칙이 '줄 순서'에만 숨어 있는 부분에 주목하라.</p>
+<figure class="code"><figcaption>src/06_decorator/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 순진한 설계: 상속 조합 폭발과 플래그 if 지옥.
+
+상황: 스마트 농장 IoT 게이트웨이를 만드는 임베디드 개발자 준호는 토양 수분 센서 값을
+MQTT 브로커로 보내는 MqttChannel.send(payload)를 만들었다. 그 뒤 요구가 쌓였다.
+LTE 요금 때문에 압축, 보안 감사 때문에 암호화, 배터리 때문에 10건씩 묶는 배치,
+장애 진단용 전송 로그. 농장마다 필요한 조합이 다르다.
+준호가 시도한 두 방법을 차례로 본다.
+  (A) 조합마다 서브클래스를 만든다 → 기능 n개면 클래스 2^n개.
+  (B) 하나의 send()에 플래그를 넣는다 → if가 얽히고, 순서 규칙이 코드에 숨는다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import hashlib
+import json
+import zlib
+from itertools import combinations
+
+
+def toy_encrypt(data: bytes, key: bytes = b&quot;farm-key&quot;) -&gt; bytes:
+    &quot;&quot;&quot;교육용 스트림 암호(SHA-256 카운터 키스트림 XOR). 실제 제품에서는 AES-GCM 등을 써야 한다.
+
+    여기서 중요한 성질은 하나뿐이다: 출력이 &#x27;무작위처럼&#x27; 보여서 더 이상 압축되지 않는다.
+    &quot;&quot;&quot;
+    stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
+                      for i in range(len(data) // 32 + 1))
+    return bytes(a ^ b for a, b in zip(data, stream))
+
+
+class MqttChannel:
+    &quot;&quot;&quot;원래의 전송 채널. 브로커 대신 보낸 바이트 수를 기록한다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;보낸 메시지 크기 목록을 기록할 리스트를 만든다.&quot;&quot;&quot;
+        self.sent_sizes: list[int] = []
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;MQTT publish를 흉내 낸다.&quot;&quot;&quot;
+        self.sent_sizes.append(len(payload))
+
+
+# --- (A) 상속으로 조합하기 --------------------------------------------------
+
+class CompressedMqttChannel(MqttChannel):
+    &quot;&quot;&quot;압축 기능을 상속으로 추가.&quot;&quot;&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;압축 후 부모에게 넘긴다.&quot;&quot;&quot;
+        super().send(zlib.compress(payload))
+
+
+class CompressedEncryptedMqttChannel(CompressedMqttChannel):
+    &quot;&quot;&quot;압축 + 암호화. ⚠ 문제: 이 순서를 지키려면 상속 계층 자체가 순서를 인코딩해야 한다.&quot;&quot;&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;압축(부모)보다 &#x27;먼저&#x27; 실행되면 안 되므로 순서를 맞추느라 부모 호출을 비튼다.&quot;&quot;&quot;
+        # ⚠ 문제: 부모가 압축을 먼저 하게 하려면 여기서는 암호화를 &#x27;나중에&#x27; 해야 하는데,
+        # super().send()는 압축 후 바로 브로커로 보내 버린다. 결국 압축 로직을 복제하게 된다.
+        MqttChannel.send(self, toy_encrypt(zlib.compress(payload)))
+
+# ⚠ 문제: EncryptedMqttChannel, BatchedMqttChannel, LoggedCompressedMqttChannel ...
+# 기능 4개(압축·암호화·배치·로그)의 모든 부분집합마다 클래스가 하나씩 필요하다.
+
+
+# --- (B) 플래그로 조합하기 --------------------------------------------------
+
+class FlagMqttChannel:
+    &quot;&quot;&quot;한 클래스에 모든 옵션을 넣은 채널.&quot;&quot;&quot;
+
+    def __init__(self, *, compress: bool = False, encrypt: bool = False,
+                 batch_size: int = 1, log: bool = False) -&gt; None:
+        &quot;&quot;&quot;현장 설정 파일의 플래그를 그대로 받는다.&quot;&quot;&quot;
+        self.compress, self.encrypt, self.batch_size, self.log = compress, encrypt, batch_size, log
+        self._buffer: list[bytes] = []
+        self.sent_sizes: list[int] = []
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;모든 기능이 한 메서드 안에서 얽힌다.&quot;&quot;&quot;
+        # ⚠ 문제: 배치·압축·암호화·로그가 한 메서드에 섞여 있다. 새 기능(예: 재시도)을
+        # 넣으려면 이 메서드를 다시 열어야 하고(OCP 위반), 어느 줄이 어느 기능인지 흐려진다.
+        if self.batch_size &gt; 1:
+            self._buffer.append(payload)
+            if len(self._buffer) &lt; self.batch_size:
+                return
+            payload = b&quot;\n&quot;.join(self._buffer)
+            self._buffer.clear()
+        if self.compress:
+            payload = zlib.compress(payload)
+        if self.encrypt:
+            # ⚠ 문제: &quot;압축은 반드시 암호화보다 먼저&quot;라는 핵심 규칙이 if 두 개의 &#x27;줄 순서&#x27;에만
+            # 암묵적으로 들어 있다. 누가 이 두 블록 순서를 바꿔도 테스트는 깨지지 않는다(크기만 커진다).
+            payload = toy_encrypt(payload)
+        if self.log:
+            print(f&quot;    [log] {len(payload)} bytes 전송&quot;)
+        self.sent_sizes.append(len(payload))
+
+    # ⚠ 문제: 농장 B는 &quot;로그는 압축 전 원본 크기로&quot; 찍고 싶어 한다. 플래그 방식으로는
+    # 로그 위치를 바꿀 수 없다. 또 플래그가 하나 늘 때마다 검증해야 할 조합은 두 배가 된다.
+
+
+def reading(i: int) -&gt; bytes:
+    &quot;&quot;&quot;토양 수분 센서 측정값 하나(JSON). 필드 이름이 반복되어 압축이 잘 된다.&quot;&quot;&quot;
+    return json.dumps({&quot;sensor&quot;: &quot;soil-07&quot;, &quot;seq&quot;: i, &quot;moisture&quot;: 31.5 + i % 3, &quot;unit&quot;: &quot;%&quot;}).encode()
+
+
+if __name__ == &quot;__main__&quot;:
+    features = [&quot;압축&quot;, &quot;암호화&quot;, &quot;배치&quot;, &quot;로그&quot;]
+    combos = sum(1 for r in range(len(features) + 1) for _ in combinations(features, r))
+    print(f&quot;[1] 상속 방식: 기능 {len(features)}개 → 필요한 클래스 {combos}개 (2^{len(features)}, 기본 채널 포함)&quot;)
+
+    print(&quot;[2] 상속 방식의 압축+암호화 채널&quot;)
+    ch_a = CompressedEncryptedMqttChannel()
+    ch_a.send(reading(0) * 5)
+    print(f&quot;    전송 크기: {ch_a.sent_sizes}&quot;)
+
+    print(&quot;[3] 플래그 방식: 압축+암호화+배치(10)+로그&quot;)
+    ch_b = FlagMqttChannel(compress=True, encrypt=True, batch_size=10, log=True)
+    for i in range(10):
+        ch_b.send(reading(i))
+    print(f&quot;    원본 합계 {sum(len(reading(i)) for i in range(10))} bytes → 전송 {ch_b.sent_sizes}&quot;)
+    print(&quot;    (동작은 한다. 문제는 기능을 하나 더하거나 순서를 바꿀 때 드러난다)&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>두 방식의 결함은 이렇게 정리된다.</p>
+<ul>
+  <li><strong>상속 방식은 '조합'을 '타입'으로 표현한다.</strong> 기능 n개의 모든 부분집합이 클래스가 되므로 2<sup>n</sup>개가 필요하고, 출력 [1]처럼 기능 넷이면 열여섯이다. 게다가 상속은 <dfn class="term" id="term-compiler" data-term="compiler" title="소스 코드를 실행 가능한 형태(기계어·바이트코드)로 번역하는 프로그램.">컴파일</dfn> 시점에 고정되므로(컴파일은 소스를 실행 가능한 형태로 번역하는 단계이며, 파이썬에서는 클래스 정의문이 실행되는 시점이 이에 해당한다) "설정 파일로 조합을 바꾸자"는 요구를 근본적으로 충족할 수 없다. 순서를 바꾸고 싶으면 계층을 다시 짜야 한다.</li>
+  <li><strong>플래그 방식은 모든 기능이 한 메서드를 공유한다.</strong> 새 기능은 기존 메서드를 열어야 하고(OCP 위반), 배치·압축·암호화·로그라는 서로 무관한 이유로 같은 메서드가 바뀐다(SRP 위반). 무엇보다 처리 순서가 if 블록의 물리적 순서에 암묵적으로 들어 있다. 출력 [3]은 정상으로 보이지만, 두 블록을 맞바꿔도 기능 테스트는 통과하고 크기만 조용히 커진다.</li>
+  <li><strong>둘 다 위치를 바꿀 수 없다.</strong> "로그를 압축 전 크기로 찍고 싶다"는 요구가 오면 상속 방식은 새 클래스, 플래그 방식은 새 플래그가 필요하다.</li>
+</ul>
+<p>필요한 것은 "기능 하나 = 부품 하나"이고, 부품을 <strong>런타임에, 원하는 순서로</strong> 꽂을 수 있는 구조다.</p>
+</section>
+
+<section id="structure">
+<h2>3. 패턴의 구조</h2>
+<p>GoF의 의도는 이렇다. <em>"객체에 추가적인 책임을 동적으로 부여한다. 데코레이터는 기능 확장을 위해 서브클래스를 만드는 것에 대한 유연한 대안이다."</em> '동적으로'와 '서브클래스의 대안'이 핵심이다. 조합을 클래스로 고정하는 대신, 같은 인터페이스를 가진 래퍼를 객체 수준에서 겹쳐 쌓는다.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 760 380" role="img" aria-label="텔레메트리 채널 데코레이터 구조"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <g class="uml-class highlight" transform="translate(280,15)">
+      <rect width="200" height="80"/>
+      <text class="uml-name uml-abstract" x="100" y="24">Channel</text>
+      <line x1="0" y1="34" x2="200" y2="34"/>
+      <text class="uml-member" x="10" y="54">+ send(payload: bytes)</text>
+      <text class="uml-member" x="10" y="72">+ flush()</text>
+    </g>
+    <g class="uml-class" transform="translate(60,160)">
+      <rect width="170" height="60"/>
+      <text class="uml-name" x="85" y="24">MqttChannel</text>
+      <line x1="0" y1="34" x2="170" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ send() / flush()</text>
+    </g>
+    <g class="uml-class" transform="translate(440,160)">
+      <rect width="220" height="60"/>
+      <text class="uml-name" x="110" y="24">ChannelDecorator</text>
+      <line x1="0" y1="34" x2="220" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _inner: Channel</text>
+    </g>
+    <path class="uml-inherit" d="M145 160 V128 H380 V95" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M550 160 V128 H380"/>
+    <path class="uml-assoc" d="M660 190 H720 V55 H480" marker-end="url(#arrow)" marker-start="url(#diamond)"/>
+    <text class="uml-label" x="585" y="48">_inner (감싸는 대상, 1개)</text>
+
+    <g class="uml-class" transform="translate(20,290)">
+      <rect width="170" height="50"/>
+      <text class="uml-name" x="85" y="30">CompressingChannel</text>
+    </g>
+    <g class="uml-class" transform="translate(205,290)">
+      <rect width="170" height="50"/>
+      <text class="uml-name" x="85" y="30">EncryptingChannel</text>
+    </g>
+    <g class="uml-class" transform="translate(390,290)">
+      <rect width="170" height="50"/>
+      <text class="uml-name" x="85" y="30">BatchingChannel</text>
+    </g>
+    <g class="uml-class" transform="translate(575,290)">
+      <rect width="170" height="50"/>
+      <text class="uml-name" x="85" y="30">LoggingChannel</text>
+    </g>
+    <path class="uml-inherit" d="M105 290 V255 H550 V220" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M290 290 V255"/>
+    <path class="uml-inherit" d="M475 290 V255"/>
+    <path class="uml-inherit" d="M660 290 V255 H550"/>
+
+    <text class="uml-note" x="20" y="40">Component</text>
+    <text class="uml-note" x="60" y="150">Concrete Component</text>
+    <text class="uml-note" x="440" y="150">Decorator</text>
+    <text class="uml-note" x="20" y="365">Concrete Decorators — 기능 하나에 클래스 하나</text>
+  </svg>
+  <figcaption>그림 6-1. ChannelDecorator는 Channel이면서(상속) Channel을 하나 가진다(합성). 이 이중 관계가 <dfn class="term" id="term-recursive-composition" data-term="recursive-composition" title="어떤 타입의 객체가 같은 타입의 객체를 품어 몇 겹이든 중첩될 수 있는 구조(데코레이터 체인, 컴포지트 트리).">재귀적 중첩</dfn>(같은 타입의 래퍼가 래퍼를 다시 감싸, 구조가 자기와 같은 종류를 품는 것)을 가능하게 한다.</figcaption>
+</figure>
+<div class="table-wrap"><table>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr><td>Component</td><td><code>Channel</code></td><td>실제 객체와 래퍼가 공유하는 인터페이스.</td></tr>
+    <tr><td>Concrete Component</td><td><code>MqttChannel</code></td><td>핵심 기능(실제 전송).</td></tr>
+    <tr><td>Decorator</td><td><code>ChannelDecorator</code></td><td>Component를 하나 감싸고, 기본으로 모든 요청을 위임한다.</td></tr>
+    <tr><td>Concrete Decorator</td><td><code>CompressingChannel</code> 등</td><td>위임 전후에 책임 하나를 덧붙인다.</td></tr>
+  </tbody>
+</table></div>
+<p>그림에서 가장 중요한 것은 <code>ChannelDecorator</code>에서 나가는 두 화살표다. 위로 향하는 상속(빈 삼각형)은 <strong>타입을 맞추기 위한 것</strong>이다. 래퍼가 <code>Channel</code>이므로 다른 래퍼가 또 감쌀 수 있고, 클라이언트는 차이를 모른다. 오른쪽의 합성(<code>_inner</code>)은 <strong>기능을 재사용하기 위한 것</strong>이다. 상속 방식의 실패는 이 둘을 하나의 상속으로 해결하려 한 데서 왔다. 데코레이터는 둘을 분리한다.</p>
+<p>객체 그래프로 보면 데코레이터 체인은 '자식이 하나뿐인 트리', 즉 연결 리스트다. 다음 장의 컴포지트가 자식을 여럿 가진 같은 구조라는 점을 기억해 두라.</p>
+</section>
+
+<section id="implementation">
+<h2>4. 패턴 적용</h2>
+<p>준호는 기능 하나를 래퍼 클래스 하나로 만들고, 모든 래퍼가 같은 <code>Channel</code> 인터페이스를 지키도록 했다. 설계 중 하나의 결정이 따로 필요했다. 배치 래퍼는 내부에 데이터를 쥐고 있으므로, 게이트웨이가 종료될 때 "남은 것을 내보내라"는 신호가 체인 끝까지 전달되어야 한다. 그래서 <code>flush()</code>를 인터페이스에 올렸다.</p>
+<p class="lead-in">먼저 Component, Concrete Component, 그리고 위임만 하는 Decorator 기반 클래스다. <code>ChannelDecorator</code>의 docstring이 설명하는 'is-a와 has-a의 동시 성립'과, <code>flush()</code> 위임을 빠뜨리면 생기는 일에 대한 주석을 읽어라.</p>
+<figure class="code"><figcaption>src/06_decorator/02_decorator.py  (27–81행)</figcaption><pre><code class="language-python">class Channel(ABC):
+    &quot;&quot;&quot;[Component] 텔레메트리 전송 채널의 공통 인터페이스.
+
+    데코레이터 패턴의 전제 조건이 바로 이 클래스다. 실제 채널과 모든 래퍼가 이 타입이므로
+    클라이언트(센서 수집 루프)는 자기가 받은 것이 &#x27;맨 채널&#x27;인지 &#x27;다섯 겹 감싼 채널&#x27;인지 모른다.
+    flush()를 인터페이스에 둔 이유: 배치처럼 내부에 데이터를 쥐고 있는 래퍼가 생기는 순간,
+    &#x27;남은 것을 내보내라&#x27;는 요청도 체인 끝까지 전달되어야 하기 때문이다.
+    &quot;&quot;&quot;
+
+    @abstractmethod
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;페이로드 하나를 전송한다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;버퍼에 남은 것을 모두 내보낸다. 버퍼가 없는 채널은 아무것도 하지 않는다.&quot;&quot;&quot;
+
+
+class MqttChannel(Channel):
+    &quot;&quot;&quot;[Concrete Component] 실제 전송. 데모를 위해 브로커 대신 보낸 크기를 기록한다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;전송 기록용 리스트.&quot;&quot;&quot;
+        self.sent_sizes: list[int] = []
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;MQTT publish를 흉내 낸다.&quot;&quot;&quot;
+        self.sent_sizes.append(len(payload))
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;MQTT 클라이언트 자체는 버퍼가 없다고 가정한다.&quot;&quot;&quot;
+
+
+class ChannelDecorator(Channel):
+    &quot;&quot;&quot;[Decorator] 다른 Channel을 감싸고, 기본적으로 모든 호출을 그대로 넘긴다.
+
+    두 가지가 동시에 성립한다는 것이 핵심이다.
+      - is-a Channel   (상속) → 다른 래퍼가 나를 다시 감쌀 수 있다(재귀적 합성).
+      - has-a Channel  (합성) → 무엇을 감쌀지는 런타임에 정한다.
+    상속은 &#x27;타입을 맞추려고&#x27; 쓰고, 기능 재사용은 합성으로 한다. 이 구분이 상속 조합 폭발과의 차이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Channel) -&gt; None:
+        &quot;&quot;&quot;감쌀 채널. 구체 타입이 아니라 Channel 추상에 의존한다.&quot;&quot;&quot;
+        self._inner = inner
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;기본 동작은 위임. 서브클래스는 전/후에 자기 책임 하나만 덧붙인다.&quot;&quot;&quot;
+        self._inner.send(payload)
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;flush도 반드시 위임한다. 이걸 빠뜨리면 체인 안쪽의 배치 버퍼가 영원히 안 비워진다.&quot;&quot;&quot;
+        self._inner.flush()
+
+</code></pre></figure>
+<p><code>ChannelDecorator</code>는 아무 기능도 추가하지 않는다. 그 존재 이유는 "모든 메서드의 기본 위임"을 한 번만 쓰는 데 있다. 인터페이스 메서드가 둘뿐이라 이득이 작아 보이지만, 메서드가 다섯 개라면 구체 데코레이터마다 다섯 개의 위임 메서드를 반복해야 한다. 이 기반 클래스를 생략하는 것도 정당한 선택이지만, 그때는 위임 누락이 가장 흔한 버그가 된다.</p>
+<p class="lead-in">이제 기능 넷이 각각 하나의 구체 데코레이터가 된다. 압축과 암호화는 데이터를 바꾸는 '전처리형', 로그는 관찰만 하는 '관찰형', 배치는 상태를 가진 '버퍼형'이다. <code>BatchingChannel.flush()</code>에서 자기 버퍼를 먼저 비우고 위임하는 순서가 왜 중요한지 docstring을 보라.</p>
+<figure class="code"><figcaption>src/06_decorator/02_decorator.py  (82–151행)</figcaption><pre><code class="language-python">class CompressingChannel(ChannelDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] 압축. SRP: 이 클래스는 zlib 말고는 아무것도 모른다.&quot;&quot;&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;압축한 뒤 안쪽으로 넘긴다(전처리형 데코레이터).&quot;&quot;&quot;
+        self._inner.send(zlib.compress(payload, level=9))
+
+
+class EncryptingChannel(ChannelDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] 암호화. 키는 래퍼 인스턴스마다 다르게 줄 수 있다.&quot;&quot;&quot;
+
+    def __init__(self, inner: Channel, key: bytes) -&gt; None:
+        &quot;&quot;&quot;래퍼가 자기 설정(키)을 가질 수 있다는 점이 함수 플래그보다 나은 점이다.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._key = key
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;암호화 후 안쪽으로.&quot;&quot;&quot;
+        self._inner.send(toy_encrypt(payload, self._key))
+
+
+class BatchingChannel(ChannelDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] n건을 모아 한 번에 보낸다. 상태(버퍼)를 가진 데코레이터의 예.
+
+    상태를 가진 래퍼는 flush()를 &#x27;자기 일을 한 뒤&#x27; 위임해야 한다. 순서가 바뀌면
+    안쪽이 먼저 비워진 뒤에 내가 데이터를 내려보내 그 데이터가 다시 갇힌다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Channel, size: int) -&gt; None:
+        &quot;&quot;&quot;배치 크기와 버퍼.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._size = size
+        self._buffer: list[bytes] = []
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;버퍼가 차면 줄바꿈으로 이어 붙여 한 번에 보낸다.&quot;&quot;&quot;
+        self._buffer.append(payload)
+        if len(self._buffer) &gt;= self._size:
+            self._emit()
+
+    def _emit(self) -&gt; None:
+        &quot;&quot;&quot;버퍼 내용을 하나의 페이로드로 묶어 안쪽에 넘긴다.&quot;&quot;&quot;
+        if self._buffer:
+            self._inner.send(b&quot;\n&quot;.join(self._buffer))
+            self._buffer.clear()
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;내 버퍼를 먼저 비우고, 그다음 안쪽에 flush를 전파한다.&quot;&quot;&quot;
+        self._emit()
+        self._inner.flush()
+
+
+class LoggingChannel(ChannelDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] 통과하는 페이로드 크기를 기록한다.
+
+    label을 받는 이유: 같은 래퍼를 체인의 여러 위치에 꽂아 &#x27;압축 전&#x27;과 &#x27;압축 후&#x27;를
+    동시에 관찰할 수 있다. 플래그 방식에서는 로그 위치가 코드에 고정되어 불가능했다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Channel, label: str) -&gt; None:
+        &quot;&quot;&quot;로그 접두어.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._label = label
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;기록 후 그대로 위임(관찰형 데코레이터 — 데이터를 바꾸지 않는다).&quot;&quot;&quot;
+        print(f&quot;    [log:{self._label}] {len(payload)} bytes&quot;)
+        self._inner.send(payload)
+
+</code></pre></figure>
+<p>각 클래스는 자기 기능 하나만 안다. <code>CompressingChannel</code>은 zlib만, <code>EncryptingChannel</code>은 키와 암호화 함수만 안다. 새 기능(예: 전송 실패 시 재시도)이 필요해도 기존 클래스는 하나도 열지 않는다. 래퍼 클래스를 하나 추가하면 끝이다.</p>
+<p class="lead-in">마지막으로 조립과 실행이다. <code>farm_a</code>를 조립하는 중첩 표현식을 바깥에서 안쪽으로 읽으면 그것이 곧 처리 순서다. 로그 래퍼가 두 위치에 꽂혀 '압축 전'과 '압축 후' 크기를 동시에 보여 준다는 점, 그리고 데모 [3]의 두 순서 비교에 주목하라.</p>
+<figure class="code"><figcaption>src/06_decorator/02_decorator.py  (152–192행)</figcaption><pre><code class="language-python">def reading(i: int) -&gt; bytes:
+    &quot;&quot;&quot;토양 수분 센서 측정값 하나(JSON).&quot;&quot;&quot;
+    return json.dumps({&quot;sensor&quot;: &quot;soil-07&quot;, &quot;seq&quot;: i, &quot;moisture&quot;: 31.5 + i % 3, &quot;unit&quot;: &quot;%&quot;}).encode()
+
+
+def collect(channel: Channel, n: int) -&gt; None:
+    &quot;&quot;&quot;[Client] 센서 수집 루프. channel이 몇 겹으로 감싸였는지 전혀 모른다.&quot;&quot;&quot;
+    for i in range(n):
+        channel.send(reading(i))
+    channel.flush()
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 농장 A: 배치(10) → 로그(원본) → 압축 → 로그(압축 후) → 암호화 → MQTT&quot;)
+    mqtt = MqttChannel()
+    # 바깥쪽 래퍼가 &#x27;먼저&#x27; 실행된다. 코드를 바깥→안쪽으로 읽으면 곧 처리 순서다.
+    farm_a = BatchingChannel(
+        LoggingChannel(
+            CompressingChannel(
+                LoggingChannel(
+                    EncryptingChannel(mqtt, key=b&quot;farm-a&quot;),
+                    label=&quot;압축 후&quot;)),
+            label=&quot;배치 원본&quot;),
+        size=10)
+    collect(farm_a, 25)   # 10 + 10 + 5(flush로 내보냄)
+    print(f&quot;    MQTT가 받은 크기: {mqtt.sent_sizes}&quot;)
+
+    print(&quot;[2] 농장 B: 로그만 필요 — 같은 클래스들로 다른 조합, 새 클래스 없음&quot;)
+    mqtt_b = MqttChannel()
+    collect(LoggingChannel(mqtt_b, label=&quot;raw&quot;), 2)
+
+    print(&quot;[3] 순서가 의미를 바꾼다: 압축→암호화 vs 암호화→압축 (배치 10건 1묶음)&quot;)
+    for name, build in [
+        (&quot;압축→암호화&quot;, lambda m: CompressingChannel(EncryptingChannel(m, b&quot;k&quot;))),
+        (&quot;암호화→압축&quot;, lambda m: EncryptingChannel(CompressingChannel(m), b&quot;k&quot;)),
+    ]:
+        sink = MqttChannel()
+        collect(BatchingChannel(build(sink), size=10), 10)
+        print(f&quot;    {name}: {sink.sent_sizes[0]} bytes&quot;)
+    raw = sum(len(reading(i)) for i in range(10)) + 9   # 줄바꿈 9개
+    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_decorator.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [1]에서 25건이 10+10+5로 나뉘어 나갔다. 마지막 5건은 <code>collect()</code> 끝의 <code>flush()</code>가 바깥 배치 래퍼에서 출발해 체인을 타고 내려간 결과다. 로그 두 줄은 같은 클래스의 두 인스턴스가 체인의 다른 위치에서 각각 629바이트(원본)와 104바이트(압축 후)를 관찰했음을 보여 준다. 플래그 방식으로는 할 수 없던 일이다.</p>
+<p>출력 [3]이 이 장의 두 번째 학습 목표다. 같은 두 래퍼를 순서만 바꿔 감쌌더니 104바이트와 640바이트가 되었다. 원본(629바이트)보다도 커졌다. 암호화의 출력은 무작위처럼 보이므로 압축기가 찾을 반복 패턴이 없고, 압축 헤더만큼 오히려 늘어난다. <strong>데코레이터들은 서로를 모르지만, 그것들이 함께 내는 결과는 순서에 의존한다.</strong> 이것은 패턴의 결함이 아니라 본질이다. 순서가 의미를 갖는다면 그 규칙은 어딘가에 명시되어야 한다. 조립 코드에 주석으로, 설정 검증 로직으로, 혹은 아예 "압축+암호화"를 하나의 데코레이터로 묶어서 말이다.</p>
+<div class="callout warn">
+  <span class="label">함정: 객체 정체성</span>
+  <p>데코레이터로 감싼 객체는 원래 객체와 <strong>다른 객체</strong>다. <code>farm_a is mqtt</code>는 거짓이고, 원래 객체의 참조를 들고 있던 코드는 래퍼를 우회해 직접 <code>mqtt.send()</code>를 부를 수 있다. 데코레이터가 보안 기능(암호화)을 담당한다면 "원본 참조가 새어 나가지 않는가"를 반드시 점검해야 한다. 이것이 9장의 프록시가 실제 객체의 생성까지 통제하려 하는 이유 중 하나다.</p>
+</div>
+</section>
+
+<section id="pythonic">
+<h2>5. 파이썬다운 변형</h2>
+<p>펌웨어 팀 선배 미정이 준호의 코드를 보고 물었다. "<code>send</code> 하나짜리 인터페이스면 그냥 함수를 감싸면 되잖아. 파이썬엔 <code>@</code> 데코레이터도 있고." 맞는 말이다. 그런데 이 질문에는 이 장에서 가장 자주 혼동되는 문제가 숨어 있다. 파이썬의 <dfn class="term" id="term-decorator-syntax" data-term="decorator-syntax" title="정의 바로 위에 `@deco`를 쓰면 정의 직후 `f = deco(f)`로 이름을 다시 묶는 문법 설탕; 결과가 무엇이어야 하는지는 강제하지 않으므로 GoF 데코레이터 패턴과는 범주가 다르다."><code>@decorator</code></dfn>와 GoF의 데코레이터 패턴은 같은 것인가? (<code>@</code> 데코레이터 문법은 함수·클래스 정의 위에 <code>@이름</code>을 붙여, 정의 직후 그것을 그 이름의 호출 가능 객체에 넘기고 반환값으로 원래 이름을 다시 묶는 파이썬 문법이다.)</p>
+
+<h3>함수 래퍼로 같은 의도를 구현하기</h3>
+<p class="lead-in">파일 <code>03_pythonic.py</code>의 첫 부분이다. <code>Send = Callable[[bytes], None]</code>이 Component 역할을 하고, <code>compressed</code>·<code>encrypted</code>·<code>logged</code>가 각각 Send를 받아 Send를 돌려준다. 설정이 필요한 래퍼(<code>encrypted(key)</code>)가 왜 한 겹 더 감싸진 '팩토리'가 되는지 보라.</p>
+<div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-syntactic-sugar" data-term="syntactic-sugar" title="새 기능을 더하지 않고 기존 표현을 더 짧고 읽기 좋게 쓰게 해 주는 문법.">문법 설탕</dfn>: 새 기능을 더하지 않고 기존 표현을 짧고 읽기 좋게 쓰게 해 주는 문법. <dfn class="term" id="term-functools-wraps" data-term="functools-wraps" title="래퍼 함수가 원래 함수의 `__name__`·`__doc__` 등을 물려받고 `__wrapped__`로 원본에 닿게 해 주는 데코레이터."><code>functools.wraps</code></dfn>: 래퍼 함수가 원래 함수의 <code>__name__</code>·<code>__doc__</code>을 물려받고 <code>__wrapped__</code>로 원본에 닿게 해 주는 도구. <dfn class="term" id="term-functools-reduce" data-term="functools-reduce" title="이항 함수를 시퀀스에 왼쪽부터 차례로 적용해 하나의 값으로 접는 함수; 래퍼 목록을 한 체인으로 조립하는 데 쓸 수 있다."><code>functools.reduce</code></dfn>: 두 값을 받는 함수를 목록에 왼쪽부터 차례로 적용해 하나의 값으로 접는 함수. <dfn class="term" id="term-property" data-term="property" title="메서드를 속성처럼 읽고(getter) 대입하게(setter) 만드는 데코레이터. 대입 시점에 검사·통지 같은 코드를 끼울 수 있다."><code>@property</code></dfn>: 메서드를 속성처럼 읽게(필요하면 대입하게) 만드는 표기. <dfn class="term" id="term-transparency" data-term="transparency" title="대리 객체가 실제 객체와 완전히 똑같이 보여서, 클라이언트가 그 차이를 알 수도 알 필요도 없는 성질.">투명성</dfn>: 감싼 객체가 원래 객체와 똑같이 보여서, 쓰는 쪽이 차이를 알 수도 알 필요도 없는 성질.</p></div>
+<figure class="code"><figcaption>src/06_decorator/03_pythonic.py  (1–76행)</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 파이썬다운 변형: 함수 데코레이터, @ 문법, reduce 조립, __getattr__ 위임의 함정.
+
+상황: 게이트웨이 펌웨어 팀의 선배 미정은 준호의 클래스 체인을 보고 묻는다. &quot;send 하나뿐인
+인터페이스라면 그냥 함수를 감싸면 되지 않아? 파이썬엔 @ 데코레이터도 있잖아.&quot;
+이 파일은 그 질문을 따라가며 네 가지를 확인한다.
+  (1) 함수 래퍼로 같은 의도(같은 시그니처 유지 + 책임 추가 + 중첩)를 구현할 수 있다.
+  (2) @ 문법은 &#x27;정의 시점에 이름을 다시 묶는&#x27; 설탕일 뿐이며, GoF 패턴이 아닌 용도로도 쓰인다.
+  (3) 현장 설정 파일의 목록으로부터 런타임에 체인을 조립하려면 functools.reduce가 알맞다.
+  (4) 메서드가 많은 객체를 __getattr__로 투명하게 감싸면 특수 메서드·isinstance에서 구멍이 난다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import hashlib
+import zlib
+from functools import reduce, wraps
+from typing import Any, Callable
+
+Send = Callable[[bytes], None]
+&quot;&quot;&quot;[Component] 함수 버전의 &#x27;인터페이스&#x27;. 메서드가 send 하나뿐이면 타입은 곧 함수 시그니처다.&quot;&quot;&quot;
+
+
+def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
+    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+
+    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
+    &quot;&quot;&quot;
+    stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
+                      for i in range(len(data) // 32 + 1))
+    return bytes(a ^ b for a, b in zip(data, stream))
+
+
+# --- (1) 함수 래퍼: 같은 시그니처를 받아 같은 시그니처를 돌려준다 ------------
+
+def compressed(send: Send) -&gt; Send:
+    &quot;&quot;&quot;[Concrete Decorator] 압축. Send를 받아 Send를 돌려주므로 몇 겹이든 중첩된다.
+
+    @wraps를 쓰는 이유: 래퍼 함수가 원래 함수의 __name__, __doc__을 물려받고
+    __wrapped__로 원본에 접근할 수 있게 된다. 디버깅·로그에서 &#x27;wrapper&#x27;만 보이는 일을 막는다.
+    &quot;&quot;&quot;
+    @wraps(send)
+    def wrapper(payload: bytes) -&gt; None:
+        &quot;&quot;&quot;압축 후 원래 send 호출.&quot;&quot;&quot;
+        send(zlib.compress(payload))
+    return wrapper
+
+
+def encrypted(key: bytes) -&gt; Callable[[Send], Send]:
+    &quot;&quot;&quot;[Concrete Decorator 팩토리] 설정(키)이 필요한 래퍼는 &#x27;래퍼를 만드는 함수&#x27;가 된다.
+
+    클래스 버전의 EncryptingChannel(inner, key)에서 생성자 인자였던 것이
+    함수 버전에서는 바깥 클로저 한 겹으로 옮겨간다. @encrypted(b&quot;k&quot;)처럼 괄호가 붙는 이유다.
+    &quot;&quot;&quot;
+    def decorate(send: Send) -&gt; Send:
+        &quot;&quot;&quot;키를 기억하는 래퍼를 만든다.&quot;&quot;&quot;
+        @wraps(send)
+        def wrapper(payload: bytes) -&gt; None:
+            &quot;&quot;&quot;암호화 후 원래 send 호출.&quot;&quot;&quot;
+            send(toy_encrypt(payload, key))
+        return wrapper
+    return decorate
+
+
+def logged(label: str) -&gt; Callable[[Send], Send]:
+    &quot;&quot;&quot;[Concrete Decorator 팩토리] 크기 로그.&quot;&quot;&quot;
+    def decorate(send: Send) -&gt; Send:
+        &quot;&quot;&quot;라벨을 기억하는 래퍼를 만든다.&quot;&quot;&quot;
+        @wraps(send)
+        def wrapper(payload: bytes) -&gt; None:
+            &quot;&quot;&quot;크기를 출력하고 그대로 넘긴다.&quot;&quot;&quot;
+            print(f&quot;    [log:{label}] {len(payload)} bytes&quot;)
+            send(payload)
+        return wrapper
+    return decorate
+
+</code></pre></figure>
+<p>함수 버전도 GoF의 의도를 그대로 만족한다. 래퍼는 감싼 것과 같은 시그니처(같은 '인터페이스')를 가지고, 책임 하나를 덧붙이며, 몇 겹이든 중첩된다. 클래스 버전의 생성자 인자(<code>key</code>)는 함수 버전에서 바깥 클로저로 옮겨간다. <code>functools.wraps</code>는 래퍼가 원래 함수의 <code>__name__</code>·<code>__doc__</code>을 물려받고 <code>__wrapped__</code>로 원본에 닿을 수 있게 해, 디버깅과 <dfn class="term" id="term-introspection" data-term="introspection" title="실행 중에 객체의 타입·속성·이름·문서 등을 조사하는 것.">내성(introspection)</dfn>, 즉 실행 중에 객체의 이름·타입·문서 등을 조사하는 일에서 래퍼를 투명하게 만든다.</p>
+<p>그러나 함수 버전은 <code>BatchingChannel</code>을 깔끔하게 표현하지 못한다. 배치는 <code>send</code>와 <code>flush</code> <strong>두 연산</strong>이 하나의 버퍼를 공유해야 하는데, 함수는 호출 진입점이 하나뿐이다. 클로저에 버퍼를 숨기고 <code>wrapper.flush = ...</code> 같은 속성을 붙일 수는 있지만, 그때 우리는 클래스를 어설프게 다시 만드는 셈이다. <strong>인터페이스가 메서드 하나면 함수, 둘 이상이거나 상태를 공유하면 클래스</strong>가 실용적 기준이다.</p>
+
+<h3><code>@</code> 문법: 정의 시점의 이름 재바인딩</h3>
+<p class="lead-in">다음 부분은 같은 래퍼를 <code>@</code> 문법으로 적용한 경우와, <code>@</code>를 쓰지만 아무것도 감싸지 않는 <code>register</code>를 나란히 보여 준다.</p>
+<figure class="code"><figcaption>src/06_decorator/03_pythonic.py  (77–112행)</figcaption><pre><code class="language-python"># --- (2) @ 문법: 정의 시점에 한 번 적용되고 이름이 다시 묶인다 ----------------
+
+@logged(&quot;debug&quot;)
+@compressed
+def send_to_debug_port(payload: bytes) -&gt; None:
+    &quot;&quot;&quot;시리얼 디버그 포트로 내보낸다(흉내).
+
+    위 두 줄은 정확히 send_to_debug_port = logged(&quot;debug&quot;)(compressed(send_to_debug_port))다.
+    아래쪽(@compressed)이 먼저 적용되어 안쪽이 되고, 위쪽(@logged)이 바깥이 된다.
+    따라서 호출 시에는 위에서 아래 순서로 실행된다 — 객체 체인을 바깥→안쪽으로 읽는 것과 같다.
+    &quot;&quot;&quot;
+    print(f&quot;    (debug port) {len(payload)} bytes 기록&quot;)
+
+
+PARSERS: dict[str, Callable[[bytes], dict]] = {}
+
+
+def register(kind: str) -&gt; Callable[[Callable[[bytes], dict]], Callable[[bytes], dict]]:
+    &quot;&quot;&quot;@ 문법이지만 GoF 데코레이터가 &#x27;아닌&#x27; 예: 함수를 감싸지 않고 등록만 하고 그대로 돌려준다.
+
+    @ 는 &#x27;함수를 받아 무언가를 돌려주는 호출&#x27;을 정의 지점에 붙이는 문법일 뿐이다.
+    감싸기(책임 추가)를 하든, 등록만 하든, 전혀 다른 객체(property 등)를 돌려주든 문법은 상관하지 않는다.
+    &quot;&quot;&quot;
+    def deco(fn: Callable[[bytes], dict]) -&gt; Callable[[bytes], dict]:
+        &quot;&quot;&quot;레지스트리에 넣고 원본을 그대로 반환한다.&quot;&quot;&quot;
+        PARSERS[kind] = fn
+        return fn
+    return deco
+
+
+@register(&quot;soil&quot;)
+def parse_soil(raw: bytes) -&gt; dict:
+    &quot;&quot;&quot;토양 센서 원시값 파서(등록 데코레이터의 대상).&quot;&quot;&quot;
+    return {&quot;moisture&quot;: int(raw) / 10}
+
+</code></pre></figure>
+<p><code>@logged("debug")</code>와 <code>@compressed</code>를 쌓은 정의는 정확히 <code>send_to_debug_port = logged("debug")(compressed(send_to_debug_port))</code>다. 아래쪽 데코레이터가 먼저 적용되어 안쪽이 되고, 호출 시에는 위에서 아래로 실행된다. 이 점에서 <code>@</code> 체인과 객체 체인은 순서 규칙까지 같다.</p>
+<p>하지만 <code>register</code>를 보라. 이것도 <code>@</code>로 쓰지만 함수를 감싸지 않는다. 레지스트리에 넣고 원본을 그대로 돌려줄 뿐이다. <code>@property</code>는 함수를 <dfn class="term" id="term-descriptor" data-term="descriptor" title="`__get__`/`__set__`을 구현해 클래스 속성 접근 방식을 가로채는 객체; property·메서드 바인딩의 기반이다.">디스크립터</dfn> 객체(<code>__get__</code>/<code>__set__</code>을 구현해 클래스 속성 접근을 가로채는 객체)로 바꾸고, <code>@dataclass</code>는 클래스에 메서드를 생성해 넣으며, <dfn class="term" id="term-flask" data-term="flask" title="파이썬 경량 웹 프레임워크; `@app.route`로 URL과 핸들러 함수를 등록한다.">Flask</dfn>(파이썬 경량 웹 프레임워크)의 <code>@app.route</code>는 URL과 핸들러 함수를 등록한다. 이들 중 어느 것도 "같은 인터페이스로 책임을 덧붙인다"는 GoF 데코레이터가 아니다.</p>
+
+<h3>GoF 데코레이터와 <code>@decorator</code>: 같은 이름, 다른 범주</h3>
+<p>이제 관계를 정확히 말할 수 있다. <strong>GoF 데코레이터는 설계 의도(패턴)이고, 파이썬 <code>@decorator</code>는 언어 문법(메커니즘)이다.</strong> <code>@</code>는 "정의 직후 그 함수/클래스를 어떤 호출 가능 객체에 넘기고, 결과로 이름을 다시 묶는다"는 설탕일 뿐, 결과가 무엇이어야 하는지는 강제하지 않는다. 이 이름의 혼동은 파이썬 커뮤니티도 인지하고 있었다. <code>@</code> 문법을 도입한 <dfn class="term" id="term-python-enhancement-proposal" data-term="python-enhancement-proposal" title="파이썬 언어·표준 라이브러리 변경을 제안하고 기록하는 공식 문서(예: PEP 318은 데코레이터 문법을 도입했다).">PEP</dfn> 318(PEP는 파이썬 언어·표준 라이브러리 변경을 제안하고 기록하는 공식 문서다)은 'decorator'라는 이름이 GoF 책의 용법과 일치하지 않는다는 비판이 있었음을 스스로 기록하고 있다.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>관점</th><th>GoF 데코레이터 패턴</th><th>파이썬 <code>@decorator</code> 문법</th></tr></thead>
+  <tbody>
+    <tr><td>정체</td><td>설계 의도: 같은 인터페이스로 책임을 동적으로 추가</td><td>언어 메커니즘: <code>f = deco(f)</code>의 문법 설탕</td></tr>
+    <tr><td>적용 대상</td><td><strong>객체</strong>(인스턴스마다 다르게 감쌀 수 있음)</td><td><strong>함수/클래스 정의</strong>(그 이름 전체에 적용)</td></tr>
+    <tr><td>적용 시점</td><td>런타임, 조립 코드가 원하는 때</td><td>정의 시점(대개 모듈 임포트 시), 한 번</td></tr>
+    <tr><td>원본 접근</td><td>원본 객체 참조는 그대로 남아 있다</td><td>이름이 래퍼로 다시 묶여 원본은 <code>__wrapped__</code>로만 닿는다</td></tr>
+    <tr><td>인터페이스 보존</td><td>필수(패턴의 정의)</td><td>선택(<code>@property</code>, <code>@register</code>처럼 안 지켜도 됨)</td></tr>
+    <tr><td>겹치는 영역</td><td colspan="2"><code>@wraps</code>를 쓰고 시그니처를 유지하며 책임 하나를 덧붙이는 함수 데코레이터(<code>@logged</code>, 재시도, 계측 등)는 GoF 의도를 함수 수준에서 구현한 것이다.</td></tr>
+  </tbody>
+</table></div>
+<p>표의 '적용 시점'이 실무에서 가장 큰 차이를 만든다. 들빛팜의 요구는 "설치 기사가 <strong>설정 파일로</strong> 조합을 바꾼다"였다. <code>@</code>는 소스 코드에 순서를 박아 넣으므로 이 요구를 충족하지 못한다. 그러나 <code>@</code>라는 문법을 버리고 데코레이터 '함수'만 취하면 런타임 조립이 가능하다.</p>
+
+<p class="lead-in">설정 파일의 문자열 목록을 래퍼 함수로 매핑하고, <code>functools.reduce</code>로 접어 체인을 만드는 부분이다. 목록을 왜 <code>reversed</code>로 뒤집는지 docstring을 확인하라.</p>
+<figure class="code"><figcaption>src/06_decorator/03_pythonic.py  (113–131행)</figcaption><pre><code class="language-python"># --- (3) 런타임 조립: 설정 파일의 목록 → reduce로 체인 -----------------------
+
+DECORATORS: dict[str, Callable[[Send], Send]] = {
+    &quot;compress&quot;: compressed,
+    &quot;encrypt&quot;: encrypted(b&quot;farm-c&quot;),
+    &quot;log&quot;: logged(&quot;cfg&quot;),
+}
+
+
+def build_send(config: list[str], base: Send) -&gt; Send:
+    &quot;&quot;&quot;설정의 목록 순서 = 처리 순서(바깥 → 안쪽)가 되도록 조립한다.
+
+    reduce는 왼쪽부터 접으므로, 목록을 뒤집어 &#x27;가장 안쪽&#x27;부터 감싸야 첫 항목이 가장 바깥이 된다.
+    @ 문법은 소스 코드에 순서가 고정되지만, 이 방식은 현장 설정 파일만 바꾸면 순서가 바뀐다.
+    이것이 &#x27;정의 시점&#x27;(@)과 &#x27;런타임&#x27;(GoF 객체 합성)의 차이를 함수로도 메울 수 있는 지점이다.
+    &quot;&quot;&quot;
+    return reduce(lambda inner, name: DECORATORS[name](inner), reversed(config), base)
+
+</code></pre></figure>
+<p>이것이 GoF 패턴의 '동적' 성질을 함수로 구현한 형태다. 문자열 → 래퍼 매핑(<code>DECORATORS</code>)이 일종의 플러그인 레지스트리 역할을 하므로, 새 기능은 함수 하나와 딕셔너리 항목 하나로 추가된다.</p>
+
+<h3>메서드가 많을 때: <code>__getattr__</code> 위임의 함정</h3>
+<p class="lead-in">마지막 부분은 반대 방향의 문제다. 실제 MQTT 클라이언트처럼 메서드가 많은 객체를 감쌀 때, 가로챌 메서드만 정의하고 나머지는 <code>__getattr__</code>로 넘겨 겉으로는 원본과 같아 보이게 만든 <dfn class="term" id="term-transparent-wrapper" data-term="transparent-wrapper" title="가로챌 메서드만 정의하고 나머지 속성 접근은 `__getattr__`로 감싼 객체에 넘겨, 겉으로는 원본과 같아 보이게 만든 래퍼.">투명 래퍼</dfn>를 만들면 어떻게 되는지 본다.</p>
+<figure class="code"><figcaption>src/06_decorator/03_pythonic.py  (132–221행)</figcaption><pre><code class="language-python"># --- (4) 인터페이스가 넓을 때의 __getattr__ 투명 위임과 그 함정 ---------------
+
+class MqttClient:
+    &quot;&quot;&quot;메서드가 많은 실제 클라이언트(흉내). send 외에도 connect, 컨텍스트 매니저, len을 지원한다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;대기열.&quot;&quot;&quot;
+        self.queue: list[bytes] = []
+
+    def connect(self) -&gt; str:
+        &quot;&quot;&quot;연결.&quot;&quot;&quot;
+        return &quot;connected&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;대기열에 넣는다.&quot;&quot;&quot;
+        self.queue.append(payload)
+
+    def __len__(self) -&gt; int:
+        &quot;&quot;&quot;대기 중인 메시지 수.&quot;&quot;&quot;
+        return len(self.queue)
+
+    def __enter__(self) -&gt; MqttClient:
+        &quot;&quot;&quot;with 블록 진입.&quot;&quot;&quot;
+        return self
+
+    def __exit__(self, *exc: object) -&gt; None:
+        &quot;&quot;&quot;with 블록 종료.&quot;&quot;&quot;
+
+
+class TransparentLogging:
+    &quot;&quot;&quot;[Decorator] send만 가로채고 나머지는 __getattr__로 넘기는 &#x27;투명&#x27; 래퍼.
+
+    메서드를 일일이 위임하지 않아도 되어 편하지만, 두 군데서 투명하지 않다.
+      - len(), with 같은 특수 메서드는 인스턴스가 아니라 &#x27;타입&#x27;에서 찾으므로 __getattr__을 타지 않는다.
+      - 상속 관계가 없으므로 isinstance(wrapper, MqttClient)가 거짓이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: MqttClient) -&gt; None:
+        &quot;&quot;&quot;감쌀 클라이언트.&quot;&quot;&quot;
+        self._inner = inner
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;로그를 남기고 위임.&quot;&quot;&quot;
+        print(f&quot;    [log] {len(payload)} bytes&quot;)
+        self._inner.send(payload)
+
+    def __getattr__(self, name: str) -&gt; Any:
+        &quot;&quot;&quot;정의되지 않은 &#x27;일반&#x27; 속성 조회만 여기로 온다.&quot;&quot;&quot;
+        return getattr(self._inner, name)
+
+
+if __name__ == &quot;__main__&quot;:
+    sent: list[int] = []
+
+    def mqtt_send(payload: bytes) -&gt; None:
+        &quot;&quot;&quot;기본 전송 함수(Concrete Component).&quot;&quot;&quot;
+        sent.append(len(payload))
+
+    data = b&#x27;{&quot;sensor&quot;:&quot;soil-07&quot;,&quot;moisture&quot;:31.5}&#x27; * 10
+
+    print(&quot;[1] 함수 래퍼 중첩: logged(compressed(encrypted(mqtt_send)))&quot;)
+    chain = logged(&quot;in&quot;)(compressed(encrypted(b&quot;k&quot;)(mqtt_send)))
+    chain(data)
+    print(f&quot;    MQTT 수신 크기 {sent}, 바깥 래퍼의 __name__ = {chain.__name__!r} (wraps 덕분)&quot;)
+
+    print(&quot;[2] @ 문법은 정의 시점 1회 적용 — 이름 send_to_debug_port가 래퍼를 가리킨다&quot;)
+    send_to_debug_port(data)
+    print(f&quot;    __wrapped__ 로 한 겹 벗기면: {send_to_debug_port.__wrapped__.__name__} (compressed 래퍼)&quot;)
+    print(f&quot;    등록 데코레이터: PARSERS = {list(PARSERS)}, parse_soil은 감싸지지 않음 → {PARSERS[&#x27;soil&#x27;] is parse_soil}&quot;)
+
+    print(&quot;[3] 설정 목록으로 런타임 조립 — 순서만 바꿔 본다&quot;)
+    for cfg in ([&quot;log&quot;, &quot;compress&quot;, &quot;encrypt&quot;], [&quot;compress&quot;, &quot;log&quot;, &quot;encrypt&quot;]):
+        sent.clear()
+        print(f&quot;    config={cfg}&quot;)
+        build_send(cfg, mqtt_send)(data)
+
+    print(&quot;[4] __getattr__ 투명 래퍼의 구멍&quot;)
+    w = TransparentLogging(MqttClient())
+    print(f&quot;    w.connect() → {w.connect()}  (일반 메서드는 위임된다)&quot;)
+    w.send(b&quot;x&quot; * 40)
+    try:
+        len(w)
+    except TypeError as e:
+        print(f&quot;    len(w) 실패 → TypeError: {e}&quot;)
+    try:
+        with w:   # 내부적으로 type(w).__enter__ 를 찾는다 — 인스턴스의 __getattr__은 무시된다
+            pass
+    except TypeError as e:
+        print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
+    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [4]가 핵심이다. <code>w.connect()</code> 같은 일반 메서드는 잘 위임되지만, <code>len(w)</code>와 <code>with w:</code>는 실패한다. 파이썬은 <code>__len__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 <strong>타입</strong>에서 직접 찾기 때문에 인스턴스 수준의 <code>__getattr__</code>을 거치지 않는다. 또 래퍼는 <code>MqttClient</code>를 상속하지 않으므로 <code>isinstance</code> 검사도 실패한다. "같은 인터페이스"를 약속하는 데코레이터에게 이것은 치명적이다. 감싼 객체를 <code>with</code> 문에 쓰던 코드가 래퍼를 끼우는 순간 깨진다. 해결책은 필요한 특수 메서드를 래퍼 클래스에 명시적으로 정의하거나, 인터페이스를 ABC/Protocol로 좁혀 위임 목록을 명확히 하는 것이다.</p>
+</section>
+
+<section id="tradeoffs">
+<h2>6. 트레이드오프와 관련 패턴</h2>
+<h3>얻는 것과 치르는 것</h3>
+<ul>
+  <li><strong>얻는 것:</strong> 기능 수에 선형인 클래스 수(2<sup>n</sup> → n), 런타임 조합, 기능별 단일 책임, 기존 코드 수정 없는 확장.</li>
+  <li><strong>치르는 것:</strong> 작은 객체가 많아지고 디버깅 시 호출 스택이 깊어진다. 스택 트레이스에 <code>send</code>가 다섯 번 찍히면 어느 층에서 문제가 났는지 찾기 어렵다. 순서 의존성이 조립 코드로 옮겨갈 뿐 사라지지 않는다. 그리고 래퍼는 원본과 다른 객체이므로 정체성(<code>is</code>) 비교나 구체 타입 검사가 깨진다.</li>
+</ul>
+<h3>쓰지 말아야 할 때</h3>
+<ul>
+  <li><strong>조합이 고정되어 있을 때.</strong> 모든 농장이 항상 "압축+암호화"만 쓴다면 래퍼 둘을 조립하는 유연성은 쓸모가 없다. <code>send()</code> 안에서 두 줄로 끝내는 편이 읽기 쉽다.</li>
+  <li><strong>덧붙이는 책임이 감싼 객체의 내부 상태를 알아야 할 때.</strong> 데코레이터는 공개 인터페이스만 볼 수 있다. 내부에 손을 대야 한다면 그것은 '바깥에서 덧입히기'가 아니라 '속을 바꾸기'이므로, 전략 패턴(10장)으로 내부 알고리즘을 교체하는 편이 맞다. GoF의 표현을 빌리면 데코레이터는 객체의 '껍질'을, 전략은 '속'을 바꾼다.</li>
+  <li><strong>인터페이스가 넓을 때.</strong> 메서드가 스무 개인 인터페이스를 감싸면 모든 래퍼가 스무 개 메서드를 위임해야 한다. 위 함정처럼 <code>__getattr__</code>로 줄이면 투명성이 깨진다. 감쌀 인터페이스를 먼저 좁혀라.</li>
+  <li><strong>순서 조합 중 대부분이 무의미할 때.</strong> 압축과 암호화처럼 '맞는 순서가 하나뿐'인 조합이 많다면, 순서 자유도는 실수할 자유일 뿐이다. 하나의 데코레이터로 묶거나 조립 시점에 순서를 검증하라.</li>
+</ul>
+<h3>관련 패턴</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>패턴</th><th>관계</th></tr></thead>
+  <tbody>
+    <tr><td>프록시(9장)</td><td>구조는 거의 같다(같은 인터페이스로 감싸고 위임). 차이는 의도다. 데코레이터는 <strong>책임을 추가</strong>하며 클라이언트가 조합을 정하고, 프록시는 <strong>접근을 통제</strong>하며 흔히 실제 객체의 생성·<dfn class="term" id="term-lifecycle" data-term="lifecycle" title="객체가 생성되어 쓰이다가 해제·소멸되기까지의 전 과정. 누가 그 시점을 결정하는가가 설계 쟁점이 된다.">생명주기</dfn>(객체가 만들어져 쓰이다가 해제되기까지의 전 과정)까지 관리한다.</td></tr>
+    <tr><td>어댑터(5장)</td><td>어댑터는 인터페이스를 <strong>바꾸고</strong>, 데코레이터는 <strong>유지한다</strong>. 그래서 데코레이터는 중첩되지만 어댑터는 보통 한 겹이다.</td></tr>
+    <tr><td>컴포지트(7장)</td><td>둘 다 재귀적 합성이다. 데코레이터는 자식이 하나인 컴포지트로 볼 수 있다. 다만 컴포지트의 목적은 '모으기'(부분-전체), 데코레이터의 목적은 '덧붙이기'다.</td></tr>
+    <tr><td>전략(10장)</td><td>객체의 겉을 바꾸기(데코레이터) vs 속을 바꾸기(전략).</td></tr>
+  </tbody>
+</table></div>
+</section>
+
+<section id="exercises">
+<h2>7. 연습문제</h2>
+
+<div class="exercise" id="ex1">
+  <h3><span class="ex-tag">개념</span> 문제 1. 순서가 바뀐 체인</h3>
+  <p>배치(10건)를 가장 바깥에 두고, 그 안에서 압축과 암호화를 (가) 압축→암호화, (나) 암호화→압축 순서로 감싼 두 체인에 측정값 100건을 보낸다. 각각의 총 전송 크기를 실행으로 확인하고, 차이가 나는 이유를 정보 이론적 관점에서 한두 문장으로 설명하라. 추가로, 배치를 압축 <em>안쪽</em>으로 옮기면(건별 압축 후 묶음) 어떻게 되는지도 예측하고 확인하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>압축은 데이터 안의 <strong>반복(<dfn class="term" id="term-redundancy" data-term="redundancy" title="데이터 안의 반복되는 부분; 압축은 이를 짧은 참조로 바꾸는 일이라 중복성이 없는 암호문은 압축되지 않는다.">중복성</dfn>)</strong>, 즉 되풀이되는 부분을 찾아 짧은 참조로 바꾸는 일이다. 센서 JSON은 <code>"sensor": "soil-07"</code> 같은 반복이 많아 잘 압축된다. 반면 좋은 암호문은 무작위 바이트와 구별되지 않아야 하므로 중복성이 사라진다. 그래서 암호화 뒤에 압축하면 줄일 것이 없고, 압축 포맷의 헤더·<dfn class="term" id="term-checksum" data-term="checksum" title="데이터 손상을 확인하려고 붙이는 짧은 검증 값.">체크섬</dfn>(데이터 손상을 확인하려고 붙이는 짧은 검증 값)만큼 오히려 커진다(아래 출력에서 원본 대비 103%).</p>
+    <p>배치 위치도 같은 원리다. 압축기는 한 번에 보는 데이터가 클수록 반복을 많이 찾는다. 62바이트짜리 측정값 하나만 압축하면 반복이 거의 없어 헤더 비용만 붙지만, 10건을 묶은 뒤 압축하면 건 사이의 반복을 활용한다.</p>
+    <p><strong>흔한 오답:</strong> "암호화가 데이터를 늘리기 때문"이라는 답. 이 예제의 스트림 암호는 길이를 바꾸지 않는다(실제 AES-GCM은 nonce·태그 몇십 바이트를 붙일 뿐이다). 차이의 원인은 길이가 아니라 <em>압축 가능성</em>이다.</p>
+    <figure class="code"><figcaption>src/06_decorator/solutions/ex1_order.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 연습문제 1 해설: 감싸는 순서에 따라 전송 크기가 어떻게 달라지는가.
+
+상황: 준호의 게이트웨이 설정 파일에서 누군가 compress와 encrypt의 순서를 바꿨다.
+테스트는 모두 통과했지만 그달 LTE 요금이 여섯 배로 뛰었다. 이 파일은 두 순서를
+실제로 실행해 크기를 비교하고, 덤으로 &#x27;배치를 압축 바깥에 두느냐 안쪽에 두느냐&#x27;도 비교한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import hashlib
+import json
+import zlib
+from abc import ABC, abstractmethod
+from typing import Callable
+
+
+def toy_encrypt(data: bytes, key: bytes = b&quot;k&quot;) -&gt; bytes:
+    &quot;&quot;&quot;교육용 스트림 암호. 출력이 무작위처럼 보인다는 성질만 필요하다.&quot;&quot;&quot;
+    stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
+                      for i in range(len(data) // 32 + 1))
+    return bytes(a ^ b for a, b in zip(data, stream))
+
+
+class Channel(ABC):
+    &quot;&quot;&quot;[Component] 전송 채널.&quot;&quot;&quot;
+
+    @abstractmethod
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;전송.&quot;&quot;&quot;
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;기본은 할 일 없음. 데코레이터가 재정의해 위임한다.&quot;&quot;&quot;
+
+
+class Sink(Channel):
+    &quot;&quot;&quot;[Concrete Component] 보낸 크기를 합산한다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;누적 바이트 수.&quot;&quot;&quot;
+        self.total = 0
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;크기만 기록.&quot;&quot;&quot;
+        self.total += len(payload)
+
+
+class Wrapper(Channel):
+    &quot;&quot;&quot;[Decorator] 위임 기반 클래스.&quot;&quot;&quot;
+
+    def __init__(self, inner: Channel) -&gt; None:
+        &quot;&quot;&quot;감쌀 채널.&quot;&quot;&quot;
+        self._inner = inner
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;기본 위임.&quot;&quot;&quot;
+        self._inner.send(payload)
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;flush 위임.&quot;&quot;&quot;
+        self._inner.flush()
+
+
+class Compress(Wrapper):
+    &quot;&quot;&quot;[Concrete Decorator] 압축.&quot;&quot;&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;압축 후 위임.&quot;&quot;&quot;
+        self._inner.send(zlib.compress(payload, 9))
+
+
+class Encrypt(Wrapper):
+    &quot;&quot;&quot;[Concrete Decorator] 암호화.&quot;&quot;&quot;
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;암호화 후 위임.&quot;&quot;&quot;
+        self._inner.send(toy_encrypt(payload))
+
+
+class Batch(Wrapper):
+    &quot;&quot;&quot;[Concrete Decorator] n건 묶음.&quot;&quot;&quot;
+
+    def __init__(self, inner: Channel, n: int) -&gt; None:
+        &quot;&quot;&quot;버퍼 크기와 버퍼.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._n = n
+        self._buf: list[bytes] = []
+
+    def send(self, payload: bytes) -&gt; None:
+        &quot;&quot;&quot;n건이 차면 한 번에.&quot;&quot;&quot;
+        self._buf.append(payload)
+        if len(self._buf) == self._n:
+            self._emit()
+
+    def _emit(self) -&gt; None:
+        &quot;&quot;&quot;버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. &#x27;내보내기&#x27;만 하고 flush는 전파하지 않는다(02와 같은 구조).&quot;&quot;&quot;
+        if self._buf:
+            self._inner.send(b&quot;\n&quot;.join(self._buf))
+            self._buf.clear()
+
+    def flush(self) -&gt; None:
+        &quot;&quot;&quot;내 버퍼를 비운 뒤 안쪽으로 flush 전파.&quot;&quot;&quot;
+        self._emit()
+        self._inner.flush()
+
+
+def reading(i: int) -&gt; bytes:
+    &quot;&quot;&quot;센서 측정값 JSON.&quot;&quot;&quot;
+    return json.dumps({&quot;sensor&quot;: &quot;soil-07&quot;, &quot;seq&quot;: i, &quot;moisture&quot;: 31.5 + i % 3, &quot;unit&quot;: &quot;%&quot;}).encode()
+
+
+def measure(build: Callable[[Channel], Channel], n: int = 100) -&gt; int:
+    &quot;&quot;&quot;build(sink)로 체인을 만들고 n건을 보낸 뒤 총 전송 바이트를 돌려준다.&quot;&quot;&quot;
+    sink = Sink()
+    chain = build(sink)
+    for i in range(n):
+        chain.send(reading(i))
+    chain.flush()
+    return sink.total
+
+
+if __name__ == &quot;__main__&quot;:
+    # 기준선: 래퍼 없이 보낸 원본 크기. 이후 비율은 모두 이것에 대한 백분율이다.
+    raw = measure(lambda s: s)
+    print(f&quot;[0] 아무 래퍼 없음: {raw} bytes (100건)&quot;)
+    print(&quot;[1] 압축과 암호화의 순서 (배치 10건이 가장 바깥)&quot;)
+    # 바깥 → 안쪽이 처리 순서다. (가)는 평문을 압축한 뒤 암호화하고,
+    # (나)는 암호문을 압축하려 한다 — 암호문에는 압축기가 찾을 반복이 없다.
+    a = measure(lambda s: Batch(Compress(Encrypt(s)), 10))
+    b = measure(lambda s: Batch(Encrypt(Compress(s)), 10))
+    print(f&quot;    압축→암호화: {a} bytes  ({a / raw:.0%})&quot;)
+    print(f&quot;    암호화→압축: {b} bytes  ({b / raw:.0%})&quot;)
+    print(&quot;[2] 배치의 위치 (압축→암호화 고정)&quot;)
+    # 배치가 압축 &#x27;안쪽&#x27;이면 압축기는 62바이트짜리 측정값 하나씩만 본다.
+    # 건 사이의 반복(같은 필드 이름)을 활용할 기회가 없어 헤더 비용만 남는다.
+    c = measure(lambda s: Compress(Encrypt(Batch(s, 10))))
+    print(f&quot;    배치가 바깥(묶은 뒤 압축): {a} bytes&quot;)
+    print(f&quot;    배치가 안쪽(건별 압축 뒤 묶음): {c} bytes&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex1_order.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+
+<div class="exercise" id="ex2">
+  <h3><span class="ex-tag">리팩터링</span> 문제 2. 플래그 인자 Notifier</h3>
+  <p>들빛팜 관리 앱의 알림 모듈이다. 호출부마다 플래그 조합이 다르고, "로그를 재시도마다 찍을지 최종 결과만 찍을지"를 고를 수 없다. 데코레이터 체인으로 바꿔라. 원래 계약(<code>send</code>는 성공 여부를 <code>bool</code>로 반환)은 유지한다. 코드의 <dfn class="term" id="term-rate-limiting" data-term="rate-limiting" title="일정 시간 안의 호출 횟수를 제한해 과도한 요청을 막는 것.">호출 제한</dfn>은 일정 시간 안의 호출 횟수를 제한해 과도한 요청을 막는 기능이고, <dfn class="term" id="term-monotonic-clock" data-term="monotonic-clock" title="시스템 시각 조정에 영향받지 않고 단조 증가하는 시계 값(초)을 돌려주는 함수; 경과 시간 측정에 쓴다."><code>time.monotonic()</code></dfn>은 시스템 시각 조정에 영향받지 않고 늘어나기만 하는 시계 값(초)을 돌려주어 경과 시간을 재는 데 쓴다.</p>
+<pre><code class="language-python">class Notifier:
+    def __init__(self, sms_api):
+        self._sms_api = sms_api
+        self._last = 0.0                     # 마지막 전송 시각(호출 제한용)
+
+    def send(self, msg, *, with_retry=False, with_log=False, with_rate_limit=False):
+        if with_rate_limit:                  # 1초에 한 번만
+            now = time.monotonic()
+            if now - self._last &lt; 1.0:
+                return False
+            self._last = now
+        if with_log:
+            print("send:", msg)
+        attempts = 3 if with_retry else 1    # 재시도 횟수가 하드코딩
+        for i in range(attempts):
+            try:
+                self._sms_api.post(msg)
+                return True
+            except ConnectionError:
+                if with_log:                 # 로그 플래그가 재시도 로직 안까지 침투
+                    print("retry", i)
+        return False
+</code></pre>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>플래그 셋을 <code>RetryingNotifier</code>, <code>LoggingNotifier</code>, <code>RateLimitingNotifier</code>로 분리하고, SMS 호출은 <code>SmsNotifier</code>(Concrete Component)로 둔다. 원래 코드에서 '로그 플래그가 재시도 루프 안까지 침투'했던 문제는 <code>LoggingNotifier</code>를 체인의 어느 위치에 두느냐로 해결된다. 아래 데모처럼 재시도 바깥과 안쪽에 하나씩 두면 시도별 로그와 최종 결과 로그를 동시에 얻는다. 하드코딩된 재시도 횟수 3은 래퍼의 생성자 인자가 되었고, <code>time.monotonic</code>은 시계 함수 주입으로 바뀌어 테스트가 실제로 기다리지 않아도 된다.</p>
+    <p>순서에도 의미가 있다. 호출 제한을 재시도 <em>바깥</em>에 둬야 "사용자 요청 1회"를 기준으로 제한한다. 안쪽에 두면 재시도 자체가 제한에 걸려, 첫 실패 후 재시도가 모두 차단된다.</p>
+    <p><strong>흔한 오답:</strong> <code>LoggingNotifier</code>가 <code>ConnectionError</code>를 잡아서 <code>False</code>를 반환하게 만드는 것. 그러면 안쪽에 놓인 로그 래퍼가 예외를 삼켜 바깥의 재시도 래퍼가 실패를 알아채지 못한다. 관찰형 데코레이터는 흐름을 바꾸지 말아야 하므로 기록 후 다시 던진다.</p>
+    <figure class="code"><figcaption>src/06_decorator/solutions/ex2_notifier.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 연습문제 2 해설: 플래그 인자 Notifier를 데코레이터 체인으로.
+
+상황: 농장 관리 앱의 알림 모듈 Notifier.send(msg, *, with_retry, with_log, with_rate_limit)는
+플래그 세 개를 받아 한 메서드 안에서 재시도·로그·호출 제한을 처리했다. 호출부마다 플래그
+조합이 달랐고, &quot;로그는 재시도마다 찍어야 하나, 최종 결과만 찍어야 하나&quot; 같은 질문에
+코드가 답하지 못했다. 이 파일은 각 플래그를 같은 Notifier 인터페이스의 래퍼 하나로 바꾼다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Callable
+
+
+class Notifier(ABC):
+    &quot;&quot;&quot;[Component] 알림 전송. 성공 여부를 bool로 돌려준다(원래 코드의 계약을 유지).&quot;&quot;&quot;
+
+    @abstractmethod
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;메시지를 보낸다.&quot;&quot;&quot;
+
+
+class SmsNotifier(Notifier):
+    &quot;&quot;&quot;[Concrete Component] SMS API 호출. 데모를 위해 처음 fail_times번은 연결 오류를 낸다.&quot;&quot;&quot;
+
+    def __init__(self, fail_times: int = 0) -&gt; None:
+        &quot;&quot;&quot;실패 횟수 주입 — 재시도 래퍼를 결정적으로 시험하기 위해서다.&quot;&quot;&quot;
+        self._fail_left = fail_times
+
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;실패 횟수가 남았으면 ConnectionError.&quot;&quot;&quot;
+        if self._fail_left &gt; 0:
+            self._fail_left -= 1
+            raise ConnectionError(&quot;SMS 게이트웨이 응답 없음&quot;)
+        print(f&quot;      (SMS) {msg}&quot;)
+        return True
+
+
+class NotifierDecorator(Notifier):
+    &quot;&quot;&quot;[Decorator] 공통 위임 기반.&quot;&quot;&quot;
+
+    def __init__(self, inner: Notifier) -&gt; None:
+        &quot;&quot;&quot;감쌀 Notifier.&quot;&quot;&quot;
+        self._inner = inner
+
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;기본 위임.&quot;&quot;&quot;
+        return self._inner.send(msg)
+
+
+class RetryingNotifier(NotifierDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] ConnectionError면 최대 attempts번 시도한다.&quot;&quot;&quot;
+
+    def __init__(self, inner: Notifier, attempts: int = 3) -&gt; None:
+        &quot;&quot;&quot;시도 횟수는 래퍼마다 다르게 줄 수 있다(플래그 방식에서는 3이 하드코딩돼 있었다).&quot;&quot;&quot;
+        super().__init__(inner)
+        self._attempts = attempts
+
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;모두 실패하면 False — 원래 코드의 계약과 같다.&quot;&quot;&quot;
+        for _ in range(self._attempts):
+            try:
+                return self._inner.send(msg)
+            except ConnectionError:
+                continue
+        return False
+
+
+class LoggingNotifier(NotifierDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] 시도와 결과를 기록한다.
+
+    체인에서의 위치가 곧 &#x27;무엇을 기록하는가&#x27;를 정한다.
+    Retrying 바깥이면 최종 결과 1줄, 안쪽이면 시도마다 1줄. 원래 코드는 이 선택이 불가능했다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Notifier, label: str = &quot;log&quot;) -&gt; None:
+        &quot;&quot;&quot;로그 접두어.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._label = label
+
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;예외도 기록한 뒤 다시 던진다 — 관찰만 하고 흐름은 바꾸지 않는다.&quot;&quot;&quot;
+        try:
+            ok = self._inner.send(msg)
+        except ConnectionError as e:
+            print(f&quot;    [{self._label}] 실패: {e}&quot;)
+            raise
+        print(f&quot;    [{self._label}] 결과: {ok}&quot;)
+        return ok
+
+
+class RateLimitingNotifier(NotifierDecorator):
+    &quot;&quot;&quot;[Concrete Decorator] interval초 안의 재호출은 보내지 않고 False.
+
+    clock을 주입받는 이유: time.monotonic을 직접 부르면 테스트가 실제로 기다려야 한다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Notifier, interval: float, clock: Callable[[], float]) -&gt; None:
+        &quot;&quot;&quot;간격과 시계.&quot;&quot;&quot;
+        super().__init__(inner)
+        self._interval, self._clock = interval, clock
+        self._last: float | None = None
+
+    def send(self, msg: str) -&gt; bool:
+        &quot;&quot;&quot;간격 안이면 차단.&quot;&quot;&quot;
+        now = self._clock()
+        if self._last is not None and now - self._last &lt; self._interval:
+            print(f&quot;    [rate] 차단: {msg!r}&quot;)
+            return False
+        self._last = now
+        return self._inner.send(msg)
+
+
+if __name__ == &quot;__main__&quot;:
+    t = [0.0]  # 가짜 시계: 리스트에 담아 람다가 바뀐 값을 읽게 한다
+
+    print(&quot;[1] 제한 → 로그(최종) → 재시도 → 로그(시도별) → SMS (처음 2번 실패)&quot;)
+    n = RateLimitingNotifier(
+        LoggingNotifier(RetryingNotifier(LoggingNotifier(SmsNotifier(fail_times=2), &quot;try&quot;), 3), &quot;final&quot;),
+        interval=1.0, clock=lambda: t[0])
+    n.send(&quot;3번 하우스 수분 15% 미만&quot;)
+    t[0] = 0.5
+    n.send(&quot;3번 하우스 수분 14% 미만&quot;)   # 0.5초 뒤 → 차단
+    t[0] = 2.0
+    n.send(&quot;3번 하우스 관수 완료&quot;)
+
+    print(&quot;[2] 재시도만 필요한 호출부 — 같은 클래스, 다른 조합&quot;)
+    print(f&quot;    결과: {RetryingNotifier(SmsNotifier(fail_times=5), 3).send(&#x27;테스트&#x27;)}&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_notifier.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+
+<div class="exercise" id="ex3">
+  <h3><span class="ex-tag">판단</span> 문제 3. 인증을 어디에 붙일까</h3>
+  <p>들빛팜 웹 콘솔에 인증 확인을 붙인다. 대부분의 화면은 로그인이 필요하고 <code>/health</code>는 공개다. 관수 밸브 리소스는 조회(GET)는 공개, 제어(POST)는 인증이 필요하다. (A) 핸들러 함수마다 <code>@login_required</code>, (B) 앱 전체에 <dfn class="term" id="term-middleware" data-term="middleware" title="웹 앱 등에서 모든 요청이 핸들러에 닿기 전후로 거치게 줄지어 놓은 처리 단계; 사실상 앱 전체에 적용되는 데코레이터 체인이다.">미들웨어</dfn> 리스트(미들웨어는 모든 요청이 핸들러에 닿기 전후로 거치도록 줄지어 놓은 처리 단계다), (C) GoF 데코레이터 객체 중 무엇이 적합한지, 각각이 GoF 데코레이터 의도와 어떤 관계인지 판단하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>세 방법 모두 "같은 호출 모양을 유지한 채 책임(인증)을 덧붙인다"는 점에서 데코레이터 의도를 구현한다. 차이는 <strong>적용 범위를 어디서 결정하고, 기본값이 무엇이냐</strong>다.</p>
+    <ul>
+      <li><strong>보안의 기본값이 중요한 '대부분 보호' 요구에는 (B) 미들웨어</strong>가 맞다. 새 <dfn class="term" id="term-endpoint" data-term="endpoint" title="웹 API에서 요청을 받는 개별 경로(URL)와 그 처리기.">엔드포인트</dfn>(요청을 받는 개별 URL 경로와 그 처리기)가 자동으로 보호되고(<dfn class="term" id="term-secure-by-default" data-term="secure-by-default" title="명시적으로 예외를 두지 않는 한 기본값이 &#x27;보호됨&#x27;이 되게 하는 설계 원칙.">secure by default</dfn>: 명시적으로 예외를 두지 않는 한 기본값이 '보호됨'이 되게 하는 원칙), 예외는 화이트리스트로 한 곳에서 관리된다. (A)는 <code>@</code>를 깜빡하는 순간 공개되므로, 보안처럼 "빠뜨리면 사고"인 책임에는 위험하다. 미들웨어 리스트는 사실상 <code>reduce</code>로 조립한 데코레이터 체인이다.</li>
+      <li><strong>(A) 함수 <code>@decorator</code>는 '일부만' 적용하는 책임</strong>(예: 특정 화면만 관리자 권한, 특정 API만 캐싱)에 좋다. 핸들러 정의 바로 위에서 정책이 보이는 지역성이 장점이다.</li>
+      <li><strong>(C) 객체 데코레이터는 밸브 리소스처럼 인터페이스가 메서드 여러 개이고 메서드마다 정책이 다를 때</strong> 자연스럽다. 함수 하나를 감싸는 방식으로는 "GET은 통과, POST만 검사"를 표현하기 어색하다.</li>
+    </ul>
+    <p>따라서 실무 답은 조합이다. 전체 인증은 (B), 밸브 제어는 (C), 화면별 추가 권한은 (A). <strong>흔한 오답:</strong> "파이썬이니까 무조건 <code>@</code>". 문법의 편의가 아니라 '빠뜨렸을 때 무슨 일이 생기는가'로 판단해야 한다.</p>
+    <p>해설 코드의 <code>Resource</code>는 <dfn class="term" id="term-rest-resource" data-term="rest-resource" title="REST 방식 웹 API에서 URL로 식별되고 GET·POST 같은 HTTP 메서드로 조작되는 대상.">REST 리소스</dfn>를 흉내 낸다. REST 방식 웹 API에서 URL로 식별되고 GET·POST 같은 HTTP 메서드로 조작되는 대상을 말한다.</p>
+    <figure class="code"><figcaption>src/06_decorator/solutions/ex3_auth.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 연습문제 3 해설: 웹 핸들러에 &#x27;인증 확인&#x27;을 붙이는 세 가지 방법.
+
+상황: 농장 관리 웹 콘솔에 인증을 붙여야 한다. 대부분의 화면은 로그인이 필요하지만
+/health 같은 몇몇 엔드포인트는 공개다. 후보는 (A) 함수 @decorator, (B) 미들웨어 리스트,
+(C) GoF 데코레이터 객체. 이 파일은 셋을 같은 요청으로 실행해 보인다.
+세 방법 모두 &#x27;같은 호출 모양을 유지한 채 책임을 덧붙인다&#x27;는 데코레이터 의도를 구현한다.
+차이는 &#x27;어디서, 언제 적용 범위를 정하는가&#x27;다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from functools import reduce, wraps
+from typing import Callable
+
+
+@dataclass
+class Request:
+    &quot;&quot;&quot;간단한 요청 객체.&quot;&quot;&quot;
+
+    path: str
+    user: str | None = None
+    headers: dict[str, str] = field(default_factory=dict)
+
+
+Handler = Callable[[Request], str]
+&quot;&quot;&quot;[Component] 핸들러의 모양: 요청 → 응답 문자열.&quot;&quot;&quot;
+
+
+# --- (A) 함수 @decorator: 핸들러 &#x27;정의 지점&#x27;에서 선언 -----------------------
+
+def login_required(handler: Handler) -&gt; Handler:
+    &quot;&quot;&quot;[Concrete Decorator] 로그인하지 않았으면 401.
+
+    장점: 핸들러 코드 바로 위에서 &#x27;이 화면은 인증 필요&#x27;가 보인다(선언적, 지역적).
+    단점: 빠뜨리기 쉽다. 새 핸들러에 @를 깜빡하면 기본값이 &#x27;공개&#x27;가 된다.
+    &quot;&quot;&quot;
+    @wraps(handler)
+    def wrapper(req: Request) -&gt; str:
+        &quot;&quot;&quot;인증 확인 후 위임.&quot;&quot;&quot;
+        if req.user is None:
+            return &quot;401 Unauthorized&quot;
+        return handler(req)
+    return wrapper
+
+
+@login_required
+def dashboard(req: Request) -&gt; str:
+    &quot;&quot;&quot;대시보드(인증 필요).&quot;&quot;&quot;
+    return f&quot;200 {req.user}의 대시보드&quot;
+
+
+def health(req: Request) -&gt; str:
+    &quot;&quot;&quot;헬스 체크(공개).&quot;&quot;&quot;
+    return &quot;200 ok&quot;
+
+
+# --- (B) 미들웨어 리스트: &#x27;앱 전체&#x27;에 순서대로 적용 --------------------------
+
+Middleware = Callable[[Handler], Handler]
+PUBLIC_PATHS = {&quot;/health&quot;}
+
+
+def auth_middleware(next_handler: Handler) -&gt; Handler:
+    &quot;&quot;&quot;[Concrete Decorator] 모든 요청에 적용. 예외 경로는 화이트리스트.
+
+    장점: 기본값이 &#x27;보호됨&#x27;이다. 새 엔드포인트를 만들어도 빠뜨릴 수 없다.
+    단점: 핸들러 코드만 봐서는 인증 여부가 보이지 않는다.
+    &quot;&quot;&quot;
+    def handle(req: Request) -&gt; str:
+        &quot;&quot;&quot;공개 경로가 아니면 인증 확인.&quot;&quot;&quot;
+        if req.path not in PUBLIC_PATHS and req.user is None:
+            return &quot;401 Unauthorized&quot;
+        return next_handler(req)
+    return handle
+
+
+def timing_middleware(next_handler: Handler) -&gt; Handler:
+    &quot;&quot;&quot;[Concrete Decorator] 응답에 처리 표시를 붙인다(순서 확인용).&quot;&quot;&quot;
+    def handle(req: Request) -&gt; str:
+        &quot;&quot;&quot;위임 후 꼬리표.&quot;&quot;&quot;
+        return next_handler(req) + &quot; (timed)&quot;
+    return handle
+
+
+def build_app(router: Handler, middlewares: list[Middleware]) -&gt; Handler:
+    &quot;&quot;&quot;리스트의 첫 미들웨어가 가장 바깥이 되도록 조립한다. 사실상 데코레이터 체인이다.&quot;&quot;&quot;
+    return reduce(lambda inner, mw: mw(inner), reversed(middlewares), router)
+
+
+def router(req: Request) -&gt; str:
+    &quot;&quot;&quot;경로에 따라 핸들러 선택(인증을 모르는 원래 핸들러들).&quot;&quot;&quot;
+    routes: dict[str, Handler] = {&quot;/health&quot;: health, &quot;/dashboard&quot;: lambda r: f&quot;200 {r.user}의 대시보드&quot;}
+    return routes.get(req.path, lambda r: &quot;404&quot;)(req)
+
+
+# --- (C) GoF 데코레이터 객체: 핸들러가 &#x27;여러 메서드를 가진 객체&#x27;일 때 ---------
+
+class Resource:
+    &quot;&quot;&quot;[Component] REST 리소스. get/post 두 메서드 — 함수 하나로는 감쌀 수 없는 모양.&quot;&quot;&quot;
+
+    def get(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;조회.&quot;&quot;&quot;
+        raise NotImplementedError
+
+    def post(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;변경.&quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class ValveResource(Resource):
+    &quot;&quot;&quot;[Concrete Component] 관수 밸브 제어.&quot;&quot;&quot;
+
+    def get(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;밸브 상태.&quot;&quot;&quot;
+        return &quot;200 valve=closed&quot;
+
+    def post(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;밸브 열기.&quot;&quot;&quot;
+        return &quot;200 valve opened&quot;
+
+
+class WriteProtected(Resource):
+    &quot;&quot;&quot;[Concrete Decorator] 조회는 공개, 변경만 인증. 메서드별로 다른 책임을 덧붙인다.
+
+    인터페이스가 메서드 여러 개이고 메서드마다 정책이 다르면 객체 데코레이터가 자연스럽다.
+    &quot;&quot;&quot;
+
+    def __init__(self, inner: Resource) -&gt; None:
+        &quot;&quot;&quot;감쌀 리소스.&quot;&quot;&quot;
+        self._inner = inner
+
+    def get(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;그대로 위임.&quot;&quot;&quot;
+        return self._inner.get(req)
+
+    def post(self, req: Request) -&gt; str:
+        &quot;&quot;&quot;인증 후 위임.&quot;&quot;&quot;
+        return &quot;401 Unauthorized&quot; if req.user is None else self._inner.post(req)
+
+
+if __name__ == &quot;__main__&quot;:
+    anon, alice = Request(&quot;/dashboard&quot;), Request(&quot;/dashboard&quot;, user=&quot;alice&quot;)
+    print(&quot;[A] 함수 @decorator&quot;)
+    print(f&quot;    익명 → {dashboard(anon)} / alice → {dashboard(alice)} / health → {health(Request(&#x27;/health&#x27;))}&quot;)
+
+    print(&quot;[B] 미들웨어 리스트 [timing, auth]&quot;)
+    app = build_app(router, [timing_middleware, auth_middleware])
+    for r in (anon, alice, Request(&quot;/health&quot;)):
+        print(f&quot;    {r.path} user={r.user} → {app(r)}&quot;)
+
+    print(&quot;[C] GoF 데코레이터 객체(메서드별 정책)&quot;)
+    valve = WriteProtected(ValveResource())
+    print(f&quot;    익명 GET → {valve.get(anon)} / 익명 POST → {valve.post(anon)} / alice POST → {valve.post(alice)}&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_auth.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+</section>
+    <nav class="pager"><a class="prev" href="05-adapter.html"><small>← 이전 · 5장</small>어댑터 (Adapter)</a><a class="next" href="07-composite.html"><small>다음 · 7장 →</small>컴포지트 (Composite)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

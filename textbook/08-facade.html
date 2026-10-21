@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8장 퍼사드 (Facade) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="구조 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">8장 · 퍼사드 (Facade)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">8장 · 구조 패턴</span><h1>퍼사드 (Facade)</h1><p class="subtitle">복잡한 서브시스템 앞에 단순한 정문을 하나 두기</p></header>
+    <section id="goals">
+<h2>학습 목표</h2>
+<ol>
+  <li>복잡한 서브시스템 묶음에 대해 클라이언트용 단순한 진입점을 제공하는 퍼사드를 설계하고, 서브시스템 직접 접근을 막지 않는다는 점을 설명할 수 있다.</li>
+  <li>퍼사드가 "모든 것을 아는 신 객체(God object)"로 변질되는 징후를 식별하고 경계를 정할 수 있다.</li>
+  <li>디미터 법칙과 결합도 감소 관점에서 퍼사드의 효과를 측정(클라이언트가 의존하는 모듈 수)할 수 있다.</li>
+</ol>
+</section>
+
+<section id="context">
+<h2>1. 상황</h2>
+<p>'푸른날개항공'은 인천공항 출국장에 셀프 체크인 키오스크 마흔 대를 설치했다. 키오스크 개발팀의 지호가 만든 화면 코드는 다섯 개의 사내 서비스를 차례로 불렀다. 예약 시스템에서 예약을 찾고, 여권 판독기로 승객을 확인하고, 좌석 서비스에서 좌석을 받고, 수하물 서비스에서 초과 요금을 계산하고, 탑승권 발급기로 출력한다. 각 서비스는 담당 팀이 따로 있고, 각자는 잘 만들어져 있었다.</p>
+<p>이듬해 같은 체크인을 모바일 앱과 카운터 직원용 웹에서도 제공하기로 했다. 두 팀은 가장 빠른 길을 택했다. 지호의 화면 코드를 열어 호출 순서를 보고 자기 코드에 옮겨 적었다. 세 클라이언트가 다섯 서비스를 각자 직접 부르게 되었다.</p>
+<p>그 뒤 두 가지 변경이 겹쳤다. 첫째, 미국 노선에 <dfn class="term" id="term-advance-passenger-information-system" data-term="advance-passenger-information-system" title="항공사가 발권 전에 승객 정보를 도착국 당국에 보내는 사전 승객정보 제도. 미전송 시 항공사가 벌금을 문다.">사전 승객정보(APIS)</dfn> 전송 의무가 생겼다. 발권 전에 승객 정보를 미국 당국에 보내지 않으면 항공사가 승객당 벌금을 문다. 둘째, 좌석 서비스 팀이 API를 v2로 바꿨다. 키오스크 팀은 두 변경을 모두 반영했다. 모바일 팀은 좌석 API만 고치고 APIS를 놓쳤다. 감사에서 드러난 것은 그것만이 아니었다. 모바일 앱은 복제 과정에서 "여권 판독 전에는 좌석을 배정하지 않는다"는 출입국 규정을 어기고 순서를 뒤바꿔 놓았다.</p>
+<p>문제의 핵심은 어느 서비스의 품질도 아니었다. <strong>"체크인이란 이 다섯(여섯) 서비스를 이 순서와 이 조건으로 부르는 것"이라는 지식이 UI 세 곳에 흩어져 있었다.</strong> 서비스가 바뀔 때마다 세 UI가 흔들리고, 규칙이 바뀔 때마다 세 곳 중 하나가 빠진다.</p>
+</section>
+
+<section id="naive">
+<h2>2. 순진한 설계와 그 한계</h2>
+<p>감사 직전의 코드를 재현한다. 예약·여권 판독·좌석·수하물·탑승권처럼 큰 기능을 이루면서 각자 독립적으로 관리되는 하위 구성 요소들을 <dfn class="term" id="term-subsystem" data-term="subsystem" title="하나의 기능 영역을 함께 이루는 여러 클래스·서비스의 묶음. 퍼사드는 서브시스템 앞에 단순한 진입점을 둔다.">서브시스템</dfn>이라 부르자. 서브시스템은 각자 단순하다. 문제는 아래쪽의 두 클라이언트에 있다.</p>
+<p class="lead-in">두 클라이언트의 생성자에서 서브시스템 객체를 몇 개씩 만드는지 세어 보고, <code>MobileApp.check_in()</code>이 <code>KioskScreen.on_check_in()</code>과 어디서 달라졌는지 찾아보라. 데모 [2]와 [3]이 그 차이의 결과다. 코드의 <dfn class="term" id="term-passenger-name-record" data-term="passenger-name-record" title="항공 예약 기록 번호(예약 번호)."><code>pnr</code></dfn>은 항공 예약 기록 번호(PNR, 예약 번호)이고, <dfn class="term" id="term-machine-readable-zone" data-term="machine-readable-zone" title="여권 하단의 기계 판독 영역. 이름·여권번호 등이 정해진 형식으로 인쇄되어 있다."><code>mrz</code></dfn>는 여권 하단의 기계 판독 영역(MRZ)에 정해진 형식으로 인쇄된 문자열이다.</p>
+<figure class="code"><figcaption>src/08_facade/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 순진한 설계: 세 클라이언트가 다섯 서브시스템의 호출 순서를 각자 복제한다.
+
+상황: 항공사 &#x27;푸른날개항공&#x27;의 키오스크 개발자 지호는 화면 코드에서 예약 조회 → 여권 판독 →
+좌석 배정 → 수하물 요금 → 탑승권 출력을 순서대로 호출했다. 같은 체크인 흐름이 모바일 앱과
+카운터 직원용 웹에도 필요해지자 각 팀이 지호의 코드를 보고 호출 순서를 &#x27;복제&#x27;했다.
+그 뒤 미국행 노선에 사전 승객정보(APIS) 전송 단계가 추가되었다. 키오스크 팀은 반영했지만
+모바일 팀은 놓쳤다. 이 파일은 그 상태를 재현한다 — 데모 [2]를 보라.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# ---------------------------------------------------------------------------
+# 서브시스템 — 각자 독립된 팀이 관리하는 사내 서비스(흉내). 각각은 잘 설계되어 있다.
+# 문제는 이들이 아니라, 이들을 &#x27;어떤 순서와 규칙으로&#x27; 엮는 지식이 어디 있느냐다.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Booking:
+    &quot;&quot;&quot;예약 정보.&quot;&quot;&quot;
+
+    pnr: str
+    last_name: str
+    destination: str
+    passport_verified: bool = False
+    seat: str | None = None
+
+
+class ReservationSystem:
+    &quot;&quot;&quot;예약 조회 서브시스템.&quot;&quot;&quot;
+
+    def find(self, pnr: str, last_name: str) -&gt; Booking:
+        &quot;&quot;&quot;예약 번호와 성으로 예약을 찾는다.&quot;&quot;&quot;
+        dest = &quot;JFK&quot; if pnr.startswith(&quot;US&quot;) else &quot;NRT&quot;
+        return Booking(pnr, last_name, dest)
+
+
+class PassportReader:
+    &quot;&quot;&quot;여권 판독기(하드웨어 드라이버 래퍼).&quot;&quot;&quot;
+
+    def scan(self, booking: Booking, mrz: str) -&gt; None:
+        &quot;&quot;&quot;MRZ(기계 판독 영역)의 성이 예약과 일치하면 검증 표시.&quot;&quot;&quot;
+        booking.passport_verified = booking.last_name.upper() in mrz
+
+
+class SeatService:
+    &quot;&quot;&quot;좌석 배정 서브시스템. 규칙: 여권 검증 전에는 배정 금지(출입국 규정).&quot;&quot;&quot;
+
+    def assign(self, booking: Booking, preference: str) -&gt; str:
+        &quot;&quot;&quot;선호(창가/통로)에 따라 좌석 배정. 규칙 검사는 하지 않는다 — 호출자 책임이라는 계약.&quot;&quot;&quot;
+        booking.seat = &quot;23A&quot; if preference == &quot;window&quot; else &quot;23C&quot;
+        return booking.seat
+
+
+class BaggageService:
+    &quot;&quot;&quot;수하물 요금 서브시스템.&quot;&quot;&quot;
+
+    def quote(self, booking: Booking, bags: int) -&gt; int:
+        &quot;&quot;&quot;1개 무료, 이후 개당 요금. 미국행은 요금이 다르다.&quot;&quot;&quot;
+        unit = 100_000 if booking.destination == &quot;JFK&quot; else 60_000
+        return max(0, bags - 1) * unit
+
+
+class ApisGateway:
+    &quot;&quot;&quot;미국행 사전 승객정보(APIS) 전송. 전송 없이 발권하면 항공사가 벌금을 문다.&quot;&quot;&quot;
+
+    def submit(self, booking: Booking) -&gt; None:
+        &quot;&quot;&quot;승객 정보 전송.&quot;&quot;&quot;
+        print(f&quot;    (APIS) {booking.pnr} 승객 정보 전송&quot;)
+
+
+class BoardingPassPrinter:
+    &quot;&quot;&quot;탑승권 발급기.&quot;&quot;&quot;
+
+    def issue(self, booking: Booking) -&gt; str:
+        &quot;&quot;&quot;탑승권 문자열을 만든다.&quot;&quot;&quot;
+        return f&quot;[탑승권] {booking.last_name} {booking.pnr} → {booking.destination} 좌석 {booking.seat}&quot;
+
+
+# ---------------------------------------------------------------------------
+# 클라이언트 셋 — 각자 다섯(여섯) 서브시스템을 직접 안다.
+# ---------------------------------------------------------------------------
+
+class KioskScreen:
+    &quot;&quot;&quot;공항 키오스크 화면.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;⚠ 문제: UI 클래스가 서브시스템 여섯 개를 직접 생성·보유한다(결합도 6).&quot;&quot;&quot;
+        self.res, self.passport, self.seats = ReservationSystem(), PassportReader(), SeatService()
+        self.bags, self.apis, self.printer = BaggageService(), ApisGateway(), BoardingPassPrinter()
+
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+        &quot;&quot;&quot;체크인 버튼 처리.&quot;&quot;&quot;
+        booking = self.res.find(pnr, name)
+        self.passport.scan(booking, mrz)
+        if not booking.passport_verified:
+            return &quot;여권 불일치&quot;
+        self.seats.assign(booking, pref)
+        fee = self.bags.quote(booking, bags)
+        # ⚠ 문제: &#x27;APIS는 미국행에만, 발권 전에&#x27;라는 규칙이 UI 코드에 있다.
+        if booking.destination == &quot;JFK&quot;:
+            self.apis.submit(booking)
+        return f&quot;{self.printer.issue(booking)} / 수하물 {fee:,}원&quot;
+
+
+class MobileApp:
+    &quot;&quot;&quot;모바일 앱 체크인. 키오스크 코드를 보고 복제했다.&quot;&quot;&quot;
+
+    def __init__(self) -&gt; None:
+        &quot;&quot;&quot;⚠ 문제: 다섯 의존이 또 생긴다(APIS 게이트웨이는 복제 과정에서 빠졌다).&quot;&quot;&quot;
+        self.res, self.passport, self.seats = ReservationSystem(), PassportReader(), SeatService()
+        self.bags, self.printer = BaggageService(), BoardingPassPrinter()
+
+    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+        &quot;&quot;&quot;⚠ 문제: 복제 과정에서 순서 규칙(여권 → 좌석)이 뒤바뀌고 APIS 단계가 빠졌다.&quot;&quot;&quot;
+        booking = self.res.find(pnr, name)
+        self.seats.assign(booking, pref)            # ⚠ 여권 검증 전 좌석 배정 — 규정 위반
+        self.passport.scan(booking, mrz)
+        fee = self.bags.quote(booking, bags)
+        return f&quot;{self.printer.issue(booking)} / 수하물 {fee:,}원&quot;   # ⚠ APIS 미전송
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 키오스크: 미국행 체크인&quot;)
+    print(&quot;    &quot; + KioskScreen().on_check_in(&quot;US7Q2K&quot;, &quot;Kim&quot;, &quot;P&lt;KORKIM&lt;&lt;JIHO&quot;, &quot;window&quot;, 2))
+
+    print(&quot;[2] 모바일 앱: 같은 승객, 같은 노선&quot;)
+    print(&quot;    &quot; + MobileApp().check_in(&quot;US7Q2K&quot;, &quot;Kim&quot;, &quot;P&lt;KORKIM&lt;&lt;JIHO&quot;, &quot;window&quot;, 2))
+    print(&quot;    → APIS 전송 로그가 없다. 그리고 좌석은 여권 판독 &#x27;전에&#x27; 배정됐다.&quot;)
+
+    print(&quot;[3] 모바일 앱: 여권이 다른 사람인데도 탑승권이 나온다&quot;)
+    print(&quot;    &quot; + MobileApp().check_in(&quot;NR11AB&quot;, &quot;Lee&quot;, &quot;P&lt;KORPARK&lt;&lt;MINA&quot;, &quot;aisle&quot;, 1))</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [2]에는 APIS 전송 로그가 없다. [3]은 더 심각하다. 여권 MRZ의 성(PARK)이 예약자(Lee)와 다른데도 탑승권이 나왔다. 모바일 앱은 판독 결과를 확인하지 않고 진행했다. 정리하면 다음과 같다.</p>
+<ul>
+  <li><strong>흐름 지식의 복제.</strong> 호출 순서, 실패 조건, 노선별 단계가 클라이언트마다 따로 존재한다. 복제본은 시간이 지나면 반드시 어긋난다.</li>
+  <li><strong>과도한 결합.</strong> 각 UI 클래스가 서브시스템 다섯~여섯 개에 직접 의존한다. 좌석 API v2 변경은 UI 세 개를 모두 고치게 만든다. 클라이언트의 의존 수를 세는 것이 이 장의 측정 지표다.</li>
+  <li><strong><dfn class="term" id="term-law-of-demeter" data-term="law-of-demeter" title="객체는 직접 협력하는 객체에게만 말을 걸어야 하며, 받은 결과의 내부 구조를 따라 들어가 판단하지 말라는 원칙(최소 지식 원칙).">디미터 법칙</dfn> 위반.</strong> 디미터 법칙(최소 지식 원칙)은 객체가 직접 협력하는 객체에게만 말을 걸고, 받은 결과의 내부 구조를 따라 들어가 판단하지 말라는 원칙이다. UI가 <code>booking.passport_verified</code>, <code>booking.destination</code> 같은 서브시스템 결과의 내부를 직접 들여다보고 판단한다. UI가 알아야 할 것은 "체크인이 됐는가, 탑승권은 무엇인가"뿐이다.</li>
+  <li><strong>책임의 오배치.</strong> 출입국 규정 준수는 UI의 책임이 아니다. 그러나 지금은 UI 코드의 줄 순서가 규정 준수를 결정한다.</li>
+</ul>
+</section>
+
+<section id="structure">
+<h2>3. 패턴의 구조</h2>
+<p>GoF의 의도: <em>"서브시스템의 인터페이스 집합에 대해 하나의 통합된 인터페이스를 제공한다. 퍼사드는 서브시스템을 더 쉽게 사용할 수 있게 해 주는 상위 수준의 인터페이스를 정의한다."</em> 두 가지를 짚어 둔다. 대상은 객체 하나가 아니라 <strong>서브시스템(여러 객체)</strong>이고, 퍼사드는 기존 인터페이스를 맞추는 게 아니라 <strong>새로운 상위 수준 인터페이스를 정의</strong>한다. 5장의 어댑터와 구별되는 지점이다.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 760 360" role="img" aria-label="체크인 퍼사드 구조: 키오스크와 모바일 앱은 CheckInFacade 하나에 의존하고, 퍼사드가 여섯 서브시스템을 조율한다. 카운터 웹은 좌석 서비스에도 직접 접근한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <g class="uml-class" transform="translate(30,20)">
+      <rect width="150" height="44"/>
+      <text class="uml-name" x="75" y="28">KioskScreen</text>
+    </g>
+    <g class="uml-class" transform="translate(210,20)">
+      <rect width="150" height="44"/>
+      <text class="uml-name" x="75" y="28">MobileApp</text>
+    </g>
+    <g class="uml-class" transform="translate(560,20)">
+      <rect width="170" height="44"/>
+      <text class="uml-name" x="85" y="28">카운터 직원 웹</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(220,120)">
+      <rect width="320" height="62"/>
+      <text class="uml-name" x="160" y="24">CheckInFacade</text>
+      <line x1="0" y1="34" x2="320" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ check_in(pnr, last_name, mrz, seat_pref, bags)</text>
+    </g>
+    <path class="uml-dep" d="M105 64 V95 H330 V120" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M285 64 V120" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M600 64 V95 H460 V120" marker-end="url(#arrow)"/>
+
+    <g class="uml-class" transform="translate(10,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">Reservation…</text></g>
+    <g class="uml-class" transform="translate(135,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">PassportReader</text></g>
+    <g class="uml-class" transform="translate(260,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">SeatServiceV2</text></g>
+    <g class="uml-class" transform="translate(385,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">BaggageService</text></g>
+    <g class="uml-class" transform="translate(510,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">ApisGateway</text></g>
+    <g class="uml-class" transform="translate(635,260)"><rect width="115" height="40"/><text class="uml-name" x="57" y="25">BoardingPass…</text></g>
+    <path class="uml-assoc" d="M380 182 V225 H67 V260" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M192 225 V260" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M317 225 V260" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M380 225 H442 V260" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M442 225 H567 V260" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M567 225 H692 V260" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M730 64 V240 H340 V260" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="600" y="236">override() 직접 호출</text>
+    <text class="uml-note" x="560" y="150">Facade</text>
+    <text class="uml-note" x="10" y="330">Subsystem classes — 퍼사드를 모르며, 직접 사용도 여전히 가능하다</text>
+    <text class="uml-note" x="30" y="12">Clients</text>
+  </svg>
+  <figcaption>그림 8-1. 퍼사드는 서브시스템 앞의 '정문'이다. 쪽문(카운터 웹의 직접 접근)은 닫지 않는다.</figcaption>
+</figure>
+<div class="table-wrap"><table>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr><td>Facade</td><td><code>CheckInFacade</code></td><td>어떤 서브시스템을 어떤 순서·조건으로 부를지 안다. 요청을 적절한 서브시스템에 위임한다.</td></tr>
+    <tr><td>Subsystem classes</td><td><code>ReservationSystem</code>, <code>PassportReader</code>, <code>SeatServiceV2</code>, <code>BaggageService</code>, <code>ApisGateway</code>, <code>BoardingPassPrinter</code></td><td>실제 업무 기능을 구현한다. 퍼사드의 존재를 모른다(퍼사드 쪽으로 의존하지 않는다).</td></tr>
+    <tr><td>Client</td><td><code>KioskScreen</code>, <code>MobileApp</code></td><td>퍼사드를 통해 체크인한다.</td></tr>
+  </tbody>
+</table></div>
+<p>구조에서 놓치기 쉬운 두 가지 성질이 있다. 첫째, 의존은 한 방향이다. 서브시스템은 퍼사드를 모른다. 그래서 퍼사드가 여럿이어도(승객용, 직원용) 서브시스템은 영향을 받지 않는다. 둘째, <strong>퍼사드는 서브시스템을 캡슐화하지 않는다.</strong> 그림의 점선처럼 카운터 직원 웹은 좌석 수동 지정을 위해 <code>SeatServiceV2</code>를 직접 부른다. 퍼사드는 흔한 일을 쉽게 만드는 정문이지, 다른 출입구를 봉쇄하는 벽이 아니다. 접근을 실제로 막아야 한다면 그것은 9장 프록시(<dfn class="term" id="term-protection-proxy" data-term="protection-proxy" title="호출자의 권한에 따라 실제 객체로의 접근을 허용하거나 거부하는 프록시.">보호 프록시</dfn>: 호출자의 권한에 따라 실제 객체로의 접근을 허용하거나 거부하는 대리 객체)의 일이다.</p>
+</section>
+
+<section id="implementation">
+<h2>4. 패턴 적용</h2>
+<p>지호는 퍼사드를 설계하며 한 가지 원칙을 세웠다. <strong>퍼사드의 책임은 '조율'뿐이다.</strong> 좌석을 어떻게 고르는지, 수하물 요금을 어떻게 계산하는지는 여전히 각 서비스의 일이다. 퍼사드가 아는 것은 "누구를, 어떤 순서로, 어떤 조건에서 부르는가"다.</p>
+<p class="lead-in">서브시스템 부분은 01과 거의 같고, 좌석 서비스만 v2(<code>allocate</code>, 그리고 직원 전용 <code>override</code>)로 바뀌었다(전체 파일 앞부분). 여기서는 퍼사드 부분을 보자. <code>check_in()</code>의 주석이 '규칙 1', '규칙 2'로 표시한 곳이 01에서 UI 세 곳에 흩어져 있던 지식이다. docstring이 경계하는 두 개념도 미리 밝혀 둔다. <dfn class="term" id="term-business-logic" data-term="business-logic" title="도메인의 규칙 자체(요금 계산, 좌석 배정 등)를 구현한 코드. 화면 표시·통신·조율 같은 기술적 코드와 구별된다.">업무 로직</dfn>은 요금 계산·좌석 배정처럼 도메인 규칙 자체를 구현한 코드로, 화면 표시·통신·조율 같은 기술적 코드와 구별된다. <dfn class="term" id="term-god-object" data-term="god-object" title="너무 많은 책임과 지식을 떠안아 시스템의 대부분이 의존하게 된 거대한 클래스.">신 객체(God object)</dfn>는 너무 많은 책임과 지식을 떠안아 시스템 대부분이 의존하게 된 거대한 클래스다.</p>
+<figure class="code"><figcaption>src/08_facade/02_facade.py  (83–138행)</figcaption><pre><code class="language-python"># ===========================================================================
+# 퍼사드
+# ===========================================================================
+
+class CheckInError(Exception):
+    &quot;&quot;&quot;체크인 실패. 클라이언트는 서브시스템별 오류가 아니라 이것 하나만 처리한다.&quot;&quot;&quot;
+
+
+@dataclass(frozen=True)
+class CheckInResult:
+    &quot;&quot;&quot;체크인 결과. 클라이언트가 화면에 그릴 정보만 담는다(Booking 내부를 노출하지 않음).&quot;&quot;&quot;
+
+    boarding_pass: str
+    baggage_fee: int
+
+
+class CheckInFacade:
+    &quot;&quot;&quot;[Facade] 셀프 체크인의 단일 진입점.
+
+    책임은 &#x27;조율&#x27;뿐이다: 어떤 서브시스템을 어떤 순서와 조건으로 부를지.
+    좌석 계산·요금 계산 같은 실제 업무 로직은 여전히 서브시스템에 있다. 퍼사드에 업무 로직이
+    자라기 시작하면 &#x27;신 객체(God object)&#x27;로 가는 신호다.
+    서브시스템을 생성자에서 주입받는 이유: 테스트에서 가짜를 넣고, 서브시스템 인스턴스를
+    다른 클라이언트(카운터 웹)와 공유할 수 있게 하기 위해서다.
+    &quot;&quot;&quot;
+
+    def __init__(self, reservations: ReservationSystem, passports: PassportReader,
+                 seats: SeatServiceV2, baggage: BaggageService, apis: ApisGateway,
+                 printer: BoardingPassPrinter) -&gt; None:
+        &quot;&quot;&quot;서브시스템 주입.&quot;&quot;&quot;
+        self._res, self._passports, self._seats = reservations, passports, seats
+        self._baggage, self._apis, self._printer = baggage, apis, printer
+
+    def check_in(self, pnr: str, last_name: str, mrz: str,
+                 seat_pref: str = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
+        &quot;&quot;&quot;체크인 전체 흐름. 순서 규칙은 이 메서드의 &#x27;줄 순서&#x27;로 단 한 번 표현된다.&quot;&quot;&quot;
+        booking = self._res.find(pnr, last_name)
+
+        # 규칙 1: 여권 검증이 좌석 배정보다 먼저(출입국 규정). 실패하면 이후 단계로 가지 않는다.
+        self._passports.scan(booking, mrz)
+        if not booking.passport_verified:
+            raise CheckInError(&quot;여권 정보가 예약자와 일치하지 않습니다&quot;)
+
+        # 좌석 서비스 v2 변경은 여기 두 줄만 바뀌었다. 세 클라이언트는 몰라도 된다.
+        zone = &quot;W&quot; if seat_pref == &quot;window&quot; else &quot;A&quot;
+        booking.seat = self._seats.allocate(booking.pnr, zone)
+
+        fee = self._baggage.quote(booking, bags)
+
+        # 규칙 2: 미국행은 발권 &#x27;전에&#x27; APIS 전송. 노선별 규칙이 늘면 이 부분을 별도 정책 객체로 뺄 시점이다.
+        if booking.destination == &quot;JFK&quot;:
+            self._apis.submit(booking)
+
+        return CheckInResult(self._printer.issue(booking), fee)
+
+</code></pre></figure>
+<p>세 가지 설계 결정을 짚는다.</p>
+<ul>
+  <li><strong>반환은 <code>CheckInResult</code>, 실패는 <code>CheckInError</code>.</strong> <code>Booking</code> 객체를 그대로 돌려주면 클라이언트가 다시 <code>booking.destination</code> 같은 내부를 들여다보게 된다. 클라이언트에 필요한 것만 담은 결과 값을 정의해 디미터 법칙을 지킨다.</li>
+  <li><strong>서브시스템을 생성자로 주입.</strong> 퍼사드가 서브시스템을 직접 생성하면 테스트에서 가짜 판독기를 넣을 수 없고, 카운터 웹과 같은 좌석 서비스 인스턴스를 공유할 수도 없다.</li>
+  <li><strong>좌석 API v2 변경은 두 줄로 흡수.</strong> <code>seat_pref</code> → <code>zone</code> 변환과 <code>allocate()</code> 호출만 바뀌었다. 클라이언트 쪽 인터페이스(<code>seat_pref="window"</code>)는 그대로다.</li>
+</ul>
+<p class="lead-in">이제 클라이언트와 데모다. 두 클라이언트의 생성자 인자가 퍼사드 하나뿐이라는 점, 그리고 [3]에서 카운터 웹이 퍼사드와 서브시스템을 함께 쓰는 장면에 주목하라.</p>
+<figure class="code"><figcaption>src/08_facade/02_facade.py  (139–192행)</figcaption><pre><code class="language-python"># ===========================================================================
+# 클라이언트 — 각자 퍼사드 하나에만 의존한다.
+# ===========================================================================
+
+class KioskScreen:
+    &quot;&quot;&quot;[Client] 키오스크. 의존: CheckInFacade 1개.&quot;&quot;&quot;
+
+    def __init__(self, facade: CheckInFacade) -&gt; None:
+        &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
+        self._facade = facade
+
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+        &quot;&quot;&quot;화면 표시용 문자열. UI는 UI 일(메시지 포맷)만 한다.&quot;&quot;&quot;
+        try:
+            r = self._facade.check_in(pnr, name, mrz, pref, bags)
+        except CheckInError as e:
+            return f&quot;⚠ {e} — 카운터로 가 주세요&quot;
+        return f&quot;{r.boarding_pass} / 수하물 {r.baggage_fee:,}원&quot;
+
+
+class MobileApp:
+    &quot;&quot;&quot;[Client] 모바일 앱. 키오스크와 같은 흐름을 &#x27;복제&#x27;하지 않고 &#x27;공유&#x27;한다.&quot;&quot;&quot;
+
+    def __init__(self, facade: CheckInFacade) -&gt; None:
+        &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
+        self._facade = facade
+
+    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; dict:
+        &quot;&quot;&quot;앱 API 응답(JSON 흉내).&quot;&quot;&quot;
+        try:
+            r = self._facade.check_in(pnr, name, mrz, pref, bags)
+        except CheckInError as e:
+            return {&quot;ok&quot;: False, &quot;error&quot;: str(e)}
+        return {&quot;ok&quot;: True, &quot;pass&quot;: r.boarding_pass, &quot;fee&quot;: r.baggage_fee}
+
+
+if __name__ == &quot;__main__&quot;:
+    # 조립 지점: 서브시스템을 한 번 만들어 퍼사드와 (필요하면) 고급 클라이언트에 나눠 준다.
+    seats = SeatServiceV2()
+    facade = CheckInFacade(ReservationSystem(), PassportReader(), seats,
+                           BaggageService(), ApisGateway(), BoardingPassPrinter())
+
+    print(&quot;[1] 키오스크와 모바일 — 같은 미국행 승객, 같은 결과(APIS 포함)&quot;)
+    print(&quot;    &quot; + KioskScreen(facade).on_check_in(&quot;US7Q2K&quot;, &quot;Kim&quot;, &quot;P&lt;KORKIM&lt;&lt;JIHO&quot;, &quot;window&quot;, 2))
+    print(f&quot;    {MobileApp(facade).check_in(&#x27;US7Q2K&#x27;, &#x27;Kim&#x27;, &#x27;P&lt;KORKIM&lt;&lt;JIHO&#x27;, &#x27;window&#x27;, 2)}&quot;)
+
+    print(&quot;[2] 여권 불일치 — 어느 클라이언트든 좌석 배정 전에 멈춘다&quot;)
+    print(&quot;    &quot; + KioskScreen(facade).on_check_in(&quot;NR11AB&quot;, &quot;Lee&quot;, &quot;P&lt;KORPARK&lt;&lt;MINA&quot;, &quot;aisle&quot;, 1))
+    print(f&quot;    {MobileApp(facade).check_in(&#x27;NR11AB&#x27;, &#x27;Lee&#x27;, &#x27;P&lt;KORPARK&lt;&lt;MINA&#x27;, &#x27;aisle&#x27;, 1)}&quot;)
+
+    print(&quot;[3] 카운터 직원 웹 — 퍼사드로 체크인한 뒤, 서브시스템에 직접 접근해 좌석 수동 변경&quot;)
+    result = facade.check_in(&quot;NR55CD&quot;, &quot;Choi&quot;, &quot;P&lt;KORCHOI&lt;&lt;YUNA&quot;, &quot;aisle&quot;, 1)
+    print(f&quot;    퍼사드 결과: {result.boarding_pass}&quot;)
+    print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_facade.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [1]에서 키오스크와 모바일 모두 APIS를 전송했다. 모바일 팀이 APIS를 '기억해서'가 아니라, 기억할 필요가 없어졌기 때문이다. [2]에서 여권 불일치는 두 클라이언트 모두 좌석 배정 전에 멈췄고, 각자 자기 형식(화면 문구, JSON)으로 보여 준다. 공통 흐름은 공유하고 표현은 각자 한다. [3]의 직원 수동 변경은 퍼사드를 거치지 않았다. 이것이 학습 목표 1의 "직접 접근을 막지 않는다"이다.</p>
+<p>학습 목표 3의 측정을 해 보자. 클라이언트가 직접 의존하는 서브시스템 모듈 수다.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>클라이언트</th><th>01 순진한 설계</th><th>02 퍼사드 적용</th><th>좌석 API v2 변경 시 수정할 클라이언트</th></tr></thead>
+  <tbody>
+    <tr><td>KioskScreen</td><td>6</td><td>1</td><td rowspan="3">01: 3개 모두 / 02: 0개 (퍼사드만)</td></tr>
+    <tr><td>MobileApp</td><td>5</td><td>1</td></tr>
+    <tr><td>카운터 직원 웹 (코드 생략, 키오스크와 같은 흐름)</td><td>6</td><td>2 (퍼사드 + 좌석)</td></tr>
+  </tbody>
+</table></div>
+<p>전체 의존 간선이 17개에서 4개(+ 퍼사드 → 서브시스템 6개)로 줄었다. 의존의 총량은 크게 줄지 않은 것처럼 보일 수 있지만, 중요한 것은 <strong>변경 영향의 경로</strong>다. 서브시스템 변경이 퍼사드에서 멈추므로, 변경 비용이 클라이언트 수에 비례하지 않게 된다.</p>
+<div class="callout warn">
+  <span class="label">함정: 신 객체로 가는 길</span>
+  <p>퍼사드는 "어디에 둘지 모르는 코드"가 모이기 쉬운 곳이다. 다음 징후가 보이면 경계를 다시 그어야 한다. ① 퍼사드 안에서 계산·검증 같은 업무 로직이 자란다(조율이 아니라 일을 한다). ② 서로 다른 클라이언트군(승객, 직원, 운영)이 쓰는 메서드가 한 클래스에 섞인다. ③ 퍼사드 메서드 하나를 바꾸면 무관한 클라이언트의 테스트가 깨진다. ④ 서브시스템 팀이 기능을 추가할 때마다 퍼사드에 <dfn class="term" id="term-pass-through-method" data-term="pass-through-method" title="받은 호출을 아무 가공 없이 다른 객체의 같은 메서드로 넘기기만 하는 메서드.">통과용(pass-through) 메서드</dfn>, 즉 받은 호출을 가공 없이 서브시스템의 같은 메서드로 넘기기만 하는 메서드가 하나씩 는다. 연습문제 3에서 이 상황을 다룬다.</p>
+</div>
+</section>
+
+<section id="pythonic">
+<h2>5. 파이썬다운 변형</h2>
+<p><code>CheckInFacade</code>는 상태가 없다. 서브시스템 참조를 들고 있을 뿐, 호출 사이에 기억하는 것이 없다. 동료 서윤이 물었다. "그럼 클래스일 이유가 있어?" 파이썬에서 퍼사드는 클래스 말고도 여러 모양을 가질 수 있다.</p>
+<p class="lead-in">아래 파일은 (1) 모듈 수준 함수 하나로 된 퍼사드와 <dfn class="term" id="term-all" data-term="all" title="from 모듈 import * 로 노출할 이름 목록. 패키지의 공개 API를 선언하는 관례로도 쓰인다."><code>__all__</code></dfn>(<code>from 모듈 import *</code>로 내보낼 이름 목록. 공개 API를 선언하는 관례로도 쓰인다)로 공개 표면을 좁히는 방식, (2) 키오스크 하드웨어의 열기·닫기 순서를 감싸는 <code>contextmanager</code> 퍼사드, (3) 표준 라이브러리의 대표적 퍼사드인 <dfn class="term" id="term-subprocess" data-term="subprocess" title="자식 프로세스를 실행하고 입출력·종료 코드를 다루는 표준 라이브러리. run()은 Popen·파이프·대기를 감싼 퍼사드다."><code>subprocess</code></dfn><code>.run</code>을 보여 준다(<code>subprocess</code>는 자식 프로세스를 실행하고, 그 프로세스의 표준 입출력을 <dfn class="term" id="term-pipe" data-term="pipe" title="한 프로세스의 출력을 다른 프로세스의 입력으로 잇는 운영체제 통로.">파이프</dfn>(한 프로세스의 출력을 다른 프로세스의 입력으로 잇는 운영체제 통로)로 연결해 데이터를 주고받으며, 종료 코드를 다루는 모듈이다). 데모 [2]에서 예외가 나도 장치가 역순으로 닫힌다는 점을 확인하라.</p>
+<div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-package-init-py" data-term="package-init-py" title="디렉터리를 파이썬 패키지로 만드는 파일. import 패키지 시 실행되며 공개 이름을 모아 내보낼 수 있다."><code>__init__.py</code></dfn>: 디렉터리를 파이썬 패키지로 만드는 파일. 패키지를 import할 때 실행되며 공개할 이름을 모아 내보낼 수 있다. <dfn class="term" id="term-leading-underscore-convention" data-term="leading-underscore-convention" title="이름 앞 밑줄(_name)은 &#x27;내부용, 공개 API 아님&#x27;을 뜻하는 관례. 접근을 실제로 막지는 않는다.">이름 앞 밑줄</dfn>(<code>_name</code>): '내부용, 공개 API 아님'을 뜻하는 관례. 접근을 실제로 막지는 않는다. <dfn class="term" id="term-streaming" data-term="streaming" title="데이터를 전부 받은 뒤가 아니라 도착하는 대로 조금씩 처리하는 방식.">스트리밍</dfn>: 결과를 한꺼번에 모으지 않고 생기는 대로 조금씩 받아 처리하는 것.</p></div>
+<figure class="code"><figcaption>src/08_facade/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 파이썬다운 변형: 함수 퍼사드, contextmanager 퍼사드, 표준 라이브러리 속 퍼사드.
+
+상황: 02_facade.py의 CheckInFacade는 상태가 없다. 서브시스템 참조만 들고 있을 뿐,
+check_in() 호출 사이에 기억하는 것이 없다. 지호의 동료 서윤은 묻는다. &quot;그럼 클래스일 이유가 있어?&quot;
+이 파일은 세 가지를 보인다.
+  (1) 함수 퍼사드: 모듈 수준 함수 check_in() 하나. 파이썬에서는 &#x27;모듈&#x27;이 곧 퍼사드가 될 수 있다
+      (패키지의 __init__.py가 __all__로 공개 API를 좁히는 것이 그 형태다).
+  (2) contextmanager 퍼사드: 키오스크 하드웨어의 &quot;열기 → 작업 → 반드시 닫기&quot;를 with 한 줄로 감싼다.
+  (3) subprocess.run: 표준 라이브러리가 Popen·파이프·대기·종료코드 확인을 하나로 감싼 퍼사드다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import subprocess
+import sys
+from contextlib import contextmanager
+from typing import Iterator
+
+__all__ = [&quot;check_in&quot;, &quot;kiosk_session&quot;]
+# __all__: &#x27;from 이모듈 import *&#x27;로 노출할 이름. 이 파일이 패키지의 __init__.py라면
+# 클라이언트가 보는 공개 표면은 이 두 이름뿐이고, 아래 서브시스템 클래스는 &#x27;내부&#x27;로 읽힌다.
+
+
+# --- 축약한 서브시스템 --------------------------------------------------------
+
+class _PassportReader:
+    &quot;&quot;&quot;[Subsystem] 여권 판독기 하드웨어. 열고 닫아야 하는 자원이다.
+
+    이름 앞 밑줄: 파이썬 관례상 &#x27;모듈 내부용&#x27;. 접근을 막지는 않지만 공개 API가 아님을 알린다.
+    퍼사드가 서브시스템을 &#x27;숨기지 않는다&#x27;는 원칙과도 맞는다 — 필요한 사람은 여전히 쓸 수 있다.
+    &quot;&quot;&quot;
+
+    def open(self) -&gt; None:
+        &quot;&quot;&quot;장치 연결.&quot;&quot;&quot;
+        print(&quot;    (판독기) 연결&quot;)
+
+    def close(self) -&gt; None:
+        &quot;&quot;&quot;장치 해제. 빠뜨리면 다음 승객이 판독기를 못 쓴다.&quot;&quot;&quot;
+        print(&quot;    (판독기) 해제&quot;)
+
+    def verify(self, last_name: str, mrz: str) -&gt; bool:
+        &quot;&quot;&quot;MRZ의 성 일치 여부.&quot;&quot;&quot;
+        return last_name.upper() in mrz
+
+
+class _Printer:
+    &quot;&quot;&quot;[Subsystem] 탑승권 프린터. 역시 열고 닫는 자원.&quot;&quot;&quot;
+
+    def open(self) -&gt; None:
+        &quot;&quot;&quot;용지 확인 및 연결.&quot;&quot;&quot;
+        print(&quot;    (프린터) 연결&quot;)
+
+    def close(self) -&gt; None:
+        &quot;&quot;&quot;해제.&quot;&quot;&quot;
+        print(&quot;    (프린터) 해제&quot;)
+
+    def issue(self, text: str) -&gt; str:
+        &quot;&quot;&quot;출력.&quot;&quot;&quot;
+        return f&quot;[탑승권] {text}&quot;
+
+
+# --- (1) 함수 퍼사드 ----------------------------------------------------------
+
+def check_in(pnr: str, last_name: str, mrz: str, *,
+             reader: _PassportReader, printer: _Printer) -&gt; str:
+    &quot;&quot;&quot;[Facade] 상태가 없는 퍼사드는 함수 하나로 충분하다.
+
+    서브시스템을 키워드 인자로 받는 이유: 테스트에서 가짜를 넣기 위해서다(클래스 퍼사드의
+    생성자 주입과 같은 역할). 기본값을 모듈 전역 인스턴스로 두면 더 짧아지지만, 그 순간
+    숨은 전역 상태가 생긴다(4장 싱글턴의 함정).
+    &quot;&quot;&quot;
+    if not reader.verify(last_name, mrz):
+        raise ValueError(&quot;여권 불일치&quot;)
+    return printer.issue(f&quot;{last_name} {pnr}&quot;)
+
+
+# --- (2) contextmanager 퍼사드 -----------------------------------------------
+
+@contextmanager
+def kiosk_session() -&gt; Iterator[tuple[_PassportReader, _Printer]]:
+    &quot;&quot;&quot;[Facade] &#x27;장치 열기 → 작업 → 예외가 나도 닫기&#x27;라는 순서 규칙을 with 한 줄로 감싼다.
+
+    순서 규칙(프린터는 판독기보다 나중에 열고 먼저 닫는다)과 정리 보장(finally)이
+    이 함수 안에만 있다. 클라이언트는 open/close를 아예 몰라도 된다.
+    &quot;&quot;&quot;
+    reader, printer = _PassportReader(), _Printer()
+    reader.open()
+    try:
+        printer.open()
+        try:
+            yield reader, printer
+        finally:
+            printer.close()
+    finally:
+        reader.close()
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] with 한 줄 + 함수 하나로 체크인&quot;)
+    with kiosk_session() as (reader, printer):
+        print(&quot;    &quot; + check_in(&quot;NR11AB&quot;, &quot;Lee&quot;, &quot;P&lt;KORLEE&lt;&lt;MINA&quot;, reader=reader, printer=printer))
+
+    print(&quot;[2] 작업 중 예외가 나도 장치는 닫힌다&quot;)
+    try:
+        with kiosk_session() as (reader, printer):
+            check_in(&quot;NR11AB&quot;, &quot;Lee&quot;, &quot;P&lt;KORPARK&lt;&lt;MINA&quot;, reader=reader, printer=printer)
+    except ValueError as e:
+        print(f&quot;    예외 전파: {e}&quot;)
+
+    print(&quot;[3] 표준 라이브러리의 퍼사드: subprocess.run&quot;)
+    # run() 한 줄 = Popen 생성 + 파이프 연결 + communicate() + wait() + (check=True면) 종료코드 검사.
+    done = subprocess.run([sys.executable, &quot;-c&quot;, &quot;print(&#x27;hello from child&#x27;)&quot;],
+                          capture_output=True, text=True, check=True)
+    print(f&quot;    run(): {done.stdout.strip()!r}, returncode={done.returncode}&quot;)
+    # 퍼사드는 하위 API를 막지 않는다: 스트리밍이 필요하면 여전히 Popen을 직접 쓴다.
+    with subprocess.Popen([sys.executable, &quot;-c&quot;, &quot;print(&#x27;streamed&#x27;)&quot;],
+                          stdout=subprocess.PIPE, text=True) as proc:
+        assert proc.stdout is not None
+        print(f&quot;    Popen 직접: {proc.stdout.readline().strip()!r}&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<h3>모듈이 곧 퍼사드다</h3>
+<p>파이썬 패키지의 <code>__init__.py</code>는 그 자체로 퍼사드 역할을 한다. 패키지 내부에 모듈이 스무 개 있어도 <code>__init__.py</code>가 <code>from ._checkin import check_in</code>과 <code>__all__ = ["check_in"]</code>만 노출하면, 사용자에게 패키지는 함수 하나짜리 단순한 정문이 된다. 그러면서도 <code>pkg._seats</code> 같은 내부 모듈은 여전히 import 가능하다. 밑줄 접두사는 "공개 API가 아니다"라는 관례적 표시일 뿐 접근을 막지 않으므로, "퍼사드는 서브시스템을 숨기지 않는다"는 원칙과 정확히 맞는다. 상태가 없는 퍼사드라면 함수가 가장 단순한 형태다. 단, 서브시스템을 모듈 전역 기본값으로 숨기면 테스트에서 교체하기 어려운 전역 상태가 생기므로(4장 싱글턴의 함정), 위 코드처럼 키워드 인자로 주입받게 했다.</p>
+<h3><code>contextmanager</code> 퍼사드: 순서 규칙 + 정리 보장</h3>
+<p>키오스크 장치는 열고 닫아야 하는 자원이다. "판독기를 먼저 열고, 프린터를 열고, 끝나면 역순으로 닫되, 예외가 나도 반드시 닫는다"는 규칙은 체크인 흐름만큼 복제되기 쉬운 지식이다. <code>@contextmanager</code>는 이 규칙을 <code>with kiosk_session() as ...:</code> 한 줄 뒤에 숨긴다. 이는 '순서 있는 여러 호출을 단순한 하나로'라는 퍼사드 의도의 파이썬다운 형태다. 데모에서는 이 세션 퍼사드와 함수 퍼사드 <code>check_in()</code>을 <em>조합</em>했기 때문에 클라이언트가 <code>reader</code>/<code>printer</code>를 받아 다시 넘긴다. 즉 "클라이언트는 장치의 열기·닫기를 모른다"까지만 성립한다. 장치의 존재까지 숨기려면 세션이 <code>functools.partial(check_in, reader=reader, printer=printer)</code>를 만들어 그 함수 하나만 <code>yield</code>하면 된다.</p>
+<h3>표준 라이브러리에서 퍼사드 읽기</h3>
+<p><code>subprocess.run()</code>은 <code>Popen</code> 생성, 파이프 연결, <code>communicate()</code>, 대기, 종료 코드 확인(<code>check=True</code>)을 한 번의 호출로 묶는다. 그런데도 <code>Popen</code>은 그대로 공개되어 있어, 출력을 줄 단위로 스트리밍해야 하는 사람은 직접 쓴다(데모 [3]의 두 번째 줄). <dfn class="term" id="term-shutil" data-term="shutil" title="파일·디렉터리 복사(copytree)와 삭제(rmtree) 같은 고수준 파일 작업 표준 라이브러리."><code>shutil</code></dfn><code>.copytree()</code>(<code>shutil</code>은 디렉터리 복사·삭제 같은 고수준 파일 작업 모듈이다. <code>copytree()</code>는 <code>os</code>·<code>stat</code> 호출을 묶는다), <dfn class="term" id="term-urllib-request-urlopen" data-term="urllib-request-urlopen" title="URL을 열어 응답을 돌려주는 표준 라이브러리 함수."><code>urllib.request.urlopen()</code></dfn>(URL을 열어 응답을 돌려주는 함수. 연결·요청·<dfn class="term" id="term-redirect" data-term="redirect" title="HTTP 서버가 다른 URL로 다시 요청하라고 안내하는 응답.">리다이렉트</dfn> 처리를 묶는다. 리다이렉트는 서버가 다른 URL로 다시 요청하라고 안내하는 응답이다)도 같은 구조다. 표준 라이브러리는 "쉬운 길을 주되 다른 길을 막지 않는다"는 퍼사드의 원칙을 일관되게 보여 준다.</p>
+</section>
+
+<section id="tradeoffs">
+<h2>6. 트레이드오프와 관련 패턴</h2>
+<h3>얻는 것과 치르는 것</h3>
+<ul>
+  <li><strong>얻는 것:</strong> 클라이언트의 결합도 감소, 흐름 규칙의 단일 출처, 서브시스템 변경의 국소화, 서브시스템의 계층화(퍼사드를 계층 간 진입점으로 삼기).</li>
+  <li><strong>치르는 것:</strong> 퍼사드는 '평균적인' 사용을 위한 것이므로 특수한 요구는 결국 서브시스템을 직접 쓰게 된다. 그러면 같은 일을 하는 길이 둘이 되고, 어떤 클라이언트가 어느 길을 쓰는지 추적해야 한다. 그리고 퍼사드는 신 객체로 비대해지는 경향이 있다.</li>
+</ul>
+<h3>쓰지 말아야 할 때</h3>
+<ul>
+  <li><strong>클라이언트가 하나뿐이고 흐름이 단순할 때.</strong> 서브시스템 두 개를 한 곳에서만 부른다면 퍼사드는 간접 층만 더한다.</li>
+  <li><strong>클라이언트마다 흐름이 정말로 다를 때.</strong> 공통 흐름이 없다면 퍼사드는 클라이언트별 메서드의 잡동사니가 된다. 퍼사드의 가치는 '공유되는 흐름'에서 나온다.</li>
+  <li><strong>통과용 메서드만 있을 때.</strong> <code>facade.get_seat_map()</code>이 <code>seats.get_seat_map()</code>을 그대로 부르기만 한다면, 그 메서드는 단순화가 아니라 중복이다. 클라이언트가 서브시스템을 직접 쓰게 두라.</li>
+  <li><strong>접근 통제가 목적일 때.</strong> "직원만 좌석을 수동 변경해야 한다"는 요구는 퍼사드로 충족되지 않는다. 퍼사드는 다른 길을 막지 않기 때문이다. 권한 검사는 서브시스템 자체나 보호 프록시(9장)에 두어야 한다.</li>
+</ul>
+<h3>관련 패턴</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>패턴</th><th>관계</th></tr></thead>
+  <tbody>
+    <tr><td>어댑터(5장)</td><td>둘 다 감싸지만, 어댑터는 <strong>이미 정해진</strong> 인터페이스로 <strong>변환</strong>하고 보통 객체 하나를 감싼다. 퍼사드는 <strong>새로운, 더 단순한</strong> 인터페이스를 정의하고 여러 객체를 감싼다.</td></tr>
+    <tr><td>추상 팩토리(2장)</td><td>퍼사드가 플랫폼별 서브시스템 객체들을 생성해야 할 때, 그 생성을 추상 팩토리로 숨길 수 있다.</td></tr>
+    <tr><td>싱글턴(4장)</td><td>퍼사드는 보통 하나면 충분하지만 그것을 강제할 이유는 없다. 조립 지점에서 하나 만들어 주입하면 된다.</td></tr>
+    <tr><td>중재자(범위 밖)</td><td>중재자도 여러 객체를 조율하지만, 동료 객체들이 중재자를 <strong>알고</strong> 서로 소통을 맡긴다(양방향). 퍼사드의 서브시스템은 퍼사드를 모른다(단방향).</td></tr>
+  </tbody>
+</table></div>
+</section>
+
+<section id="exercises">
+<h2>7. 연습문제</h2>
+
+<div class="exercise" id="ex1">
+  <h3><span class="ex-tag">개념</span> 문제 1. 퍼사드와 어댑터</h3>
+  <p>퍼사드와 어댑터는 둘 다 "다른 객체를 감싸서 클라이언트에게 다른 인터페이스를 보여 준다." 그렇다면 둘을 어떻게 구분하는가? <strong>감싸는 대상의 수</strong>, <strong>인터페이스를 누가 정하는가</strong>, <strong>의도</strong>의 세 축으로 설명하라. 그리고 이 장의 <code>CheckInFacade.check_in()</code> 안에서 좌석 v2 API를 다루는 두 줄은 둘 중 무엇의 성격을 띠는지 말하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <div class="table-wrap"><table>
+      <thead><tr><th>축</th><th>어댑터</th><th>퍼사드</th></tr></thead>
+      <tbody>
+        <tr><td>감싸는 대상</td><td>대개 객체 <strong>하나</strong>(Adaptee)</td><td>서브시스템, 즉 객체 <strong>여럿</strong></td></tr>
+        <tr><td>인터페이스</td><td>Target이 <strong>이미 존재</strong>하며 거기에 맞춘다</td><td>퍼사드가 <strong>새로 정의</strong>한다</td></tr>
+        <tr><td>의도</td><td><strong>변환</strong>: 호환되지 않던 것을 함께 쓰게</td><td><strong>단순화</strong>: 복잡한 것을 쉽게 쓰게</td></tr>
+        <tr><td>메서드 수</td><td>Target의 메서드 수와 같다</td><td>보통 서브시스템 전체보다 훨씬 적다</td></tr>
+      </tbody>
+    </table></div>
+    <p>판별 질문 하나로 줄이면 이렇다. "클라이언트가 기대하는 인터페이스가 퍼사드/어댑터보다 <em>먼저</em> 존재했는가?" 그렇다면 어댑터, 감싸는 쪽이 인터페이스를 새로 만들었다면 퍼사드다.</p>
+    <p><code>check_in()</code> 안의 좌석 v2 두 줄(<code>seat_pref</code> → <code>zone</code>, <code>allocate</code> 호출)은 <strong>어댑터적 성격</strong>이다. 퍼사드가 이미 정해 둔 자기 인터페이스(<code>seat_pref="window"</code>)에 맞춰 바뀐 서브시스템 API를 번역하고 있기 때문이다. 실무에서 두 패턴은 이처럼 한 클래스 안에 섞여 나타나는 일이 흔하다. 번역이 커지면 <code>SeatServiceAdapter</code>로 분리해 퍼사드는 조율에만 집중하게 하는 것이 좋다.</p>
+    <p><strong>흔한 오답:</strong> "퍼사드는 메서드를 줄이고 어댑터는 이름을 바꾼다." 현상의 일부만 본 답이다. 메서드 하나짜리 퍼사드도, 이름이 같은 어댑터(단위만 변환)도 있다. 구분 기준은 의도와 인터페이스의 출처다.</p>
+  </details>
+</div>
+
+<div class="exercise" id="ex2">
+  <h3><span class="ex-tag">리팩터링</span> 문제 2. 동영상 업로드 핸들러</h3>
+  <p>푸른날개항공 기내 엔터테인먼트 관리 콘솔의 업로드 핸들러다. 같은 업로드 흐름이 일괄 등록 CLI에서도 필요해졌다. 퍼사드로 리팩터링하라. <dfn class="term" id="term-transcoding" data-term="transcoding" title="동영상을 다른 해상도·코덱 형식으로 다시 인코딩하는 작업.">트랜스코딩</dfn>(동영상을 다른 해상도·형식으로 다시 인코딩하는 작업)이 실패하면 이미 저장한 원본을 지워야 한다는 규칙도 지켜야 한다. 이처럼 뒤 단계가 실패했을 때 이미 끝난 앞 단계의 효과를 되돌리는 처리를 <dfn class="term" id="term-compensating-action" data-term="compensating-action" title="여러 단계 중 뒤 단계가 실패했을 때, 이미 끝난 앞 단계의 효과를 되돌리는 별도의 처리(예: 저장한 원본 삭제).">보상 처리</dfn>라 한다.</p>
+<pre><code class="language-python">def upload_handler(request):
+    # 웹 핸들러가 서브시스템 넷을 직접 안다
+    storage, transcoder = Storage(), Transcoder()
+    thumbs, db = Thumbnailer(), MetadataDb()
+    f = request.files["video"]
+    url = storage.put(f.filename, f.read())
+    try:
+        # 기내 화면 규격 프로필 — CLI에도 복제될 지식
+        renditions = transcoder.transcode(url, ["720p", "480p"])
+    except RuntimeError as e:
+        storage.delete(url)          # 보상 처리: CLI에서 빠뜨리기 쉽다
+        return 422, str(e)
+    thumb = thumbs.capture(url, at_sec=5)
+    video_id = db.insert(request.form["title"], renditions, thumb)
+    return 201, f"/videos/{video_id}"
+
+def cli_bulk_upload(paths):
+    # 위 흐름을 복제해야 한다...
+    ...
+</code></pre>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><code>VideoIngestFacade.ingest(filename, title, data)</code>가 저장 → 트랜스코딩 → 썸네일 → 메타데이터 흐름과, 실패 시 원본 삭제라는 <strong>보상 규칙</strong>을 가져간다. 핸들러에는 HTTP 관심사(요청 해석, 201/422 상태 코드)만 남고, CLI(<code>cli_bulk_upload</code>)는 같은 퍼사드를 부르되 결과를 실패 목록으로 표현한다(실행 [3]).</p>
+    <p>퍼사드에 둘 것과 두지 말 것을 구분하라. 트랜스코딩 프로필 목록과 썸네일 시점은 '업로드 흐름의 정책'이므로 퍼사드에 둔다(여러 클라이언트가 공유해야 한다). 반면 HTTP 상태 코드는 웹 클라이언트만의 표현이므로 퍼사드에 두면 안 된다. 퍼사드는 <code>IngestError</code>라는 도메인 예외를 던지고, 그것을 422로 바꾸는 일은 핸들러의 몫이다.</p>
+    <p>해설 코드의 트랜스코더는 지원하지 않는 <dfn class="term" id="term-codec" data-term="codec" title="영상·음성을 압축(인코딩)하고 푸는(디코딩) 방식.">코덱</dfn>(영상·음성을 압축하고 푸는 방식)이면 실패한다고 흉내 낸다.</p>
+    <p><strong>흔한 오답:</strong> 퍼사드가 <code>(status, message)</code> 튜플을 돌려주게 만드는 것. CLI는 HTTP 상태 코드가 무의미하므로 그것을 다시 해석해야 하고, 퍼사드가 특정 클라이언트(웹)에 결합된다.</p>
+    <figure class="code"><figcaption>src/08_facade/solutions/ex2_video_upload.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 연습문제 2 해설: 동영상 업로드 핸들러를 퍼사드로.
+
+상황: 푸른날개항공의 기내 엔터테인먼트 관리 콘솔에서 콘텐츠 담당자가 동영상을 올리면,
+웹 핸들러가 저장소·트랜스코더·썸네일 생성기·메타데이터 DB를 직접 순서대로 불렀다.
+같은 업로드가 일괄 등록 CLI에서도 필요해지자 호출 순서가 복제되기 시작했다.
+여기서는 VideoIngestFacade.ingest() 하나로 흐름을 모으고, 실패 시 정리(저장한 원본 삭제)
+규칙도 퍼사드에 둔다. 핸들러는 HTTP 일(요청 해석, 응답 코드)만 한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+class Storage:
+    &quot;&quot;&quot;[Subsystem] 객체 저장소.&quot;&quot;&quot;
+
+    def put(self, key: str, data: bytes) -&gt; str:
+        &quot;&quot;&quot;저장 후 URL.&quot;&quot;&quot;
+        return f&quot;s3://ife-media/{key}&quot;
+
+    def delete(self, url: str) -&gt; None:
+        &quot;&quot;&quot;삭제(보상 처리용).&quot;&quot;&quot;
+        print(f&quot;    (storage) 삭제 {url}&quot;)
+
+
+class Transcoder:
+    &quot;&quot;&quot;[Subsystem] 트랜스코딩. 지원하지 않는 형식이면 예외.&quot;&quot;&quot;
+
+    def transcode(self, url: str, profiles: list[str]) -&gt; list[str]:
+        &quot;&quot;&quot;프로필별 결과 URL.&quot;&quot;&quot;
+        if url.endswith(&quot;.avi&quot;):
+            raise RuntimeError(&quot;지원하지 않는 코덱&quot;)
+        return [f&quot;{url}@{p}&quot; for p in profiles]
+
+
+class Thumbnailer:
+    &quot;&quot;&quot;[Subsystem] 썸네일.&quot;&quot;&quot;
+
+    def capture(self, url: str, at_sec: int) -&gt; str:
+        &quot;&quot;&quot;지정 시점 캡처.&quot;&quot;&quot;
+        return f&quot;{url}.thumb{at_sec}.jpg&quot;
+
+
+class MetadataDb:
+    &quot;&quot;&quot;[Subsystem] 메타데이터 DB.&quot;&quot;&quot;
+
+    def insert(self, title: str, renditions: list[str], thumb: str) -&gt; int:
+        &quot;&quot;&quot;레코드 id.&quot;&quot;&quot;
+        return 42
+
+
+class IngestError(Exception):
+    &quot;&quot;&quot;업로드 실패. 클라이언트는 이 하나만 처리한다.&quot;&quot;&quot;
+
+
+@dataclass(frozen=True)
+class IngestResult:
+    &quot;&quot;&quot;클라이언트에 필요한 최소 정보.&quot;&quot;&quot;
+
+    video_id: int
+    thumbnail: str
+
+
+class VideoIngestFacade:
+    &quot;&quot;&quot;[Facade] 업로드 흐름의 단일 진입점.
+
+    퍼사드가 가져가는 지식: 호출 순서, 트랜스코딩 프로필 목록(기내 화면 규격), 썸네일 시점,
+    그리고 &#x27;중간 실패 시 저장한 원본을 지운다&#x27;는 보상 규칙. 이 마지막 규칙이 클라이언트마다
+    복제되면 반드시 어느 한 곳에서 빠진다.
+    &quot;&quot;&quot;
+
+    PROFILES = [&quot;720p&quot;, &quot;480p&quot;]
+
+    def __init__(self, storage: Storage, transcoder: Transcoder,
+                 thumbs: Thumbnailer, db: MetadataDb) -&gt; None:
+        &quot;&quot;&quot;서브시스템 주입.&quot;&quot;&quot;
+        self._s, self._t, self._th, self._db = storage, transcoder, thumbs, db
+
+    def ingest(self, filename: str, title: str, data: bytes) -&gt; IngestResult:
+        &quot;&quot;&quot;저장 → 트랜스코딩 → 썸네일 → 메타데이터. 실패하면 원본을 정리하고 IngestError.&quot;&quot;&quot;
+        url = self._s.put(filename, data)
+        try:
+            renditions = self._t.transcode(url, self.PROFILES)
+            thumb = self._th.capture(url, at_sec=5)
+            return IngestResult(self._db.insert(title, renditions, thumb), thumb)
+        except RuntimeError as e:
+            self._s.delete(url)
+            raise IngestError(f&quot;{filename}: {e}&quot;) from e
+
+
+def upload_handler(facade: VideoIngestFacade, form: dict) -&gt; tuple[int, str]:
+    &quot;&quot;&quot;[Client] 웹 핸들러. HTTP 관심사만 남았다: 입력 해석과 상태 코드.&quot;&quot;&quot;
+    try:
+        r = facade.ingest(form[&quot;filename&quot;], form[&quot;title&quot;], form[&quot;data&quot;])
+    except IngestError as e:
+        return 422, str(e)
+    return 201, f&quot;/videos/{r.video_id} (썸네일 {r.thumbnail})&quot;
+
+
+def cli_bulk_upload(facade: VideoIngestFacade, paths: list[str]) -&gt; list[str]:
+    &quot;&quot;&quot;[Client] 일괄 등록 CLI. 같은 퍼사드를 공유하되 표현은 자기 방식(실패 목록, 상태 코드 없음).&quot;&quot;&quot;
+    failed = []
+    for path in paths:
+        try:
+            facade.ingest(path, title=path.rsplit(&quot;.&quot;, 1)[0], data=b&quot;..&quot;)
+        except IngestError as e:
+            failed.append(str(e))
+    return failed
+
+
+if __name__ == &quot;__main__&quot;:
+    facade = VideoIngestFacade(Storage(), Transcoder(), Thumbnailer(), MetadataDb())
+    print(&quot;[1] 정상 업로드:&quot;, upload_handler(facade, {&quot;filename&quot;: &quot;safety.mp4&quot;, &quot;title&quot;: &quot;안전 안내&quot;, &quot;data&quot;: b&quot;..&quot;}))
+    print(&quot;[2] 실패 업로드 — 퍼사드가 원본을 정리한다&quot;)
+    print(&quot;   &quot;, upload_handler(facade, {&quot;filename&quot;: &quot;old.avi&quot;, &quot;title&quot;: &quot;구형 영상&quot;, &quot;data&quot;: b&quot;..&quot;}))
+    print(&quot;[3] 일괄 등록 CLI — 흐름과 보상 규칙을 복제하지 않고 같은 퍼사드를 부른다&quot;)
+    print(f&quot;    실패 목록: {cli_bulk_upload(facade, [&#x27;menu.mp4&#x27;, &#x27;promo.avi&#x27;, &#x27;map.mp4&#x27;])}&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_video_upload.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+
+<div class="exercise" id="ex3">
+  <h3><span class="ex-tag">판단</span> 문제 3. 메서드 30개짜리 퍼사드</h3>
+  <p>2년 뒤 <code>CheckInFacade</code>의 메서드가 30개가 되었다. 승객용(체크인, 좌석 변경, 수하물 추가), 직원용(수동 좌석 지정, <dfn class="term" id="term-overbooking" data-term="overbooking" title="좌석 수보다 예약을 더 받는 항공사 관행. 초과 승객 처리 절차가 따른다.">오버부킹</dfn> 처리, 탑승 마감. 오버부킹은 좌석 수보다 예약을 더 받는 항공사 관행이다), 운영용(통계, 장비 상태)이 섞여 있다. (가) 퍼사드를 쪼갠다, (나) 서브시스템을 재설계한다, (다) 그대로 둔다 중 무엇을 택할지 정할 <strong>판단 기준</strong>을 제시하라.</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p>메서드 수 30은 그 자체로 문제가 아니다. 기준은 <strong>"누가, 왜 바뀌는가"</strong>다.</p>
+    <ul>
+      <li><strong>(가) 쪼갠다:</strong> 메서드들이 서로 다른 클라이언트군에 쓰이고, 서로 다른 이유로 바뀐다면(승객 UX 개편 vs 운영 절차 개정) SRP·ISP 관점에서 쪼갠다. 기준은 클라이언트 역할이다. 이 사례는 여기에 해당한다. 쪼갠 퍼사드들은 서브시스템 인스턴스를 공유하므로 상태가 갈라지지 않는다. 덤으로 승객용 퍼사드에는 직원 전용 기능이 없으므로 승객 퍼사드를 통해서는 그것을 부를 길이 없다(아래 실행 [3]). 다만 퍼사드는 접근을 막지 않으므로 서브시스템을 직접 쓰는 것까지 차단하려면 보호 프록시나 서브시스템의 권한 검사가 필요하다(9장).</li>
+      <li><strong>(나) 서브시스템 재설계:</strong> 퍼사드 메서드 다수가 여러 서브시스템을 복잡하게 엮어 '업무 로직'을 수행하고 있다면, 퍼사드가 서브시스템의 설계 결함을 메우고 있는 것이다. 예를 들어 오버부킹 처리가 퍼사드에서 좌석·예약·보상 서비스를 열 번 오가며 계산한다면, 그 로직은 오버부킹 전용 서비스(새 서브시스템)로 내려가야 한다.</li>
+      <li><strong>(다) 그대로 둔다:</strong> 30개가 모두 한 클라이언트군의 한 흐름(예: 체크인의 세부 단계들)이고, 각 메서드가 얇은 조율만 한다면 둘 수 있다. 쪼갬 자체가 목적이 되면 안 된다.</li>
+    </ul>
+    <p>실무 신호: "이 메서드를 바꾸면 어느 팀의 테스트가 깨지는가"를 메서드별로 적어 보라. 결과가 두 개 이상의 군집으로 나뉜다면 (가), 대부분의 메서드가 서브시스템 셋 이상을 엮어 계산한다면 (나)다.</p>
+    <p><strong>흔한 오답:</strong> "메서드가 많으니 서브시스템별로 퍼사드를 하나씩 만든다(<code>SeatFacade</code>, <code>BaggageFacade</code>…)." 이는 퍼사드의 존재 이유인 '여러 서브시스템을 엮는 흐름'을 다시 클라이언트로 돌려보내는 것이다. 나누는 축은 서브시스템이 아니라 클라이언트다.</p>
+    <figure class="code"><figcaption>src/08_facade/solutions/ex3_split_facade.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 연습문제 3 해설: 메서드 30개짜리 퍼사드를 어떻게 할까.
+
+상황: CheckInFacade가 2년 사이 30개 메서드로 불었다. 승객용(체크인, 좌석 변경, 수하물 추가),
+직원용(수동 좌석 지정, 오버부킹 처리, 탑승 마감), 운영용(통계, 장비 상태)이 한 클래스에
+섞였다. 판단 기준은 &#x27;메서드 수&#x27;가 아니라 &#x27;누가, 왜 바뀌는가&#x27;다. 이 파일은 (가) 클라이언트
+역할별로 퍼사드를 나누는 결과를 보인다. (나) 서브시스템 재설계는 원고 해설의 서술을 참조하라.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+
+class SeatService:
+    &quot;&quot;&quot;[Subsystem] 좌석.&quot;&quot;&quot;
+
+    def allocate(self, pnr: str, zone: str) -&gt; str:
+        &quot;&quot;&quot;자동 배정.&quot;&quot;&quot;
+        return &quot;31A&quot; if zone == &quot;W&quot; else &quot;31C&quot;
+
+    def override(self, pnr: str, seat: str) -&gt; str:
+        &quot;&quot;&quot;수동 지정.&quot;&quot;&quot;
+        return seat
+
+
+class BoardingControl:
+    &quot;&quot;&quot;[Subsystem] 탑승 관리.&quot;&quot;&quot;
+
+    def close_flight(self, flight: str) -&gt; str:
+        &quot;&quot;&quot;탑승 마감.&quot;&quot;&quot;
+        return f&quot;{flight} 마감&quot;
+
+
+class PassengerCheckIn:
+    &quot;&quot;&quot;[Facade] 승객용 — 키오스크·모바일이 쓴다. 변경 이유: 승객 UX 요구.
+
+    메서드가 적고 &#x27;안전한&#x27; 연산만 있다. 직원 권한이 필요한 기능이 섞여 있지 않으므로
+    승객 퍼사드를 &#x27;통해서는&#x27; 수동 지정을 호출할 길이 없다(ISP). 다만 퍼사드는 접근을 막지 않으므로
+    모바일 앱이 SeatService를 직접 쓰는 것까지 막지는 못한다. 진짜 차단은 보호 프록시나
+    서브시스템의 권한 검사 몫이다(9장).
+    &quot;&quot;&quot;
+
+    def __init__(self, seats: SeatService) -&gt; None:
+        &quot;&quot;&quot;서브시스템 주입.&quot;&quot;&quot;
+        self._seats = seats
+
+    def choose_seat(self, pnr: str, window: bool) -&gt; str:
+        &quot;&quot;&quot;선호만 받는다.&quot;&quot;&quot;
+        return self._seats.allocate(pnr, &quot;W&quot; if window else &quot;A&quot;)
+
+
+class AgentConsole:
+    &quot;&quot;&quot;[Facade] 카운터·게이트 직원용. 변경 이유: 운영 절차 개정.
+
+    서브시스템 인스턴스는 PassengerCheckIn과 공유한다 — 퍼사드를 나눠도 상태가 갈라지지 않는다.
+    &quot;&quot;&quot;
+
+    def __init__(self, seats: SeatService, boarding: BoardingControl) -&gt; None:
+        &quot;&quot;&quot;서브시스템 주입.&quot;&quot;&quot;
+        self._seats, self._boarding = seats, boarding
+
+    def force_seat(self, pnr: str, seat: str) -&gt; str:
+        &quot;&quot;&quot;수동 좌석 지정.&quot;&quot;&quot;
+        return self._seats.override(pnr, seat)
+
+    def close_gate(self, flight: str) -&gt; str:
+        &quot;&quot;&quot;탑승 마감.&quot;&quot;&quot;
+        return self._boarding.close_flight(flight)
+
+
+if __name__ == &quot;__main__&quot;:
+    seats = SeatService()
+    passenger, agent = PassengerCheckIn(seats), AgentConsole(seats, BoardingControl())
+    print(&quot;[1] 승객 퍼사드:&quot;, passenger.choose_seat(&quot;NR11AB&quot;, window=True))
+    print(&quot;[2] 직원 퍼사드:&quot;, agent.force_seat(&quot;NR11AB&quot;, &quot;12F&quot;), &quot;/&quot;, agent.close_gate(&quot;BW702&quot;))
+    print(f&quot;[3] 승객 퍼사드에 force_seat(수동 지정)가 있는가? {hasattr(passenger, &#x27;force_seat&#x27;)}&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_split_facade.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+</section>
+<!-- 설계서 대비 변경: 연습문제 1(개념)은 표와 서술만으로 답이 완결되어 해설 코드를 두지 않았다. 스킬 규칙상 해설 코드는 코드 문제에만 요구된다. -->
+    <nav class="pager"><a class="prev" href="07-composite.html"><small>← 이전 · 7장</small>컴포지트 (Composite)</a><a class="next" href="09-proxy.html"><small>다음 · 9장 →</small>프록시 (Proxy)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

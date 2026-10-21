@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+# 예시 정답이 들어 있는 교사용 자료는 공개 저장소에 올리지 않는다
+inquiry/teacher.html
+inquiry/content/
+inquiry/sample/

@@ -1,0 +1,233 @@
+<!--meta
+title: 템플릿 메서드 (Template Method)
+subtitle: 절차의 골격은 한 곳에 고정하고, 달라지는 단계만 열어 둔다
+part: 행위 패턴
+-->
+<section id="goals">
+  <h2>학습 목표</h2>
+  <ul>
+    <li>알고리즘의 골격을 상위 클래스에 고정하고 가변 단계를 하위 클래스에 맡기는 구조를 설계할 수 있다. 이때 추상 단계와 훅(hook)을 구분할 수 있다.</li>
+    <li>할리우드 원칙("우리에게 전화하지 마라, 우리가 전화하겠다")과 제어의 역전이 이 패턴에서 어떻게 나타나는지 설명할 수 있다.</li>
+    <li>상속 기반 템플릿 메서드와 합성 기반 전략(단계 주입) 가운데 어느 쪽이 맞는지 판단할 수 있다. 변이의 축이 늘어날 때 상속 계층이 왜 취약해지는지도 설명할 수 있다.</li>
+  </ul>
+</section>
+
+<section id="context">
+  <h2>1. 상황</h2>
+  <p>코딩 교육 플랫폼 '코드랩'의 개발자 도윤은 파이썬 제출물 채점기를 만들었다. 절차는 단순했다. 소스를 <dfn data-term="sandbox">샌드박스</dfn>(신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경)에 저장하고, 실행하고, 테스트 케이스마다 출력을 기대값과 비교한 뒤, 결과를 기록한다.</p>
+  <p>한 학기 뒤 C++와 Java 과목이 열렸다. C++는 실행 전에 컴파일 단계가 필요하다. Java는 컴파일 전에 공개 클래스 이름이 <code>Main</code>인지 검사해야 한다. 마감이 급했던 도윤은 파이썬 채점기를 복사해 C++ 채점기를 만들고, C++ 채점기를 다시 복사해 Java 채점기를 만들었다. 그렇게 채점기 세 개가 생겼다.</p>
+  <p>그 뒤 "모든 언어"에 해당하는 요구사항이 연달아 들어왔다. 시간 제한 측정, 채점 뒤 샌드박스 디렉터리 정리, 일부 문제에 대한 부동소수 오차 허용이다. 도윤은 세 파일에 같은 수정을 세 번 했고, 그 과정에서 두 군데가 어긋났다. Java 채점기에는 샌드박스 정리가 빠져서, 몇 주 뒤 채점 서버의 디스크가 가득 찼다. C++ 채점기는 다른 팀원이 "틀린 답이면 시간은 볼 필요 없다"며 비교와 시간 검사의 순서를 바꿔 놓았다. 그래서 같은 "느린 오답"이 파이썬에서는 시간 초과, C++에서는 오답으로 판정되었다. 학생들이 게시판에 항의 글을 올렸다.</p>
+  <p>도윤이 물어야 할 질문은 이것이다. <em>"절차의 순서와 반드시 거쳐야 할 단계는 한 곳에서 강제하고, 언어마다 정말로 다른 부분만 따로 쓰게 하려면 어떻게 해야 하는가?"</em></p>
+</section>
+
+<section id="naive">
+  <h2>2. 순진한 설계와 그 한계</h2>
+  <p class="lead-in">아래는 세 채점기가 공존하던 시점의 코드다. 컴파일러 없이도 실행되도록 컴파일과 실행은 흉내만 낸다. 반면 샌드박스 디렉터리 생성과 시간 측정은 실제로 한다. 세 <code>judge()</code> 메서드를 나란히 놓고 어디가 같고 어디가 미묘하게 다른지 찾아보라. 데모 [2]~[4]가 상황에서 말한 세 가지 사고를 재현한다.</p>
+  <div class="callout"><span class="label">용어</span>
+    <p>이 코드는 <dfn data-term="online-judge">온라인 저지</dfn>, 곧 제출된 프로그램을 테스트 입력으로 자동 실행해 판정하는 채점 시스템의 일부다. 판정 문자열은 업계 관례를 따른다. <dfn data-term="accepted">AC</dfn>(Accepted, 모든 테스트 통과), <dfn data-term="wrong-answer">WA</dfn>(Wrong Answer, 출력이 기대값과 다름), <dfn data-term="time-limit-exceeded">TLE</dfn>(Time Limit Exceeded, 시간 제한 초과), <dfn data-term="runtime-error">RE</dfn>(Runtime Error, 실행 중 예외로 비정상 종료), <dfn data-term="compile-error">CE</dfn>(Compile Error, 컴파일 또는 사전 검증 실패)다. 컴파일 흉내 주석의 <dfn data-term="linking">링크</dfn>는 컴파일된 조각과 라이브러리를 이어 실행 파일을 만드는 단계다. 표준 라이브러리로는 임시 디렉터리를 안전하게 만드는 <dfn data-term="tempfile"><code>tempfile</code></dfn>, 파일 경로를 객체로 다루는 <dfn data-term="pathlib-path"><code>pathlib</code></dfn>(<code>/</code> 연산자로 경로를 잇는다), 짧은 구간의 경과 시간을 재는 고해상도 시계 <dfn data-term="time-perf-counter"><code>time.perf_counter</code></dfn>를 쓴다.</p>
+  </div>
+  <pre data-src="14_template_method/01_naive.py"></pre>
+  <pre data-run="14_template_method/01_naive.py"></pre>
+  <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
+  <ul>
+    <li><strong>절차(순서)와 단계(내용)가 한 덩어리로 복제되었다.</strong> 세 메서드에서 정말로 다른 부분은 파일 이름, 컴파일, 클래스명 검사 정도로 20%가 안 된다. 그런데 나머지 80%까지 함께 복사되었다.</li>
+    <li><strong>공통 요구사항이 N번의 수정이 된다.</strong> "모든 언어에 정리 단계 추가"는 업무 관점에서는 변경 하나다. 하지만 코드에서는 세 군데를 고쳐야 하고, 한 군데라도 빠뜨리지 않는다는 보장이 어디에도 없다.</li>
+    <li><strong>순서가 불변식인데 아무도 그것을 지키지 않는다.</strong> "시간 검사 → 출력 비교"는 공정한 판정의 조건이다. 그런데 이 순서가 각 사본의 지역적인 선택처럼 보이기 때문에, 누구든 "개선"이라며 바꿀 수 있다.</li>
+  </ul>
+</section>
+
+<section id="structure">
+  <h2>3. 패턴의 구조</h2>
+  <p>GoF의 의도(intent)는 이렇다. <em>"연산 안에 알고리즘의 골격을 정의하고, 일부 단계를 하위 클래스로 미룬다. 템플릿 메서드는 알고리즘의 구조를 바꾸지 않고도 하위 클래스가 알고리즘의 특정 단계를 재정의할 수 있게 한다."</em> 핵심은 <strong>순서는 닫고 단계는 연다</strong>는 것이다. 이 패턴에서 OCP가 닫는 대상은 클래스 전체가 아니라 '절차'다.</p>
+  <p>그림의 메모에 적힌 <dfn data-term="inversion-of-control">제어의 역전</dfn>은 흐름의 제어권이 사용자 코드가 아니라 골격(또는 프레임워크) 쪽에 있어서, 사용자 코드는 불리기만 하는 구조를 말한다. 보통은 내 코드가 라이브러리를 부르지만, 여기서는 상위 클래스의 골격이 하위 클래스의 단계를 부른다. 이를 한 문장으로 요약한 것이 <dfn data-term="hollywood-principle">할리우드 원칙</dfn>, 곧 "우리에게 전화하지 마라, 우리가 전화하겠다"다. 하위 클래스는 골격을 부르지 않고, 골격이 언제 하위 클래스를 부를지 정한다.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 700 330" role="img" aria-label="템플릿 메서드 구조: Judge가 골격 judge()를 가지며 PythonJudge, CppJudge, JavaJudge가 단계를 채운다">
+      <g class="uml-class highlight" transform="translate(190,10)">
+        <rect width="320" height="190"/>
+        <text class="uml-stereo" x="160" y="16">«Abstract Class»</text>
+        <text class="uml-name uml-abstract" x="160" y="34">Judge</text>
+        <line x1="0" y1="44" x2="320" y2="44"/>
+        <text class="uml-member" x="10" y="62">+ judge(sub, tests) {final}  ← 템플릿 메서드</text>
+        <text class="uml-member" x="10" y="80">- _run_tests(...) {final}</text>
+        <text class="uml-member" x="10" y="102">+ language() {abstract}</text>
+        <text class="uml-member" x="10" y="120">+ source_filename() {abstract}</text>
+        <text class="uml-member" x="10" y="138">+ run(src, sub, stdin) {abstract}</text>
+        <text class="uml-member" x="10" y="160">+ validate(sub)  ← 훅: 기본 통과</text>
+        <text class="uml-member" x="10" y="178">+ compile(src, sub)  ← 훅: 기본 no-op</text>
+      </g>
+      <path class="uml-inherit" d="M350 240 V202" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M90 240 H610"/>
+      <path class="uml-inherit" d="M90 260 V240 M350 260 V240 M610 260 V240"/>
+      <g class="uml-class" transform="translate(10,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">PythonJudge</text><text class="uml-member" x="8" y="42">추상 단계 3개만</text></g>
+      <g class="uml-class" transform="translate(270,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">CppJudge</text><text class="uml-member" x="8" y="42">+ compile() 재정의</text></g>
+      <g class="uml-class" transform="translate(530,260)"><rect width="160" height="56"/><text class="uml-name" x="80" y="20">JavaJudge</text><text class="uml-member" x="8" y="42">+ validate(), compile()</text></g>
+      <text class="uml-note" x="520" y="40">judge()가 단계를</text>
+      <text class="uml-note" x="520" y="56">호출한다(제어의 역전).</text>
+      <text class="uml-note" x="520" y="72">하위 클래스는 judge()를</text>
+      <text class="uml-note" x="520" y="88">부르지 않는다.</text>
+      <text class="uml-note" x="10" y="40">outputs_match()도 훅</text>
+      <text class="uml-note" x="10" y="56">(기본: 정확 일치)</text>
+    </svg>
+    <figcaption>그림 14-1. 채점기 템플릿 메서드의 참여자. 골격(judge)과 단계(추상/훅)가 한 클래스 안에서 '부르는 쪽'과 '불리는 쪽'으로 나뉜다.</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>역할</th><th>이 장의 요소</th><th>책임</th></tr></thead>
+    <tbody>
+      <tr><td>추상 클래스(Abstract Class)</td><td><code>Judge</code></td><td>템플릿 메서드 <code>judge()</code>로 단계의 <strong>순서</strong>와 <strong>공통 단계</strong>(샌드박스 준비·정리, 시간 검사, 예외의 판정 번역, 기록)를 소유한다.</td></tr>
+      <tr><td>추상 단계(primitive operation)</td><td><code>language</code>, <code>source_filename</code>, <code>run</code></td><td>언어마다 반드시 다르다. 기본값이 의미가 없으므로 하위 클래스가 반드시 구현해야 한다.</td></tr>
+      <tr><td>훅(hook)</td><td><code>validate</code>, <code>compile</code>, <code>outputs_match</code></td><td>기본 동작이 있고 필요한 하위 클래스만 재정의한다. 골격이 하위 클래스에 내준 선택적 확장 지점이다.</td></tr>
+      <tr><td>구체 클래스(Concrete Class)</td><td><code>PythonJudge</code>, <code>CppJudge</code>, <code>JavaJudge</code></td><td>다른 부분만 쓴다. 공통 절차 코드는 한 줄도 없다.</td></tr>
+    </tbody>
+  </table>
+  <p>추상 단계와 훅을 가르는 기준은 <em>"합리적인 기본값이 존재하는가"</em>다. 기본값이 없는 단계를 훅으로 만들면, 구현을 빠뜨린 하위 클래스가 조용히 잘못 동작한다. 반대로 기본값이 분명한 단계를 추상으로 만들면, 하위 클래스마다 똑같은 보일러플레이트가 생긴다.</p>
+</section>
+
+<section id="implementation">
+  <h2>4. 패턴 적용</h2>
+  <p class="lead-in">먼저 골격을 보자. <code>judge()</code>가 단계를 부르는 순서, 그리고 <code>try/finally</code>가 정리를 보장하는 방식에 주목하라. 01의 세 사본이 각자 들고 있던 책임이 이제 이 메서드 하나에 모인다. 추상 단계와 훅이 시각적으로도 분리되어 있다는 점도 보라. 전체 파일은 <code>src/14_template_method/02_template_method.py</code>이며, 여기서는 두 부분으로 나눠 싣는다. 골격 메서드에 붙은 <dfn data-term="final"><code>@final</code></dfn>(<code>typing.final</code>)은 "재정의하지 말라"고 타입 검사기에 알리는 데코레이터다. <code>run()</code>의 docstring에 나오는 <dfn data-term="interpreter">인터프리터</dfn>는 소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램이다(파이썬이 그렇다).</p>
+  <pre data-src="14_template_method/02_template_method.py" data-lines="1-122"></pre>
+  <p>세 가지를 짚어 두자. 첫째, 시간 검사와 출력 비교의 순서가 <code>_run_tests()</code>에 고정되었다. 이제 하위 클래스는 단계의 <em>내용</em>만 바꿀 수 있고 <em>순서</em>는 바꿀 수 없다. 둘째, 정리 단계는 <code>finally</code>에 있으므로 하위 클래스가 빠뜨릴 방법이 없다. 셋째, 컴파일 오류와 런타임 예외를 판정 문자열로 바꾸는 일도 골격이 맡는다. 덕분에 하위 클래스의 훅은 <code>CompileError</code>를 던지기만 하면 된다.</p>
+  <p><code>@final</code>은 의도를 표시할 뿐, 런타임에는 아무것도 막지 않는다. mypy나 pyright가 오버라이드를 오류로 보고해 줄 뿐이다. 런타임에서도 막아야 한다면 5절의 <code>__init_subclass__</code>를 쓴다.</p>
+
+  <p class="lead-in">이제 구체 채점기들이다. 각 클래스가 "다른 부분"만 쓰고 있는지 확인하라. 마지막 <code>FloatTolerantCppJudge</code>는 이 설계가 한계에 부딪히는 지점이다. 오차 허용은 언어가 아니라 <em>문제</em>의 속성인데, 상속의 축은 언어 하나뿐이기 때문이다. 그 docstring이 말하는 <dfn data-term="axis-of-change">변이의 축</dfn>(변경 축)은 서로 다른 이유로, 서로 독립적으로 바뀌는 요구의 방향이다. 이 예에서는 "언어"와 "출력 비교 방식"이 두 축이다. 축이 몇 개냐가 상속과 합성 사이의 선택을 가른다.</p>
+  <pre data-src="14_template_method/02_template_method.py" data-lines="124-204"></pre>
+  <pre data-run="14_template_method/02_template_method.py"></pre>
+  <p>출력 [2]에서 느린 오답은 이제 모든 언어에서 TLE다. [3]과 [4]에서는 컴파일 오류와 런타임 에러가 하위 클래스의 <code>try/except</code> 없이 골격에서 판정으로 바뀐다. [6]은 이 데모가 남긴 샌드박스가 0개임을 보여 준다. 01의 세 증상이 모두 사라졌다.</p>
+  <p>[7]은 <code>abstractmethod</code>가 보장하는 범위를 정확히 보여 준다. <code>run()</code>을 아예 빠뜨린 <code>GoJudge</code>는 인스턴스화 시점에 거부된다. 그러나 <code>abstractmethod</code>는 <em>이름</em>만 확인하고 시그니처는 보지 않는다. 그래서 인자를 빠뜨린 <code>run(self)</code>를 가진 <code>SloppyJudge</code>는 문제없이 만들어지고, 채점 도중 <code>TypeError</code>가 나면 골격의 <code>except</code>가 이를 학생의 런타임 에러(RE)로 오판한다. 시그니처 불일치는 mypy 같은 타입 검사기만 잡는다.</p>
+  <p>[5]는 성공처럼 보이지만 설계의 균열이다. 부동소수 문제를 Python과 Java에서도 지원하려면 <code>FloatTolerantPythonJudge</code>와 <code>FloatTolerantJavaJudge</code>가 더 필요하다. 여기에 "답의 순서를 무시하는 <dfn data-term="special-judge">특수 저지</dfn>"(답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 판정하는 방식)까지 더하면 클래스 수는 언어 수 × 비교 방식 수가 된다. <strong>변이의 축이 둘 이상이 되는 순간, 상속 하나로는 표현할 수 없다.</strong></p>
+
+  <h3>같은 골격을 합성으로</h3>
+  <p class="lead-in">아래는 골격은 그대로 두고 가변 단계를 <em>주입</em>하는 버전이다. 10장의 전략 패턴을 그대로 적용했다. 언어 축은 단계 여럿을 묶은 <dfn data-term="toolchain"><code>Toolchain</code></dfn> 값 객체가 맡고, 비교 축은 함수 하나(<dfn data-term="checker"><code>Checker</code></dfn>)가 맡는다. <code>Judge.judge()</code>의 본문이 02와 거의 같다는 점, 그리고 무엇을 얻고 무엇을 잃었는지(데모 [3])를 함께 보라.</p>
+  <div class="callout"><span class="label">용어</span>
+    <p><code>Toolchain</code>(툴체인)은 한 언어의 소스를 검증·컴파일·실행하는 도구 묶음을 뜻한다. <code>Checker</code>(체커)는 실제 출력과 기대 출력을 받아 일치 여부를 판정하는 함수다.</p>
+  </div>
+  <pre data-src="14_template_method/03_strategy_version.py"></pre>
+  <pre data-run="14_template_method/03_strategy_version.py"></pre>
+  <p>두 축을 독립적으로 조합할 수 있게 되었다. [1]처럼 추가 클래스 없이 네 가지 채점기가 만들어지고, [2]처럼 문제 설정에 따라 실행 중에 체커를 고를 수도 있다. 검사 범위는 생각만큼 달라지지 않는다([3]). 필수 단계를 빠뜨리면 dataclass가 생성 시점에 <code>TypeError</code>를 낸다. 이는 02의 <code>abstractmethod</code>(02 데모 [7])와 같은 효과다. 시그니처가 틀린 단계는 양쪽 모두 생성을 통과하고, 채점 도중 학생의 RE로 오판된다. 실행 전에 이를 잡는 것은 타입 검사기뿐이다. 시그니처는 맞지만 의미가 틀린 콜러블(<code>compile=print</code>)은 타입 검사기도 런타임도 잡지 못하고 AC를 낸다. 이런 결함은 테스트로만 잡힌다. 합성 쪽에만 있는 위험도 하나 있다. <code>None</code>을 허용한 훅은 '빠뜨림'이 조용히 '기본값'이 된다. 컴파일 언어의 <code>compile</code>을 깜빡해도 아무도 알려 주지 않는다. 단계 사이의 공유 상태(예: 컴파일 결과물 경로)를 넘기는 일도 상속에서는 <code>self</code>로 자연스러웠지만, 합성에서는 인자로 명시해야 한다.</p>
+  <table>
+    <thead><tr><th>관점</th><th>템플릿 메서드(상속, 02)</th><th>단계 주입(합성, 03)</th></tr></thead>
+    <tbody>
+      <tr><td>변이 축의 수</td><td>하나일 때 자연스럽다</td><td>여럿이어도 조합이 곱해지지 않는다</td></tr>
+      <tr><td>필수 단계 누락 검출</td><td>인스턴스화 시점(<code>abstractmethod</code>, 이름만 검사)</td><td>생성 시점(dataclass 필수 필드). 단, <code>None</code> 허용 훅은 빠뜨림이 조용히 기본값이 된다</td></tr>
+      <tr><td>시그니처·의미 오류 검출</td><td colspan="2">양쪽 모두 런타임에는 못 잡는다(학생의 RE로 오판). 시그니처 불일치는 타입 검사기가 잡고, 의미가 틀린 콜러블은 테스트만 잡는다</td></tr>
+      <tr><td>단계 교체 시점</td><td>클래스 정의 시점(정적)</td><td>객체 생성·실행 중(동적)</td></tr>
+      <tr><td>단계 간 공유 상태</td><td><code>self</code>로 암묵적으로 공유</td><td>인자로 명시해야 한다</td></tr>
+      <tr><td>결합</td><td>하위 클래스가 상위 클래스의 내부 호출 순서에 의존한다(<dfn data-term="fragile-base-class">취약한 기반 클래스</dfn>: 상위 클래스가 그 순서를 조금만 바꿔도 하위 클래스가 깨지는 문제. 6절에서 자세히)</td><td>단계는 골격을 모른다</td></tr>
+    </tbody>
+  </table>
+  <div class="callout ok"><span class="label">핵심 정리</span>
+    <p>템플릿 메서드와 전략은 "알고리즘 변이"라는 같은 문제를 푸는 두 방법이다. 템플릿 메서드는 <strong>상속으로 단계를 채우고</strong>, 전략은 <strong>합성으로 단계를 끼운다</strong>. 골격이 단단하고 변이의 축이 하나이며 단계들이 <code>self</code>의 상태를 많이 공유한다면 템플릿 메서드가 낫다. 축이 여럿이거나 실행 중에 바꿔야 한다면 합성이 낫다.</p>
+  </div>
+</section>
+
+<section id="pythonic">
+  <h2>5. 파이썬다운 변형</h2>
+  <p>채점기가 자리를 잡은 뒤, 동료 하은이 도윤에게 말했다. "준비-본문-정리 골격은 우리 코드 곳곳에 이미 있어요. 파이썬이 문법으로 제공하는 것도 있고요." 템플릿 메서드는 언어와 표준 라이브러리 안에 흔히 녹아 있다. 아래 파일은 그 세 가지 모습을 보여 준다.</p>
+  <p class="lead-in">A 부분에서는 <code>@contextmanager</code> 제너레이터의 <code>yield</code> 앞뒤가 골격의 고정 단계이고, <code>with</code> 블록 본문이 가변 단계라는 점을 보라. B 부분에서는 <code>__init_subclass__</code>가 <em>클래스를 정의하는 순간</em> 규칙 위반을 거부하는 모습을, C 부분에서는 <code>unittest</code>가 우리 메서드를 부르는 순서를 출력으로 확인하라.</p>
+  <pre data-src="14_template_method/04_pythonic.py"></pre>
+  <pre data-run="14_template_method/04_pythonic.py"></pre>
+  <ul>
+    <li><strong>컨텍스트 관리자(A)</strong>는 "가운데 단계 하나만 다른" 템플릿 메서드를 상속 없이 표현한다. 가변 단계가 호출자의 코드 블록이므로 하위 클래스가 필요 없다. 정리를 보장하는 일이 골격의 핵심 책임인 경우(파일, 락, 트랜잭션, 샌드박스)라면 파이썬에서는 이것이 첫 번째 선택지다.</li>
+    <li><strong><code>__init_subclass__</code>(B)</strong>는 <code>abstractmethod</code>(인스턴스화 시점)보다 이른, 런타임에서 가장 이른 시점인 import 시에 실패한다. 실행 전에 검사하는 <code>typing.final</code>보다는 늦지만, 타입 검사기를 돌리지 않는 환경에서도 동작한다. 다른 팀이 플러그인처럼 하위 클래스를 작성하는 상황에서 특히 유용하다. 다만 이 장치 자체가 상속 계층을 전제로 한다는 점을 기억하라. 계층이 없다면(03) 지킬 대상도 없다.</li>
+    <li><strong><code>unittest.TestCase</code>(C)</strong>는 우리가 매일 쓰는 템플릿 메서드다. <code>run()</code>이 골격이고, <code>setUp</code>/<code>tearDown</code>이 훅이며, <code>test_*</code>가 가변 단계다. 실패한 테스트 뒤에도 <code>tearDown</code>이 불리는 것은 골격의 약속이다. pytest 픽스처는 같은 문제를 A 방식(제너레이터 픽스처의 <code>yield</code>)으로 푼다. 상속 기반 골격에서 합성·제너레이터 기반으로 옮겨 간 생태계의 흐름이 이 장의 논지를 그대로 보여 준다.</li>
+  </ul>
+</section>
+
+<section id="tradeoffs">
+  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h3>얻는 것과 잃는 것</h3>
+  <ul>
+    <li><strong>얻는 것</strong>: 공통 절차가 한 곳에 있다(<dfn data-term="don-t-repeat-yourself">DRY</dfn>, Don't Repeat Yourself: 같은 지식을 두 곳 이상에 쓰지 말라는 원칙). 순서와 필수 단계를 강제할 수 있다. 공통 요구사항이 변경 한 번으로 모든 하위 클래스에 반영된다(연습문제 4의 메모리 제한).</li>
+    <li><strong>잃는 것</strong>: 상속은 가장 강한 결합이다. 하위 클래스는 상위 클래스가 단계를 <em>언제, 몇 번, 어떤 상태에서</em> 부르는지에 암묵적으로 의존한다. 상위 클래스가 골격을 조금만 바꿔도 하위 클래스가 깨질 수 있다. 이것이 취약한 기반 클래스(fragile base class) 문제다. 하위 클래스를 읽는 사람은 단계가 어떤 맥락에서 불리는지 알기 위해 상위 클래스를 오가야 한다(<dfn data-term="yo-yo-problem">요요 문제</dfn>: 동작 하나를 이해하려고 하위·상위 클래스를 요요처럼 계속 오가야 하는 문제).</li>
+  </ul>
+  <h3>이 패턴을 쓰지 말아야 할 때</h3>
+  <ul>
+    <li><strong>변이의 축이 둘 이상일 때.</strong> 언어 × 비교 방식처럼 축이 곱해지면 클래스가 폭발한다. 단계를 주입하는 합성(03)으로 가라.</li>
+    <li><strong>가변 단계가 실행 중에 바뀌어야 할 때.</strong> 문제별 체커처럼 설정에서 고르는 단계는 클래스 정의 시점에 고정할 수 없다.</li>
+    <li><strong>구현체가 하나뿐이고 늘어날 계획도 없을 때.</strong> 추상 클래스와 훅을 미리 깔아 둔 계층은 읽기만 어렵게 만든다. 두 번째 구현이 생길 때 공통 부분을 끌어올려도 늦지 않다.</li>
+    <li><strong>골격이 "준비-본문-정리" 한 가지뿐일 때.</strong> 파이썬에서는 컨텍스트 관리자로 충분하다. 클래스 계층은 과하다.</li>
+    <li><strong>훅이 계속 늘어날 때.</strong> 하위 클래스가 골격의 의미를 추측해야 하는 지경이라면 골격을 쪼개야 한다는 신호다(연습문제 1).</li>
+  </ul>
+  <h3>관련 패턴</h3>
+  <ul>
+    <li><strong>전략(10장)</strong>: 같은 문제를 합성으로 푼다. 4절의 비교표를 보라.</li>
+    <li><strong>팩토리 메서드(1장)</strong>: 팩토리 메서드는 흔히 템플릿 메서드의 한 단계다. 골격 안의 "무엇을 만들 것인가" 단계를 하위 클래스에 위임한 것이다.</li>
+    <li><strong>빌더(3장)</strong>: Director의 고정된 조립 절차는 템플릿 메서드와 같은 발상을 합성으로 구현한 것이다.</li>
+    <li><strong>커맨드(12장)</strong>: 커맨드 실행기의 "로그 → 실행 → undo 스택 기록" 골격은 템플릿 메서드로 구현되는 경우가 많다.</li>
+  </ul>
+</section>
+
+<section id="exercises">
+  <h2>7. 연습문제</h2>
+
+  <div class="exercise" id="ex1">
+    <h3><span class="ex-tag">개념</span> 문제 1. 추상 단계, 훅, 그리고 훅이 너무 많을 때</h3>
+    <p>(a) 02의 <code>Judge</code>에서 <code>run()</code>은 추상 단계이고 <code>compile()</code>은 훅이다. 둘을 바꾸면, 곧 <code>run()</code>을 기본 no-op 훅으로 하고 <code>compile()</code>을 추상으로 하면 각각 어떤 문제가 생기는가? (b) 팀원이 <code>before_compile</code>, <code>after_compile</code>, <code>before_each_test</code>, <code>after_each_test</code>, <code>on_tle</code>, <code>on_wa</code>, <code>should_skip_test</code> 같은 훅 일곱 개를 추가하자고 제안한다. 무엇이 걱정되는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>(a) <code>run()</code>을 no-op 훅으로 만들면, 구현을 빠뜨린 채점기가 빈 출력을 내고 모든 제출물을 WA로 판정한다. 실패가 <em>조용히, 잘못된 결과로</em> 드러난다. 기본값이 의미 없는 단계는 추상이어야 하며, 그래야 인스턴스화 시점에 크게 실패한다. 반대로 <code>compile()</code>을 추상으로 만들면, 인터프리터 언어 채점기마다 <code>def compile(...): pass</code>라는 보일러플레이트가 생긴다. 기본값이 분명한 단계는 훅이어야 한다.</p>
+      <p>(b) 훅 하나하나는 골격이 하위 클래스에게 하는 약속이다. "이 시점에, 이런 상태로, 한 번 부르겠다"는 약속이다. 훅이 일곱 개가 되면 하위 클래스 작성자는 <code>after_each_test</code>가 TLE일 때도 불리는지, <code>should_skip_test</code>가 <code>True</code>면 <code>before_each_test</code>는 불리는지 같은 질문에 답하려고 골격 코드를 읽어야 한다. 골격의 내부 순서가 사실상 공개 API가 되어 버리고, 이후 골격을 리팩터링할 자유도 사라진다. <strong>흔한 오답</strong>은 "훅이 많을수록 확장성이 좋다"이다. 확장 지점은 많을수록 골격이 굳는다. 대안은 제안된 훅이 실제로 해결하려는 요구를 묻는 것이다. 대개는 로깅이나 지표 수집이며, 이런 요구는 옵저버(11장)로 골격 밖에 두거나 골격을 더 작은 템플릿 둘로 쪼개는 편이 낫다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex2">
+    <h3><span class="ex-tag">리팩터링</span> 문제 2. 리포트 생성기 세 개</h3>
+    <p>코드랩 운영팀은 주간 채점 통계를 CSV, JSON, <dfn data-term="extensible-markup-language">XML</dfn>(태그로 구조를 표현하는 텍스트 데이터 형식)로 내려받는다. 아래 코드를 템플릿 메서드로 바꿔라. 원래 코드에 숨어 있는 형식 간 불일치 하나를 찾고, 리팩터링이 그것을 어떻게 구조적으로 막는지 설명하라.</p>
+    <pre><code class="language-python">class CsvReport:
+    def generate(self):
+        rows = [r for r in db.rows() if not r["deleted"]]   # 조회(삭제 문제 제외)
+        lines = ["problem,submissions,ac_rate"]              # 머리말
+        lines += [f"{r['problem']},{r['submissions']},{r['ac_rate']}" for r in rows]
+        return storage.save("\n".join(lines))                # 저장
+
+class JsonReport:
+    def generate(self):
+        rows = db.rows()                                     # 조회 — 필터가 빠졌다?
+        body = ",\n".join(f'  {{"problem": "{r["problem"]}"}}' for r in rows)
+        return storage.save("[\n" + body + "\n]")            # 머리말·꼬리말·저장
+
+class XmlReport:
+    def generate(self):
+        rows = [r for r in db.rows() if not r["deleted"]]
+        lines = ["&lt;report&gt;"]                                 # 머리말
+        lines += [f'  &lt;row problem="{r["problem"]}"/&gt;' for r in rows]
+        lines.append("&lt;/report&gt;")                            # 꼬리말
+        return storage.save("\n".join(lines))</code></pre>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>불일치는 <code>JsonReport</code>의 조회 단계에 삭제 필터가 없다는 점이다. 같은 주간 통계인데 JSON에만 테스트용 문제가 섞인다. 리팩터링한 뒤에는 조회(<code>fetch</code>)와 저장(<code>save</code>)이 <code>@final</code> 공통 단계가 된다. 하위 클래스는 필터를 쓸 기회 자체가 없으므로, 빠뜨릴 수도 없다.</p>
+      <p>단계는 이렇게 분류했다. 행 서식은 모든 형식에 필요하고 기본값이 없으므로 추상 단계다. 머리말과 꼬리말은 CSV에 꼬리말이 없듯 없을 수도 있으므로 빈 문자열을 기본값으로 하는 훅이다. 행 구분자는 메서드가 아니라 클래스 속성(<code>separator</code>)으로 열었다. 값 하나를 바꾸려고 메서드를 재정의하게 하는 것은 과하기 때문이다. <strong>흔한 오답</strong>은 <code>generate()</code> 전체를 추상으로 두고 "공통 헬퍼"만 상위 클래스에 두는 것이다. 그러면 순서와 필터 적용 여부가 다시 하위 클래스의 선택이 되어, 원래 문제가 그대로 남는다.</p>
+      <pre data-src="14_template_method/solutions/ex2_report_template.py"></pre>
+      <pre data-run="14_template_method/solutions/ex2_report_template.py"></pre>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex3">
+    <h3><span class="ex-tag">판단</span> 문제 3. 상속인가, 주입인가</h3>
+    <p>코드랩이 다음 학기에 Go, Rust, Kotlin을 추가하고, 문제 출제자가 웹 화면에서 "출력 비교 방식"(정확 일치/오차 허용/순서 무관/출제자 체커 스크립트)을 고르게 하려 한다. 02(템플릿 메서드)와 03(단계 주입) 가운데 어느 것을 기반으로 삼겠는가? 선택한 쪽에서 잃는 것을 어떻게 보완하겠는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p>03(단계 주입)을 택한다. 결정적인 근거는 두 가지다. 첫째, 비교 방식은 <em>출제자가 실행 중에</em> 고르는 값이다. 클래스 정의 시점에 고정되는 상속으로는 표현할 수 없다. 둘째, 언어 6개 × 비교 방식 4개를 상속으로 표현하면 클래스가 24개 필요하다. 합성이라면 <code>Toolchain</code> 6개와 체커 함수 4개로 충분하다.</p>
+      <p>다만 언어 축 <em>안</em>에서는 템플릿 메서드가 여전히 유효할 수 있다. 컴파일 언어들(C++, Go, Rust, Kotlin)은 "컴파일 → 산출물 확인 → 실행"이라는 하위 골격을 공유한다. 그래서 <code>Toolchain</code>을 추상 클래스로 만들고 <code>CompiledToolchain</code>이 그 하위 골격을 템플릿 메서드로 가지는 혼합형이 현실적이다. 이렇게 하면 기본 구현을 상속하고, 컴파일 단계를 클래스 단위로 강제할 수 있다. 03의 <code>None</code> 훅에서는 컴파일 단계를 빠뜨려도 조용히 넘어갔다. 시그니처 오류는 어느 쪽이든 타입 검사로 잡는다. <strong>흔한 오답</strong>은 둘 중 하나만 고르는 것이다. 축마다 따로 판단하라. 실행 중에 고르는 축은 합성으로, 정적이고 단계를 많이 공유하는 축은 상속으로 다룬다.</p>
+    </details>
+  </div>
+
+  <div class="exercise" id="ex4">
+    <h3><span class="ex-tag">확장</span> 문제 4. 모든 언어에 메모리 제한 추가</h3>
+    <p>"리스트에 10만 개를 쌓는 풀이가 채점 서버를 죽였다." 모든 언어에 메모리 제한(<dfn data-term="memory-limit-exceeded">MLE</dfn>, Memory Limit Exceeded 판정)을 추가하라. 판정 규칙(한도를 넘으면 MLE, 비교보다 먼저)은 모든 언어에서 같아야 하지만, 측정 방법은 언어 런타임마다 다를 수 있다. 무엇을 골격에 넣고 무엇을 훅으로 열겠는가?</p>
+    <details class="solution">
+      <summary>해설 보기</summary>
+      <p><strong>판정</strong>은 골격에, <strong>측정</strong>은 훅에 둔다. 테스트 루프에 "실행 → 시간 검사 → 메모리 검사 → 출력 비교"를 고정하고, 측정은 기본 구현(파이썬 메모리 할당을 추적해 최대 사용량을 재는 표준 라이브러리 <dfn data-term="tracemalloc"><code>tracemalloc</code></dfn>)이 있는 <code>measure()</code> 훅으로 연다. <code>PythonJudge</code>는 아무것도 고치지 않고 메모리 제한을 얻는다. <code>JavaJudge</code>는 측정 방식만 재정의하며, MLE 판정 규칙에는 손댈 수 없다. 01의 복붙 구조였다면 세 파일을 고쳐야 했고 순서가 또 어긋났을 것이다.</p>
+      <p><strong>흔한 오답</strong>은 측정과 판정을 함께 훅(<code>check_memory()</code>가 판정 문자열을 반환)으로 여는 것이다. 그러면 언어마다 한도 비교 방식이 달라질 수 있고(이상인가 초과인가), 시간 검사와의 순서도 하위 클래스가 정하게 된다. 공정성 규칙은 골격 밖으로 내보내지 않는다.</p>
+      <p>해설 코드 주석의 용어 몇 가지: 실제 채점기는 <dfn data-term="cgroup-setrlimit">cgroup이나 setrlimit</dfn>(운영체제가 프로세스의 메모리·CPU 사용량을 제한하는 수단)로 메모리를 막는다. <dfn data-term="java-virtual-machine">JVM</dfn>(Java Virtual Machine)은 자바 바이트코드를 실행하는 가상 머신이고, <dfn data-term="heap">힙</dfn>은 실행 중 동적으로 할당되는 객체가 놓이는 메모리 영역이다. JVM은 힙을 미리 잡아 두므로 측정 방식이 파이썬과 달라진다.</p>
+      <pre data-src="14_template_method/solutions/ex4_memory_limit.py"></pre>
+      <pre data-run="14_template_method/solutions/ex4_memory_limit.py"></pre>
+    </details>
+  </div>
+</section>
+<!--
+설계서 대비 변경:
+- 연습문제 4(확장: 메모리 제한)를 추가했다. "골격 한 곳만 고치면 끝난다"는 템플릿 메서드의 핵심 이득을 직접 체험하게 하려는 목적이다.
+- 연습문제 3(판단)은 "같은 채점기를 전략으로 만들었다면"을 본문 03_strategy_version.py로 이미 보였으므로, 언어 추가 + 출제자 선택 체커라는 구체 시나리오의 판단 문제로 바꾸고 혼합형 답을 제시했다.
+- 컴파일·실행은 외부 도구 없이 흉내 내고, 샌드박스 디렉터리와 시간 측정은 실제로 수행한다.
+-->

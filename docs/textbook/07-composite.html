@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7장 컴포지트 (Composite) — 파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="chapter" data-part="구조 패턴">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">7장 · 컴포지트 (Composite)</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
+  <main class="content">
+    <header class="hero"><span class="part">7장 · 구조 패턴</span><h1>컴포지트 (Composite)</h1><p class="subtitle">부분과 전체를 같은 질문으로 다루기</p></header>
+    <section id="goals">
+<h2>학습 목표</h2>
+<ol>
+  <li>부분-전체 계층을 트리로 표현하고, 클라이언트가 단일 객체와 복합 객체를 같은 인터페이스로 다루게 설계할 수 있다.</li>
+  <li>자식 관리 메서드(<code>add/remove</code>)를 어디에 둘지(투명성 vs 안전성)의 설계 선택을 논할 수 있다.</li>
+  <li>재귀 연산(원가 합, 중량 합, 깊이 우선 출력)을 구현하고 순환 참조·공유 부품 같은 실제 트리의 함정을 다룰 수 있다.</li>
+</ol>
+</section>
+
+<section id="context">
+<h2>1. 상황</h2>
+<p>소형 경운기와 관리기를 만드는 '다온기계'의 생산관리팀 소연은 신모델의 원가를 뽑아야 했다. 처음 받은 자료는 구매팀의 엑셀이었다. 볼트, 베어링, 피스톤 링, 실린더 블록 같은 단품의 단가와 수량이 한 줄씩 적힌 평평한 목록이었고, 소연의 스크립트는 단가 × 수량을 더하면 끝이었다.</p>
+<p>그런데 설계팀의 실제 <dfn class="term" id="term-bill-of-materials" data-term="bill-of-materials" title="부품표 — 완제품을 이루는 조립품·단품과 수량을 계층으로 적은 목록.">부품표(BOM, Bill of Materials)</dfn>는 평평하지 않았다. 부품표는 완제품 하나를 만드는 데 드는 조립품과 단품을 수량과 함께 계층으로 적은 목록이다. 경운기는 엔진과 프레임으로, 엔진은 실린더 블록·피스톤 조립품·볼트로, 피스톤 조립품은 다시 링과 핀으로 이루어진다. 조립품마다 조립 <dfn class="term" id="term-labor-cost" data-term="labor-cost" title="조립 등 작업에 드는 인건비성 비용.">공임</dfn>(조립 작업에 드는 인건비성 비용)이 붙는다. 소연은 단품 클래스와 조립품 클래스를 만들고, 원가 함수 안에서 "이것이 단품인가 조립품인가"를 물으며 자식을 순회하는 루프를 두 겹 중첩했다. 엔진 원가가 맞게 나왔다.</p>
+<p>곧 요구가 늘었다. 물류팀은 총중량을, 구매팀은 "가장 늦게 들어오는 부품 기준으로 완제품이 언제 나올 수 있는가"(<dfn class="term" id="term-lead-time" data-term="lead-time" title="발주·착수부터 완료(입고·완성)까지 걸리는 기간; 조립품은 가장 늦은 하위 부품 + 자기 조립 기간이다.">리드타임</dfn>: 발주·착수부터 완료까지 걸리는 기간)를, 품질팀은 "단종 예정 부품이 어느 조립품에 들어가 있는가"를 원했다. 소연은 원가 함수를 복사해 중량 함수를 만들었다. 같은 <code>isinstance</code> 분기, 같은 이중 루프였다.</p>
+<p>그리고 설계 변경 공문이 왔다. 피스톤 링 세 개를 낱개로 넣던 것을 '링 세트'라는 조립품으로 공급받기로 했다. BOM이 한 단계 깊어졌고, 원가 스크립트는 <code>AttributeError</code>로 멈췄다. 루프를 한 겹 더 중첩하면 당장은 해결된다. 하지만 다음 설계 변경 때는? 그리고 그 수정을 원가·중량·리드타임·단종 검사 함수 네 곳에 모두 해야 한다.</p>
+</section>
+
+<section id="naive">
+<h2>2. 순진한 설계와 그 한계</h2>
+<p>소연의 스크립트를 재현한다. <code>Part</code>와 <code>Assembly</code>는 공통 타입이 없는 별개의 클래스이고, 계산 함수가 둘을 구분한다.</p>
+<p class="lead-in"><code>total_cost()</code>와 <code>total_weight()</code>가 같은 골격을 공유한다는 점, 그리고 루프의 중첩 깊이가 곧 "처리할 수 있는 BOM의 깊이"라는 점에 주목하라. 데모 [3]이 그 가정을 깬다.</p>
+<figure class="code"><figcaption>src/07_composite/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 순진한 설계: isinstance 분기와 깊이만큼 늘어나는 중첩 루프.
+
+상황: 소형 농기계 제조사 &#x27;다온기계&#x27; 생산관리팀의 소연은 경운기 한 대의 원가를 내는
+스크립트를 쓴다. 처음엔 볼트·베어링 같은 단품(Part)의 평평한 목록이었지만, 곧
+&quot;엔진 조립품은 피스톤 조립품을 포함하고, 피스톤 조립품은 다시 단품을 포함한다&quot;는
+계층 구조가 들어왔다. 조립품(Assembly)에는 조립 공임도 붙는다. 여기에 총중량 계산 요구가 더해졌다.
+이 파일은 소연이 두 클래스를 따로 만들고, 계산 함수마다 isinstance로 분기하며
+깊이만큼 루프를 중첩한 버전이다. 데모 [3]에서 4단계 깊이의 BOM이 들어오자 무너진다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Part:
+    &quot;&quot;&quot;단품. 원가와 중량을 가진다.&quot;&quot;&quot;
+
+    name: str
+    unit_cost: int      # 원
+    weight_g: int
+
+
+@dataclass
+class Assembly:
+    &quot;&quot;&quot;조립품. 자식은 (부품 또는 조립품, 수량) 쌍이다.
+
+    ⚠ 문제: Part와 Assembly에 공통 타입이 없다. 그래서 &#x27;자식&#x27;을 다루는 모든 코드가
+    &quot;이게 단품인가 조립품인가&quot;를 먼저 물어야 한다.
+    &quot;&quot;&quot;
+
+    name: str
+    labor_cost: int
+    children: list[tuple[Part | Assembly, int]] = field(default_factory=list)
+
+
+def total_cost(item: Part | Assembly) -&gt; int:
+    &quot;&quot;&quot;원가 합계. 깊이 3단계까지만 처리한다.&quot;&quot;&quot;
+    if isinstance(item, Part):
+        return item.unit_cost
+    total = item.labor_cost
+    for child, qty in item.children:
+        # ⚠ 문제: 계산 함수마다 같은 isinstance 분기가 반복된다.
+        if isinstance(child, Part):
+            total += child.unit_cost * qty
+        else:
+            total += child.labor_cost * qty
+            # ⚠ 문제: 한 단계 깊어질 때마다 루프가 한 겹 늘어난다. 3단계에서 멈췄다.
+            for grandchild, gqty in child.children:
+                # ⚠ 문제: &quot;3단계는 항상 단품&quot;이라는 가정. 4단계 BOM이 오면 AttributeError.
+                total += grandchild.unit_cost * gqty * qty  # type: ignore[union-attr]
+    return total
+
+
+def total_weight(item: Part | Assembly) -&gt; int:
+    &quot;&quot;&quot;총중량. total_cost와 &#x27;같은 골격&#x27;을 복제했다.&quot;&quot;&quot;
+    if isinstance(item, Part):
+        return item.weight_g
+    total = 0
+    for child, qty in item.children:
+        # ⚠ 문제: 새 계산(리드타임, 단종 부품 찾기...)마다 이 골격을 또 복사해야 한다.
+        if isinstance(child, Part):
+            total += child.weight_g * qty
+        else:
+            for grandchild, gqty in child.children:
+                total += grandchild.weight_g * gqty * qty  # type: ignore[union-attr]
+    return total
+
+
+if __name__ == &quot;__main__&quot;:
+    bolt = Part(&quot;M8 볼트&quot;, 120, 18)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 30)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 85)
+
+    print(&quot;[1] 평평한 목록 시절: 단품 하나는 잘 된다&quot;)
+    print(f&quot;    {bolt.name}: {total_cost(bolt):,}원&quot;)
+
+    print(&quot;[2] 3단계 BOM(엔진 → 피스톤 조립품 → 단품)&quot;)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000, [(ring, 3), (pin, 1)])
+    engine = Assembly(&quot;엔진&quot;, 40_000, [(piston, 2), (bolt, 16)])
+    print(f&quot;    엔진 원가 {total_cost(engine):,}원, 중량 {total_weight(engine):,}g&quot;)
+
+    print(&quot;[3] 설계 변경: 피스톤 링이 &#x27;링 세트 조립품&#x27;이 되어 4단계가 됐다&quot;)
+    ring_set = Assembly(&quot;링 세트&quot;, 800, [(ring, 3)])
+    piston_v2 = Assembly(&quot;피스톤 조립품 v2&quot;, 5_000, [(ring_set, 1), (pin, 1)])
+    # 엔진 v2 → 피스톤 조립품 v2 → 링 세트 → 피스톤 링: 4단계. 3단계 위치(손주)에 조립품(링 세트)이 왔다.
+    engine_v2 = Assembly(&quot;엔진 v2&quot;, 40_000, [(piston_v2, 2), (bolt, 16)])
+    try:
+        total_cost(engine_v2)
+    except AttributeError as e:
+        print(f&quot;    AttributeError: {e}&quot;)
+        print(&quot;    → 깊이 가정이 깨졌다. 루프를 한 겹 더 중첩해야 할까? 다음 설계 변경 때는?&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [2]까지는 맞다(피스톤 조립품 15,300원 × 2 + 볼트 1,920원 + 엔진 공임 40,000원 = 72,520원). [3]에서 무너진 원인은 세 가지로 정리된다.</p>
+<ul>
+  <li><strong>클라이언트가 부분과 전체를 구별해야 한다.</strong> 공통 타입이 없으니 자식을 만지는 모든 곳에서 <code>isinstance</code>를 물어야 한다. 새로운 종류의 항목(예: 외주 가공품)이 생기면 모든 분기를 고친다.</li>
+<li><strong>구조의 깊이가 코드에 하드코딩된다.</strong> 루프 중첩은 "트리는 최대 3단계"라는 가정이다. 데이터의 모양이 코드의 모양을 결정해야 하는데 거꾸로 되어 있다.</li>
+  <li><strong>순회 골격이 연산 수만큼 복제된다.</strong> 원가와 중량은 '자식 결과를 어떻게 합치는가'만 다르다. 그런데 골격 전체를 복사했으므로, 깊이 문제를 고칠 때 복사본 모두를 고쳐야 한다.</li>
+</ul>
+<p>해법의 방향은 분명하다. 깊이를 루프로 펼치지 말고 <strong>재귀</strong>에 맡기고, 재귀가 단품과 조립품을 구별하지 않도록 둘에게 <strong>같은 인터페이스</strong>를 주는 것이다.</p>
+</section>
+
+<section id="structure">
+<h2>3. 패턴의 구조</h2>
+<p>GoF의 의도: <em>"객체들을 트리 구조로 합성하여 부분-전체 계층을 표현한다. 컴포지트는 클라이언트가 개별 객체와 객체들의 합성을 동일하게 다룰 수 있게 한다."</em> 핵심은 뒷문장, '동일하게'다. 트리는 수단이고 목표는 클라이언트의 무지(無知)다. 아래 그림의 '(수량은 <dfn class="term" id="term-edge" data-term="edge" title="그래프에서 두 노드를 잇는 연결; 컴포지트 BOM에서는 (자식, 수량) 쌍이 간선 역할을 한다.">간선</dfn>에)'라는 표기에서 간선은 두 노드(부모와 자식)를 잇는 연결을 말한다. 이 장에서는 (자식, 수량) 쌍이 간선 역할을 한다.</p>
+<figure class="diagram">
+  <svg viewBox="0 0 720 330" role="img" aria-label="BOM 컴포지트 구조: Part와 Assembly가 BomItem을 상속하고, Assembly는 BomItem 자식들을 가진다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <g class="uml-class" transform="translate(20,40)">
+      <rect width="130" height="50"/>
+      <text class="uml-name" x="65" y="30">report()</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(240,20)">
+      <rect width="240" height="120"/>
+      <text class="uml-name uml-abstract" x="120" y="24">BomItem</text>
+      <line x1="0" y1="34" x2="240" y2="34"/>
+      <text class="uml-member" x="10" y="52">+ cost() / weight_g()</text>
+      <text class="uml-member" x="10" y="70">+ lead_time_days()</text>
+      <text class="uml-member" x="10" y="88">+ discontinued_paths()</text>
+      <text class="uml-member" x="10" y="106">+ contains() / render()</text>
+    </g>
+    <path class="uml-dep" d="M150 65 H240" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(80,210)">
+      <rect width="200" height="80"/>
+      <text class="uml-name" x="100" y="24">Part</text>
+      <line x1="0" y1="34" x2="200" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _unit_cost, _weight_g</text>
+      <text class="uml-member" x="10" y="70">+ cost(): 단가 반환</text>
+    </g>
+    <g class="uml-class" transform="translate(420,210)">
+      <rect width="260" height="80"/>
+      <text class="uml-name" x="130" y="24">Assembly</text>
+      <line x1="0" y1="34" x2="260" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _children: [(BomItem, qty)]</text>
+      <text class="uml-member" x="10" y="70">+ add(item, qty)  + cost(): 공임+Σ</text>
+    </g>
+    <path class="uml-inherit" d="M180 210 V175 H360 V140" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M550 210 V175 H360"/>
+    <path class="uml-assoc" d="M680 250 H705 V80 H480" marker-start="url(#diamond)" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="560" y="57">children 0..*<tspan x="560" dy="15">(수량은 간선에)</tspan></text>
+    <text class="uml-note" x="20" y="30">Client</text>
+    <text class="uml-note" x="490" y="40">Component</text>
+    <text class="uml-note" x="80" y="310">Leaf</text>
+    <text class="uml-note" x="420" y="310">Composite</text>
+  </svg>
+  <figcaption>그림 7-1. Assembly는 BomItem이면서 BomItem 여러 개를 가진다. 데코레이터(6장)와 같은 이중 관계이되 자식이 여럿이다.</figcaption>
+</figure>
+<div class="table-wrap"><table>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <tbody>
+    <tr><td>Component</td><td><code>BomItem</code></td><td>단품과 조립품의 공통 연산 선언.</td></tr>
+    <tr><td>Leaf</td><td><code>Part</code></td><td>자식이 없다. 재귀가 멈추는 곳이며 연산의 '기저 사례'를 정의한다.</td></tr>
+    <tr><td>Composite</td><td><code>Assembly</code></td><td>자식을 보관하고, 연산을 자식들에게 전달한 뒤 결과를 합친다.</td></tr>
+    <tr><td>Client</td><td><code>report()</code></td><td><code>BomItem</code>만 안다.</td></tr>
+  </tbody>
+</table></div>
+<p>그림에서 <code>add()</code>가 <code>BomItem</code>이 아니라 <code>Assembly</code>에만 있다는 점을 보라. 이것이 이 장의 두 번째 학습 목표인 설계 선택이다. GoF 원전은 두 길을 모두 제시한다.</p>
+<ul>
+  <li><strong><dfn class="term" id="term-transparency-safety" data-term="transparency-safety" title="컴포지트에서 자식 관리 메서드(add/remove)를 Component에 둘지(투명성: 클라이언트가 전혀 구별하지 않음, 대신 Leaf가 계약을 어길 소지) Composite에만 둘지(안전성: 타입 검사로 실수를 막음, 대신 조립 코드가 Composite 타입을 앎)의 선택.">투명성(transparency)</dfn>:</strong> <code>add/remove</code>를 Component에 둔다. 클라이언트는 정말로 아무것도 구별하지 않는다. 대신 단품의 <code>add()</code>는 예외를 던지거나 아무 일도 하지 않아야 하므로, "Component면 <code>add()</code>할 수 있다"는 계약을 Leaf가 어긴다(LSP 위반의 소지).</li>
+  <li><strong>안전성(safety):</strong> <code>add/remove</code>를 Composite에만 둔다. 단품에 자식을 넣는 실수는 타입 검사에서 잡힌다. 대신 트리를 <em>만드는</em> 코드는 <code>Assembly</code> 타입을 알아야 한다.</li>
+</ul>
+<p>이 장은 안전성을 택했다. 근거는 코드의 비대칭이다. BOM을 <em>조립하는</em> 코드는 <dfn class="term" id="term-enterprise-resource-planning" data-term="enterprise-resource-planning" title="생산·구매·재고·회계 등 기업 자원 정보를 통합 관리하는 전사 시스템.">ERP</dfn>(생산·구매·재고·회계 정보를 통합 관리하는 전사 시스템) 데이터를 읽어 들이는 한두 곳뿐이지만, BOM을 <em>사용하는</em> 코드(원가, 중량, 보고서…)는 계속 늘어난다. 투명성이 필요한 것은 후자이고, 후자는 <code>add()</code>를 부르지 않는다. 연습문제 1에서 반대 선택의 결과를 직접 확인한다.</p>
+</section>
+
+<section id="implementation">
+<h2>4. 패턴 적용</h2>
+<p>소연은 네 가지 연산을 모두 <code>BomItem</code>의 추상 메서드로 올렸다. 그리고 두 가지 실제 데이터의 함정을 설계에 반영했다. 하나는 <strong>공유 부품</strong>이다. 같은 M8 볼트가 엔진에도 프레임에도 들어간다. 다른 하나는 <strong><dfn class="term" id="term-circular-reference" data-term="circular-reference" title="A가 B를 참조하고 B가 다시 A를 참조하는 고리; 트리 순회에서는 무한 재귀를 낳는다.">순환 참조</dfn></strong>, 즉 A가 B를 참조하고 B가 다시 A를 참조하는 고리다. ERP에 사람이 BOM을 입력하다 보면 "A의 하위에 B, B의 하위에 A" 같은 실수가 반드시 생긴다.</p>
+<p class="lead-in">Component와 Leaf부터 보자. <code>BomItem</code>의 docstring은 <code>add()</code>를 여기 두지 않은 이유를 설명한다. <code>Part</code>의 메서드들은 모두 재귀의 '바닥'이므로 자기 값만 돌려준다. <code>render()</code>는 트리를 <dfn class="term" id="term-depth-first-search" data-term="depth-first-search" title="트리·그래프를 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식(반대는 형제를 먼저 훑는 너비 우선).">깊이 우선</dfn>으로 출력한다. 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식으로, 형제를 먼저 훑는 너비 우선과 대비된다.</p>
+<figure class="code"><figcaption>src/07_composite/02_composite.py  (13–87행)</figcaption><pre><code class="language-python">class BomItem(ABC):
+    &quot;&quot;&quot;[Component] 부품표의 한 항목. 클라이언트는 이 타입만 안다.
+
+    자식 관리 메서드(add)를 여기 두지 않은 것이 이 설계의 핵심 선택이다(안전성 우선).
+    단품에 add()가 있으면 &#x27;호출은 되지만 의미가 없는&#x27; 메서드가 생겨 LSP가 흔들린다.
+    대가로, 트리를 &#x27;조립하는&#x27; 코드는 Assembly 타입을 알아야 한다. 트리를 &#x27;사용하는&#x27;
+    코드(원가 계산 등)는 BomItem만 알면 된다 — 대부분의 코드는 후자다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;모든 항목은 이름을 가진다.&quot;&quot;&quot;
+        self.name = name
+
+    @abstractmethod
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 만드는 데 드는 총원가(원).&quot;&quot;&quot;
+
+    @abstractmethod
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개의 총중량(g).&quot;&quot;&quot;
+
+    @abstractmethod
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 확보하는 데 걸리는 최장 일수.&quot;&quot;&quot;
+
+    @abstractmethod
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종 단품까지 이어지는 경로 목록. 비어 있으면 생산에 문제없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;item이 이 항목 자신이거나 하위 어딘가에 있는가. 순환 검사에 쓴다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;깊이 우선으로 트리를 들여쓰기 문자열 목록으로 만든다.&quot;&quot;&quot;
+
+
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] 단품. 재귀가 멈추는 곳이다.&quot;&quot;&quot;
+
+    def __init__(self, name: str, unit_cost: int, weight_g: int,
+                 lead_time_days: int, discontinued: bool = False) -&gt; None:
+        &quot;&quot;&quot;구매 단가·중량·조달 기간·단종 여부.&quot;&quot;&quot;
+        super().__init__(name)
+        self._unit_cost = unit_cost
+        self._weight_g = weight_g
+        self._lead = lead_time_days
+        self.discontinued = discontinued
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;단품의 원가는 구매 단가 그 자체.&quot;&quot;&quot;
+        return self._unit_cost
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;단품 중량.&quot;&quot;&quot;
+        return self._weight_g
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;구매 조달 기간.&quot;&quot;&quot;
+        return self._lead
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종이면 자기까지의 경로 하나, 아니면 빈 목록.&quot;&quot;&quot;
+        return [f&quot;{prefix}{self.name}&quot;] if self.discontinued else []
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;단품은 자식이 없으므로 자기 자신인지만 본다.&quot;&quot;&quot;
+        return item is self
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;한 줄.&quot;&quot;&quot;
+        return [f&quot;{&#x27;  &#x27; * depth}- {self.name} ×{qty}  ({self._unit_cost:,}원)&quot;]
+
+</code></pre></figure>
+<p><code>Part.contains()</code>가 <code>==</code>가 아니라 <code>is</code>로 비교하는 데 주목하라. 이름과 단가가 같은 두 부품 객체라도 BOM 안에서는 서로 다른 항목일 수 있다. 순환 검사와 공유 부품 탐색은 모두 객체의 <em>정체성</em>에 관한 질문이다.</p>
+<p class="lead-in">이제 Composite다. 각 연산이 "내 몫 + 자식들에게 같은 질문을 던진 결과를 합친 것"이라는 동일한 모양을 가진다는 점, 그리고 합치는 방법만 연산마다 다르다는 점(원가는 가중합, 리드타임은 최댓값, 단종 경로는 목록 이어붙이기)을 확인하라. <code>add()</code>의 순환 검사도 보라.</p>
+<div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-critical-path" data-term="critical-path" title="병렬로 진행되는 작업 중 전체 완료 시간을 결정하는 가장 긴 의존 경로.">최장 경로</dfn>(임계 경로): 병렬로 진행되는 작업 중 전체 완료 시간을 결정하는 가장 긴 의존 경로. 리드타임 계산이 이것이다. <dfn class="term" id="term-recursion-limit" data-term="recursion-limit" title="파이썬이 허용하는 최대 재귀 호출 깊이(기본 약 1,000); 넘으면 RecursionError가 난다."><code>RecursionError</code></dfn>: 파이썬이 허용하는 최대 재귀 깊이(재귀 한도, 기본 약 1,000)를 넘으면 나는 예외. <dfn class="term" id="term-directed-acyclic-graph" data-term="directed-acyclic-graph" title="방향성 비순환 그래프 — 간선에 방향이 있고 고리가 없는 그래프; 공유 노드를 허용하는 트리의 일반화다.">DAG</dfn>: 방향성 비순환 그래프. 간선에 방향이 있고 고리가 없는 그래프로, 한 노드를 여러 부모가 공유할 수 있는 트리의 일반화다.</p></div>
+<figure class="code"><figcaption>src/07_composite/02_composite.py  (88–149행)</figcaption><pre><code class="language-python">class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] 조립품. 자식은 (BomItem, 수량) — 자식이 단품인지 조립품인지 묻지 않는다.
+
+    공유 부품: 같은 Part 객체가 여러 조립품에 들어가도 된다(트리가 아니라 DAG가 된다).
+    수량을 &#x27;간선&#x27;에 둔 이유가 이것이다. 볼트 객체 하나를 16번 add하지 않고 (볼트, 16)으로 표현하므로
+    부품 마스터 정보(단가 변경 등)가 한 객체에만 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str, labor_cost: int, assembly_days: int) -&gt; None:
+        &quot;&quot;&quot;조립 공임과 조립에 걸리는 일수.&quot;&quot;&quot;
+        super().__init__(name)
+        self._labor_cost = labor_cost
+        self._assembly_days = assembly_days
+        self._children: list[tuple[BomItem, int]] = []
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; Assembly:
+        &quot;&quot;&quot;자식 추가. 순환을 만들면 거부한다. 체이닝을 위해 self를 돌려준다.
+
+        순환 검사가 필요한 이유: A가 B를 포함하고 B가 A를 포함하면 cost()가 무한 재귀에
+        빠져 RecursionError로 끝난다. 실제 BOM 데이터는 ERP에서 사람이 입력하므로
+        이런 실수는 &#x27;반드시&#x27; 생긴다. 조회 시점이 아니라 &#x27;추가 시점&#x27;에 막는 것이 싸다.
+        &quot;&quot;&quot;
+        if qty &lt;= 0:
+            raise ValueError(&quot;수량은 1 이상이어야 한다&quot;)
+        if item.contains(self):
+            raise ValueError(f&quot;순환 참조: {item.name} 안에 이미 {self.name}이(가) 있다&quot;)
+        self._children.append((item, qty))
+        return self
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;내 공임 + Σ(자식 원가 × 수량). 자식이 단품이든 조립품이든 같은 호출이다.&quot;&quot;&quot;
+        return self._labor_cost + sum(child.cost() * qty for child, qty in self._children)
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;Σ(자식 중량 × 수량). 조립품 자체의 무게는 없다고 본다.&quot;&quot;&quot;
+        return sum(child.weight_g() * qty for child, qty in self._children)
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;자식들은 병렬로 조달되므로 &#x27;가장 늦은 자식&#x27; + 내 조립 일수(최장 경로).
+
+        합(sum)이 아니라 최댓값(max)이라는 점이 원가와 다르다. 같은 재귀 골격에
+        &#x27;자식 결과를 합치는 방법&#x27;만 달라진다 — 이것이 컴포지트 연산의 일반형이다.
+        &quot;&quot;&quot;
+        return self._assembly_days + max((c.lead_time_days() for c, _ in self._children), default=0)
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;자식들의 경로 앞에 내 이름을 붙여 모은다.&quot;&quot;&quot;
+        here = f&quot;{prefix}{self.name} &gt; &quot;
+        return [p for child, _ in self._children for p in child.discontinued_paths(here)]
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;나 자신이거나, 자식 중 누군가가 포함하면 참.&quot;&quot;&quot;
+        return item is self or any(child.contains(item) for child, _ in self._children)
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;내 줄 다음에 자식들을 한 단계 들여 쓴다.&quot;&quot;&quot;
+        lines = [f&quot;{&#x27;  &#x27; * depth}+ {self.name} ×{qty}  (공임 {self._labor_cost:,}원)&quot;]
+        for child, child_qty in self._children:
+            lines += child.render(child_qty, depth + 1)
+        return lines
+
+</code></pre></figure>
+<p>수량을 자식 객체가 아니라 <strong>간선</strong>(<code>(item, qty)</code> 쌍)에 둔 것은 공유 부품을 위한 결정이다. 수량을 <code>Part</code>의 필드로 두면 "엔진의 볼트 16개"와 "프레임의 볼트 24개"를 표현하려고 볼트 객체를 둘 만들어야 하고, 그러면 볼트 단가가 오를 때 두 객체를 모두 고쳐야 한다. 간선에 수량을 두면 볼트의 마스터 정보는 객체 하나에만 있다. 그 결과 자료구조는 엄밀히 말해 트리가 아니라 DAG(방향성 비순환 그래프)가 되는데, 원가·중량 계산은 DAG에서도 그대로 옳다. 재귀가 공유 노드를 경로마다 한 번씩 방문하기 때문이다. 순환만 없으면 된다.</p>
+<p class="lead-in">마지막으로 클라이언트와 데모다. <code>report()</code>는 단품 하나, 중간 조립품, 경운기 전체를 같은 코드로 처리한다. BOM의 깊이는 이제 5단계다.</p>
+<figure class="code"><figcaption>src/07_composite/02_composite.py  (150–185행)</figcaption><pre><code class="language-python">def report(item: BomItem) -&gt; None:
+    &quot;&quot;&quot;[Client] BomItem만 안다. 단품을 넘기든 경운기 전체를 넘기든 같은 코드다.&quot;&quot;&quot;
+    print(f&quot;    {item.name}: 원가 {item.cost():,}원 / 중량 {item.weight_g():,}g / &quot;
+          f&quot;리드타임 {item.lead_time_days()}일&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 공유 부품: bolt 객체 하나가 엔진과 프레임 양쪽에 쓰인다.
+    bolt = Part(&quot;M8 볼트&quot;, 120, 18, lead_time_days=3)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 30, lead_time_days=14)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 85, lead_time_days=10, discontinued=True)
+    block = Part(&quot;실린더 블록&quot;, 180_000, 21_000, lead_time_days=30)
+    pipe = Part(&quot;강관 프레임&quot;, 45_000, 9_500, lead_time_days=7)
+
+    ring_set = Assembly(&quot;링 세트&quot;, 800, assembly_days=1).add(ring, 3)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000, assembly_days=2).add(ring_set).add(pin)
+    engine = Assembly(&quot;엔진&quot;, 40_000, assembly_days=5).add(block).add(piston, 2).add(bolt, 16)
+    frame = Assembly(&quot;프레임&quot;, 15_000, assembly_days=3).add(pipe, 2).add(bolt, 24)
+    tiller = Assembly(&quot;경운기&quot;, 120_000, assembly_days=4).add(engine).add(frame)
+
+    print(&quot;[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)&quot;)
+    for item in (bolt, piston, tiller):
+        report(item)
+
+    print(&quot;[2] 깊이 우선 트리 출력&quot;)
+    print(&quot;\n&quot;.join(&quot;    &quot; + line for line in tiller.render()))
+
+    print(&quot;[3] 단종 부품이 포함된 경로&quot;)
+    for path in tiller.discontinued_paths():
+        print(f&quot;    {path}&quot;)
+
+    print(&quot;[4] 순환 참조 시도: 링 세트에 경운기를 넣는다&quot;)
+    try:
+        ring_set.add(tiller)
+    except ValueError as e:
+        print(f&quot;    거부됨 — {e}&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_composite.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<p>출력 [1]은 첫 번째 학습 목표의 증거다. <code>report()</code>에는 <code>isinstance</code>도 루프 중첩도 없고, 깊이가 5여도 상관없다. 리드타임 39일은 '실린더 블록 30일 → 엔진 조립 5일 → 경운기 조립 4일'의 최장 경로다. 피스톤 핀이 10일, 링이 14일 걸려도 실린더 블록을 기다리는 동안 끝나므로 결과에 영향이 없다. 원가의 <code>sum</code>을 <code>max</code>로 바꾸기만 했는데 '임계 경로'라는 전혀 다른 질문에 답한 것이다.</p>
+<p>출력 [2]의 트리에서 M8 볼트가 두 번 나타난 것은 공유 부품이 경로마다 방문되기 때문이다. [3]은 단종 부품을 경로와 함께 찾아, 품질팀이 "피스톤 조립품 설계를 바꾸면 된다"는 것을 바로 알게 해 준다. [4]는 순환을 추가 시점에 막았다. 이 검사가 없었다면 <code>ring_set.cost()</code>는 <code>RecursionError</code>로 끝났을 것이다.</p>
+<div class="callout warn">
+  <span class="label">함정: 재귀 깊이와 반복 계산</span>
+  <p>파이썬의 기본 재귀 한도는 1,000 근처다. 기계 BOM은 깊어야 10~20단계라 문제없지만, 파일 시스템이나 댓글 스레드처럼 깊이가 사용자 입력에 좌우되는 트리라면 명시적 스택으로 순회해야 한다. 또 공유 조립품이 많은 DAG에서는 같은 하위 트리의 원가를 경로마다 다시 계산한다. 노드가 수만 개라면 <code>cost()</code> 결과를 캐시하되, 부품 단가가 바뀌면 캐시를 <dfn class="term" id="term-cache-invalidation" data-term="cache-invalidation" title="원본이 바뀌었을 때 캐시의 낡은 항목을 지우거나 갱신하는 일.">무효화</dfn>하는(낡은 항목을 지우거나 갱신하는) 책임이 생긴다는 점을 기억하라.</p>
+</div>
+</section>
+
+<section id="pythonic">
+<h2>5. 파이썬다운 변형</h2>
+<p>02의 설계는 연산을 하나 추가할 때마다 <code>BomItem</code>, <code>Part</code>, <code>Assembly</code> 세 곳을 연다. 구매팀이 "경운기 10대에 볼트가 몇 개 필요한가"(<dfn class="term" id="term-bom-explosion" data-term="bom-explosion" title="BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것.">소요량 전개</dfn>: BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것)를, 환경팀이 "탄소 배출량"을 요구하자 소연은 다른 방향을 생각했다. 연산을 클래스 안에 넣지 말고, <strong>순회는 한 번만 쓰고 연산은 순회 결과 위에서</strong> 하면 어떨까?</p>
+<p class="lead-in">아래 파일은 세 도구를 쓴다. (1) <code>Part</code>와 <code>Assembly</code>가 모두 구현하는 다형적 <code>walk()</code>(<dfn class="term" id="term-yield-from" data-term="yield-from" title="하위 이터러블의 값을 하나씩 그대로 흘려보내는(순회를 위임하는) 제너레이터 문법."><code>yield from</code></dfn> 재귀 제너레이터. <code>yield from</code>은 하위 제너레이터가 내는 값을 하나씩 그대로 흘려보내는 문법이다)가 트리를 (항목, 누적 수량)의 평평한 스트림으로 바꾸고, (2) <code>__iter__</code>·<code>__len__</code>·<dfn class="term" id="term-container-protocol" data-term="container-protocol" title="`__iter__`, `__len__`, `__contains__` 등을 구현해 객체가 `for`, `len()`, `in`과 어울리게 하는 특수 메서드 묶음."><code>__contains__</code></dfn>가 조립품을 파이썬 컨테이너처럼 만들며(이 특수 메서드 묶음을 컨테이너 프로토콜이라 한다. 구현하면 객체가 <code>for</code>, <code>len()</code>, <code>in</code>과 어울린다), (3) <dfn class="term" id="term-functools-singledispatch" data-term="functools-singledispatch" title="첫 인자의 타입에 따라 등록된 구현을 골라 호출하는 제네릭 함수 데코레이터; 타입별 분기를 한 디스패치 표에 모은다."><code>singledispatch</code></dfn>가 새 연산을 클래스 밖의 함수로 추가한다(첫 인자의 타입에 따라 등록된 구현을 골라 호출하는 함수를 만드는 표준 라이브러리 도구다). <code>explode()</code>에 재귀가 한 줄도 없다는 점을 확인하라.</p>
+<div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-iterator" data-term="iterator" title="__next__()로 다음 값을 주고 끝나면 StopIteration을 던지는, &#x27;한 번 쓰면 닳는 커서&#x27; 객체. __iter__()는 자기 자신을 돌려준다."><code>Iterator</code></dfn>(이터레이터): <code>next()</code>를 부를 때마다 다음 값을 주고 끝나면 멈추는 객체. 한 번 끝까지 돌면 닳아서 다시 쓸 수 없다. 타입 힌트 <code>Iterator[...]</code>는 이런 값의 흐름을 돌려준다는 뜻이다. <dfn class="term" id="term-counter" data-term="counter" title="키별 개수를 세는 딕셔너리 하위 클래스; `+=`로 누적하고 `most_common()`으로 많은 순서대로 꺼낸다."><code>collections.Counter</code></dfn>: 키별 개수를 세는 딕셔너리. <code>+=</code>로 누적하고 <code>most_common()</code>으로 많은 순서대로 꺼낸다. <dfn class="term" id="term-visitor" data-term="visitor" title="객체 구조의 클래스를 고치지 않고 새 연산을 추가하기 위해, 연산을 별도 방문자 객체에 모으고 이중 디스패치로 호출하는 GoF 행위 패턴(이 책의 범위 밖).">방문자 패턴</dfn>: 객체 구조의 클래스를 고치지 않고 새 연산을 추가하려고, 연산을 별도의 방문자 객체에 모으는 GoF 행위 패턴(이 책의 범위 밖).</p></div>
+<figure class="code"><figcaption>src/07_composite/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 파이썬다운 변형: 재귀 제너레이터, 컨테이너 프로토콜, singledispatch.
+
+상황: 02_composite.py는 연산 하나마다 Part와 Assembly 양쪽에 메서드를 추가했다.
+구매팀이 &quot;경운기 10대 만들려면 볼트가 총 몇 개 필요한가&quot;(소요량 전개, BOM explosion)를,
+환경팀이 &quot;탄소 배출량 보고서&quot;를 요구하자 소연은 생각한다. 연산이 늘 때마다 두 클래스를
+여는 것이 맞나? 이 파일은 세 가지 파이썬 도구로 답한다.
+  (1) walk() + yield from: 트리 순회를 다형적 메서드 &#x27;하나&#x27;로 두고, 연산은 순회 결과 위에서 sum/Counter로.
+  (2) __iter__ / __len__ / __contains__: 조립품을 파이썬 컨테이너처럼 쓰게 한다.
+  (3) functools.singledispatch: 새 연산을 클래스 밖의 함수로 추가한다(방문자 패턴의 파이썬식 대체).
+공통 기반 BomItem은 그대로 둔다. 순회와 &#x27;자기 몫(own_cost)&#x27;까지는 다형성으로 처리하므로,
+클라이언트 코드에 단품/조립품 isinstance 분기가 다시 생기지 않는다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from collections import Counter
+from dataclasses import dataclass, field
+from functools import singledispatch
+from typing import Iterator
+
+
+class BomItem(ABC):
+    &quot;&quot;&quot;[Component] 다형적 연산을 &#x27;최소한&#x27;으로 줄인 공통 인터페이스.
+
+    02에서는 cost/weight/lead_time… 연산마다 추상 메서드가 있었다. 여기서는 두 가지만 둔다.
+      - own_cost: 이 항목 &#x27;자체&#x27;의 몫(단품은 단가, 조립품은 공임).
+      - walk():   자신과 하위 항목을 (항목, 누적 수량)으로 흘려보내는 순회.
+    나머지 합산형 연산은 이 둘 위에서 클래스 밖의 함수로 표현된다.
+    &quot;&quot;&quot;
+
+    @property
+    @abstractmethod
+    def own_cost(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 자체의 비용(하위 항목 제외).&quot;&quot;&quot;
+
+    @abstractmethod
+    def walk(self, multiplier: int = 1) -&gt; Iterator[tuple[BomItem, int]]:
+        &quot;&quot;&quot;깊이 우선으로 (항목, 완제품 1개당 누적 수량)을 낸다.&quot;&quot;&quot;
+
+
+@dataclass(frozen=True, eq=False)
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] 단품. frozen: 부품 마스터 정보는 BOM 계산 도중 바뀌면 안 된다.
+
+    eq=False인 이유: 이름·단가가 같은 두 부품을 &#x27;같은 부품&#x27;으로 취급하면 안 된다.
+    정체성(is) 기반 해시를 유지해야 Counter의 키로 안전하게 쓸 수 있다.
+    &quot;&quot;&quot;
+
+    name: str
+    unit_cost: int
+    co2_g: int          # 부품 1개 생산 시 탄소 배출(g)
+
+    @property
+    def own_cost(self) -&gt; int:
+        &quot;&quot;&quot;단품의 몫은 단가.&quot;&quot;&quot;
+        return self.unit_cost
+
+    def walk(self, multiplier: int = 1) -&gt; Iterator[tuple[BomItem, int]]:
+        &quot;&quot;&quot;재귀의 바닥: 자기 자신 하나만 낸다.&quot;&quot;&quot;
+        yield self, multiplier
+
+
+@dataclass(eq=False)
+class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] 조립품. 자식 순회를 파이썬 프로토콜로 노출한다.&quot;&quot;&quot;
+
+    name: str
+    labor_cost: int
+    children: list[tuple[BomItem, int]] = field(default_factory=list)
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; Assembly:
+        &quot;&quot;&quot;자식 추가(체이닝). 순환 검사는 02에서 다뤘으므로 생략했다.&quot;&quot;&quot;
+        self.children.append((item, qty))
+        return self
+
+    @property
+    def own_cost(self) -&gt; int:
+        &quot;&quot;&quot;조립품의 몫은 공임. 하위 비용은 walk()가 따로 흘려보낸다.&quot;&quot;&quot;
+        return self.labor_cost
+
+    def walk(self, multiplier: int = 1) -&gt; Iterator[tuple[BomItem, int]]:
+        &quot;&quot;&quot;자신을 낸 뒤, 자식에게 &#x27;같은 질문&#x27;을 던진다 — 자식이 단품인지 묻지 않는다.
+
+        yield from은 하위 제너레이터의 값을 그대로 흘려보낸다. 재귀 구조를
+        &#x27;평평한 스트림&#x27;으로 바꾸는 것이 핵심이다. 덕분에 연산마다 재귀를 다시 쓸 필요가 없다.
+        &quot;&quot;&quot;
+        yield self, multiplier
+        for child, qty in self.children:
+            yield from child.walk(multiplier * qty)
+
+    def __iter__(self) -&gt; Iterator[BomItem]:
+        &quot;&quot;&quot;for item in assembly: 하위 모든 항목(자기 자신 제외)을 깊이 우선으로.&quot;&quot;&quot;
+        return (item for item, _ in self.walk() if item is not self)
+
+    def __len__(self) -&gt; int:
+        &quot;&quot;&quot;len(assembly): 직접 자식 &#x27;종류&#x27; 수. 전체 개수와 혼동하지 않도록 정의를 docstring에 못박는다.&quot;&quot;&quot;
+        return len(self.children)
+
+    def __contains__(self, item: object) -&gt; bool:
+        &quot;&quot;&quot;&#x27;볼트&#x27; in 엔진: 하위 어디든 있으면 참. 정체성 비교로 공유 부품을 정확히 찾는다.&quot;&quot;&quot;
+        return any(x is item for x in self)
+
+
+def total_cost(root: BomItem) -&gt; int:
+    &quot;&quot;&quot;[Client] 원가 = Σ(각 항목의 자기 몫 × 누적 수량). 타입 분기도 재귀도 없다.&quot;&quot;&quot;
+    return sum(item.own_cost * qty for item, qty in root.walk())
+
+
+def explode(root: BomItem, units: int = 1) -&gt; Counter[Part]:
+    &quot;&quot;&quot;소요량 전개: 완제품 units대에 필요한 단품별 총수량.
+
+    여기의 isinstance(item, Part)는 &#x27;연산을 타입별로 다르게 처리하는&#x27; 분기가 아니라
+    &quot;단품만 골라 달라&quot;는 질의(필터)다. 질문 자체가 &#x27;단품 목록&#x27;이므로 타입이 곧 조건이다.
+    2절의 문제였던 분기(같은 계산을 타입마다 다르게 하는 것)와는 성격이 다르다.
+    &quot;&quot;&quot;
+    need: Counter[Part] = Counter()
+    for item, qty in root.walk(units):
+        if isinstance(item, Part):
+            need[item] += qty
+    return need
+
+
+@singledispatch
+def co2_g(item: object) -&gt; int:
+    &quot;&quot;&quot;[새 연산] 탄소 배출량. 등록되지 않은 타입이 오면 즉시 실패시킨다.
+
+    singledispatch는 &#x27;타입별 분기&#x27;를 디스패치 표 한 곳으로 모은 것이다. 클라이언트에 isinstance가
+    흩어지지 않는다는 점은 다형성과 같지만, 새 항목 타입(예: 외주 가공품)이 생기면 이 등록 함수들을
+    모두 찾아 추가해야 한다 — 연산 추가는 쉬워지고 타입 추가는 어려워지는 교환이다.
+    &quot;&quot;&quot;
+    raise TypeError(f&quot;co2_g를 모르는 타입: {type(item).__name__}&quot;)
+
+
+@co2_g.register
+def _(item: Part) -&gt; int:
+    &quot;&quot;&quot;단품: 생산 배출량.&quot;&quot;&quot;
+    return item.co2_g
+
+
+@co2_g.register
+def _(item: Assembly) -&gt; int:
+    &quot;&quot;&quot;조립품: 자식 합 + 조립 공정 배출(공임 1,000원당 50g으로 가정).&quot;&quot;&quot;
+    return item.labor_cost // 1000 * 50 + sum(co2_g(c) * q for c, q in item.children)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 02와 다른, 더 작은 BOM이다(실린더 블록·링 세트 없음). 금액을 02와 비교하지 말 것.
+    bolt = Part(&quot;M8 볼트&quot;, 120, 40)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 300)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 520)
+    pipe = Part(&quot;강관 프레임&quot;, 45_000, 18_000)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000).add(ring, 3).add(pin)
+    engine = Assembly(&quot;엔진&quot;, 40_000).add(piston, 2).add(bolt, 16)
+    frame = Assembly(&quot;프레임&quot;, 15_000).add(pipe, 2).add(bolt, 24)
+    tiller = Assembly(&quot;경운기&quot;, 120_000).add(engine).add(frame)
+
+    print(&quot;[1] 순회 한 번 + 다형적 own_cost로 원가&quot;)
+    # walk()가 누적 수량을 곱해 주므로 피스톤 조립품의 공임도 ×2로 더해진다.
+    # 이 BOM에 02식 재귀 cost()를 적용해도 같은 값이 나온다(02와는 BOM이 달라 금액이 다르다).
+    print(f&quot;    경운기 원가 {total_cost(tiller):,}원, 단품 하나도 같은 함수로: {total_cost(bolt):,}원&quot;)
+
+    print(&quot;[2] 소요량 전개 — 경운기 10대&quot;)
+    for part, qty in explode(tiller, 10).most_common():
+        print(f&quot;    {part.name:&lt;8} {qty:&gt;4}개&quot;)
+
+    print(&quot;[3] 컨테이너 프로토콜&quot;)
+    print(f&quot;    len(engine) = {len(engine)}  (직접 자식 종류 수)&quot;)
+    print(f&quot;    bolt in frame = {bolt in frame}, pin in frame = {pin in frame}&quot;)
+    print(f&quot;    for 순회: {[x.name for x in piston]}&quot;)
+
+    print(&quot;[4] singledispatch로 클래스 밖에서 새 연산 추가&quot;)
+    # Part/Assembly 클래스는 한 줄도 바뀌지 않았다. 등록 안 된 타입은 기본 구현이 막는다.
+    print(f&quot;    경운기 탄소 배출 {co2_g(tiller):,}g&quot;)
+    try:
+        co2_g(&quot;엔진&quot;)
+    except TypeError as e:
+        print(f&quot;    잘못된 입력 → {e}&quot;)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<h3>순회와 연산의 분리: <code>yield from</code></h3>
+<p>02와 달리 <code>BomItem</code>에는 연산마다 추상 메서드를 두지 않고, 두 가지만 남겼다. 항목 자체의 몫인 <code>own_cost</code>(단품은 단가, 조립품은 공임)와 순회 <code>walk()</code>다. 둘 다 다형적이므로 <code>Assembly.walk()</code>는 자식이 단품인지 묻지 않고 <code>yield from child.walk(...)</code> 한 줄로 내려가고, <code>total_cost()</code>는 <code>sum(item.own_cost * qty ...)</code>로 끝난다. 2절에서 없애려 한 타입 분기는 여기서도 다시 나타나지 않는다. <code>walk()</code>는 재귀를 한 곳에 가둔다. 결과는 평평한 이터레이터이므로 원가는 <code>sum</code>, 소요량 전개는 <code>Counter</code>, 필터링은 컴프리헨션으로 표현된다. 출력 [2]에서 볼트 400개는 엔진 16 + 프레임 24 = 40개 × 10대로, 공유 부품이 자동으로 합산되었다. <code>explode()</code>에 남은 <code>isinstance(item, Part)</code>는 성격이 다르다. 타입마다 같은 계산을 다르게 하는 분기가 아니라, "단품만 골라 달라"는 <em>필터</em>다. 질문 자체가 단품 목록이므로 타입이 곧 조건이다. (03의 BOM은 02보다 작다. 실린더 블록과 링 세트가 없으므로 원가 300,400원을 02의 482,000원과 비교하지 말 것.) 이 방식은 '자식 결과를 합산하는' 연산에 특히 잘 맞는다. 반면 리드타임처럼 <em>트리의 모양</em>(형제 중 최댓값, 그 위에 부모의 몫을 더함)을 써야 하는 연산은 평평한 스트림으로는 표현하기 어렵다. 그런 연산은 여전히 재귀 메서드가 자연스럽다. 순회 추상화는 반복자 패턴(15장)에서 본격적으로 다룬다.</p>
+<h3>컨테이너 프로토콜</h3>
+<p><code>__iter__</code>, <code>__len__</code>, <code>__contains__</code>를 구현하면 조립품이 <code>for</code>, <code>len()</code>, <code>in</code>과 자연스럽게 어울린다. 다만 의미를 정확히 정해야 한다. <code>len(engine)</code>은 직접 자식 수인가, 하위 전체 단품 수인가, 총수량인가? 이 장은 '직접 자식 종류 수'로 정하고 docstring에 못 박았다. 컨테이너 프로토콜은 편리한 만큼 의미가 모호해지기 쉬우므로, 모호하다면 차라리 <code>part_count()</code>처럼 이름 있는 메서드가 낫다.</p>
+<h3><code>singledispatch</code>: 연산을 클래스 밖으로</h3>
+<p>컴포지트의 고질적 긴장은 "타입은 거의 고정인데 연산은 계속 는다"는 것이다. 객체지향 설계는 새 타입 추가에 강하고 새 연산 추가에 약하다. GoF는 이 상황에 방문자(Visitor) 패턴을 제시하지만, 파이썬에서는 <code>functools.singledispatch</code>가 훨씬 가볍게 같은 일을 한다. 출력 [4]의 <code>co2_g</code>는 <code>Part</code>와 <code>Assembly</code>를 한 줄도 고치지 않고 추가되었다. 대가는 정적 보장이다. 새 항목 타입을 추가하고 <code>register</code>를 빠뜨리면 실행 시점에야 기본 구현의 <code>TypeError</code>로 드러난다. 그래서 기본 구현을 "조용히 0을 반환"하지 말고 반드시 예외를 던지게 했다. 정직하게 말하면 <code>singledispatch</code>는 타입별 분기를 <strong>없앤 것이 아니라 디스패치 표 한 곳으로 모은 것</strong>이다. 클라이언트 곳곳에 <code>isinstance</code>가 흩어지지 않는다는 점에서는 다형성과 같은 효과를 내지만, 새 항목 타입(예: 외주 가공품)이 생기면 연산별 등록 함수를 모두 찾아 추가해야 한다. 다형적 메서드는 "타입 추가는 쉽고 연산 추가는 어렵다", <code>singledispatch</code>는 그 반대다. 그래서 이 파일은 순회와 자기 몫(<code>walk</code>, <code>own_cost</code>)처럼 모든 연산의 토대가 되는 것은 다형성으로, 가끔 추가되는 보고서형 연산(<code>co2_g</code>)은 <code>singledispatch</code>로 나눴다.</p>
+</section>
+
+<section id="tradeoffs">
+<h2>6. 트레이드오프와 관련 패턴</h2>
+<h3>얻는 것과 치르는 것</h3>
+<ul>
+  <li><strong>얻는 것:</strong> 깊이에 무관한 클라이언트 코드, 새 항목 타입 추가의 용이성(OCP), 재귀로 자연스럽게 표현되는 연산.</li>
+  <li><strong>치르는 것:</strong> 설계가 지나치게 일반적이 된다. "엔진에는 반드시 실린더 블록이 하나 있어야 한다" 같은 구조적 제약을 타입으로 표현할 수 없고, 런타임 검사로 옮겨야 한다. 순환·재귀 깊이·반복 계산 같은 그래프 문제를 직접 책임져야 한다.</li>
+</ul>
+<h3>쓰지 말아야 할 때</h3>
+<ul>
+  <li><strong>깊이가 고정되어 있고 계층마다 역할이 다를 때.</strong> '카테고리 → 상품'처럼 2단계로 고정된 구조에 공통 인터페이스를 씌우면 <code>Category.price()</code> 같은 억지 메서드가 생긴다(연습문제 3).</li>
+  <li><strong>부분과 전체가 같은 질문에 답하지 않을 때.</strong> 컴포지트의 전제는 "단품에게도 조립품에게도 원가를 물을 수 있다"이다. 공통 연산이 거의 없다면 공통 인터페이스는 빈 껍데기다.</li>
+  <li><strong>데이터가 사실상 그래프일 때.</strong> 순환이 도메인상 정상인 구조(소셜 관계, 도로망)는 트리가 아니다. 그래프 알고리즘과 방문 표시가 필요하다.</li>
+</ul>
+<h3>관련 패턴</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>패턴</th><th>관계</th></tr></thead>
+  <tbody>
+    <tr><td>데코레이터(6장)</td><td>같은 재귀 합성 구조. 데코레이터는 자식이 하나인 컴포지트로 볼 수 있으나 목적이 다르다. 컴포지트는 '모아서 합치기', 데코레이터는 '감싸서 덧붙이기'.</td></tr>
+    <tr><td>반복자(15장)</td><td>컴포지트를 순회하는 방법(깊이 우선, 너비 우선)을 클라이언트에서 분리한다. 이 장의 <code>walk()</code>가 그 입구다.</td></tr>
+    <tr><td>빌더(3장)</td><td>복잡한 트리를 단계적으로 조립하는 데 쓰인다. ERP 데이터에서 BOM을 만드는 코드가 빌더의 좋은 후보다.</td></tr>
+    <tr><td>커맨드(12장)</td><td><dfn class="term" id="term-macro-command" data-term="macro-command" title="여러 커맨드를 묶어 하나의 커맨드처럼 실행·취소하는 복합 커맨드(12장에서 다룸).">매크로 커맨드</dfn>(여러 커맨드를 묶어 하나처럼 실행·취소하는 복합 커맨드)는 커맨드들의 컴포지트다.</td></tr>
+    <tr><td>방문자(범위 밖)</td><td>컴포지트 위에 연산을 추가하는 GoF의 해법. 파이썬에서는 <code>singledispatch</code>가 대부분 대신한다.</td></tr>
+  </tbody>
+</table></div>
+</section>
+
+<section id="exercises">
+<h2>7. 연습문제</h2>
+
+<div class="exercise" id="ex1">
+  <h3><span class="ex-tag">개념</span> 문제 1. 단품에 <code>add()</code>를 두면</h3>
+  <p>BOM 편집 화면 팀은 사용자가 클릭한 항목에 '하위 항목 추가'를 호출하는데, 항목 종류를 매번 묻기 싫다며 <code>add()</code>를 <code>BomItem</code>에 올리자고 제안했다(투명성 설계). 이렇게 하면 무엇이 좋아지고, 어떤 원칙이 위협받는가? 이 팀의 상황에서는 어느 쪽을 권하겠는가?</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><strong>좋아지는 것:</strong> 편집 화면 코드가 클릭된 항목의 구체 타입을 몰라도 <code>add()</code>를 부를 수 있다. GoF가 투명성을 기본안으로 제시한 이유가 이것이다. "모든 노드를 똑같이 다룬다"는 컴포지트의 목표를 자식 관리까지 확장한다.</p>
+    <p><strong>위협받는 것: LSP.</strong> <code>BomItem</code>의 계약에 "<code>add()</code>할 수 있다"가 포함되는데 <code>Part</code>는 그것을 예외로 거부한다. 기반 타입을 기대하는 코드에 하위 타입을 넣었더니 동작이 깨지는 전형적 위반이다. 그리고 이 오류는 정적 검사가 아니라 사용자가 버튼을 누른 순간에 드러난다. 아래 실행의 [2]가 그 장면이다. 또 하나 주목할 점은 <code>on_add_clicked()</code>가 결국 <code>try/except</code>를 쓴다는 것이다. <code>isinstance</code> 분기가 사라진 것이 아니라 예외 처리로 이름만 바뀌었다.</p>
+    <p>예외 타입도 짚어 둔다. 해설 코드는 <code>NotImplementedError</code>가 아니라 <code>TypeError</code>를 상속한 <code>LeafHasNoChildrenError</code>를 쓴다. 파이썬에서 <code>NotImplementedError</code>는 "하위 클래스가 아직 구현하지 않았다"는 뜻인데, 단품의 <code>add()</code>는 아직이 아니라 영원히 불가능하기 때문이다.</p>
+    <p><strong>권장:</strong> 이 팀에도 안전성 설계가 낫다. 다만 편집 화면은 '단품을 선택하면 추가 버튼을 비활성화'해야 하므로 어차피 타입(혹은 <code>can_have_children</code> 같은 질의)을 알아야 한다. 그 질의를 UI가 먼저 하고, <code>add()</code>는 <code>Assembly</code>에만 두는 것이 사용자 경험과 타입 안전성 모두에 맞다.</p>
+    <p><strong>흔한 오답:</strong> "단품의 <code>add()</code>를 아무것도 하지 않게(<dfn class="term" id="term-no-op" data-term="no-op" title="아무 일도 하지 않는 연산.">no-op</dfn>, 아무 일도 하지 않는 연산) 만들면 LSP 문제가 없다." 오히려 더 나쁘다. 사용자는 추가됐다고 믿지만 데이터는 사라진다. 조용한 실패는 시끄러운 실패보다 위험하다.</p>
+    <p>해설 코드의 <code>LeafHasNoChildrenError</code>는 <dfn class="term" id="term-domain-exception" data-term="domain-exception" title="HTTP 상태 코드 같은 특정 클라이언트의 표현이 아니라 업무 의미(예: 업로드 실패)로 이름 붙인 예외 타입.">도메인 예외</dfn>다. 파이썬 내장 예외나 특정 클라이언트의 표현(HTTP 상태 코드 등)이 아니라 업무 의미("단품은 자식을 가질 수 없다")로 이름 붙인 예외 타입을 말한다.</p>
+    <figure class="code"><figcaption>src/07_composite/solutions/ex1_transparency.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 연습문제 1 해설: add()를 Component에 두는 &#x27;투명성&#x27; 설계와 그 대가.
+
+상황: 다온기계의 다른 팀은 BOM 편집 화면을 만든다. 화면 코드는 사용자가 클릭한 항목에
+&quot;하위 항목 추가&quot;를 호출하는데, 그 항목이 단품인지 조립품인지 매번 isinstance로 묻기 싫어서
+add()를 BomItem(Component)에 올리자고 제안했다. 이 파일은 그 투명성 설계를 구현해,
+무엇이 편해지고 어떤 원칙(LSP)이 위협받는지를 실행으로 보인다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+
+class LeafHasNoChildrenError(TypeError):
+    &quot;&quot;&quot;단품에 자식을 넣으려 할 때의 도메인 예외.
+
+    NotImplementedError를 쓰지 않는 이유: 파이썬에서 그것은 &quot;하위 클래스가 아직 구현하지 않았다&quot;는
+    뜻이다. 단품의 add()는 &#x27;아직&#x27;이 아니라 &#x27;영원히&#x27; 불가능하므로 TypeError 계열이 관례에 맞다.
+    &quot;&quot;&quot;
+
+
+class BomItem:
+    &quot;&quot;&quot;[Component] 투명성 설계: 자식 관리 메서드까지 공통 인터페이스에 둔다.
+
+    GoF 원전은 이 방식을 &#x27;투명성(transparency)&#x27;이라 부르며 기본안으로 제시한다.
+    클라이언트가 단품·조립품을 &#x27;완전히&#x27; 구분 없이 다룰 수 있기 때문이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;이름.&quot;&quot;&quot;
+        self.name = name
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; None:
+        &quot;&quot;&quot;기본 구현은 &#x27;지원하지 않음&#x27;. 단품이 이것을 물려받는다.
+
+        여기가 LSP 위반 지점이다. BomItem의 계약이 &quot;add()를 부를 수 있다&quot;인데
+        Part는 그 계약을 런타임 예외로 깨뜨린다. 오류가 타입 검사 시점이 아니라
+        사용자가 버튼을 누른 시점에 드러난다.
+        &quot;&quot;&quot;
+        raise LeafHasNoChildrenError(f&quot;{self.name}은(는) 단품이라 하위 항목을 가질 수 없다&quot;)
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;원가.&quot;&quot;&quot;
+        raise NotImplementedError
+
+
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] add()를 재정의하지 않으므로 호출하면 예외.&quot;&quot;&quot;
+
+    def __init__(self, name: str, unit_cost: int) -&gt; None:
+        &quot;&quot;&quot;단가.&quot;&quot;&quot;
+        super().__init__(name)
+        self.unit_cost = unit_cost
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;단가.&quot;&quot;&quot;
+        return self.unit_cost
+
+
+class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] add()를 실제로 구현한다.&quot;&quot;&quot;
+
+    def __init__(self, name: str, labor: int) -&gt; None:
+        &quot;&quot;&quot;공임과 자식 목록.&quot;&quot;&quot;
+        super().__init__(name)
+        self.labor = labor
+        self.children: list[tuple[BomItem, int]] = []
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; None:
+        &quot;&quot;&quot;자식 추가.&quot;&quot;&quot;
+        self.children.append((item, qty))
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;재귀 합.&quot;&quot;&quot;
+        return self.labor + sum(c.cost() * q for c, q in self.children)
+
+
+def on_add_clicked(selected: BomItem, new_item: BomItem) -&gt; str:
+    &quot;&quot;&quot;[Client] 편집 화면의 &#x27;하위 항목 추가&#x27; 버튼 처리기.
+
+    투명성 덕분에 isinstance 없이 add()를 부를 수 있다 — 이것이 얻는 것.
+    그러나 결국 예외 처리가 필요하다. &#x27;분기&#x27;가 isinstance에서 try/except로 이름만 바뀐 셈이다.
+    &quot;&quot;&quot;
+    try:
+        selected.add(new_item)
+        return f&quot;{selected.name}에 {new_item.name} 추가됨&quot;
+    except LeafHasNoChildrenError as e:
+        return f&quot;오류: {e}&quot;
+
+
+if __name__ == &quot;__main__&quot;:
+    engine = Assembly(&quot;엔진&quot;, 40_000)
+    bolt = Part(&quot;M8 볼트&quot;, 120)
+    print(&quot;[1] 조립품에 추가:&quot;, on_add_clicked(engine, bolt))
+    print(&quot;[2] 단품에 추가:&quot;, on_add_clicked(bolt, Part(&quot;와셔&quot;, 30)))
+    print(f&quot;[3] 엔진 원가 {engine.cost():,}원 — 계산 쪽은 두 설계 모두 똑같이 투명하다&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex1_transparency.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+
+<div class="exercise" id="ex2">
+  <h3><span class="ex-tag">리팩터링</span> 문제 2. 조직도 인건비</h3>
+  <p>다온기계 인사팀의 스크립트다. 조직 개편으로 '본부 → 실 → 팀 → 직원' 4단계가 되자 실 소속 인원의 인건비가 합계에서 빠졌다. 예외도 나지 않았다. 컴포지트로 바꿔라. 본부장처럼 직원이 부서와 같은 수준에 섞여 있는 경우도 처리해야 한다.</p>
+<pre><code class="language-python">def total_payroll(division):
+    # 본부 → 팀 → 직원 2단계를 가정한다
+    total = 0
+    for member in division.members:
+        if isinstance(member, Employee):
+            total += member.salary          # 본부 직속 직원
+        elif isinstance(member, Department):
+            for sub in member.members:
+                if isinstance(sub, Employee):
+                    total += sub.salary
+                # Department 안의 Department는? → 조용히 무시된다
+    return total
+
+def headcount(division):
+    # 같은 골격을 복사했다
+    count = 0
+    for member in division.members:
+        if isinstance(member, Employee):
+            count += 1
+        elif isinstance(member, Department):
+            count += sum(1 for s in member.members if isinstance(s, Employee))
+    return count
+</code></pre>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><code>OrgUnit</code>(Component)에 <code>payroll()</code>과 <code>headcount()</code>를 선언하고, <code>Employee</code>(Leaf)는 자기 값을, <code>Department</code>(Composite)는 구성원 결과의 합을 돌려준다. 직원과 부서가 같은 수준에 섞여 있어도 <code>members</code>가 <code>OrgUnit</code> 목록이므로 아무 특별 처리가 필요 없다.</p>
+    <p>원래 코드의 더 심각한 문제는 <strong>실패가 조용했다</strong>는 점이다. <code>elif</code> 두 개 중 어디에도 걸리지 않은 하위 부서는 그냥 무시되었다. 컴포지트에서는 모든 구성원이 같은 메서드에 응답해야 하므로(추상 메서드), 처리되지 않는 경로 자체가 존재하지 않는다.</p>
+    <p><strong>흔한 오답:</strong> 재귀 함수 하나(<code>def total(unit): ... isinstance ... total(child)</code>)로 바꾸는 것. 깊이 문제는 해결되지만 <code>isinstance</code> 분기와 골격 복제는 남는다. 그것은 '재귀'이지 '컴포지트'가 아니다. 컴포지트의 핵심은 분기를 다형성으로 옮기는 데 있다.</p>
+    <figure class="code"><figcaption>src/07_composite/solutions/ex2_org_chart.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 연습문제 2 해설: 조직도 인건비 합산을 컴포지트로.
+
+상황: 다온기계 인사팀의 스크립트는 부서(Department)와 직원(Employee)을 isinstance로
+나누고, &#x27;본부 → 팀 → 직원&#x27; 2단계를 가정한 중첩 루프로 인건비를 더했다. 조직 개편으로
+&#x27;본부 → 실 → 팀 → 직원&#x27;이 되자 실 소속 인원이 합계에서 빠졌다(예외조차 나지 않았다).
+이 파일은 OrgUnit 공통 타입으로 바꿔 깊이와 무관하게 합산한다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+
+class OrgUnit(ABC):
+    &quot;&quot;&quot;[Component] 조직의 한 단위. 인건비와 인원수를 물을 수 있다.&quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;이름.&quot;&quot;&quot;
+        self.name = name
+
+    @abstractmethod
+    def payroll(self) -&gt; int:
+        &quot;&quot;&quot;연간 인건비(만 원).&quot;&quot;&quot;
+
+    @abstractmethod
+    def headcount(self) -&gt; int:
+        &quot;&quot;&quot;인원수.&quot;&quot;&quot;
+
+
+class Employee(OrgUnit):
+    &quot;&quot;&quot;[Leaf] 직원.&quot;&quot;&quot;
+
+    def __init__(self, name: str, salary: int) -&gt; None:
+        &quot;&quot;&quot;연봉(만 원).&quot;&quot;&quot;
+        super().__init__(name)
+        self.salary = salary
+
+    def payroll(self) -&gt; int:
+        &quot;&quot;&quot;자기 연봉.&quot;&quot;&quot;
+        return self.salary
+
+    def headcount(self) -&gt; int:
+        &quot;&quot;&quot;1명.&quot;&quot;&quot;
+        return 1
+
+
+class Department(OrgUnit):
+    &quot;&quot;&quot;[Composite] 부서. 하위에 직원과 부서가 섞여 있어도 된다(팀장이 본부 직속인 경우 등).&quot;&quot;&quot;
+
+    def __init__(self, name: str, *members: OrgUnit) -&gt; None:
+        &quot;&quot;&quot;구성원을 생성자에서 받는다. 조직도는 한 번 만들고 읽기만 하는 경우가 많아서다.&quot;&quot;&quot;
+        super().__init__(name)
+        self.members = list(members)
+
+    def payroll(self) -&gt; int:
+        &quot;&quot;&quot;하위 단위의 합. 깊이 가정이 없다.&quot;&quot;&quot;
+        return sum(m.payroll() for m in self.members)
+
+    def headcount(self) -&gt; int:
+        &quot;&quot;&quot;하위 단위 인원의 합.&quot;&quot;&quot;
+        return sum(m.headcount() for m in self.members)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 개편 후 4단계: 본부 → 실 → 팀 → 직원. 본부장은 본부 직속(직원과 부서가 형제).
+    hq = Department(
+        &quot;생산본부&quot;,
+        Employee(&quot;본부장&quot;, 12_000),
+        Department(&quot;생산관리실&quot;,
+                   Department(&quot;자재팀&quot;, Employee(&quot;소연&quot;, 5_200), Employee(&quot;태민&quot;, 4_800)),
+                   Department(&quot;공정팀&quot;, Employee(&quot;하린&quot;, 5_000))),
+        Department(&quot;품질팀&quot;, Employee(&quot;도겸&quot;, 5_500)),
+    )
+    print(f&quot;[1] {hq.name}: {hq.headcount()}명, 인건비 {hq.payroll():,}만 원&quot;)
+    for unit in hq.members:
+        print(f&quot;    └ {unit.name}: {unit.headcount()}명, {unit.payroll():,}만 원&quot;)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_org_chart.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+
+<div class="exercise" id="ex3">
+  <h3><span class="ex-tag">판단</span> 문제 3. 깊이가 항상 2인 메뉴</h3>
+  <p>다온기계의 부품 온라인몰 메뉴는 '카테고리 → 상품' 2단계로 고정되어 있고, 하위 카테고리를 만들 계획도 없다. 신입 개발자가 "트리니까 컴포지트로"라고 제안했다. 동의하는가? 어떤 조건이 바뀌면 판단이 달라지는가?</p>
+  <details class="solution">
+    <summary>해설 보기</summary>
+    <p><strong>동의하지 않는다.</strong> 컴포지트의 가치는 (1) 깊이를 모르는 구조를 (2) 부분과 전체에 같은 질문을 던져 다루는 데 있다. 이 메뉴는 둘 다 해당하지 않는다. 깊이는 2로 고정이고, 카테고리와 상품은 같은 질문에 답하지 않는다. 상품에는 가격이 있지만 카테고리에는 없다. 공통 인터페이스를 만들면 <code>Category.price()</code>나 <code>Product.children</code> 같은 의미 없는 메서드가 생긴다.</p>
+    <p>아래처럼 <code>Category</code>가 <code>list[Product]</code>를 갖는 단순 구조에서는 <strong>타입이 도메인 규칙("카테고리 안에 카테고리는 없다")을 강제</strong>한다. 이중 루프도 여기서는 깊이에 대한 '가정'이 아니라 '명세'다.</p>
+    <p><strong>판단이 바뀌는 조건:</strong> 하위 카테고리가 생겨 깊이가 가변이 되거나, "카테고리의 상품 수", "카테고리 내 최저가"처럼 부분과 전체에 같은 질문을 던지는 기능이 늘어날 때. 그때 비로소 <code>MenuNode.min_price()</code>가 의미 있는 공통 연산이 된다. 그 시점에 리팩터링해도 늦지 않다(YAGNI).</p>
+    <figure class="code"><figcaption>src/07_composite/solutions/ex3_fixed_depth.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 연습문제 3 해설: 깊이가 항상 2인 메뉴에 컴포지트가 필요한가.
+
+상황: 다온기계의 부품 온라인몰은 &#x27;카테고리 → 상품&#x27; 2단계 메뉴만 쓴다. 카테고리 안에
+카테고리가 들어갈 계획은 없고, 상품 안에 상품이 들어갈 일도 없다. 신입 개발자가
+&quot;트리니까 컴포지트로 가자&quot;고 하자, 소연은 아래의 단순한 구조를 제안했다.
+요점: 깊이가 고정되고 두 계층의 &#x27;역할이 다르면&#x27;(카테고리는 상품을 묶을 뿐, 가격이 없다)
+공통 인터페이스로 묶는 것이 오히려 의미를 흐린다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class Product:
+    &quot;&quot;&quot;상품. 가격이 있다.&quot;&quot;&quot;
+
+    name: str
+    price: int
+
+
+@dataclass
+class Category:
+    &quot;&quot;&quot;카테고리. 상품 목록만 가진다 — 타입이 &#x27;깊이 2&#x27;를 그대로 표현한다.
+
+    컴포지트로 만들면 Category.price()나 Product.children 같은 &#x27;억지 메서드&#x27;가 필요해진다.
+    여기서는 타입 시스템이 &quot;카테고리 안에 카테고리는 없다&quot;는 도메인 규칙을 강제한다.
+    &quot;&quot;&quot;
+
+    name: str
+    products: list[Product] = field(default_factory=list)
+
+
+def render_menu(categories: list[Category]) -&gt; list[str]:
+    &quot;&quot;&quot;[Client] 이중 루프로 충분하다. 깊이가 고정이므로 이 루프는 &#x27;가정&#x27;이 아니라 &#x27;명세&#x27;다.&quot;&quot;&quot;
+    lines = []
+    for cat in categories:
+        lines.append(f&quot;▸ {cat.name} ({len(cat.products)})&quot;)
+        lines += [f&quot;    {p.name} — {p.price:,}원&quot; for p in cat.products]
+    return lines
+
+
+if __name__ == &quot;__main__&quot;:
+    menu = [
+        Category(&quot;엔진 부품&quot;, [Product(&quot;피스톤 링 세트&quot;, 7_900), Product(&quot;점화 플러그&quot;, 4_500)]),
+        Category(&quot;소모품&quot;, [Product(&quot;엔진 오일 1L&quot;, 9_800)]),
+    ]
+    print(&quot;\n&quot;.join(render_menu(menu)))</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_fixed_depth.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  </details>
+</div>
+</section>
+    <nav class="pager"><a class="prev" href="06-decorator.html"><small>← 이전 · 6장</small>데코레이터 (Decorator)</a><a class="next" href="08-facade.html"><small>다음 · 8장 →</small>퍼사드 (Facade)</a></nav>
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>

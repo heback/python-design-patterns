@@ -1,0 +1,7 @@
+[
+  {"id": "submission-for-approval", "aliases_add": [], "aliases_remove": [], "short_new": "전자결재(문서를 시스템 안에서 올리고 승인받는 방식)에서 작성한 문서를 결재권자에게 올리는 것.", "drop": false, "reason": "첫 등장이 별칭 '전자결재'(13장 연습문제 2 제목)라 그 자리를 <dfn>으로 감싸고, 바로 다음 문단에서 전자결재와 상신을 함께 정의했다. short에도 전자결재 풀이를 넣어 원고 정의와 맞춘다."},
+  {"id": "pagination", "aliases_add": [], "aliases_remove": [], "short_new": "", "drop": false, "reason": "확인용: 첫 등장이 별칭 '페이지 토큰'(15장 #context)이라 그 표기를 <dfn>으로 감싸고 같은 문단에서 페이지네이션을 정의했다. 변경 불필요."},
+  {"id": "typing-noreturn", "aliases_add": [], "aliases_remove": [], "short_new": "", "drop": false, "reason": "확인용: 첫 등장이 그림 13-1 SVG 텍스트('# _reject(action): NoReturn')라, 그림 바로 앞 문단에서 정의했다. 변경 불필요."},
+  {"id": "collections-abc", "aliases_add": [], "aliases_remove": [], "short_new": "", "drop": false, "reason": "주의: 별칭 'Sequence'는 일반 단어이고 typing.Sequence(15장 ex4 해설 코드의 import)에도 걸린다. 지금은 15장 5.1 lead-in의 <dfn>이 첫 등장이라 위반은 없다. 다만 앞 장에 'Sequence'가 추가되면 거짓 양성이 날 수 있으므로 'collections.abc.Sequence'로 좁히는 것을 검토할 만하다."},
+  {"id": "runtime-error", "aliases_add": [], "aliases_remove": [], "short_new": "", "drop": false, "reason": "주의: 'RE'/'AC'/'CE'/'WA' 같은 두 글자 대문자 별칭은 식별자(E.REPAIRED, AC 전원 등)에 걸릴 위험이 있다. 현재 검사기는 경계 일치로 보이며 위반은 없다. 변경 불필요."}
+]

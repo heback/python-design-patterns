@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>파이썬 디자인 패턴</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<script>
+  /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
+  try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body class="index" data-part="">
+<header class="topbar">
+  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <span class="crumb">목차</span>
+  <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+</header>
+<div class="layout">
+  <nav class="side-toc" aria-label="이 장의 목차"></nav>
+  <main class="content">
+    <header class="cover"><h1>파이썬으로 배우는<br>디자인 패턴</h1><p>객체지향 원리를 이미 아는 학생을 위한 교재. 장마다 실제 상황에서 출발해, 순진한 설계가 무너지는 지점을 확인하고, 패턴과 파이썬다운 대안을 비교한다.</p></header>
+    <section class="part-block"><h2>시작과 정리</h2><div class="cards"><a class="card" href="00-intro.html"><span class="num">서론</span><span class="t">서론: OOP 원리에서 패턴으로</span><span class="s">원리를 알면서도 설계가 막히는 순간, 패턴은 무엇을 더해 주는가</span></a><a class="card" href="99-summary.html"><span class="num">종합</span><span class="t">종합: 패턴 비교와 조합</span><span class="s">닮은 패턴을 의도로 가르고, 변경 축만큼만 패턴을 넣기</span></a></div></section><section class="part-block create"><h2>생성 패턴</h2><div class="cards"><a class="card" href="01-factory-method.html"><span class="num">1장</span><span class="t">팩토리 메서드 (Factory Method)</span><span class="s">'언제 만들지'는 프레임워크가, '무엇을 만들지'는 하위 클래스가</span></a><a class="card" href="02-abstract-factory.html"><span class="num">2장</span><span class="t">추상 팩토리 (Abstract Factory)</span><span class="s">함께 쓰여야 하는 객체들을, 섞이지 않게 한 번에</span></a><a class="card" href="03-builder.html"><span class="num">3장</span><span class="t">빌더 (Builder)</span><span class="s">한 번에 만들기 어려운 객체를, 단계적으로 읽히게 조립하기</span></a><a class="card" href="04-singleton.html"><span class="num">4장</span><span class="t">싱글턴 (Singleton)</span><span class="s">'하나여야 한다'와 '어디서든 얻는다'를 떼어 놓기</span></a></div></section><section class="part-block struct"><h2>구조 패턴</h2><div class="cards"><a class="card" href="05-adapter.html"><span class="num">5장</span><span class="t">어댑터 (Adapter)</span><span class="s">고칠 수 없는 남의 인터페이스를 우리 언어로 번역하기</span></a><a class="card" href="06-decorator.html"><span class="num">6장</span><span class="t">데코레이터 (Decorator)</span><span class="s">같은 인터페이스를 유지한 채 책임을 겹겹이 덧입히기</span></a><a class="card" href="07-composite.html"><span class="num">7장</span><span class="t">컴포지트 (Composite)</span><span class="s">부분과 전체를 같은 질문으로 다루기</span></a><a class="card" href="08-facade.html"><span class="num">8장</span><span class="t">퍼사드 (Facade)</span><span class="s">복잡한 서브시스템 앞에 단순한 정문을 하나 두기</span></a><a class="card" href="09-proxy.html"><span class="num">9장</span><span class="t">프록시 (Proxy)</span><span class="s">같은 얼굴을 한 대리인이 실제 객체로 가는 길을 통제하기</span></a></div></section><section class="part-block behave"><h2>행위 패턴</h2><div class="cards"><a class="card" href="10-strategy.html"><span class="num">10장</span><span class="t">전략 (Strategy)</span><span class="s">교체 가능한 알고리즘을 객체로, 그리고 함수로</span></a><a class="card" href="11-observer.html"><span class="num">11장</span><span class="t">옵저버 (Observer)</span><span class="s">변화를 알리는 쪽이 듣는 쪽을 모르게 하기</span></a><a class="card" href="12-command.html"><span class="num">12장</span><span class="t">커맨드 (Command)</span><span class="s">요청을 객체로 만들어 되돌리고, 묶고, 보내기</span></a><a class="card" href="13-state.html"><span class="num">13장</span><span class="t">상태 (State)</span><span class="s">행동이 상태에 따라 달라질 때, 분기 대신 객체를 바꾼다</span></a><a class="card" href="14-template-method.html"><span class="num">14장</span><span class="t">템플릿 메서드 (Template Method)</span><span class="s">절차의 골격은 한 곳에 고정하고, 달라지는 단계만 열어 둔다</span></a><a class="card" href="15-iterator.html"><span class="num">15장</span><span class="t">반복자 (Iterator)</span><span class="s">내부 표현을 감춘 채 순서대로 꺼내기, 그리고 언어가 흡수한 패턴</span></a></div></section><section class="part-block"><h2>부록</h2><div class="cards"><a class="card" href="glossary.html"><span class="num">용어집</span><span class="t">용어 454개</span><span class="s">교재에서 정의하는 용어와 처음 정의되는 위치</span></a></div></section>
+    
+  </main>
+</div>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script>
+  /* 테마 전환: 시스템 설정 → 수동 선택 순으로 우선한다. */
+  document.querySelector(".theme-toggle").addEventListener("click", function () {
+    var root = document.documentElement;
+    var dark = root.dataset.theme ? root.dataset.theme === "dark"
+                                  : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("dp-theme", root.dataset.theme); } catch (e) {}
+  });
+  /* 코드 블록 복사 버튼 */
+  document.querySelectorAll("figure.code").forEach(function (fig) {
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
+    btn.addEventListener("click", function () {
+      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+        btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
+      });
+    });
+    fig.querySelector("figcaption").appendChild(btn);
+  });
+</script>
+</body>
+</html>
