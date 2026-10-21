@@ -49,7 +49,7 @@ for stem, title, sub, part in chapters():
         part = "교재"
     if part not in groups:
         groups[part] = []; order.append(part)
-    groups[part].append(f'<li><a href="textbook/{stem}.html"><b>{title}</b></a><small>{sub}</small></li>')
+    groups[part].append(f'<li><a href="textbook/{stem}.html" target="_blank" rel="noopener"><b>{title}</b></a><small>{sub}</small></li>')
 toc = "\n".join(f'<section><h3>{p}</h3><ul>{"".join(groups[p])}</ul></section>' for p in order)
 
 (DOCS / "index.html").write_text(f'''<!doctype html><html lang="ko"><head><meta charset="utf-8">
@@ -75,7 +75,7 @@ footer{{margin-top:48px;color:var(--m);font-size:13px}}
 </style></head><body><main>
 <h1>파이썬으로 배우는 디자인 패턴</h1>
 <p class="lead">객체지향 원리를 이미 아는 학생을 위한 교재와, 5주 개념기반 탐구 학습지입니다.</p>
-<div class="cta"><a class="btn p" href="inquiry/">🔍 탐구 학습지 시작하기</a><a class="btn" href="textbook/index.html">📘 교재 보기</a><a class="btn" href="textbook/glossary.html">용어집</a></div>
+<div class="cta"><a class="btn p" href="inquiry/">🔍 탐구 학습지 시작하기</a><a class="btn" href="textbook/index.html" target="_blank" rel="noopener">📘 교재 보기</a><a class="btn" href="textbook/glossary.html" target="_blank" rel="noopener">용어집</a></div>
 
 <h2>탐구 학습지 · 5주 과정</h2>
 <p class="lead">주차를 누르면 해당 주차 학습지로 바로 들어갑니다.</p>
