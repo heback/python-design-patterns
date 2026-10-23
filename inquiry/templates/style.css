@@ -204,3 +204,9 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
   textarea { border: 1px solid #aaa; overflow: visible; }
   .stage > header { position: static; }
 }
+
+/* 앞서 쓴 글 상자, 선택 문항 표시 */
+.recall { background: var(--surface-2); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; margin: 0 0 10px; font-size: 14px; }
+.recall .val { margin: 4px 0 0; white-space: pre-wrap; }
+.recall .rl { color: var(--accent); font-weight: 600; }
+.opt-tag { display: inline-block; border: 1px solid var(--muted); color: var(--muted); border-radius: 10px; padding: 0 7px; font-size: 12px; margin-right: 6px; font-weight: 400; }

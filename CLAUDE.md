@@ -17,6 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 개념기반 탐구학습 5주 과정. `inquiry/content/week{1-5}.py`(문항·예시 정답·교사 메모)와 `templates/`를 `python3 inquiry/build.py`로 합쳐 `student.html`(정답 제거)과 `teacher.html`(가이드·JSON 불러와 코멘트)을 만든다. 산출물 HTML은 직접 수정하지 말고 content/templates를 고친다. `sample/`은 교사 화면 체험용 학생 JSON.
 
+탐구학습지를 점검·개선할 때는 `inquiry-review` 스킬(개념기반 탐구수업 8개 렌즈)을 따르고, 수정 후 `inquiry-reviewer` 에이전트로 독립 재점검한다. 학생 화면의 `optional`(선택, 진행률 제외)·`recall`(앞서 쓴 글 표시)·`compare`(이전 척도 응답 표시) 문항 필드는 `inquiry/templates/`가 처리한다. 코드 실행·편집은 `.claude/skills/html-textbook-publishing/assets/pyrun.js`(교재·학습지 공용, Pyodide)가 맡는다.
+
 ## 명령
 
 ```bash
@@ -43,3 +45,5 @@ open textbook/index.html
 |------|----------|------|------|
 | 2026-10-08 | 초기 구성 | 전체 | - |
 | 2026-10-08 | 동시 실행 2개 제한, 중단 시 SendMessage 재개, 검증 보고서 장별 즉시 기록, 사실 오류성 권장은 필수 취급 | skills/textbook-orchestrator | 초기 실행 중 사용량 한도 3회·검증자 정지 2회, 권장 항목에 사실 오류 다수 |
+| 2026-10-24 | 코드 실행·편집(Pyodide)·예시 코드 팝업·내 코드 JSON 저장/불러오기 추가 | assets/pyrun.*, textbook-code.js, inquiry/templates | 학생이 웹페이지만으로 실습·제출하도록 |
+| 2026-10-24 | 탐구학습지 점검·개선 하네스 추가(inquiry-review 스킬, inquiry-reviewer 에이전트), 일반화 수정본·논쟁 문항·주 간 연결 도입, 시간 100분 정렬, 리커트·개수 채우기 정리 | skills/inquiry-review, agents/inquiry-reviewer, inquiry/content | 사고력 중심 점검 요청: 논쟁 질문 미회수, 일반화 검증 루프 부재, 분량 과다 |

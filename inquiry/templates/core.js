@@ -55,7 +55,7 @@ function isAnswered(it, v) {
 const ANSWERABLE = it => it.type !== "info";
 function weekProgress(week, answers) {
   let total = 0, done = 0;
-  for (const st of week.stages) for (const it of st.items) if (ANSWERABLE(it)) { total++; if (isAnswered(it, answers[it.id])) done++; }
+  for (const st of week.stages) for (const it of st.items) if (ANSWERABLE(it) && !it.optional) { total++; if (isAnswered(it, answers[it.id])) done++; }
   return { total, done };
 }
 /* 선택형만 자동 판정. 반환: null | {state:"ok"|"part"|"bad", text} */

@@ -128,7 +128,9 @@ function renderItem(it, no) {
   const done = isAnswered(it, S.answers[it.id]);
   const card = el("div", { class: "item" + (done ? " done" : ""), id: it.id },
     el("div", { class: "filled-mark" }, done ? "✔ 작성함" : ""),
-    el("p", { class: "q" }, el("span", { class: "no" }, "Q" + no), el("span", { html: it.q })));
+    el("p", { class: "q" }, el("span", { class: "no" }, "Q" + no), it.optional ? el("span", { class: "opt-tag" }, "선택") : null, el("span", { html: it.q })));
+  if (it.recall) card.append(recallBox(it.recall));
+  if (it.compare) card.append(compareBox(it.compare));
   if (it.hint && it.type !== "text" && it.type !== "list") card.append(el("p", { class: "hint", html: it.hint }));
   card.append(renderInput(it, S.answers[it.id], v => {
     S.answers[it.id] = v; touch();
@@ -138,4 +140,17 @@ function renderItem(it, no) {
   const fb = (S.feedback || {})[it.id];
   if (fb && (fb.comment || fb.mark)) card.append(el("div", { class: "fb" }, el("b", {}, "선생님 코멘트 "), fb.mark && MARKS[fb.mark] ? el("span", { class: "mk" }, MARKS[fb.mark][0] + " " + MARKS[fb.mark][1]) : null, fb.comment ? el("div", { class: "val" }, fb.comment) : null));
   return card;
+}
+
+/* 앞서 쓴 글을 다시 보여 주는 상자: 일반화를 엮어 쓰거나 처음·지금의 생각을 비교할 때 쓴다. */
+function recallBox(list) {
+  return el("div", { class: "recall" }, el("b", {}, "내가 앞서 쓴 글"),
+    list.map(r => { const v = S.answers[r.id]; return el("div", { class: "val" }, el("span", { class: "rl" }, r.label + " "), nonEmpty(v) ? v : "(아직 쓰지 않았어요)"); }));
+}
+/* 이전에 한 척도 응답(예: 1주차 사전 진단)을 항목별로 보여 준다. */
+function compareBox(id) {
+  const v = S.answers[id], it = CONTENT.weeks.flatMap(w => w.stages.flatMap(st => st.items)).find(x => x.id === id);
+  if (!it) return null;
+  return el("div", { class: "recall" }, el("b", {}, "처음(1주차)에 내가 한 응답"),
+    it.items.map((t, i) => el("div", { class: "val" }, el("span", { html: t }), `  →  ${v && v[i] != null ? v[i] + "/5" : "—"}`)));
 }
