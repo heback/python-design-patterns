@@ -89,11 +89,27 @@ function taInput(val, onChange, o) {
   return t;
 }
 
+/* 안내문 속 예제 코드(<pre><code>)를 실행·편집 가능한 칸으로 바꾼다. 고친 내용은 저장하지 않는다. */
+function enhanceCode(root) {
+  $$("pre", root).forEach(pre => {
+    const c = pre.querySelector("code"); if (!c) return;
+    const code = c.textContent;
+    pre.replaceWith(PyRun.mountEditor({ code, minRows: 3, label: "예제 코드 — 실행하거나 고쳐 볼 수 있어요" }).el);
+  });
+  return root;
+}
+
 function renderInput(it, val, set) {
   switch (it.type) {
-    case "info": return el("div", { html: it.html || "" });
+    case "info": return enhanceCode(el("div", { html: it.html || "" }));
     case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: it.hint });
-    case "code": return taInput(val == null ? (it.starter || "") : val, set, { code: true, placeholder: it.hint });
+    case "code": {
+      const ed = PyRun.mountEditor({
+        code: val == null ? (it.starter || "") : val, starter: it.starter || "", minRows: 8, label: "코드 작성",
+        example: it.answer, exampleTitle: "예시 코드 (정답 예시)", onChange: set,
+      });
+      return ed.el;
+    }
     case "choice": case "multi": {
       const multi = it.type === "multi", cur = val || { sel: multi ? [] : null, why: "" };
       const box = el("div", { class: "opts" });
@@ -180,7 +196,7 @@ function renderValue(it, v, key) {
   if (v == null || (it.type !== "scales" && !isAnswered(it, v) && it.type !== "code")) return empty();
   switch (it.type) {
     case "text": return el("div", { class: "val" }, v);
-    case "code": return nonEmpty(v) ? el("pre", { class: "val-code" }, el("code", {}, v)) : empty();
+    case "code": return nonEmpty(v) ? PyRun.mountEditor({ code: v, resettable: false, label: "학생 코드(실행해 볼 수 있음)" }).el : empty();
     case "choice": case "multi": {
       const sel = it.type === "multi" ? v.sel : [v.sel], keys = key ? (it.type === "multi" ? key.sel : [key.sel]) : [];
       const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on" : "") + (key && keys.includes(i) && key === it.answer && v === it.answer ? " key" : "") }, el("span", { html: (sel.includes(i) ? "● " : "○ ") + o }))));

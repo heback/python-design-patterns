@@ -124,7 +124,7 @@ function renderWeek() {
 }
 
 function renderItem(it, no) {
-  if (it.type === "info") return el("div", { class: "item info" }, el("div", { html: it.html }));
+  if (it.type === "info") return el("div", { class: "item info" }, enhanceCode(el("div", { html: it.html })));
   const done = isAnswered(it, S.answers[it.id]);
   const card = el("div", { class: "item" + (done ? " done" : ""), id: it.id },
     el("div", { class: "filled-mark" }, done ? "✔ 작성함" : ""),

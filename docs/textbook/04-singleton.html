@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/pyrun.css">
 <script>
   /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,6 +19,9 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">4장 · 싱글턴 (Singleton)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
+  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
+  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -167,7 +171,15 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;\n[2] 위·변조가 전혀 없었는데 무결성 검증 결과는&quot;)
     print(f&quot;  어긋난 기록: {verify_chain(AUDIT_FILE)}  (#1, #2는 GENESIS를, #3은 #0을 가리킨다)&quot;)
     print(&quot;  → 체인이 모듈 수만큼 갈라졌다. 감사에서 &#x27;변조 의심&#x27;으로 판정된다.&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 세 모듈이 번갈아 감사 기록을 남긴다
+  #0 dr.kim     처방 발행      prev=0000000000000000 hash=8476ecf2037004ac
+  #1 lab.lee    검사 결과 열람   prev=0000000000000000 hash=b523b488a06f93b2
+  #2 clerk.park 진료 기록 열람   prev=0000000000000000 hash=c78d5c86ad89f522
+  #3 dr.kim     처방 발행      prev=8476ecf2037004ac hash=1c3b66f9da0f7bd5
+
+[2] 위·변조가 전혀 없었는데 무결성 검증 결과는
+  어긋난 기록: [1, 2, 3]  (#1, #2는 GENESIS를, #3은 #0을 가리킨다)
+  → 체인이 모듈 수만큼 갈라졌다. 감사에서 &#x27;변조 의심&#x27;으로 판정된다.</code></pre></figure>
   <p>#1과 #2의 <code>prev</code>가 GENESIS(<code>0000…</code>)인 것은 검사·원무 모듈의 기록기가 "내가 첫 기록을 쓴다"고 믿었기 때문이다. #3의 <code>prev</code>는 처방 모듈 기록기가 마지막으로 쓴 #0을 가리킨다. 파일상 직전 기록인 #2가 아니다. 각 기록기는 혼자서는 완벽하게 정확한데, 파일 하나를 공유하는 순간 서로의 존재를 모른다. 감사 로그의 가치는 "체인이 하나"라는 데 있으므로 이것은 기능 장애다.</p>
   <p>이 상황의 요구를 정확히 적으면 이렇다. <strong>"하나의 체인 파일에 대해 기록기 상태는 하나여야 한다."</strong> "어디서든 기록기에 접근할 수 있어야 한다"는 요구는 없다. 이 구분이 이 장의 결론을 결정한다.</p>
 </section>
@@ -403,7 +415,18 @@ if __name__ == &quot;__main__&quot;:
     b = test_lab_writes_one_entry()
     print(f&quot;  A={a}, B={b} — 통과는 하지만, 운영 코드에 테스트용 뒷문이 생겼고&quot;)
     print(&quot;  스레드 병렬 실행에서는 한 테스트의 리셋이 같은 프로세스의 다른 테스트 상태를 지운다.&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_singleton.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_singleton.py</figcaption><pre><code>[1] 1차 고통 해결: 어디서 불러도 같은 인스턴스, 체인은 하나
+  AuditLogger() is AuditLogger() → True
+  기록 3줄, 어긋난 기록: []
+
+[2] 2차 고통: QA가 테스트 A, B를 같은 프로세스에서 차례로 실행한다
+  테스트 A 통과? True
+  테스트 B 통과? False  ← A가 남긴 기록이 B에 보인다
+  테스트 순서를 바꾸면 이번엔 A가 실패한다 — 결과가 &#x27;실행 순서&#x27;에 의존한다.
+
+[3] 리셋 훅으로 땜질하면
+  A=True, B=True — 통과는 하지만, 운영 코드에 테스트용 뒷문이 생겼고
+  스레드 병렬 실행에서는 한 테스트의 리셋이 같은 프로세스의 다른 테스트 상태를 지운다.</code></pre></figure>
   <p>[1]은 싱글턴이 약속을 지킨 장면이다. 모듈이 몇 개든, 몇 번 부르든 같은 기록기이고 체인은 하나다.</p>
   <p>구현의 두 가지 세부는 파이썬 특유의 것이다. 첫째, 파이썬에서 <code>AuditLogger()</code>는 <code><dfn class="term" id="term-type-call" data-term="type-call" title="클래스 호출 `Cls()`를 실제로 처리하는 메서드; `__new__`를 부르고 결과가 그 클래스의 인스턴스면 `__init__`을 부른다.">type.__call__</dfn></code>(클래스 호출 <code>Cls()</code>를 실제로 처리하는 메서드)이 <code>__new__</code>로 객체를 얻은 뒤 그것이 해당 클래스의 인스턴스이면 <code>__init__</code>을 <em>다시</em> 부른다. <code>__new__</code>가 기존 객체를 돌려줘도 마찬가지다. 가드가 없으면 새 모듈이 <code>AuditLogger()</code>를 부를 때마다 기록이 초기화된다(연습문제 1). 둘째, 이중 검사 잠금이다. GIL이 있어도 "<code>_instance is None</code> 검사"와 "대입" 사이에 스레드 전환이 일어날 수 있다. 실제 초기화에 파일 열기 같은 I/O가 끼면 그 틈은 넓어진다. 서버 재시작 직후 체인이 갈라졌던 사고가 바로 이것이다(5절에서 재현한다).</p>
   <p>[2]가 2차 고통이다. 테스트 A와 B는 각자 "기록 한 줄"을 기대하지만 같은 프로세스의 같은 싱글턴을 공유하므로 B가 A의 기록을 본다. 테스트 결과가 실행 순서에 의존하는 것은 단위 테스트가 가져서는 안 되는 성질이다. [3]의 리셋 훅은 증상을 가릴 뿐이다. 운영 코드에 "유일한 인스턴스를 지우는" 뒷문이 생겼고, 스레드 기반 병렬 테스트에서는 그 뒷문이 같은 프로세스의 다른 테스트 상태를 지운다. (pytest-xdist처럼 워커가 별도 프로세스인 러너에서는 싱글턴도 워커마다 따로 있으므로, 대신 같은 워커에 배정된 테스트끼리 순서 의존이 생긴다.)</p>
@@ -601,7 +624,20 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;\n[4] 모듈 객체와 cache 접근 함수: 클래스는 평범하고 &#x27;하나&#x27;는 관례로 보장된다&quot;)
     print(f&quot;  get_audit_logger() is get_audit_logger() → {get_audit_logger() is get_audit_logger()}&quot;)
     print(f&quot;  그래도 테스트는 PlainLogger()를 자유롭게 새로 만든다 → {PlainLogger() is not audit_logger}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_variants.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_variants.py</figcaption><pre><code>[1] 8개 스레드가 동시에 처음 생성할 때 만들어진 인스턴스 수
+  UnsafeLogger 인스턴스가 2개 이상 생겼나? True  ← 싱글턴이 깨졌다
+  SafeLogger  인스턴스 수: 1
+
+[2] 메타클래스: __init__이 다시 불리지 않는다
+  MetaLogger() is MetaLogger() → True, 기록 유지: [&#x27;dr.kim 처방&#x27;]
+
+[3] Borg: 다른 객체, 같은 상태
+  b1 is b2 → False, b2.entries → [&#x27;lab.lee 열람&#x27;]
+  세 번째 BorgLogger() 뒤에도 b3.entries → [&#x27;lab.lee 열람&#x27;]
+
+[4] 모듈 객체와 cache 접근 함수: 클래스는 평범하고 &#x27;하나&#x27;는 관례로 보장된다
+  get_audit_logger() is get_audit_logger() → True
+  그래도 테스트는 PlainLogger()를 자유롭게 새로 만든다 → True</code></pre></figure>
   <p>[1]은 1절의 재시작 직후 사고를 재현한다. 여러 스레드가 동시에 <code>None</code>을 보고 각자 인스턴스를 만들었다. 잠금 안에서 다시 검사하는 <code>SafeLogger</code>만 하나를 지킨다. "파이썬에는 GIL이 있으니 괜찮다"는 흔한 믿음은 틀렸다. GIL은 <dfn class="term" id="term-bytecode" data-term="bytecode" title="파이썬 소스를 컴파일한 중간 명령어. 함수의 __code__.co_names에는 그 함수가 참조하는 전역 이름이 담긴다.">바이트코드</dfn>(파이썬 소스를 번역한 중간 명령어) 하나의 <dfn class="term" id="term-atomicity" data-term="atomicity" title="여러 단계가 전부 적용되거나 전부 적용되지 않거나 둘 중 하나여서 중간 상태가 남지 않는 성질.">원자성</dfn>(중간 상태 없이 전부 실행되거나 전혀 실행되지 않는 성질)을 줄 뿐, 검사와 대입이라는 두 동작 사이를 보호하지 않는다.</p>
   <p>[2]의 메타클래스는 <code>__init__</code> 재호출 함정이 없다. 인스턴스가 이미 있으면 <code>type.__call__</code> 자체를 건너뛰기 때문이다. 대신 메타클래스는 상속 계층 전체에 전파되고, <code>ABCMeta</code> 같은 다른 메타클래스와 섞으면 충돌을 직접 해결해야 한다. [3]의 Borg는 정체성이 아니라 <em>상태</em>를 공유한다. 주의할 점은 Borg도 <code>BorgLogger()</code>마다 <code>__init__</code>이 다시 불린다는 것이다. 이번에는 그 <code>__init__</code>이 <em>공유</em> 상태를 건드리므로 <code>self.entries = []</code>라고 쓰면 새 인스턴스를 만들 때마다 모두의 기록이 지워진다. 코드가 <code>setdefault</code>를 쓰는 이유이고, 데모의 세 번째 인스턴스가 기록을 그대로 보는 것으로 확인된다. "객체가 하나여야 한다"가 아니라 "상태가 하나여야 한다"가 진짜 요구라는 관찰에서 나왔지만, 전역 접근의 문제는 그대로 가진다.</p>
   <p>[4]가 가장 중요하다. <strong>모듈은 이미 싱글턴이다.</strong> 모듈은 첫 import 때 한 번 실행되고 <code>sys.modules</code>에 캐시되므로, 모듈 수준에 만든 <code>audit_logger</code>는 프로세스에서 하나다. 이 방식에서 클래스 <code>PlainLogger</code>는 평범하다. 유일성은 "이 모듈의 이 변수를 쓴다"는 <em>관례</em>로 보장되고, 테스트는 언제든 <code>PlainLogger()</code>를 새로 만들 수 있다. 유일성 로직이 클래스에서 빠졌다는 점에서 이미 한 걸음 나아갔다. 하지만 <code>from audit import audit_logger</code>를 함수 본문에서 쓰면 숨은 의존성은 그대로다. <code>@cache</code> 접근 함수는 생성을 첫 호출까지 미룬다는 점만 다르고, 테스트를 위해 <code>cache_clear()</code>를 부르는 순간 리셋 훅과 같은 냄새가 난다.</p>
@@ -770,7 +806,17 @@ if __name__ == &quot;__main__&quot;:
     rogue = LabModule(AuditLogger())  # composition root 밖에서 생성 — 리뷰에서 잡아야 한다
     rogue.view_result(&quot;lab.oops&quot;, &quot;P-1001&quot;)
     print(f&quot;  운영 기록기 줄 수는 그대로 {len(app.audit.entries)}줄 — 이 기록은 다른 체인으로 새어 나갔다&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_injection.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_injection.py</figcaption><pre><code>[1] 운영: composition root가 기록기를 하나 만들어 모든 모듈에 나눠 준다
+  모듈들이 같은 기록기를 공유? True
+  기록 3줄, 어긋난 기록: []
+
+[2] 테스트: 순서를 바꿔도, 동시에 돌려도 서로 간섭하지 않는다
+  A→B: True, True
+  B→A: True, True
+  8개 테스트 병렬 실행: 모두 통과? True (리셋 훅 없음)
+
+[3] 대가: 실수로 두 번째 기록기를 만드는 것을 언어가 막지는 않는다
+  운영 기록기 줄 수는 그대로 3줄 — 이 기록은 다른 체인으로 새어 나갔다</code></pre></figure>
   <p>[1]에서 운영 앱의 모든 모듈은 같은 기록기를 공유하고 체인은 하나다. 1차 고통의 해결은 그대로 유지된다. [2]에서 테스트는 각자 기록기를 만든다. 순서를 바꿔도, 여덟 개를 동시에 돌려도 간섭이 없고 리셋 훅도 없다. 이 차이를 만든 것은 <code>PrescriptionModule.__init__(self, audit)</code>이라는 시그니처 한 줄이다. 의존성이 드러나자 바꿀 수 있게 되었다.</p>
   <p>[3]은 정직하게 대가를 보여준다. 언어는 누군가 composition root 밖에서 <code>AuditLogger()</code>를 하나 더 만드는 것을 막지 않는다. 그 기록은 다른 체인으로 새어 나간다. 이 방식에서 유일성은 "운영 코드에서 <code>AuditLogger(</code>를 부르는 곳은 <code>build_app</code> 하나"라는 규칙이고, grep 한 번이나 <dfn class="term" id="term-lint" data-term="lint" title="코드를 실행하지 않고 규칙 위반·의심스러운 패턴을 찾아 주는 정적 점검(도구는 린터).">린트</dfn>(코드를 실행하지 않고 규칙 위반을 찾는 정적 점검) 규칙, 코드 리뷰로 지킨다. 싱글턴은 이것을 런타임에 강제한다. 그 강제가 정말 필요한 경우가 아래 6절에서 다루는 드문 예외다.</p>
   <div class="callout">
@@ -884,7 +930,9 @@ if __name__ == &quot;__main__&quot;:
         cls().entries.append(&quot;dr.kim 처방 발행&quot;)  # 처방 모듈이 기록
         same = cls() is cls()                       # 검사 모듈이 처음 AuditLogger()를 부름
         print(f&quot;{cls.__name__:20} 같은 인스턴스? {same}  남은 기록: {cls().entries}&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex1_init_reset_bug.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex1_init_reset_bug.py</figcaption><pre><code>BuggyAuditLogger     같은 인스턴스? True  남은 기록: []
+GuardedAuditLogger   같은 인스턴스? True  남은 기록: [&#x27;dr.kim 처방 발행&#x27;]
+NewOnlyAuditLogger   같은 인스턴스? True  남은 기록: [&#x27;dr.kim 처방 발행&#x27;]</code></pre></figure>
     </details>
   </div>
 
@@ -1014,7 +1062,12 @@ if __name__ == &quot;__main__&quot;:
     assert MedicationAlert(settings).alert_at(21 * 60) == 21 * 60 - 15
     print(&quot;  야간 시작 20시 설정: 21시 투약은 30분 전 알림 — 통과&quot;)
     print(&quot;  운영 설정(22시)은 영향받지 않음: 21시 투약은 15분 전 알림 — 통과&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_config_injection.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_config_injection.py</figcaption><pre><code>[1] 운영: 설정을 한 번 읽어 세 모듈에 나눠 준다
+  병상 여유(28명 입원)? True, 23:00 투약 알림 시각(분): 1350, 23시는 야간? True
+
+[2] 테스트: 전역 상태를 건드리지 않고 경계값만 바꾼 가짜 설정을 넣는다
+  야간 시작 20시 설정: 21시 투약은 30분 전 알림 — 통과
+  운영 설정(22시)은 영향받지 않음: 21시 투약은 15분 전 알림 — 통과</code></pre></figure>
     </details>
   </div>
 
@@ -1065,5 +1118,7 @@ if __name__ == &quot;__main__&quot;:
     fig.querySelector("figcaption").appendChild(btn);
   });
 </script>
+<script src="assets/pyrun.js"></script>
+<script src="assets/textbook-code.js"></script>
 </body>
 </html>

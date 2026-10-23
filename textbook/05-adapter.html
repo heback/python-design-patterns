@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/pyrun.css">
 <script>
   /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,6 +19,9 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">5장 · 어댑터 (Adapter)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
+  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
+  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -217,7 +221,17 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] PG C 거래 환불 — 15,000원을 환불해야 한다&quot;)
     svc.refund(&quot;C&quot;, tids[&quot;C&quot;], 15_000)
     print(&quot;    → 1500000이어야 할 금액이 15000 minor unit(=150원)으로 나갔다. 복제된 분기의 버그다.&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 세 PG로 각각 15,000원 결제
+    PG A → 거래번호 A1001
+    PG B → 거래번호 B1002
+    PG C → 거래번호 C1003
+[2] 한도 초과 카드 — 실패 메시지 형식이 PG마다 제각각이다
+    PG A: 결제 실패: A-401 한도 초과
+    PG B: 결제 실패: B-51 잔액 부족
+    PG C: 결제 실패: C card_declined
+[3] PG C 거래 환불 — 15,000원을 환불해야 한다
+    (C SDK) C1003에 대해 15000 minor unit 환불 처리
+    → 1500000이어야 할 금액이 15000 minor unit(=150원)으로 나갔다. 복제된 분기의 버그다.</code></pre></figure>
 <p>출력 [2]가 보여주는 것은 실패의 모양이 PG마다 제각각이라는 사실이다. A는 예외, B는 상태 코드, C는 콜백 인자로 실패를 알리고, <code>OrderService</code>는 그 셋을 모두 해석해야 한다. 출력 [3]은 그 결과로 생긴 버그다. 이 코드의 결함을 정리하면 다음과 같다.</p>
 <ul>
   <li><strong>번역 규칙이 흩어져 있다.</strong> "B는 Decimal", "C는 ×100"이라는 지식이 <code>pay()</code>와 <code>refund()</code>에 따로 존재한다. 같은 지식의 사본이 둘 이상이면 언젠가 어긋난다.</li>
@@ -322,7 +336,295 @@ if __name__ == &quot;__main__&quot;:
 <h2>4. 패턴 적용</h2>
 <p>예린은 먼저 "우리가 결제에 대해 말하는 방식"을 정했다. 금액은 원 단위 <code>int</code>, 결과는 즉시 반환, 실패는 우리 예외 하나. 이 결정은 SDK 문서를 보기 전에 내려야 한다. SDK 문서를 먼저 보면 Target이 특정 SDK를 닮아 간다.</p>
 <p class="lead-in">파일 <code>02_adapter.py</code>의 Target 부분이다. SDK 흉내 코드는 01과 같되, C SDK만 실제처럼 다른 스레드에서 콜백하도록 바꿨으므로(01은 단순화를 위해 즉시 콜백했다) 여기서는 생략했다(전체 파일은 저장소에 있다). <code>PaymentDeclined</code>의 docstring이 말하는 "남의 어휘를 몰라도 된다"가 이 설계의 목적이다.</p>
-<figure class="code"><figcaption>src/05_adapter/02_adapter.py  (96–135행)</figcaption><pre><code class="language-python"># ===========================================================================
+<figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
+
+상황: 예린은 주문 서비스에서 PG별 분기를 걷어내기로 한다. 먼저 &quot;우리 쪽이 원하는
+결제 인터페이스&quot;(Target)를 PaymentGateway로 정의한다. 이 인터페이스는 우리 언어로
+말한다 — 금액은 원 단위 int, 실패는 우리 예외 PaymentDeclined, 결과는 즉시 반환.
+그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
+번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
+
+외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(01은 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import itertools
+import threading
+from abc import ABC, abstractmethod
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeout  # 3.11 미만에선 내장 TimeoutError와 다른 클래스
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Callable
+
+# ===========================================================================
+# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# ===========================================================================
+
+_ids = itertools.count(1001)
+
+
+class PgAError(Exception):
+    &quot;&quot;&quot;[Adaptee 측 예외] PG사 A SDK의 예외.&quot;&quot;&quot;
+
+
+class PgAClient:
+    &quot;&quot;&quot;[Adaptee] PG사 A SDK. 원 단위 int, dict 결과, 실패는 PgAError.&quot;&quot;&quot;
+
+    def charge(self, amount_krw: int, card_token: str) -&gt; dict:
+        &quot;&quot;&quot;결제 승인.&quot;&quot;&quot;
+        if card_token == &quot;tok_declined&quot;:
+            raise PgAError(&quot;A-401 한도 초과&quot;)
+        return {&quot;tid&quot;: f&quot;A{next(_ids)}&quot;, &quot;approved&quot;: amount_krw}
+
+    def cancel(self, tid: str, amount_krw: int) -&gt; dict:
+        &quot;&quot;&quot;승인 취소(환불).&quot;&quot;&quot;
+        return {&quot;tid&quot;: tid, &quot;canceled&quot;: amount_krw}
+
+
+@dataclass
+class PaymentRequest:
+    &quot;&quot;&quot;PG사 B SDK의 요청 객체.&quot;&quot;&quot;
+
+    amount: Decimal
+    currency: str
+    token: str
+
+
+@dataclass
+class PaymentResponse:
+    &quot;&quot;&quot;PG사 B SDK의 응답. 실패도 status_code로 온다.&quot;&quot;&quot;
+
+    status_code: int
+    payment_id: str | None
+    message: str = &quot;&quot;
+
+
+class PgBClient:
+    &quot;&quot;&quot;[Adaptee] PG사 B SDK. 요청 객체 + 상태 코드 방식.&quot;&quot;&quot;
+
+    def create_payment(self, req: PaymentRequest) -&gt; PaymentResponse:
+        &quot;&quot;&quot;결제 생성.&quot;&quot;&quot;
+        if req.token == &quot;tok_declined&quot;:
+            return PaymentResponse(status_code=51, payment_id=None, message=&quot;잔액 부족&quot;)
+        return PaymentResponse(status_code=0, payment_id=f&quot;B{next(_ids)}&quot;)
+
+    def refund_payment(self, payment_id: str, amount: Decimal) -&gt; PaymentResponse:
+        &quot;&quot;&quot;환불.&quot;&quot;&quot;
+        return PaymentResponse(status_code=0, payment_id=payment_id, message=f&quot;refunded {amount}&quot;)
+
+
+class PgCClient:
+    &quot;&quot;&quot;[Adaptee] 해외 간편결제 C SDK. minor unit 금액, 결과는 &#x27;다른 스레드에서&#x27; 콜백.&quot;&quot;&quot;
+
+    def submit(self, amount_minor: int, currency: str, token: str,
+               on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;결제 제출. 즉시 반환하고, 결과는 잠시 뒤 별도 스레드에서 콜백으로 온다.&quot;&quot;&quot;
+        ok, value = (False, &quot;card_declined&quot;) if token == &quot;tok_declined&quot; else (True, f&quot;C{next(_ids)}&quot;)
+        threading.Timer(0.01, on_complete, args=(ok, value)).start()
+
+    def reverse(self, charge_id: str, amount_minor: int,
+                on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;환불. 역시 비동기 콜백.&quot;&quot;&quot;
+        print(f&quot;    (C SDK) {charge_id}에 대해 {amount_minor} minor unit 환불 처리&quot;)
+        threading.Timer(0.01, on_complete, args=(True, charge_id)).start()
+
+
+# ===========================================================================
+# 우리 쪽 포트 (Target) — &quot;우리가 결제에 대해 말하는 방식&quot;을 정의한다.
+# ===========================================================================
+
+@dataclass(frozen=True)
+class PaymentResult:
+    &quot;&quot;&quot;결제 결과 값 객체. frozen인 이유: 결과는 기록이지 바꿔 쓸 대상이 아니다.&quot;&quot;&quot;
+
+    transaction_id: str
+    amount_krw: int
+    gateway: str
+
+
+class PaymentDeclined(Exception):
+    &quot;&quot;&quot;우리 도메인의 결제 거절 예외. 어떤 PG든 거절은 이 하나로 보인다.
+
+    호출자는 PgAError나 status_code 51 같은 &#x27;남의 어휘&#x27;를 몰라도 된다.
+    원래 원인은 raise ... from 으로 __cause__에 보존하므로 디버깅 정보는 잃지 않는다.
+    &quot;&quot;&quot;
+
+
+class PaymentGateway(ABC):
+    &quot;&quot;&quot;[Target] 주문 서비스가 기대하는 결제 인터페이스.
+
+    이 인터페이스의 주인은 SDK가 아니라 &#x27;우리&#x27;다(헥사고날 아키텍처의 포트).
+    그래서 시그니처를 SDK에 맞추지 않고 도메인에 맞춘다: 원 단위 int, 동기 반환, 우리 예외.
+    ABC를 쓴 이유: 어댑터가 refund()를 빠뜨리면 인스턴스화 시점에 TypeError로 바로 드러난다.
+    &quot;&quot;&quot;
+
+    name: str = &quot;?&quot;
+
+    @abstractmethod
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;결제한다. 거절되면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불한다. 실패하면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+
+# ===========================================================================
+# 어댑터 (Adapter) — 번역 규칙은 PG마다 여기 한 곳에만 있다(SRP).
+# ===========================================================================
+
+class PgAAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 A → PaymentGateway. 번역할 것: dict 결과, PgAError.
+
+    객체 어댑터(합성)다. PgAClient를 상속하지 않고 필드로 갖는 이유:
+    SDK의 charge()/cancel()이 우리 인터페이스에 새어 나오지 않게 하기 위해서다.
+    &quot;&quot;&quot;
+
+    name = &quot;A&quot;
+
+    def __init__(self, client: PgAClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다. 테스트에서는 가짜 클라이언트를 넣을 수 있다.&quot;&quot;&quot;
+        self._client = client
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;A는 단위가 같으므로 결과 형태와 예외만 번역한다.&quot;&quot;&quot;
+        try:
+            raw = self._client.charge(amount_krw, card_token)
+        except PgAError as e:
+            # 예외 변환: 남의 예외를 우리 예외로. from e 로 원인 체인을 남긴다.
+            raise PaymentDeclined(f&quot;[A] {e}&quot;) from e
+        return PaymentResult(raw[&quot;tid&quot;], amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;이름(cancel → refund)만 번역하면 되는 가장 얇은 경우.&quot;&quot;&quot;
+        try:
+            self._client.cancel(transaction_id, amount_krw)
+        except PgAError as e:
+            raise PaymentDeclined(f&quot;[A] 환불 실패: {e}&quot;) from e
+
+
+class PgBAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 B → PaymentGateway. 번역할 것: int↔Decimal, 상태 코드 → 예외.&quot;&quot;&quot;
+
+    name = &quot;B&quot;
+
+    def __init__(self, client: PgBClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    @staticmethod
+    def _check(res: PaymentResponse, action: str) -&gt; str:
+        &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
+
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        두 곳에 복제되어 있었다는 점을 떠올려 보라.
+        &quot;&quot;&quot;
+        if res.status_code != 0 or res.payment_id is None:
+            raise PaymentDeclined(f&quot;[B] {action} 실패: 코드 {res.status_code} {res.message}&quot;)
+        return res.payment_id
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 단위 int를 B가 원하는 Decimal 요청 객체로 감싼다.&quot;&quot;&quot;
+        res = self._client.create_payment(PaymentRequest(Decimal(amount_krw), &quot;KRW&quot;, card_token))
+        return PaymentResult(self._check(res, &quot;결제&quot;), amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불도 같은 단위·오류 번역 규칙을 거친다.&quot;&quot;&quot;
+        self._check(self._client.refund_payment(transaction_id, Decimal(amount_krw)), &quot;환불&quot;)
+
+
+class PgCAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] 간편결제 C → PaymentGateway. 번역할 것: 원↔minor unit, 비동기 콜백 → 동기 반환.
+
+    어댑터가 숨길 수 있는 차이는 이름만이 아니다. &#x27;호출 모델&#x27;(콜백 vs 반환값)도
+    번역 대상이다. 단, 동기화하면 그만큼 호출자가 기다린다는 비용이 있으므로
+    timeout을 반드시 둔다.
+    &quot;&quot;&quot;
+
+    name = &quot;C&quot;
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    TIMEOUT_SEC = 5.0
+
+    def __init__(self, client: PgCClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    def _await(self, start: Callable[[Callable[[bool, str], None]], None]) -&gt; str:
+        &quot;&quot;&quot;콜백 API를 Future로 감싸 결과를 기다린다.
+
+        Future를 쓰는 이유: 콜백이 같은 스레드에서 즉시 오든 다른 스레드에서 나중에 오든
+        똑같이 동작하고, 스레드 간 결과 전달의 동기화를 직접 구현할 필요가 없다.
+        &quot;&quot;&quot;
+        fut: Future[tuple[bool, str]] = Future()
+        start(lambda ok, value: fut.set_result((ok, value)))
+        try:
+            ok, value = fut.result(timeout=self.TIMEOUT_SEC)
+        except FutureTimeout as e:
+            # 시간 초과도 &#x27;남의 사정&#x27;이다. 번역하지 않으면 호출자가 concurrent.futures를 알아야 한다.
+            raise PaymentDeclined(&quot;[C] 응답 시간 초과&quot;) from e
+        if not ok:
+            raise PaymentDeclined(f&quot;[C] {value}&quot;)
+        return value
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 → minor unit 변환 후 콜백 결과를 동기 반환값으로 바꾼다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        charge_id = self._await(lambda cb: self._client.submit(minor, &quot;KRW&quot;, card_token, cb))
+        return PaymentResult(charge_id, amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;pay()와 같은 변환 규칙을 공유하므로 단위 실수가 끼어들 틈이 없다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        self._await(lambda cb: self._client.reverse(transaction_id, minor, cb))
+
+
+# ===========================================================================
+# 클라이언트 (Client) — PG가 몇 개든 이 코드는 바뀌지 않는다.
+# ===========================================================================
+
+class OrderService:
+    &quot;&quot;&quot;[Client] 주문 결제/환불. PaymentGateway 추상에만 의존한다(DIP).&quot;&quot;&quot;
+
+    def __init__(self, gateway: PaymentGateway) -&gt; None:
+        &quot;&quot;&quot;어떤 PG를 쓸지는 바깥(설정/조립 코드)이 정한다. 서비스는 묻지 않는다.&quot;&quot;&quot;
+        self._gateway = gateway
+
+    def checkout(self, order_id: str, amount_krw: int, card_token: str) -&gt; PaymentResult | None:
+        &quot;&quot;&quot;결제를 시도하고, 거절이면 None. PG별 예외를 하나도 몰라도 된다.&quot;&quot;&quot;
+        try:
+            result = self._gateway.pay(amount_krw, card_token)
+        except PaymentDeclined as e:
+            # __cause__는 raise ... from 으로 남긴 원래 예외. B·C는 애초에 예외가 없었으므로 None이다.
+            cause = type(e.__cause__).__name__ if e.__cause__ else &quot;없음&quot;
+            print(f&quot;    주문 {order_id} 결제 거절: {e}  (SDK 원인 예외: {cause})&quot;)
+            return None
+        print(f&quot;    주문 {order_id} 결제 완료: {result}&quot;)
+        return result
+
+    def cancel(self, result: PaymentResult) -&gt; None:
+        &quot;&quot;&quot;환불. 분기도 단위 변환도 없다 — 그건 어댑터의 일이다.&quot;&quot;&quot;
+        self._gateway.refund(result.transaction_id, result.amount_krw)
+        print(f&quot;    {result.gateway} 거래 {result.transaction_id} 환불 완료&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 조립 지점(composition root): 구체 SDK와 어댑터를 아는 유일한 곳.
+    gateways: list[PaymentGateway] = [
+        PgAAdapter(PgAClient()), PgBAdapter(PgBClient()), PgCAdapter(PgCClient()),
+    ]
+
+    print(&quot;[1] 같은 OrderService 코드로 세 PG 결제 → 환불&quot;)
+    for gw in gateways:
+        svc = OrderService(gw)
+        paid = svc.checkout(f&quot;ORD-{gw.name}&quot;, 15_000, &quot;tok_ok&quot;)
+        if paid:
+            svc.cancel(paid)
+
+    print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
+    for gw in gateways:
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (96–135행)</figcaption><pre><code class="language-python"># ===========================================================================
 # 우리 쪽 포트 (Target) — &quot;우리가 결제에 대해 말하는 방식&quot;을 정의한다.
 # ===========================================================================
 
@@ -365,7 +667,295 @@ class PaymentGateway(ABC):
 <p><code>PaymentResult</code>를 <code>frozen=True</code> 데이터클래스로 둔 것도 Target 설계의 일부다. SDK마다 다른 결과 모양(dict, 응답 객체, 콜백 인자)이 우리 쪽에서는 하나의 불변 값으로 수렴한다.</p>
 <p class="lead-in">이제 세 어댑터다. 각 어댑터의 docstring 첫 줄에 "번역할 것" 목록을 적어 두었다. A는 예외만, B는 단위와 상태 코드, C는 단위와 호출 모델까지 번역한다. 어댑터의 두께가 '차이의 양'에 비례한다는 점에 주목하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-exception-translation" data-term="exception-translation" title="외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것; 호출자가 남의 예외 어휘를 몰라도 되게 한다.">예외 변환</dfn>: 외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것. 호출자가 남의 예외 이름을 몰라도 되게 한다. <dfn class="term" id="term-staticmethod" data-term="staticmethod" title="self나 cls를 받지 않는, 클래스 이름공간에 둔 보통 함수를 만드는 데코레이터."><code>@staticmethod</code></dfn>: 메서드 정의 위에 붙이면 그 메서드가 <code>self</code>를 받지 않는 보통 함수처럼 동작한다(<code>@staticmethod</code> 같은 표기 자체는 6장에서 다룬다). <code>PgBAdapter._check</code>처럼 인스턴스 상태를 쓰지 않는 도우미에 쓴다. <dfn class="term" id="term-future" data-term="future" title="아직 끝나지 않은 작업의 결과를 담을 자리; 다른 스레드가 `set_result()`로 채우면 `result(timeout=…)`로 기다려 꺼낸다."><code>concurrent.futures.Future</code></dfn>: 아직 끝나지 않은 작업의 결과를 담을 자리. 다른 스레드가 <code>set_result()</code>로 채우면 <code>result(timeout=…)</code>로 기다렸다가 꺼낸다.</p></div>
-<figure class="code"><figcaption>src/05_adapter/02_adapter.py  (136–244행)</figcaption><pre><code class="language-python"># ===========================================================================
+<figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
+
+상황: 예린은 주문 서비스에서 PG별 분기를 걷어내기로 한다. 먼저 &quot;우리 쪽이 원하는
+결제 인터페이스&quot;(Target)를 PaymentGateway로 정의한다. 이 인터페이스는 우리 언어로
+말한다 — 금액은 원 단위 int, 실패는 우리 예외 PaymentDeclined, 결과는 즉시 반환.
+그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
+번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
+
+외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(01은 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import itertools
+import threading
+from abc import ABC, abstractmethod
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeout  # 3.11 미만에선 내장 TimeoutError와 다른 클래스
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Callable
+
+# ===========================================================================
+# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# ===========================================================================
+
+_ids = itertools.count(1001)
+
+
+class PgAError(Exception):
+    &quot;&quot;&quot;[Adaptee 측 예외] PG사 A SDK의 예외.&quot;&quot;&quot;
+
+
+class PgAClient:
+    &quot;&quot;&quot;[Adaptee] PG사 A SDK. 원 단위 int, dict 결과, 실패는 PgAError.&quot;&quot;&quot;
+
+    def charge(self, amount_krw: int, card_token: str) -&gt; dict:
+        &quot;&quot;&quot;결제 승인.&quot;&quot;&quot;
+        if card_token == &quot;tok_declined&quot;:
+            raise PgAError(&quot;A-401 한도 초과&quot;)
+        return {&quot;tid&quot;: f&quot;A{next(_ids)}&quot;, &quot;approved&quot;: amount_krw}
+
+    def cancel(self, tid: str, amount_krw: int) -&gt; dict:
+        &quot;&quot;&quot;승인 취소(환불).&quot;&quot;&quot;
+        return {&quot;tid&quot;: tid, &quot;canceled&quot;: amount_krw}
+
+
+@dataclass
+class PaymentRequest:
+    &quot;&quot;&quot;PG사 B SDK의 요청 객체.&quot;&quot;&quot;
+
+    amount: Decimal
+    currency: str
+    token: str
+
+
+@dataclass
+class PaymentResponse:
+    &quot;&quot;&quot;PG사 B SDK의 응답. 실패도 status_code로 온다.&quot;&quot;&quot;
+
+    status_code: int
+    payment_id: str | None
+    message: str = &quot;&quot;
+
+
+class PgBClient:
+    &quot;&quot;&quot;[Adaptee] PG사 B SDK. 요청 객체 + 상태 코드 방식.&quot;&quot;&quot;
+
+    def create_payment(self, req: PaymentRequest) -&gt; PaymentResponse:
+        &quot;&quot;&quot;결제 생성.&quot;&quot;&quot;
+        if req.token == &quot;tok_declined&quot;:
+            return PaymentResponse(status_code=51, payment_id=None, message=&quot;잔액 부족&quot;)
+        return PaymentResponse(status_code=0, payment_id=f&quot;B{next(_ids)}&quot;)
+
+    def refund_payment(self, payment_id: str, amount: Decimal) -&gt; PaymentResponse:
+        &quot;&quot;&quot;환불.&quot;&quot;&quot;
+        return PaymentResponse(status_code=0, payment_id=payment_id, message=f&quot;refunded {amount}&quot;)
+
+
+class PgCClient:
+    &quot;&quot;&quot;[Adaptee] 해외 간편결제 C SDK. minor unit 금액, 결과는 &#x27;다른 스레드에서&#x27; 콜백.&quot;&quot;&quot;
+
+    def submit(self, amount_minor: int, currency: str, token: str,
+               on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;결제 제출. 즉시 반환하고, 결과는 잠시 뒤 별도 스레드에서 콜백으로 온다.&quot;&quot;&quot;
+        ok, value = (False, &quot;card_declined&quot;) if token == &quot;tok_declined&quot; else (True, f&quot;C{next(_ids)}&quot;)
+        threading.Timer(0.01, on_complete, args=(ok, value)).start()
+
+    def reverse(self, charge_id: str, amount_minor: int,
+                on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;환불. 역시 비동기 콜백.&quot;&quot;&quot;
+        print(f&quot;    (C SDK) {charge_id}에 대해 {amount_minor} minor unit 환불 처리&quot;)
+        threading.Timer(0.01, on_complete, args=(True, charge_id)).start()
+
+
+# ===========================================================================
+# 우리 쪽 포트 (Target) — &quot;우리가 결제에 대해 말하는 방식&quot;을 정의한다.
+# ===========================================================================
+
+@dataclass(frozen=True)
+class PaymentResult:
+    &quot;&quot;&quot;결제 결과 값 객체. frozen인 이유: 결과는 기록이지 바꿔 쓸 대상이 아니다.&quot;&quot;&quot;
+
+    transaction_id: str
+    amount_krw: int
+    gateway: str
+
+
+class PaymentDeclined(Exception):
+    &quot;&quot;&quot;우리 도메인의 결제 거절 예외. 어떤 PG든 거절은 이 하나로 보인다.
+
+    호출자는 PgAError나 status_code 51 같은 &#x27;남의 어휘&#x27;를 몰라도 된다.
+    원래 원인은 raise ... from 으로 __cause__에 보존하므로 디버깅 정보는 잃지 않는다.
+    &quot;&quot;&quot;
+
+
+class PaymentGateway(ABC):
+    &quot;&quot;&quot;[Target] 주문 서비스가 기대하는 결제 인터페이스.
+
+    이 인터페이스의 주인은 SDK가 아니라 &#x27;우리&#x27;다(헥사고날 아키텍처의 포트).
+    그래서 시그니처를 SDK에 맞추지 않고 도메인에 맞춘다: 원 단위 int, 동기 반환, 우리 예외.
+    ABC를 쓴 이유: 어댑터가 refund()를 빠뜨리면 인스턴스화 시점에 TypeError로 바로 드러난다.
+    &quot;&quot;&quot;
+
+    name: str = &quot;?&quot;
+
+    @abstractmethod
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;결제한다. 거절되면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불한다. 실패하면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+
+# ===========================================================================
+# 어댑터 (Adapter) — 번역 규칙은 PG마다 여기 한 곳에만 있다(SRP).
+# ===========================================================================
+
+class PgAAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 A → PaymentGateway. 번역할 것: dict 결과, PgAError.
+
+    객체 어댑터(합성)다. PgAClient를 상속하지 않고 필드로 갖는 이유:
+    SDK의 charge()/cancel()이 우리 인터페이스에 새어 나오지 않게 하기 위해서다.
+    &quot;&quot;&quot;
+
+    name = &quot;A&quot;
+
+    def __init__(self, client: PgAClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다. 테스트에서는 가짜 클라이언트를 넣을 수 있다.&quot;&quot;&quot;
+        self._client = client
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;A는 단위가 같으므로 결과 형태와 예외만 번역한다.&quot;&quot;&quot;
+        try:
+            raw = self._client.charge(amount_krw, card_token)
+        except PgAError as e:
+            # 예외 변환: 남의 예외를 우리 예외로. from e 로 원인 체인을 남긴다.
+            raise PaymentDeclined(f&quot;[A] {e}&quot;) from e
+        return PaymentResult(raw[&quot;tid&quot;], amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;이름(cancel → refund)만 번역하면 되는 가장 얇은 경우.&quot;&quot;&quot;
+        try:
+            self._client.cancel(transaction_id, amount_krw)
+        except PgAError as e:
+            raise PaymentDeclined(f&quot;[A] 환불 실패: {e}&quot;) from e
+
+
+class PgBAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 B → PaymentGateway. 번역할 것: int↔Decimal, 상태 코드 → 예외.&quot;&quot;&quot;
+
+    name = &quot;B&quot;
+
+    def __init__(self, client: PgBClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    @staticmethod
+    def _check(res: PaymentResponse, action: str) -&gt; str:
+        &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
+
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        두 곳에 복제되어 있었다는 점을 떠올려 보라.
+        &quot;&quot;&quot;
+        if res.status_code != 0 or res.payment_id is None:
+            raise PaymentDeclined(f&quot;[B] {action} 실패: 코드 {res.status_code} {res.message}&quot;)
+        return res.payment_id
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 단위 int를 B가 원하는 Decimal 요청 객체로 감싼다.&quot;&quot;&quot;
+        res = self._client.create_payment(PaymentRequest(Decimal(amount_krw), &quot;KRW&quot;, card_token))
+        return PaymentResult(self._check(res, &quot;결제&quot;), amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불도 같은 단위·오류 번역 규칙을 거친다.&quot;&quot;&quot;
+        self._check(self._client.refund_payment(transaction_id, Decimal(amount_krw)), &quot;환불&quot;)
+
+
+class PgCAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] 간편결제 C → PaymentGateway. 번역할 것: 원↔minor unit, 비동기 콜백 → 동기 반환.
+
+    어댑터가 숨길 수 있는 차이는 이름만이 아니다. &#x27;호출 모델&#x27;(콜백 vs 반환값)도
+    번역 대상이다. 단, 동기화하면 그만큼 호출자가 기다린다는 비용이 있으므로
+    timeout을 반드시 둔다.
+    &quot;&quot;&quot;
+
+    name = &quot;C&quot;
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    TIMEOUT_SEC = 5.0
+
+    def __init__(self, client: PgCClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    def _await(self, start: Callable[[Callable[[bool, str], None]], None]) -&gt; str:
+        &quot;&quot;&quot;콜백 API를 Future로 감싸 결과를 기다린다.
+
+        Future를 쓰는 이유: 콜백이 같은 스레드에서 즉시 오든 다른 스레드에서 나중에 오든
+        똑같이 동작하고, 스레드 간 결과 전달의 동기화를 직접 구현할 필요가 없다.
+        &quot;&quot;&quot;
+        fut: Future[tuple[bool, str]] = Future()
+        start(lambda ok, value: fut.set_result((ok, value)))
+        try:
+            ok, value = fut.result(timeout=self.TIMEOUT_SEC)
+        except FutureTimeout as e:
+            # 시간 초과도 &#x27;남의 사정&#x27;이다. 번역하지 않으면 호출자가 concurrent.futures를 알아야 한다.
+            raise PaymentDeclined(&quot;[C] 응답 시간 초과&quot;) from e
+        if not ok:
+            raise PaymentDeclined(f&quot;[C] {value}&quot;)
+        return value
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 → minor unit 변환 후 콜백 결과를 동기 반환값으로 바꾼다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        charge_id = self._await(lambda cb: self._client.submit(minor, &quot;KRW&quot;, card_token, cb))
+        return PaymentResult(charge_id, amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;pay()와 같은 변환 규칙을 공유하므로 단위 실수가 끼어들 틈이 없다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        self._await(lambda cb: self._client.reverse(transaction_id, minor, cb))
+
+
+# ===========================================================================
+# 클라이언트 (Client) — PG가 몇 개든 이 코드는 바뀌지 않는다.
+# ===========================================================================
+
+class OrderService:
+    &quot;&quot;&quot;[Client] 주문 결제/환불. PaymentGateway 추상에만 의존한다(DIP).&quot;&quot;&quot;
+
+    def __init__(self, gateway: PaymentGateway) -&gt; None:
+        &quot;&quot;&quot;어떤 PG를 쓸지는 바깥(설정/조립 코드)이 정한다. 서비스는 묻지 않는다.&quot;&quot;&quot;
+        self._gateway = gateway
+
+    def checkout(self, order_id: str, amount_krw: int, card_token: str) -&gt; PaymentResult | None:
+        &quot;&quot;&quot;결제를 시도하고, 거절이면 None. PG별 예외를 하나도 몰라도 된다.&quot;&quot;&quot;
+        try:
+            result = self._gateway.pay(amount_krw, card_token)
+        except PaymentDeclined as e:
+            # __cause__는 raise ... from 으로 남긴 원래 예외. B·C는 애초에 예외가 없었으므로 None이다.
+            cause = type(e.__cause__).__name__ if e.__cause__ else &quot;없음&quot;
+            print(f&quot;    주문 {order_id} 결제 거절: {e}  (SDK 원인 예외: {cause})&quot;)
+            return None
+        print(f&quot;    주문 {order_id} 결제 완료: {result}&quot;)
+        return result
+
+    def cancel(self, result: PaymentResult) -&gt; None:
+        &quot;&quot;&quot;환불. 분기도 단위 변환도 없다 — 그건 어댑터의 일이다.&quot;&quot;&quot;
+        self._gateway.refund(result.transaction_id, result.amount_krw)
+        print(f&quot;    {result.gateway} 거래 {result.transaction_id} 환불 완료&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 조립 지점(composition root): 구체 SDK와 어댑터를 아는 유일한 곳.
+    gateways: list[PaymentGateway] = [
+        PgAAdapter(PgAClient()), PgBAdapter(PgBClient()), PgCAdapter(PgCClient()),
+    ]
+
+    print(&quot;[1] 같은 OrderService 코드로 세 PG 결제 → 환불&quot;)
+    for gw in gateways:
+        svc = OrderService(gw)
+        paid = svc.checkout(f&quot;ORD-{gw.name}&quot;, 15_000, &quot;tok_ok&quot;)
+        if paid:
+            svc.cancel(paid)
+
+    print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
+    for gw in gateways:
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (136–244행)</figcaption><pre><code class="language-python"># ===========================================================================
 # 어댑터 (Adapter) — 번역 규칙은 PG마다 여기 한 곳에만 있다(SRP).
 # ===========================================================================
 
@@ -486,7 +1076,295 @@ class PgCAdapter(PaymentGateway):
 </table></div>
 <p><code>PgCAdapter._await</code>는 특히 눈여겨볼 만하다. 비동기 콜백을 동기 반환으로 바꾸는 것은 단순한 이름 바꾸기보다 훨씬 큰 결정이다. 호출자가 결과를 기다리며 <dfn class="term" id="term-blocking" data-term="blocking" title="호출이 결과가 준비될 때까지 호출한 쪽의 실행을 멈춰 두는 것.">블로킹</dfn>되기(결과가 준비될 때까지 호출한 쪽의 실행이 멈춰 서기) 때문이다. 그래서 <code>timeout</code>을 반드시 두었고, 시간 초과 역시 <code>PaymentDeclined</code>로 번역했으며, 콜백이 같은 스레드에서 즉시 오든 다른 스레드에서 나중에 오든 똑같이 동작하도록 <code>concurrent.futures.Future</code>를 썼다. 만약 우리 서비스 전체가 <dfn class="term" id="term-asyncio" data-term="asyncio" title="이벤트 루프 위에서 `async`/`await` 코루틴으로 비동기 I/O를 처리하는 표준 라이브러리."><code>asyncio</code></dfn>(한 스레드 안에서 <code>async def</code>로 정의한 함수들이 기다리는 동안 서로 실행을 넘겨주며 여러 작업을 동시에 진행하게 하는 표준 라이브러리) 기반이라면 Target을 <code>async def pay(...)</code>로 정하고 어댑터가 <code>loop.create_future()</code>로 번역하는 편이 맞다. 어떤 방향으로 번역할지는 Target이 정하고, 어댑터는 그 결정을 따른다.</p>
 <p class="lead-in">마지막으로 클라이언트와 조립 코드다. <code>OrderService</code>에 PG 이름도, SDK 타입도, 단위 변환도 없다는 것을 확인하라. 구체 클래스를 아는 곳은 <code>__main__</code>의 조립 지점 하나뿐이다.</p>
-<figure class="code"><figcaption>src/05_adapter/02_adapter.py  (245–289행)</figcaption><pre><code class="language-python"># ===========================================================================
+<figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
+
+상황: 예린은 주문 서비스에서 PG별 분기를 걷어내기로 한다. 먼저 &quot;우리 쪽이 원하는
+결제 인터페이스&quot;(Target)를 PaymentGateway로 정의한다. 이 인터페이스는 우리 언어로
+말한다 — 금액은 원 단위 int, 실패는 우리 예외 PaymentDeclined, 결과는 즉시 반환.
+그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
+번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
+
+외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(01은 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import itertools
+import threading
+from abc import ABC, abstractmethod
+from concurrent.futures import Future
+from concurrent.futures import TimeoutError as FutureTimeout  # 3.11 미만에선 내장 TimeoutError와 다른 클래스
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Callable
+
+# ===========================================================================
+# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# ===========================================================================
+
+_ids = itertools.count(1001)
+
+
+class PgAError(Exception):
+    &quot;&quot;&quot;[Adaptee 측 예외] PG사 A SDK의 예외.&quot;&quot;&quot;
+
+
+class PgAClient:
+    &quot;&quot;&quot;[Adaptee] PG사 A SDK. 원 단위 int, dict 결과, 실패는 PgAError.&quot;&quot;&quot;
+
+    def charge(self, amount_krw: int, card_token: str) -&gt; dict:
+        &quot;&quot;&quot;결제 승인.&quot;&quot;&quot;
+        if card_token == &quot;tok_declined&quot;:
+            raise PgAError(&quot;A-401 한도 초과&quot;)
+        return {&quot;tid&quot;: f&quot;A{next(_ids)}&quot;, &quot;approved&quot;: amount_krw}
+
+    def cancel(self, tid: str, amount_krw: int) -&gt; dict:
+        &quot;&quot;&quot;승인 취소(환불).&quot;&quot;&quot;
+        return {&quot;tid&quot;: tid, &quot;canceled&quot;: amount_krw}
+
+
+@dataclass
+class PaymentRequest:
+    &quot;&quot;&quot;PG사 B SDK의 요청 객체.&quot;&quot;&quot;
+
+    amount: Decimal
+    currency: str
+    token: str
+
+
+@dataclass
+class PaymentResponse:
+    &quot;&quot;&quot;PG사 B SDK의 응답. 실패도 status_code로 온다.&quot;&quot;&quot;
+
+    status_code: int
+    payment_id: str | None
+    message: str = &quot;&quot;
+
+
+class PgBClient:
+    &quot;&quot;&quot;[Adaptee] PG사 B SDK. 요청 객체 + 상태 코드 방식.&quot;&quot;&quot;
+
+    def create_payment(self, req: PaymentRequest) -&gt; PaymentResponse:
+        &quot;&quot;&quot;결제 생성.&quot;&quot;&quot;
+        if req.token == &quot;tok_declined&quot;:
+            return PaymentResponse(status_code=51, payment_id=None, message=&quot;잔액 부족&quot;)
+        return PaymentResponse(status_code=0, payment_id=f&quot;B{next(_ids)}&quot;)
+
+    def refund_payment(self, payment_id: str, amount: Decimal) -&gt; PaymentResponse:
+        &quot;&quot;&quot;환불.&quot;&quot;&quot;
+        return PaymentResponse(status_code=0, payment_id=payment_id, message=f&quot;refunded {amount}&quot;)
+
+
+class PgCClient:
+    &quot;&quot;&quot;[Adaptee] 해외 간편결제 C SDK. minor unit 금액, 결과는 &#x27;다른 스레드에서&#x27; 콜백.&quot;&quot;&quot;
+
+    def submit(self, amount_minor: int, currency: str, token: str,
+               on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;결제 제출. 즉시 반환하고, 결과는 잠시 뒤 별도 스레드에서 콜백으로 온다.&quot;&quot;&quot;
+        ok, value = (False, &quot;card_declined&quot;) if token == &quot;tok_declined&quot; else (True, f&quot;C{next(_ids)}&quot;)
+        threading.Timer(0.01, on_complete, args=(ok, value)).start()
+
+    def reverse(self, charge_id: str, amount_minor: int,
+                on_complete: Callable[[bool, str], None]) -&gt; None:
+        &quot;&quot;&quot;환불. 역시 비동기 콜백.&quot;&quot;&quot;
+        print(f&quot;    (C SDK) {charge_id}에 대해 {amount_minor} minor unit 환불 처리&quot;)
+        threading.Timer(0.01, on_complete, args=(True, charge_id)).start()
+
+
+# ===========================================================================
+# 우리 쪽 포트 (Target) — &quot;우리가 결제에 대해 말하는 방식&quot;을 정의한다.
+# ===========================================================================
+
+@dataclass(frozen=True)
+class PaymentResult:
+    &quot;&quot;&quot;결제 결과 값 객체. frozen인 이유: 결과는 기록이지 바꿔 쓸 대상이 아니다.&quot;&quot;&quot;
+
+    transaction_id: str
+    amount_krw: int
+    gateway: str
+
+
+class PaymentDeclined(Exception):
+    &quot;&quot;&quot;우리 도메인의 결제 거절 예외. 어떤 PG든 거절은 이 하나로 보인다.
+
+    호출자는 PgAError나 status_code 51 같은 &#x27;남의 어휘&#x27;를 몰라도 된다.
+    원래 원인은 raise ... from 으로 __cause__에 보존하므로 디버깅 정보는 잃지 않는다.
+    &quot;&quot;&quot;
+
+
+class PaymentGateway(ABC):
+    &quot;&quot;&quot;[Target] 주문 서비스가 기대하는 결제 인터페이스.
+
+    이 인터페이스의 주인은 SDK가 아니라 &#x27;우리&#x27;다(헥사고날 아키텍처의 포트).
+    그래서 시그니처를 SDK에 맞추지 않고 도메인에 맞춘다: 원 단위 int, 동기 반환, 우리 예외.
+    ABC를 쓴 이유: 어댑터가 refund()를 빠뜨리면 인스턴스화 시점에 TypeError로 바로 드러난다.
+    &quot;&quot;&quot;
+
+    name: str = &quot;?&quot;
+
+    @abstractmethod
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;결제한다. 거절되면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불한다. 실패하면 PaymentDeclined를 던진다.&quot;&quot;&quot;
+
+
+# ===========================================================================
+# 어댑터 (Adapter) — 번역 규칙은 PG마다 여기 한 곳에만 있다(SRP).
+# ===========================================================================
+
+class PgAAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 A → PaymentGateway. 번역할 것: dict 결과, PgAError.
+
+    객체 어댑터(합성)다. PgAClient를 상속하지 않고 필드로 갖는 이유:
+    SDK의 charge()/cancel()이 우리 인터페이스에 새어 나오지 않게 하기 위해서다.
+    &quot;&quot;&quot;
+
+    name = &quot;A&quot;
+
+    def __init__(self, client: PgAClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다. 테스트에서는 가짜 클라이언트를 넣을 수 있다.&quot;&quot;&quot;
+        self._client = client
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;A는 단위가 같으므로 결과 형태와 예외만 번역한다.&quot;&quot;&quot;
+        try:
+            raw = self._client.charge(amount_krw, card_token)
+        except PgAError as e:
+            # 예외 변환: 남의 예외를 우리 예외로. from e 로 원인 체인을 남긴다.
+            raise PaymentDeclined(f&quot;[A] {e}&quot;) from e
+        return PaymentResult(raw[&quot;tid&quot;], amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;이름(cancel → refund)만 번역하면 되는 가장 얇은 경우.&quot;&quot;&quot;
+        try:
+            self._client.cancel(transaction_id, amount_krw)
+        except PgAError as e:
+            raise PaymentDeclined(f&quot;[A] 환불 실패: {e}&quot;) from e
+
+
+class PgBAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] PG사 B → PaymentGateway. 번역할 것: int↔Decimal, 상태 코드 → 예외.&quot;&quot;&quot;
+
+    name = &quot;B&quot;
+
+    def __init__(self, client: PgBClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    @staticmethod
+    def _check(res: PaymentResponse, action: str) -&gt; str:
+        &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
+
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        두 곳에 복제되어 있었다는 점을 떠올려 보라.
+        &quot;&quot;&quot;
+        if res.status_code != 0 or res.payment_id is None:
+            raise PaymentDeclined(f&quot;[B] {action} 실패: 코드 {res.status_code} {res.message}&quot;)
+        return res.payment_id
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 단위 int를 B가 원하는 Decimal 요청 객체로 감싼다.&quot;&quot;&quot;
+        res = self._client.create_payment(PaymentRequest(Decimal(amount_krw), &quot;KRW&quot;, card_token))
+        return PaymentResult(self._check(res, &quot;결제&quot;), amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;환불도 같은 단위·오류 번역 규칙을 거친다.&quot;&quot;&quot;
+        self._check(self._client.refund_payment(transaction_id, Decimal(amount_krw)), &quot;환불&quot;)
+
+
+class PgCAdapter(PaymentGateway):
+    &quot;&quot;&quot;[Adapter] 간편결제 C → PaymentGateway. 번역할 것: 원↔minor unit, 비동기 콜백 → 동기 반환.
+
+    어댑터가 숨길 수 있는 차이는 이름만이 아니다. &#x27;호출 모델&#x27;(콜백 vs 반환값)도
+    번역 대상이다. 단, 동기화하면 그만큼 호출자가 기다린다는 비용이 있으므로
+    timeout을 반드시 둔다.
+    &quot;&quot;&quot;
+
+    name = &quot;C&quot;
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    TIMEOUT_SEC = 5.0
+
+    def __init__(self, client: PgCClient) -&gt; None:
+        &quot;&quot;&quot;SDK 클라이언트를 주입받는다.&quot;&quot;&quot;
+        self._client = client
+
+    def _await(self, start: Callable[[Callable[[bool, str], None]], None]) -&gt; str:
+        &quot;&quot;&quot;콜백 API를 Future로 감싸 결과를 기다린다.
+
+        Future를 쓰는 이유: 콜백이 같은 스레드에서 즉시 오든 다른 스레드에서 나중에 오든
+        똑같이 동작하고, 스레드 간 결과 전달의 동기화를 직접 구현할 필요가 없다.
+        &quot;&quot;&quot;
+        fut: Future[tuple[bool, str]] = Future()
+        start(lambda ok, value: fut.set_result((ok, value)))
+        try:
+            ok, value = fut.result(timeout=self.TIMEOUT_SEC)
+        except FutureTimeout as e:
+            # 시간 초과도 &#x27;남의 사정&#x27;이다. 번역하지 않으면 호출자가 concurrent.futures를 알아야 한다.
+            raise PaymentDeclined(&quot;[C] 응답 시간 초과&quot;) from e
+        if not ok:
+            raise PaymentDeclined(f&quot;[C] {value}&quot;)
+        return value
+
+    def pay(self, amount_krw: int, card_token: str) -&gt; PaymentResult:
+        &quot;&quot;&quot;원 → minor unit 변환 후 콜백 결과를 동기 반환값으로 바꾼다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        charge_id = self._await(lambda cb: self._client.submit(minor, &quot;KRW&quot;, card_token, cb))
+        return PaymentResult(charge_id, amount_krw, self.name)
+
+    def refund(self, transaction_id: str, amount_krw: int) -&gt; None:
+        &quot;&quot;&quot;pay()와 같은 변환 규칙을 공유하므로 단위 실수가 끼어들 틈이 없다.&quot;&quot;&quot;
+        minor = amount_krw * self.MINOR_PER_KRW
+        self._await(lambda cb: self._client.reverse(transaction_id, minor, cb))
+
+
+# ===========================================================================
+# 클라이언트 (Client) — PG가 몇 개든 이 코드는 바뀌지 않는다.
+# ===========================================================================
+
+class OrderService:
+    &quot;&quot;&quot;[Client] 주문 결제/환불. PaymentGateway 추상에만 의존한다(DIP).&quot;&quot;&quot;
+
+    def __init__(self, gateway: PaymentGateway) -&gt; None:
+        &quot;&quot;&quot;어떤 PG를 쓸지는 바깥(설정/조립 코드)이 정한다. 서비스는 묻지 않는다.&quot;&quot;&quot;
+        self._gateway = gateway
+
+    def checkout(self, order_id: str, amount_krw: int, card_token: str) -&gt; PaymentResult | None:
+        &quot;&quot;&quot;결제를 시도하고, 거절이면 None. PG별 예외를 하나도 몰라도 된다.&quot;&quot;&quot;
+        try:
+            result = self._gateway.pay(amount_krw, card_token)
+        except PaymentDeclined as e:
+            # __cause__는 raise ... from 으로 남긴 원래 예외. B·C는 애초에 예외가 없었으므로 None이다.
+            cause = type(e.__cause__).__name__ if e.__cause__ else &quot;없음&quot;
+            print(f&quot;    주문 {order_id} 결제 거절: {e}  (SDK 원인 예외: {cause})&quot;)
+            return None
+        print(f&quot;    주문 {order_id} 결제 완료: {result}&quot;)
+        return result
+
+    def cancel(self, result: PaymentResult) -&gt; None:
+        &quot;&quot;&quot;환불. 분기도 단위 변환도 없다 — 그건 어댑터의 일이다.&quot;&quot;&quot;
+        self._gateway.refund(result.transaction_id, result.amount_krw)
+        print(f&quot;    {result.gateway} 거래 {result.transaction_id} 환불 완료&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 조립 지점(composition root): 구체 SDK와 어댑터를 아는 유일한 곳.
+    gateways: list[PaymentGateway] = [
+        PgAAdapter(PgAClient()), PgBAdapter(PgBClient()), PgCAdapter(PgCClient()),
+    ]
+
+    print(&quot;[1] 같은 OrderService 코드로 세 PG 결제 → 환불&quot;)
+    for gw in gateways:
+        svc = OrderService(gw)
+        paid = svc.checkout(f&quot;ORD-{gw.name}&quot;, 15_000, &quot;tok_ok&quot;)
+        if paid:
+            svc.cancel(paid)
+
+    print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
+    for gw in gateways:
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (245–289행)</figcaption><pre><code class="language-python"># ===========================================================================
 # 클라이언트 (Client) — PG가 몇 개든 이 코드는 바뀌지 않는다.
 # ===========================================================================
 
@@ -531,7 +1409,18 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
         OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_adapter.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_adapter.py</figcaption><pre><code>[1] 같은 OrderService 코드로 세 PG 결제 → 환불
+    주문 ORD-A 결제 완료: PaymentResult(transaction_id=&#x27;A1001&#x27;, amount_krw=15000, gateway=&#x27;A&#x27;)
+    A 거래 A1001 환불 완료
+    주문 ORD-B 결제 완료: PaymentResult(transaction_id=&#x27;B1002&#x27;, amount_krw=15000, gateway=&#x27;B&#x27;)
+    B 거래 B1002 환불 완료
+    주문 ORD-C 결제 완료: PaymentResult(transaction_id=&#x27;C1003&#x27;, amount_krw=15000, gateway=&#x27;C&#x27;)
+    (C SDK) C1003에 대해 1500000 minor unit 환불 처리
+    C 거래 C1003 환불 완료
+[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다
+    주문 ORD-A-X 결제 거절: [A] A-401 한도 초과  (SDK 원인 예외: PgAError)
+    주문 ORD-B-X 결제 거절: [B] 결제 실패: 코드 51 잔액 부족  (SDK 원인 예외: 없음)
+    주문 ORD-C-X 결제 거절: [C] card_declined  (SDK 원인 예외: 없음)</code></pre></figure>
 <p>출력 [1]의 C 환불을 보라. 이번에는 <code>1500000</code> minor unit이 나갔다. 단위 규칙이 <code>MINOR_PER_KRW</code> 한 곳에 있고 <code>pay()</code>와 <code>refund()</code>가 그것을 공유하므로, 01의 사고는 구조적으로 재발할 수 없다. 출력 [2]는 세 가지 실패 방식이 <code>PaymentDeclined</code> 하나로 수렴했음을 보여준다. A의 경우 <code>raise ... from e</code> 덕분에 원래의 <code>PgAError</code>가 <code>__cause__</code>로 남아 있어, 로그를 볼 때 원인 정보도 잃지 않는다.</p>
 <div class="callout ok">
   <span class="label">핵심 정리</span>
@@ -734,7 +1623,16 @@ if __name__ == &quot;__main__&quot;:
         translate_errors(flaky)
     except PaymentDeclined as e:
         print(f&quot;    PaymentDeclined: {e} / __cause__ = {e.__cause__!r}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] Protocol: 상속 없이도 Target으로 인정된다
+    isinstance(b, PaymentGateway) = True
+    결제 → B-77, 영수증 → https://pg-b.example/receipts/B-77
+[2] 함수 어댑터: partial + 내부 함수로 A SDK를 Charger 모양으로
+    settle_batch → [&#x27;A-M01-1000&#x27;, &#x27;A-M01-2500&#x27;]
+[3] __getattr__ 위임의 함정
+    leaky.create_payment(...) → PaymentResponse(status_code=51, payment_id=None)  ← 호출자가 status_code를 다시 알게 됐다
+    오타 paay → AttributeError: &#x27;PgBClient&#x27; object has no attribute &#x27;paay&#x27;  ← 어댑터가 아닌 SDK 이름이 보인다
+[4] raise ... from: 원인 예외가 __cause__로 남는다
+    PaymentDeclined: PG 통신 실패 / __cause__ = ConnectionError(&#x27;pg-b.example:443 연결 거부&#x27;)</code></pre></figure>
 <h3>Protocol: 어댑터는 Target을 상속하지 않아도 된다</h3>
 <p>Java의 어댑터는 Target 인터페이스를 <code>implements</code>해야 한다. 파이썬에서 Target을 <code>typing.Protocol</code>로 정의하면 어댑터는 '모양만 맞으면' Target이다. 이는 어댑터가 서드파티 라이브러리에 이미 존재하는 경우에 특히 중요하다. 남의 클래스가 우연히 <code>pay</code>/<code>refund</code>를 갖고 있다면 어댑터 없이 바로 쓸 수 있다. 대가는 검사 시점이다. ABC는 구현 누락을 인스턴스화할 때 잡지만, Protocol은 mypy 같은 정적 검사기를 돌려야 잡는다. <code>@runtime_checkable</code>의 <code>isinstance</code>는 메서드 이름의 존재만 본다는 점도 기억하라. 팀이 정적 타입 검사를 <dfn class="term" id="term-continuous-integration" data-term="continuous-integration" title="변경을 자주 통합하며 빌드·테스트·정적 검사를 자동으로 돌리는 지속적 통합 체계.">CI</dfn>(지속적 통합: 변경을 올릴 때마다 빌드·테스트·정적 검사를 자동으로 돌리는 체계)에서 돌린다면 Protocol, 그렇지 않다면 ABC가 더 안전하다.</p>
 <h3>함수 하나짜리 인터페이스는 함수 어댑터로</h3>
@@ -877,7 +1775,14 @@ if __name__ == &quot;__main__&quot;:
     except AttributeError as e:
         print(f&quot;    refund_all 실패: AttributeError: {e}&quot;)
         print(&quot;    SDK는 PaymentResponse를 기대했지만 우리 refund()가 None을 돌려줬다.&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex1_class_adapter.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex1_class_adapter.py</figcaption><pre><code>[1] MRO — 두 부모가 한 줄로 선형화된다
+    PgBClassAdapter → PaymentGateway → ABC → PgBClient → object
+[2] 인터페이스 오염 — Target에 없는 SDK 메서드가 그대로 공개된다
+    호출 가능한 SDK 원본 메서드: [&#x27;create_payment&#x27;, &#x27;refund_all&#x27;]
+    isinstance(adapter, PgBClient) = True  ← SDK 타입을 받는 곳에도 들어간다
+[3] 이름 충돌 — SDK 내부의 self.refund()가 우리 refund()로 납치된다
+    refund_all 실패: AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;status_code&#x27;
+    SDK는 PaymentResponse를 기대했지만 우리 refund()가 None을 돌려줬다.</code></pre></figure>
   </details>
 </div>
 
@@ -995,7 +1900,9 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 센서별 섭씨 값:&quot;, [round(s.get_celsius(), 1) for s in sensors])
     print(f&quot;[2] 평균 온도: {average_celsius(sensors):.1f}℃&quot;)
     print(f&quot;[3] 최고 온도: {max_celsius(sensors):.1f}℃  (두 클라이언트 모두 isinstance가 사라졌다)&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_thermometer.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_thermometer.py</figcaption><pre><code>[1] 센서별 섭씨 값: [25.0, 23.0, 22.0]
+[2] 평균 온도: 23.3℃
+[3] 최고 온도: 25.0℃  (두 클라이언트 모두 isinstance가 사라졌다)</code></pre></figure>
   </details>
 </div>
 
@@ -1089,7 +1996,11 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 메서드 하나만 필요하면 바운드 메서드가 곧 어댑터다&quot;)
     print(f&quot;    run_settlement(PgDClient().make_payment) → {run_settlement(PgDClient().make_payment)}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_rename_only.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_rename_only.py</figcaption><pre><code>[1] 명시적 얇은 어댑터
+    (D SDK) D-12000 12000원 취소
+    hasattr(gw, &#x27;debug_dump&#x27;) = False  ← SDK 내부 기능이 새지 않는다
+[2] 메서드 하나만 필요하면 바운드 메서드가 곧 어댑터다
+    run_settlement(PgDClient().make_payment) → D-3000</code></pre></figure>
   </details>
 </div>
 </section>
@@ -1120,5 +2031,7 @@ if __name__ == &quot;__main__&quot;:
     fig.querySelector("figcaption").appendChild(btn);
   });
 </script>
+<script src="assets/pyrun.js"></script>
+<script src="assets/textbook-code.js"></script>
 </body>
 </html>

@@ -81,7 +81,7 @@ function renderGuide(main) {
     if (st.tnote) sec.append(el("div", { class: "tnote" }, el("b", {}, "이 단계 운영 메모"), el("div", { html: st.tnote })));
     let no = 0;
     st.items.forEach(it => {
-      if (it.type === "info") { sec.append(el("div", { class: "item info" }, el("div", { html: it.html }))); return; }
+      if (it.type === "info") { sec.append(el("div", { class: "item info" }, enhanceCode(el("div", { html: it.html })))); return; }
       no++;
       const c = el("div", { class: "item", id: it.id }, el("p", { class: "q" }, el("span", { class: "no" }, "Q" + no), el("span", { html: it.q })));
       if (it.hint) c.append(el("p", { class: "hint", html: it.hint }));

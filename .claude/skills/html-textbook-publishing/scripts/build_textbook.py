@@ -96,13 +96,15 @@ def render_src(match: re.Match, chapter: Chapter) -> str:
         problems.append(f"{chapter.out_name}: data-src 대상 없음 src/{rel}")
         return f'<div class="missing-src">⚠ 코드 파일 없음: src/{html.escape(rel)}</div>'
     code_lines = path.read_text(encoding="utf-8").rstrip("\n").splitlines()
+    full = ""    # 일부 행만 보여 줄 때, 브라우저에서 실행·편집하려면 파일 전체가 필요하다
     caption = f"src/{rel}"
     if lines:
+        full = f' data-full="{html.escape(chr(10).join(code_lines))}"'
         a, b = (int(x) for x in lines.split("-"))
         code_lines = code_lines[a - 1:b]
         caption += f"  ({a}–{b}행)"
     code = html.escape("\n".join(code_lines))
-    return (f'<figure class="code"><figcaption>{html.escape(caption)}</figcaption>'
+    return (f'<figure class="code"{full}><figcaption>{html.escape(caption)}</figcaption>'
             f'<pre><code class="language-python">{code}</code></pre></figure>')
 
 
@@ -193,7 +195,8 @@ def build(do_run: bool) -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "assets").mkdir(parents=True)
-    shutil.copy(SKILL / "assets" / "style.css", OUT / "assets" / "style.css")
+    for asset in ("style.css", "pyrun.css", "pyrun.js", "textbook-code.js"):    # 코드 실행·편집(Pyodide) 자산 포함
+        shutil.copy(SKILL / "assets" / asset, OUT / "assets" / asset)
 
     for i, ch in enumerate(chapters):
         body, toc = process_body(ch, do_run)

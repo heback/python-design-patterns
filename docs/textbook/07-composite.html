@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/pyrun.css">
 <script>
   /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,6 +19,9 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">7장 · 컴포지트 (Composite)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
+  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
+  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -137,7 +141,13 @@ if __name__ == &quot;__main__&quot;:
     except AttributeError as e:
         print(f&quot;    AttributeError: {e}&quot;)
         print(&quot;    → 깊이 가정이 깨졌다. 루프를 한 겹 더 중첩해야 할까? 다음 설계 변경 때는?&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 평평한 목록 시절: 단품 하나는 잘 된다
+    M8 볼트: 120원
+[2] 3단계 BOM(엔진 → 피스톤 조립품 → 단품)
+    엔진 원가 72,520원, 중량 638g
+[3] 설계 변경: 피스톤 링이 &#x27;링 세트 조립품&#x27;이 되어 4단계가 됐다
+    AttributeError: &#x27;Assembly&#x27; object has no attribute &#x27;unit_cost&#x27;
+    → 깊이 가정이 깨졌다. 루프를 한 겹 더 중첩해야 할까? 다음 설계 변경 때는?</code></pre></figure>
 <p>출력 [2]까지는 맞다(피스톤 조립품 15,300원 × 2 + 볼트 1,920원 + 엔진 공임 40,000원 = 72,520원). [3]에서 무너진 원인은 세 가지로 정리된다.</p>
 <ul>
   <li><strong>클라이언트가 부분과 전체를 구별해야 한다.</strong> 공통 타입이 없으니 자식을 만지는 모든 곳에서 <code>isinstance</code>를 물어야 한다. 새로운 종류의 항목(예: 외주 가공품)이 생기면 모든 분기를 고친다.</li>
@@ -217,7 +227,191 @@ if __name__ == &quot;__main__&quot;:
 <h2>4. 패턴 적용</h2>
 <p>소연은 네 가지 연산을 모두 <code>BomItem</code>의 추상 메서드로 올렸다. 그리고 두 가지 실제 데이터의 함정을 설계에 반영했다. 하나는 <strong>공유 부품</strong>이다. 같은 M8 볼트가 엔진에도 프레임에도 들어간다. 다른 하나는 <strong><dfn class="term" id="term-circular-reference" data-term="circular-reference" title="A가 B를 참조하고 B가 다시 A를 참조하는 고리; 트리 순회에서는 무한 재귀를 낳는다.">순환 참조</dfn></strong>, 즉 A가 B를 참조하고 B가 다시 A를 참조하는 고리다. ERP에 사람이 BOM을 입력하다 보면 "A의 하위에 B, B의 하위에 A" 같은 실수가 반드시 생긴다.</p>
 <p class="lead-in">Component와 Leaf부터 보자. <code>BomItem</code>의 docstring은 <code>add()</code>를 여기 두지 않은 이유를 설명한다. <code>Part</code>의 메서드들은 모두 재귀의 '바닥'이므로 자기 값만 돌려준다. <code>render()</code>는 트리를 <dfn class="term" id="term-depth-first-search" data-term="depth-first-search" title="트리·그래프를 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식(반대는 형제를 먼저 훑는 너비 우선).">깊이 우선</dfn>으로 출력한다. 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식으로, 형제를 먼저 훑는 너비 우선과 대비된다.</p>
-<figure class="code"><figcaption>src/07_composite/02_composite.py  (13–87행)</figcaption><pre><code class="language-python">class BomItem(ABC):
+<figure class="code" data-full="&quot;&quot;&quot;07 컴포지트 — 패턴 적용: BomItem 하나로 단품과 조립품을 똑같이 다룬다.
+
+상황: 소연은 깊이 가정을 버리기로 한다. 단품(Part)과 조립품(Assembly)이 공통 타입
+BomItem을 갖고, 조립품의 연산은 &quot;내 몫 + 자식들에게 같은 질문을 던진 결과&quot;로 정의한다.
+그러면 깊이가 몇이든 재귀가 알아서 내려간다. 이 파일은 원가·중량·리드타임(최장 경로)·
+단종 부품 탐색 네 가지 연산과, 실제 BOM의 함정인 순환 참조·공유 부품을 다룬다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+
+class BomItem(ABC):
+    &quot;&quot;&quot;[Component] 부품표의 한 항목. 클라이언트는 이 타입만 안다.
+
+    자식 관리 메서드(add)를 여기 두지 않은 것이 이 설계의 핵심 선택이다(안전성 우선).
+    단품에 add()가 있으면 &#x27;호출은 되지만 의미가 없는&#x27; 메서드가 생겨 LSP가 흔들린다.
+    대가로, 트리를 &#x27;조립하는&#x27; 코드는 Assembly 타입을 알아야 한다. 트리를 &#x27;사용하는&#x27;
+    코드(원가 계산 등)는 BomItem만 알면 된다 — 대부분의 코드는 후자다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;모든 항목은 이름을 가진다.&quot;&quot;&quot;
+        self.name = name
+
+    @abstractmethod
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 만드는 데 드는 총원가(원).&quot;&quot;&quot;
+
+    @abstractmethod
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개의 총중량(g).&quot;&quot;&quot;
+
+    @abstractmethod
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 확보하는 데 걸리는 최장 일수.&quot;&quot;&quot;
+
+    @abstractmethod
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종 단품까지 이어지는 경로 목록. 비어 있으면 생산에 문제없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;item이 이 항목 자신이거나 하위 어딘가에 있는가. 순환 검사에 쓴다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;깊이 우선으로 트리를 들여쓰기 문자열 목록으로 만든다.&quot;&quot;&quot;
+
+
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] 단품. 재귀가 멈추는 곳이다.&quot;&quot;&quot;
+
+    def __init__(self, name: str, unit_cost: int, weight_g: int,
+                 lead_time_days: int, discontinued: bool = False) -&gt; None:
+        &quot;&quot;&quot;구매 단가·중량·조달 기간·단종 여부.&quot;&quot;&quot;
+        super().__init__(name)
+        self._unit_cost = unit_cost
+        self._weight_g = weight_g
+        self._lead = lead_time_days
+        self.discontinued = discontinued
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;단품의 원가는 구매 단가 그 자체.&quot;&quot;&quot;
+        return self._unit_cost
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;단품 중량.&quot;&quot;&quot;
+        return self._weight_g
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;구매 조달 기간.&quot;&quot;&quot;
+        return self._lead
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종이면 자기까지의 경로 하나, 아니면 빈 목록.&quot;&quot;&quot;
+        return [f&quot;{prefix}{self.name}&quot;] if self.discontinued else []
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;단품은 자식이 없으므로 자기 자신인지만 본다.&quot;&quot;&quot;
+        return item is self
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;한 줄.&quot;&quot;&quot;
+        return [f&quot;{&#x27;  &#x27; * depth}- {self.name} ×{qty}  ({self._unit_cost:,}원)&quot;]
+
+
+class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] 조립품. 자식은 (BomItem, 수량) — 자식이 단품인지 조립품인지 묻지 않는다.
+
+    공유 부품: 같은 Part 객체가 여러 조립품에 들어가도 된다(트리가 아니라 DAG가 된다).
+    수량을 &#x27;간선&#x27;에 둔 이유가 이것이다. 볼트 객체 하나를 16번 add하지 않고 (볼트, 16)으로 표현하므로
+    부품 마스터 정보(단가 변경 등)가 한 객체에만 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str, labor_cost: int, assembly_days: int) -&gt; None:
+        &quot;&quot;&quot;조립 공임과 조립에 걸리는 일수.&quot;&quot;&quot;
+        super().__init__(name)
+        self._labor_cost = labor_cost
+        self._assembly_days = assembly_days
+        self._children: list[tuple[BomItem, int]] = []
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; Assembly:
+        &quot;&quot;&quot;자식 추가. 순환을 만들면 거부한다. 체이닝을 위해 self를 돌려준다.
+
+        순환 검사가 필요한 이유: A가 B를 포함하고 B가 A를 포함하면 cost()가 무한 재귀에
+        빠져 RecursionError로 끝난다. 실제 BOM 데이터는 ERP에서 사람이 입력하므로
+        이런 실수는 &#x27;반드시&#x27; 생긴다. 조회 시점이 아니라 &#x27;추가 시점&#x27;에 막는 것이 싸다.
+        &quot;&quot;&quot;
+        if qty &lt;= 0:
+            raise ValueError(&quot;수량은 1 이상이어야 한다&quot;)
+        if item.contains(self):
+            raise ValueError(f&quot;순환 참조: {item.name} 안에 이미 {self.name}이(가) 있다&quot;)
+        self._children.append((item, qty))
+        return self
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;내 공임 + Σ(자식 원가 × 수량). 자식이 단품이든 조립품이든 같은 호출이다.&quot;&quot;&quot;
+        return self._labor_cost + sum(child.cost() * qty for child, qty in self._children)
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;Σ(자식 중량 × 수량). 조립품 자체의 무게는 없다고 본다.&quot;&quot;&quot;
+        return sum(child.weight_g() * qty for child, qty in self._children)
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;자식들은 병렬로 조달되므로 &#x27;가장 늦은 자식&#x27; + 내 조립 일수(최장 경로).
+
+        합(sum)이 아니라 최댓값(max)이라는 점이 원가와 다르다. 같은 재귀 골격에
+        &#x27;자식 결과를 합치는 방법&#x27;만 달라진다 — 이것이 컴포지트 연산의 일반형이다.
+        &quot;&quot;&quot;
+        return self._assembly_days + max((c.lead_time_days() for c, _ in self._children), default=0)
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;자식들의 경로 앞에 내 이름을 붙여 모은다.&quot;&quot;&quot;
+        here = f&quot;{prefix}{self.name} &gt; &quot;
+        return [p for child, _ in self._children for p in child.discontinued_paths(here)]
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;나 자신이거나, 자식 중 누군가가 포함하면 참.&quot;&quot;&quot;
+        return item is self or any(child.contains(item) for child, _ in self._children)
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;내 줄 다음에 자식들을 한 단계 들여 쓴다.&quot;&quot;&quot;
+        lines = [f&quot;{&#x27;  &#x27; * depth}+ {self.name} ×{qty}  (공임 {self._labor_cost:,}원)&quot;]
+        for child, child_qty in self._children:
+            lines += child.render(child_qty, depth + 1)
+        return lines
+
+
+def report(item: BomItem) -&gt; None:
+    &quot;&quot;&quot;[Client] BomItem만 안다. 단품을 넘기든 경운기 전체를 넘기든 같은 코드다.&quot;&quot;&quot;
+    print(f&quot;    {item.name}: 원가 {item.cost():,}원 / 중량 {item.weight_g():,}g / &quot;
+          f&quot;리드타임 {item.lead_time_days()}일&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 공유 부품: bolt 객체 하나가 엔진과 프레임 양쪽에 쓰인다.
+    bolt = Part(&quot;M8 볼트&quot;, 120, 18, lead_time_days=3)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 30, lead_time_days=14)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 85, lead_time_days=10, discontinued=True)
+    block = Part(&quot;실린더 블록&quot;, 180_000, 21_000, lead_time_days=30)
+    pipe = Part(&quot;강관 프레임&quot;, 45_000, 9_500, lead_time_days=7)
+
+    ring_set = Assembly(&quot;링 세트&quot;, 800, assembly_days=1).add(ring, 3)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000, assembly_days=2).add(ring_set).add(pin)
+    engine = Assembly(&quot;엔진&quot;, 40_000, assembly_days=5).add(block).add(piston, 2).add(bolt, 16)
+    frame = Assembly(&quot;프레임&quot;, 15_000, assembly_days=3).add(pipe, 2).add(bolt, 24)
+    tiller = Assembly(&quot;경운기&quot;, 120_000, assembly_days=4).add(engine).add(frame)
+
+    print(&quot;[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)&quot;)
+    for item in (bolt, piston, tiller):
+        report(item)
+
+    print(&quot;[2] 깊이 우선 트리 출력&quot;)
+    print(&quot;\n&quot;.join(&quot;    &quot; + line for line in tiller.render()))
+
+    print(&quot;[3] 단종 부품이 포함된 경로&quot;)
+    for path in tiller.discontinued_paths():
+        print(f&quot;    {path}&quot;)
+
+    print(&quot;[4] 순환 참조 시도: 링 세트에 경운기를 넣는다&quot;)
+    try:
+        ring_set.add(tiller)
+    except ValueError as e:
+        print(f&quot;    거부됨 — {e}&quot;)"><figcaption>src/07_composite/02_composite.py  (13–87행)</figcaption><pre><code class="language-python">class BomItem(ABC):
     &quot;&quot;&quot;[Component] 부품표의 한 항목. 클라이언트는 이 타입만 안다.
 
     자식 관리 메서드(add)를 여기 두지 않은 것이 이 설계의 핵심 선택이다(안전성 우선).
@@ -295,7 +489,191 @@ class Part(BomItem):
 <p><code>Part.contains()</code>가 <code>==</code>가 아니라 <code>is</code>로 비교하는 데 주목하라. 이름과 단가가 같은 두 부품 객체라도 BOM 안에서는 서로 다른 항목일 수 있다. 순환 검사와 공유 부품 탐색은 모두 객체의 <em>정체성</em>에 관한 질문이다.</p>
 <p class="lead-in">이제 Composite다. 각 연산이 "내 몫 + 자식들에게 같은 질문을 던진 결과를 합친 것"이라는 동일한 모양을 가진다는 점, 그리고 합치는 방법만 연산마다 다르다는 점(원가는 가중합, 리드타임은 최댓값, 단종 경로는 목록 이어붙이기)을 확인하라. <code>add()</code>의 순환 검사도 보라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-critical-path" data-term="critical-path" title="병렬로 진행되는 작업 중 전체 완료 시간을 결정하는 가장 긴 의존 경로.">최장 경로</dfn>(임계 경로): 병렬로 진행되는 작업 중 전체 완료 시간을 결정하는 가장 긴 의존 경로. 리드타임 계산이 이것이다. <dfn class="term" id="term-recursion-limit" data-term="recursion-limit" title="파이썬이 허용하는 최대 재귀 호출 깊이(기본 약 1,000); 넘으면 RecursionError가 난다."><code>RecursionError</code></dfn>: 파이썬이 허용하는 최대 재귀 깊이(재귀 한도, 기본 약 1,000)를 넘으면 나는 예외. <dfn class="term" id="term-directed-acyclic-graph" data-term="directed-acyclic-graph" title="방향성 비순환 그래프 — 간선에 방향이 있고 고리가 없는 그래프; 공유 노드를 허용하는 트리의 일반화다.">DAG</dfn>: 방향성 비순환 그래프. 간선에 방향이 있고 고리가 없는 그래프로, 한 노드를 여러 부모가 공유할 수 있는 트리의 일반화다.</p></div>
-<figure class="code"><figcaption>src/07_composite/02_composite.py  (88–149행)</figcaption><pre><code class="language-python">class Assembly(BomItem):
+<figure class="code" data-full="&quot;&quot;&quot;07 컴포지트 — 패턴 적용: BomItem 하나로 단품과 조립품을 똑같이 다룬다.
+
+상황: 소연은 깊이 가정을 버리기로 한다. 단품(Part)과 조립품(Assembly)이 공통 타입
+BomItem을 갖고, 조립품의 연산은 &quot;내 몫 + 자식들에게 같은 질문을 던진 결과&quot;로 정의한다.
+그러면 깊이가 몇이든 재귀가 알아서 내려간다. 이 파일은 원가·중량·리드타임(최장 경로)·
+단종 부품 탐색 네 가지 연산과, 실제 BOM의 함정인 순환 참조·공유 부품을 다룬다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+
+class BomItem(ABC):
+    &quot;&quot;&quot;[Component] 부품표의 한 항목. 클라이언트는 이 타입만 안다.
+
+    자식 관리 메서드(add)를 여기 두지 않은 것이 이 설계의 핵심 선택이다(안전성 우선).
+    단품에 add()가 있으면 &#x27;호출은 되지만 의미가 없는&#x27; 메서드가 생겨 LSP가 흔들린다.
+    대가로, 트리를 &#x27;조립하는&#x27; 코드는 Assembly 타입을 알아야 한다. 트리를 &#x27;사용하는&#x27;
+    코드(원가 계산 등)는 BomItem만 알면 된다 — 대부분의 코드는 후자다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;모든 항목은 이름을 가진다.&quot;&quot;&quot;
+        self.name = name
+
+    @abstractmethod
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 만드는 데 드는 총원가(원).&quot;&quot;&quot;
+
+    @abstractmethod
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개의 총중량(g).&quot;&quot;&quot;
+
+    @abstractmethod
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 확보하는 데 걸리는 최장 일수.&quot;&quot;&quot;
+
+    @abstractmethod
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종 단품까지 이어지는 경로 목록. 비어 있으면 생산에 문제없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;item이 이 항목 자신이거나 하위 어딘가에 있는가. 순환 검사에 쓴다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;깊이 우선으로 트리를 들여쓰기 문자열 목록으로 만든다.&quot;&quot;&quot;
+
+
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] 단품. 재귀가 멈추는 곳이다.&quot;&quot;&quot;
+
+    def __init__(self, name: str, unit_cost: int, weight_g: int,
+                 lead_time_days: int, discontinued: bool = False) -&gt; None:
+        &quot;&quot;&quot;구매 단가·중량·조달 기간·단종 여부.&quot;&quot;&quot;
+        super().__init__(name)
+        self._unit_cost = unit_cost
+        self._weight_g = weight_g
+        self._lead = lead_time_days
+        self.discontinued = discontinued
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;단품의 원가는 구매 단가 그 자체.&quot;&quot;&quot;
+        return self._unit_cost
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;단품 중량.&quot;&quot;&quot;
+        return self._weight_g
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;구매 조달 기간.&quot;&quot;&quot;
+        return self._lead
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종이면 자기까지의 경로 하나, 아니면 빈 목록.&quot;&quot;&quot;
+        return [f&quot;{prefix}{self.name}&quot;] if self.discontinued else []
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;단품은 자식이 없으므로 자기 자신인지만 본다.&quot;&quot;&quot;
+        return item is self
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;한 줄.&quot;&quot;&quot;
+        return [f&quot;{&#x27;  &#x27; * depth}- {self.name} ×{qty}  ({self._unit_cost:,}원)&quot;]
+
+
+class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] 조립품. 자식은 (BomItem, 수량) — 자식이 단품인지 조립품인지 묻지 않는다.
+
+    공유 부품: 같은 Part 객체가 여러 조립품에 들어가도 된다(트리가 아니라 DAG가 된다).
+    수량을 &#x27;간선&#x27;에 둔 이유가 이것이다. 볼트 객체 하나를 16번 add하지 않고 (볼트, 16)으로 표현하므로
+    부품 마스터 정보(단가 변경 등)가 한 객체에만 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str, labor_cost: int, assembly_days: int) -&gt; None:
+        &quot;&quot;&quot;조립 공임과 조립에 걸리는 일수.&quot;&quot;&quot;
+        super().__init__(name)
+        self._labor_cost = labor_cost
+        self._assembly_days = assembly_days
+        self._children: list[tuple[BomItem, int]] = []
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; Assembly:
+        &quot;&quot;&quot;자식 추가. 순환을 만들면 거부한다. 체이닝을 위해 self를 돌려준다.
+
+        순환 검사가 필요한 이유: A가 B를 포함하고 B가 A를 포함하면 cost()가 무한 재귀에
+        빠져 RecursionError로 끝난다. 실제 BOM 데이터는 ERP에서 사람이 입력하므로
+        이런 실수는 &#x27;반드시&#x27; 생긴다. 조회 시점이 아니라 &#x27;추가 시점&#x27;에 막는 것이 싸다.
+        &quot;&quot;&quot;
+        if qty &lt;= 0:
+            raise ValueError(&quot;수량은 1 이상이어야 한다&quot;)
+        if item.contains(self):
+            raise ValueError(f&quot;순환 참조: {item.name} 안에 이미 {self.name}이(가) 있다&quot;)
+        self._children.append((item, qty))
+        return self
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;내 공임 + Σ(자식 원가 × 수량). 자식이 단품이든 조립품이든 같은 호출이다.&quot;&quot;&quot;
+        return self._labor_cost + sum(child.cost() * qty for child, qty in self._children)
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;Σ(자식 중량 × 수량). 조립품 자체의 무게는 없다고 본다.&quot;&quot;&quot;
+        return sum(child.weight_g() * qty for child, qty in self._children)
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;자식들은 병렬로 조달되므로 &#x27;가장 늦은 자식&#x27; + 내 조립 일수(최장 경로).
+
+        합(sum)이 아니라 최댓값(max)이라는 점이 원가와 다르다. 같은 재귀 골격에
+        &#x27;자식 결과를 합치는 방법&#x27;만 달라진다 — 이것이 컴포지트 연산의 일반형이다.
+        &quot;&quot;&quot;
+        return self._assembly_days + max((c.lead_time_days() for c, _ in self._children), default=0)
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;자식들의 경로 앞에 내 이름을 붙여 모은다.&quot;&quot;&quot;
+        here = f&quot;{prefix}{self.name} &gt; &quot;
+        return [p for child, _ in self._children for p in child.discontinued_paths(here)]
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;나 자신이거나, 자식 중 누군가가 포함하면 참.&quot;&quot;&quot;
+        return item is self or any(child.contains(item) for child, _ in self._children)
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;내 줄 다음에 자식들을 한 단계 들여 쓴다.&quot;&quot;&quot;
+        lines = [f&quot;{&#x27;  &#x27; * depth}+ {self.name} ×{qty}  (공임 {self._labor_cost:,}원)&quot;]
+        for child, child_qty in self._children:
+            lines += child.render(child_qty, depth + 1)
+        return lines
+
+
+def report(item: BomItem) -&gt; None:
+    &quot;&quot;&quot;[Client] BomItem만 안다. 단품을 넘기든 경운기 전체를 넘기든 같은 코드다.&quot;&quot;&quot;
+    print(f&quot;    {item.name}: 원가 {item.cost():,}원 / 중량 {item.weight_g():,}g / &quot;
+          f&quot;리드타임 {item.lead_time_days()}일&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 공유 부품: bolt 객체 하나가 엔진과 프레임 양쪽에 쓰인다.
+    bolt = Part(&quot;M8 볼트&quot;, 120, 18, lead_time_days=3)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 30, lead_time_days=14)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 85, lead_time_days=10, discontinued=True)
+    block = Part(&quot;실린더 블록&quot;, 180_000, 21_000, lead_time_days=30)
+    pipe = Part(&quot;강관 프레임&quot;, 45_000, 9_500, lead_time_days=7)
+
+    ring_set = Assembly(&quot;링 세트&quot;, 800, assembly_days=1).add(ring, 3)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000, assembly_days=2).add(ring_set).add(pin)
+    engine = Assembly(&quot;엔진&quot;, 40_000, assembly_days=5).add(block).add(piston, 2).add(bolt, 16)
+    frame = Assembly(&quot;프레임&quot;, 15_000, assembly_days=3).add(pipe, 2).add(bolt, 24)
+    tiller = Assembly(&quot;경운기&quot;, 120_000, assembly_days=4).add(engine).add(frame)
+
+    print(&quot;[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)&quot;)
+    for item in (bolt, piston, tiller):
+        report(item)
+
+    print(&quot;[2] 깊이 우선 트리 출력&quot;)
+    print(&quot;\n&quot;.join(&quot;    &quot; + line for line in tiller.render()))
+
+    print(&quot;[3] 단종 부품이 포함된 경로&quot;)
+    for path in tiller.discontinued_paths():
+        print(f&quot;    {path}&quot;)
+
+    print(&quot;[4] 순환 참조 시도: 링 세트에 경운기를 넣는다&quot;)
+    try:
+        ring_set.add(tiller)
+    except ValueError as e:
+        print(f&quot;    거부됨 — {e}&quot;)"><figcaption>src/07_composite/02_composite.py  (88–149행)</figcaption><pre><code class="language-python">class Assembly(BomItem):
     &quot;&quot;&quot;[Composite] 조립품. 자식은 (BomItem, 수량) — 자식이 단품인지 조립품인지 묻지 않는다.
 
     공유 부품: 같은 Part 객체가 여러 조립품에 들어가도 된다(트리가 아니라 DAG가 된다).
@@ -359,7 +737,191 @@ class Part(BomItem):
 </code></pre></figure>
 <p>수량을 자식 객체가 아니라 <strong>간선</strong>(<code>(item, qty)</code> 쌍)에 둔 것은 공유 부품을 위한 결정이다. 수량을 <code>Part</code>의 필드로 두면 "엔진의 볼트 16개"와 "프레임의 볼트 24개"를 표현하려고 볼트 객체를 둘 만들어야 하고, 그러면 볼트 단가가 오를 때 두 객체를 모두 고쳐야 한다. 간선에 수량을 두면 볼트의 마스터 정보는 객체 하나에만 있다. 그 결과 자료구조는 엄밀히 말해 트리가 아니라 DAG(방향성 비순환 그래프)가 되는데, 원가·중량 계산은 DAG에서도 그대로 옳다. 재귀가 공유 노드를 경로마다 한 번씩 방문하기 때문이다. 순환만 없으면 된다.</p>
 <p class="lead-in">마지막으로 클라이언트와 데모다. <code>report()</code>는 단품 하나, 중간 조립품, 경운기 전체를 같은 코드로 처리한다. BOM의 깊이는 이제 5단계다.</p>
-<figure class="code"><figcaption>src/07_composite/02_composite.py  (150–185행)</figcaption><pre><code class="language-python">def report(item: BomItem) -&gt; None:
+<figure class="code" data-full="&quot;&quot;&quot;07 컴포지트 — 패턴 적용: BomItem 하나로 단품과 조립품을 똑같이 다룬다.
+
+상황: 소연은 깊이 가정을 버리기로 한다. 단품(Part)과 조립품(Assembly)이 공통 타입
+BomItem을 갖고, 조립품의 연산은 &quot;내 몫 + 자식들에게 같은 질문을 던진 결과&quot;로 정의한다.
+그러면 깊이가 몇이든 재귀가 알아서 내려간다. 이 파일은 원가·중량·리드타임(최장 경로)·
+단종 부품 탐색 네 가지 연산과, 실제 BOM의 함정인 순환 참조·공유 부품을 다룬다.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+
+
+class BomItem(ABC):
+    &quot;&quot;&quot;[Component] 부품표의 한 항목. 클라이언트는 이 타입만 안다.
+
+    자식 관리 메서드(add)를 여기 두지 않은 것이 이 설계의 핵심 선택이다(안전성 우선).
+    단품에 add()가 있으면 &#x27;호출은 되지만 의미가 없는&#x27; 메서드가 생겨 LSP가 흔들린다.
+    대가로, 트리를 &#x27;조립하는&#x27; 코드는 Assembly 타입을 알아야 한다. 트리를 &#x27;사용하는&#x27;
+    코드(원가 계산 등)는 BomItem만 알면 된다 — 대부분의 코드는 후자다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str) -&gt; None:
+        &quot;&quot;&quot;모든 항목은 이름을 가진다.&quot;&quot;&quot;
+        self.name = name
+
+    @abstractmethod
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 만드는 데 드는 총원가(원).&quot;&quot;&quot;
+
+    @abstractmethod
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개의 총중량(g).&quot;&quot;&quot;
+
+    @abstractmethod
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;이 항목 1개를 확보하는 데 걸리는 최장 일수.&quot;&quot;&quot;
+
+    @abstractmethod
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종 단품까지 이어지는 경로 목록. 비어 있으면 생산에 문제없다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;item이 이 항목 자신이거나 하위 어딘가에 있는가. 순환 검사에 쓴다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;깊이 우선으로 트리를 들여쓰기 문자열 목록으로 만든다.&quot;&quot;&quot;
+
+
+class Part(BomItem):
+    &quot;&quot;&quot;[Leaf] 단품. 재귀가 멈추는 곳이다.&quot;&quot;&quot;
+
+    def __init__(self, name: str, unit_cost: int, weight_g: int,
+                 lead_time_days: int, discontinued: bool = False) -&gt; None:
+        &quot;&quot;&quot;구매 단가·중량·조달 기간·단종 여부.&quot;&quot;&quot;
+        super().__init__(name)
+        self._unit_cost = unit_cost
+        self._weight_g = weight_g
+        self._lead = lead_time_days
+        self.discontinued = discontinued
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;단품의 원가는 구매 단가 그 자체.&quot;&quot;&quot;
+        return self._unit_cost
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;단품 중량.&quot;&quot;&quot;
+        return self._weight_g
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;구매 조달 기간.&quot;&quot;&quot;
+        return self._lead
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;단종이면 자기까지의 경로 하나, 아니면 빈 목록.&quot;&quot;&quot;
+        return [f&quot;{prefix}{self.name}&quot;] if self.discontinued else []
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;단품은 자식이 없으므로 자기 자신인지만 본다.&quot;&quot;&quot;
+        return item is self
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;한 줄.&quot;&quot;&quot;
+        return [f&quot;{&#x27;  &#x27; * depth}- {self.name} ×{qty}  ({self._unit_cost:,}원)&quot;]
+
+
+class Assembly(BomItem):
+    &quot;&quot;&quot;[Composite] 조립품. 자식은 (BomItem, 수량) — 자식이 단품인지 조립품인지 묻지 않는다.
+
+    공유 부품: 같은 Part 객체가 여러 조립품에 들어가도 된다(트리가 아니라 DAG가 된다).
+    수량을 &#x27;간선&#x27;에 둔 이유가 이것이다. 볼트 객체 하나를 16번 add하지 않고 (볼트, 16)으로 표현하므로
+    부품 마스터 정보(단가 변경 등)가 한 객체에만 있다.
+    &quot;&quot;&quot;
+
+    def __init__(self, name: str, labor_cost: int, assembly_days: int) -&gt; None:
+        &quot;&quot;&quot;조립 공임과 조립에 걸리는 일수.&quot;&quot;&quot;
+        super().__init__(name)
+        self._labor_cost = labor_cost
+        self._assembly_days = assembly_days
+        self._children: list[tuple[BomItem, int]] = []
+
+    def add(self, item: BomItem, qty: int = 1) -&gt; Assembly:
+        &quot;&quot;&quot;자식 추가. 순환을 만들면 거부한다. 체이닝을 위해 self를 돌려준다.
+
+        순환 검사가 필요한 이유: A가 B를 포함하고 B가 A를 포함하면 cost()가 무한 재귀에
+        빠져 RecursionError로 끝난다. 실제 BOM 데이터는 ERP에서 사람이 입력하므로
+        이런 실수는 &#x27;반드시&#x27; 생긴다. 조회 시점이 아니라 &#x27;추가 시점&#x27;에 막는 것이 싸다.
+        &quot;&quot;&quot;
+        if qty &lt;= 0:
+            raise ValueError(&quot;수량은 1 이상이어야 한다&quot;)
+        if item.contains(self):
+            raise ValueError(f&quot;순환 참조: {item.name} 안에 이미 {self.name}이(가) 있다&quot;)
+        self._children.append((item, qty))
+        return self
+
+    def cost(self) -&gt; int:
+        &quot;&quot;&quot;내 공임 + Σ(자식 원가 × 수량). 자식이 단품이든 조립품이든 같은 호출이다.&quot;&quot;&quot;
+        return self._labor_cost + sum(child.cost() * qty for child, qty in self._children)
+
+    def weight_g(self) -&gt; int:
+        &quot;&quot;&quot;Σ(자식 중량 × 수량). 조립품 자체의 무게는 없다고 본다.&quot;&quot;&quot;
+        return sum(child.weight_g() * qty for child, qty in self._children)
+
+    def lead_time_days(self) -&gt; int:
+        &quot;&quot;&quot;자식들은 병렬로 조달되므로 &#x27;가장 늦은 자식&#x27; + 내 조립 일수(최장 경로).
+
+        합(sum)이 아니라 최댓값(max)이라는 점이 원가와 다르다. 같은 재귀 골격에
+        &#x27;자식 결과를 합치는 방법&#x27;만 달라진다 — 이것이 컴포지트 연산의 일반형이다.
+        &quot;&quot;&quot;
+        return self._assembly_days + max((c.lead_time_days() for c, _ in self._children), default=0)
+
+    def discontinued_paths(self, prefix: str = &quot;&quot;) -&gt; list[str]:
+        &quot;&quot;&quot;자식들의 경로 앞에 내 이름을 붙여 모은다.&quot;&quot;&quot;
+        here = f&quot;{prefix}{self.name} &gt; &quot;
+        return [p for child, _ in self._children for p in child.discontinued_paths(here)]
+
+    def contains(self, item: BomItem) -&gt; bool:
+        &quot;&quot;&quot;나 자신이거나, 자식 중 누군가가 포함하면 참.&quot;&quot;&quot;
+        return item is self or any(child.contains(item) for child, _ in self._children)
+
+    def render(self, qty: int = 1, depth: int = 0) -&gt; list[str]:
+        &quot;&quot;&quot;내 줄 다음에 자식들을 한 단계 들여 쓴다.&quot;&quot;&quot;
+        lines = [f&quot;{&#x27;  &#x27; * depth}+ {self.name} ×{qty}  (공임 {self._labor_cost:,}원)&quot;]
+        for child, child_qty in self._children:
+            lines += child.render(child_qty, depth + 1)
+        return lines
+
+
+def report(item: BomItem) -&gt; None:
+    &quot;&quot;&quot;[Client] BomItem만 안다. 단품을 넘기든 경운기 전체를 넘기든 같은 코드다.&quot;&quot;&quot;
+    print(f&quot;    {item.name}: 원가 {item.cost():,}원 / 중량 {item.weight_g():,}g / &quot;
+          f&quot;리드타임 {item.lead_time_days()}일&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    # 공유 부품: bolt 객체 하나가 엔진과 프레임 양쪽에 쓰인다.
+    bolt = Part(&quot;M8 볼트&quot;, 120, 18, lead_time_days=3)
+    ring = Part(&quot;피스톤 링&quot;, 2_400, 30, lead_time_days=14)
+    pin = Part(&quot;피스톤 핀&quot;, 3_100, 85, lead_time_days=10, discontinued=True)
+    block = Part(&quot;실린더 블록&quot;, 180_000, 21_000, lead_time_days=30)
+    pipe = Part(&quot;강관 프레임&quot;, 45_000, 9_500, lead_time_days=7)
+
+    ring_set = Assembly(&quot;링 세트&quot;, 800, assembly_days=1).add(ring, 3)
+    piston = Assembly(&quot;피스톤 조립품&quot;, 5_000, assembly_days=2).add(ring_set).add(pin)
+    engine = Assembly(&quot;엔진&quot;, 40_000, assembly_days=5).add(block).add(piston, 2).add(bolt, 16)
+    frame = Assembly(&quot;프레임&quot;, 15_000, assembly_days=3).add(pipe, 2).add(bolt, 24)
+    tiller = Assembly(&quot;경운기&quot;, 120_000, assembly_days=4).add(engine).add(frame)
+
+    print(&quot;[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)&quot;)
+    for item in (bolt, piston, tiller):
+        report(item)
+
+    print(&quot;[2] 깊이 우선 트리 출력&quot;)
+    print(&quot;\n&quot;.join(&quot;    &quot; + line for line in tiller.render()))
+
+    print(&quot;[3] 단종 부품이 포함된 경로&quot;)
+    for path in tiller.discontinued_paths():
+        print(f&quot;    {path}&quot;)
+
+    print(&quot;[4] 순환 참조 시도: 링 세트에 경운기를 넣는다&quot;)
+    try:
+        ring_set.add(tiller)
+    except ValueError as e:
+        print(f&quot;    거부됨 — {e}&quot;)"><figcaption>src/07_composite/02_composite.py  (150–185행)</figcaption><pre><code class="language-python">def report(item: BomItem) -&gt; None:
     &quot;&quot;&quot;[Client] BomItem만 안다. 단품을 넘기든 경운기 전체를 넘기든 같은 코드다.&quot;&quot;&quot;
     print(f&quot;    {item.name}: 원가 {item.cost():,}원 / 중량 {item.weight_g():,}g / &quot;
           f&quot;리드타임 {item.lead_time_days()}일&quot;)
@@ -395,7 +957,26 @@ if __name__ == &quot;__main__&quot;:
         ring_set.add(tiller)
     except ValueError as e:
         print(f&quot;    거부됨 — {e}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_composite.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 02_composite.py</figcaption><pre><code>[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)
+    M8 볼트: 원가 120원 / 중량 18g / 리드타임 3일
+    피스톤 조립품: 원가 16,100원 / 중량 175g / 리드타임 17일
+    경운기: 원가 482,000원 / 중량 41,070g / 리드타임 39일
+[2] 깊이 우선 트리 출력
+    + 경운기 ×1  (공임 120,000원)
+      + 엔진 ×1  (공임 40,000원)
+        - 실린더 블록 ×1  (180,000원)
+        + 피스톤 조립품 ×2  (공임 5,000원)
+          + 링 세트 ×1  (공임 800원)
+            - 피스톤 링 ×3  (2,400원)
+          - 피스톤 핀 ×1  (3,100원)
+        - M8 볼트 ×16  (120원)
+      + 프레임 ×1  (공임 15,000원)
+        - 강관 프레임 ×2  (45,000원)
+        - M8 볼트 ×24  (120원)
+[3] 단종 부품이 포함된 경로
+    경운기 &gt; 엔진 &gt; 피스톤 조립품 &gt; 피스톤 핀
+[4] 순환 참조 시도: 링 세트에 경운기를 넣는다
+    거부됨 — 순환 참조: 경운기 안에 이미 링 세트이(가) 있다</code></pre></figure>
 <p>출력 [1]은 첫 번째 학습 목표의 증거다. <code>report()</code>에는 <code>isinstance</code>도 루프 중첩도 없고, 깊이가 5여도 상관없다. 리드타임 39일은 '실린더 블록 30일 → 엔진 조립 5일 → 경운기 조립 4일'의 최장 경로다. 피스톤 핀이 10일, 링이 14일 걸려도 실린더 블록을 기다리는 동안 끝나므로 결과에 영향이 없다. 원가의 <code>sum</code>을 <code>max</code>로 바꾸기만 했는데 '임계 경로'라는 전혀 다른 질문에 답한 것이다.</p>
 <p>출력 [2]의 트리에서 M8 볼트가 두 번 나타난 것은 공유 부품이 경로마다 방문되기 때문이다. [3]은 단종 부품을 경로와 함께 찾아, 품질팀이 "피스톤 조립품 설계를 바꾸면 된다"는 것을 바로 알게 해 준다. [4]는 순환을 추가 시점에 막았다. 이 검사가 없었다면 <code>ring_set.cost()</code>는 <code>RecursionError</code>로 끝났을 것이다.</p>
 <div class="callout warn">
@@ -586,7 +1167,20 @@ if __name__ == &quot;__main__&quot;:
         co2_g(&quot;엔진&quot;)
     except TypeError as e:
         print(f&quot;    잘못된 입력 → {e}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 순회 한 번 + 다형적 own_cost로 원가
+    경운기 원가 300,400원, 단품 하나도 같은 함수로: 120원
+[2] 소요량 전개 — 경운기 10대
+    M8 볼트     400개
+    피스톤 링      60개
+    피스톤 핀      20개
+    강관 프레임     20개
+[3] 컨테이너 프로토콜
+    len(engine) = 2  (직접 자식 종류 수)
+    bolt in frame = True, pin in frame = False
+    for 순회: [&#x27;피스톤 링&#x27;, &#x27;피스톤 핀&#x27;]
+[4] singledispatch로 클래스 밖에서 새 연산 추가
+    경운기 탄소 배출 49,690g
+    잘못된 입력 → co2_g를 모르는 타입: str</code></pre></figure>
 <h3>순회와 연산의 분리: <code>yield from</code></h3>
 <p>02와 달리 <code>BomItem</code>에는 연산마다 추상 메서드를 두지 않고, 두 가지만 남겼다. 항목 자체의 몫인 <code>own_cost</code>(단품은 단가, 조립품은 공임)와 순회 <code>walk()</code>다. 둘 다 다형적이므로 <code>Assembly.walk()</code>는 자식이 단품인지 묻지 않고 <code>yield from child.walk(...)</code> 한 줄로 내려가고, <code>total_cost()</code>는 <code>sum(item.own_cost * qty ...)</code>로 끝난다. 2절에서 없애려 한 타입 분기는 여기서도 다시 나타나지 않는다. <code>walk()</code>는 재귀를 한 곳에 가둔다. 결과는 평평한 이터레이터이므로 원가는 <code>sum</code>, 소요량 전개는 <code>Counter</code>, 필터링은 컴프리헨션으로 표현된다. 출력 [2]에서 볼트 400개는 엔진 16 + 프레임 24 = 40개 × 10대로, 공유 부품이 자동으로 합산되었다. <code>explode()</code>에 남은 <code>isinstance(item, Part)</code>는 성격이 다르다. 타입마다 같은 계산을 다르게 하는 분기가 아니라, "단품만 골라 달라"는 <em>필터</em>다. 질문 자체가 단품 목록이므로 타입이 곧 조건이다. (03의 BOM은 02보다 작다. 실린더 블록과 링 세트가 없으므로 원가 300,400원을 02의 482,000원과 비교하지 말 것.) 이 방식은 '자식 결과를 합산하는' 연산에 특히 잘 맞는다. 반면 리드타임처럼 <em>트리의 모양</em>(형제 중 최댓값, 그 위에 부모의 몫을 더함)을 써야 하는 연산은 평평한 스트림으로는 표현하기 어렵다. 그런 연산은 여전히 재귀 메서드가 자연스럽다. 순회 추상화는 반복자 패턴(15장)에서 본격적으로 다룬다.</p>
 <h3>컨테이너 프로토콜</h3>
@@ -728,7 +1322,9 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 조립품에 추가:&quot;, on_add_clicked(engine, bolt))
     print(&quot;[2] 단품에 추가:&quot;, on_add_clicked(bolt, Part(&quot;와셔&quot;, 30)))
     print(f&quot;[3] 엔진 원가 {engine.cost():,}원 — 계산 쪽은 두 설계 모두 똑같이 투명하다&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex1_transparency.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex1_transparency.py</figcaption><pre><code>[1] 조립품에 추가: 엔진에 M8 볼트 추가됨
+[2] 단품에 추가: 오류: M8 볼트은(는) 단품이라 하위 항목을 가질 수 없다
+[3] 엔진 원가 40,120원 — 계산 쪽은 두 설계 모두 똑같이 투명하다</code></pre></figure>
   </details>
 </div>
 
@@ -838,7 +1434,10 @@ if __name__ == &quot;__main__&quot;:
     print(f&quot;[1] {hq.name}: {hq.headcount()}명, 인건비 {hq.payroll():,}만 원&quot;)
     for unit in hq.members:
         print(f&quot;    └ {unit.name}: {unit.headcount()}명, {unit.payroll():,}만 원&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_org_chart.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex2_org_chart.py</figcaption><pre><code>[1] 생산본부: 5명, 인건비 32,500만 원
+    └ 본부장: 1명, 12,000만 원
+    └ 생산관리실: 3명, 15,000만 원
+    └ 품질팀: 1명, 5,500만 원</code></pre></figure>
   </details>
 </div>
 
@@ -898,7 +1497,11 @@ if __name__ == &quot;__main__&quot;:
         Category(&quot;소모품&quot;, [Product(&quot;엔진 오일 1L&quot;, 9_800)]),
     ]
     print(&quot;\n&quot;.join(render_menu(menu)))</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_fixed_depth.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+    <figure class="output"><figcaption>$ python3 ex3_fixed_depth.py</figcaption><pre><code>▸ 엔진 부품 (2)
+    피스톤 링 세트 — 7,900원
+    점화 플러그 — 4,500원
+▸ 소모품 (1)
+    엔진 오일 1L — 9,800원</code></pre></figure>
   </details>
 </div>
 </section>
@@ -929,5 +1532,7 @@ if __name__ == &quot;__main__&quot;:
     fig.querySelector("figcaption").appendChild(btn);
   });
 </script>
+<script src="assets/pyrun.js"></script>
+<script src="assets/textbook-code.js"></script>
 </body>
 </html>

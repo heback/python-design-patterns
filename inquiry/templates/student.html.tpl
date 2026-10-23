@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>디자인 패턴 탐구 학습지</title>
 <style>/*@STYLE@*/</style>
+<style>/*@PYRUN_CSS@*/</style>
 </head>
 <body>
 <header class="topbar">
@@ -26,6 +27,7 @@
   <noscript>이 학습지는 JavaScript가 필요합니다.</noscript>
   <section id="week"></section>
 </main>
+<script>/*@PYRUN@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>
 <script>/*@APP@*/</script>

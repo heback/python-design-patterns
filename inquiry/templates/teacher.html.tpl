@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>디자인 패턴 탐구 학습 · 교사용 가이드</title>
 <style>/*@STYLE@*/</style>
+<style>/*@PYRUN_CSS@*/</style>
 </head>
 <body>
 <header class="topbar">
@@ -18,6 +19,7 @@
 </header>
 <nav class="tabs" id="views" role="tablist"></nav>
 <main id="main"></main>
+<script>/*@PYRUN@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>
 <script>/*@APP@*/</script>

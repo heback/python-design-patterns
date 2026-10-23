@@ -17,6 +17,7 @@ from course import COURSE
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
 TEACHER_ONLY_ITEM = {"answer", "note"}
+PYRUN = ROOT.parent / ".claude" / "skills" / "html-textbook-publishing" / "assets"   # 교재와 공용인 파이썬 실행기
 TEACHER_ONLY_STAGE = {"tnote"}
 TEACHER_ONLY_WEEK = {"teacher", "target"}
 
@@ -71,6 +72,8 @@ def strip(weeks):
                 st.pop(k, None)
             for it in st["items"]:
                 for k in TEACHER_ONLY_ITEM:
+                    if k == "answer" and it["type"] == "code":
+                        continue        # 코드 문항의 정답은 학생에게 '예시 코드' 팝업으로 보여 준다
                     it.pop(k, None)
     return out
 
@@ -84,6 +87,8 @@ def render(tpl_name, content_js, app_js):
     t = ROOT / "templates"
     page = (t / tpl_name).read_text(encoding="utf-8")
     return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8"))
+                .replace("/*@PYRUN_CSS@*/", (PYRUN / "pyrun.css").read_text(encoding="utf-8"))
+                .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
                 .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))

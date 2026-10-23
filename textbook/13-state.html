@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/pyrun.css">
 <script>
   /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,6 +19,9 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">13장 · 상태 (State)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
+  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
+  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -210,7 +214,16 @@ if __name__ == &quot;__main__&quot;:
     s2.unlock(&quot;서윤&quot;, now=0)
     s2.report_lost()
     print(&quot;    상태:&quot;, s2.label(), &quot;/ 정산 기록:&quot;, s2.charges, &quot;← 주행 요금 누락&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납
+    예약됨(민지)
+    반납 요금 2,800원, 상태: 대여 가능
+[2] 시간 기반 전이: 예약 후 10분이 지나면 자동 해제 + 노쇼 수수료
+    상태: 대여 가능, 정산 기록: (&#x27;도현 노쇼&#x27;, 500)
+[3] 버그 재현: 정비 중인 킥보드의 잠금을 해제한다
+    정비 입고 후 상태: 정비 중
+    unlock() 후 상태: 주행 중 ← 정비 중인 기기로 주행이 시작됨!
+[4] 버그 재현: 주행 중 분실 신고 → 요금이 정산되지 않는다
+    상태: 분실 신고 / 정산 기록: [] ← 주행 요금 누락</code></pre></figure>
   <p>출력 [3]이 사고를 그대로 재현한다. 정비 중인 킥보드인데도 <code>unlock()</code>이 예외 없이 지나가 주행 중이 된다. [4]는 덜 눈에 띄는 버그다. <code>report_lost()</code>가 아무 상태에서나 분실로 바꾸기 때문에, 주행 중이던 손님의 요금이 정산 기록에 남지 않는다. 두 버그는 원인이 같다.</p>
   <ul>
     <li><strong>규칙이 상태가 아니라 메서드 기준으로 흩어져 있다.</strong> "정비 중이면 무엇이 되고 무엇이 안 되는가"를 알려면 <code>label()</code>까지 메서드 아홉 개를 모두 읽어야 한다. 상태 하나의 규칙을 한곳에서 볼 수 없다.</li>
@@ -283,7 +296,347 @@ if __name__ == &quot;__main__&quot;:
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
   <p class="lead-in">먼저 상태의 공통 기반을 보자. 사용자 명령(<code>reserve</code>, <code>unlock</code> …)의 기본 구현은 예외를 던지고, 시스템 이벤트(<code>tick</code>, <code>on_battery_changed</code>)의 기본 구현은 아무것도 하지 않는다. 기본값을 이벤트 종류에 따라 다르게 정했다는 점, 그리고 추상 메서드가 <code>label()</code> 하나뿐인 이유에 주목하라. 전체 파일은 <code>src/13_state/02_state.py</code>이고, 여기서는 세 부분으로 나눠 싣는다. docstring에 나오는 <dfn class="term" id="term-stateless" data-term="stateless" title="인스턴스마다 다른 필드(상태)를 갖지 않는 성질. 무상태 객체는 여러 곳이 하나를 공유해도 안전하다.">무상태</dfn> 상태 객체란 인스턴스마다 다른 필드를 갖지 않는 객체로, 그래서 여러 킥보드가 하나를 공유해도 안전하다(5.2절에서 실제로 공유한다).</p>
-  <figure class="code"><figcaption>src/13_state/02_state.py  (1–94행)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
+  <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
+
+상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
+이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+
+핵심 설계 결정 세 가지:
+1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
+   `Scooter`(Context)에는 상태 분기가 한 줄도 남지 않는다.
+2. 상태 기본 클래스의 기본 구현은 &#x27;사용자 명령은 거부(예외)&#x27;다. 그래서 새 상태를 추가할 때
+   허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
+   순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
+3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import NoReturn
+
+RESERVATION_TTL = 600      # 예약 유지 시간(초)
+LOW_BATTERY = 15           # 이 미만이면 대여 불가
+UNLOCK_FEE = 1_000         # 원
+PER_MINUTE = 150           # 원
+NO_SHOW_FEE = 500          # 원
+
+
+class IllegalTransition(Exception):
+    &quot;&quot;&quot;현재 상태에서 허용되지 않는 동작을 요청했을 때.
+
+    ValueError 대신 전용 예외를 두는 이유: API 계층이 이 예외만 골라 409 Conflict로
+    번역할 수 있고, 테스트도 &#x27;불법 전이가 거부되었다&#x27;는 의도를 정확히 단언할 수 있다.
+    &quot;&quot;&quot;
+
+
+class ScooterState(ABC):
+    &quot;&quot;&quot;[State] 킥보드 상태의 공통 인터페이스이자 &#x27;기본은 거부&#x27; 정책의 보관소.
+
+    메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
+    있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+
+    추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
+    새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
+    &quot;&quot;&quot;
+
+    # --- 사용자 명령: 기본은 거부. 허용하는 상태만 오버라이드한다. -------------------
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 요청.&quot;&quot;&quot;
+        self._reject(&quot;예약&quot;)
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제(주행 시작) 요청.&quot;&quot;&quot;
+        self._reject(&quot;잠금 해제&quot;)
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 요청. 요금을 돌려준다.&quot;&quot;&quot;
+        self._reject(&quot;반납&quot;)
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 입고&quot;)
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 완료 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 완료&quot;)
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;분실 신고(관제 시스템).&quot;&quot;&quot;
+        self._reject(&quot;분실 신고&quot;)
+
+    # --- 시스템 이벤트: 기본은 무시. ------------------------------------------------
+    # 시계·센서 이벤트는 누가 &#x27;요청&#x27;한 것이 아니라 그냥 일어나는 일이다. 대부분 상태에서
+    # 의미가 없으므로 예외 대신 조용히 무시하는 편이 맞다. 기본값을 이벤트 종류에 따라
+    # 다르게 두는 것 자체가 설계 판단이며, 그 판단이 이 기본 클래스 한 곳에 모여 있다.
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;주기적 시간 이벤트.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;배터리 값이 갱신된 직후 호출된다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 지도에 표시할 문구. 상태마다 반드시 달라야 하므로 유일한 추상 메서드다.&quot;&quot;&quot;
+
+    def _reject(self, action: str) -&gt; NoReturn:
+        &quot;&quot;&quot;불법 전이를 한 가지 형식의 예외로 알린다. NoReturn 덕분에 end_ride(-&gt; int)의
+        기본 구현이 return 없이 끝나도 타입 검사기가 &#x27;값을 안 돌려준다&#x27;고 불평하지 않는다.&quot;&quot;&quot;
+        raise IllegalTransition(f&quot;[{self.label()}] 상태에서는 {action}할 수 없습니다&quot;)
+
+    def __repr__(self) -&gt; str:
+        &quot;&quot;&quot;전이 로그에 클래스 이름이 찍히도록.&quot;&quot;&quot;
+        return type(self).__name__
+
+
+# ---------------------------------------------------------------------------
+# 구체 상태들 — 각 클래스는 &#x27;이 상태에서 허용되는 것&#x27;과 &#x27;그다음 어디로 가는지&#x27;만 안다.
+# ---------------------------------------------------------------------------
+
+class Available(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 대여 가능. 가장 많은 동작이 허용되는 출발점.&quot;&quot;&quot;
+
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약하면 Reserved로. 예약자·시각은 &#x27;그 상태의 데이터&#x27;이므로 새 상태 객체가 품는다.&quot;&quot;&quot;
+        scooter.change_state(Reserved(user, now))
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 없이 바로 타는 경우.&quot;&quot;&quot;
+        scooter.change_state(Riding(user, now))
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;주차된 채 GPS 신호가 끊긴 경우.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;대기 중 방전되면 지도에서 대여 불가로 바꾼다.&quot;&quot;&quot;
+        if scooter.battery &lt; LOW_BATTERY:
+            scooter.change_state(LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;대여 가능&quot;
+
+
+class Reserved(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 예약됨. 예약자와 예약 시각을 &#x27;이 상태만의 데이터&#x27;로 가진다.
+
+    순진한 코드에서는 reserved_by가 Scooter 필드라 예약이 끝난 뒤에도 값이 남았다.
+    여기서는 Reserved 객체가 버려지는 순간 데이터도 함께 사라진다 — 찌꺼기가 생길 수 없다.
+    &quot;&quot;&quot;
+
+    def __init__(self, user: str, reserved_at: int) -&gt; None:
+        &quot;&quot;&quot;예약자와 예약 시각을 기억한다.&quot;&quot;&quot;
+        self.user = user
+        self.reserved_at = reserved_at
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약자 본인만 잠금 해제할 수 있다. 가드(guard) 조건도 상태 안에 있다.&quot;&quot;&quot;
+        if user != self.user:
+            raise IllegalTransition(f&quot;{self.user}님이 예약한 킥보드입니다&quot;)
+        scooter.change_state(Riding(user, now))
+
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 기반 전이: 만료되면 노쇼 수수료를 물리고 Available로 돌아간다.&quot;&quot;&quot;
+        if now - self.reserved_at &gt;= RESERVATION_TTL:
+            scooter.charge(f&quot;{self.user} 노쇼&quot;, NO_SHOW_FEE)
+            scooter.change_state(Available())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;예약자 이름까지 보여 준다 — 상태 데이터를 가진 상태라서 가능한 일.&quot;&quot;&quot;
+        return f&quot;예약됨({self.user})&quot;
+
+
+class Riding(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 주행 중. 요금 계산 책임이 여기 모인다(SRP: 주행에 관한 것은 주행 상태에).&quot;&quot;&quot;
+
+    def __init__(self, rider: str, started_at: int) -&gt; None:
+        &quot;&quot;&quot;탑승자와 출발 시각.&quot;&quot;&quot;
+        self.rider = rider
+        self.started_at = started_at
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;요금을 정산하고, 배터리에 따라 다음 상태를 &#x27;스스로&#x27; 고른다.&quot;&quot;&quot;
+        minutes = max(1, (now - self.started_at + 59) // 60)   # 시작한 분은 1분으로 친다
+        fare = UNLOCK_FEE + PER_MINUTE * minutes
+        scooter.charge(f&quot;{self.rider} 주행 {minutes}분&quot;, fare)
+        # 전이 결정이 이 상태 안에 있다: Riding은 자신의 후속 상태(LowBattery/Available)를 안다.
+        # 이 &#x27;상태끼리 서로를 안다&#x27;는 결합이 상태 패턴의 대가다(6절 트레이드오프).
+        scooter.change_state(LowBattery() if scooter.battery &lt; LOW_BATTERY else Available())
+        return fare
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;주행 중&quot;
+
+
+class LowBattery(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 배터리 부족. 대여는 막고, 충전·정비·분실 처리만 받는다.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;충전 기사가 교체하면 다시 대여 가능.&quot;&quot;&quot;
+        if scooter.battery &gt;= LOW_BATTERY:
+            scooter.change_state(Available())
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;방전된 채 사라지는 경우가 실제로 가장 흔하다.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;배터리 부족&quot;
+
+
+class Maintenance(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 정비 중. unlock을 오버라이드하지 않았으므로 잠금 해제는 &#x27;자동으로&#x27; 거부된다.&quot;&quot;&quot;
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비가 끝나면 배터리 상태에 따라 복귀한다.&quot;&quot;&quot;
+        scooter.change_state(Available() if scooter.battery &gt;= LOW_BATTERY else LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;정비 중&quot;
+
+
+class Lost(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 분실 신고. 회수되면 무조건 정비부터 받는다.&quot;&quot;&quot;
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;회수된 기기는 점검 없이 바로 대여 가능으로 돌리지 않는다 — 규칙이 코드에 드러난다.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;분실 신고&quot;
+
+
+# ---------------------------------------------------------------------------
+# Context
+# ---------------------------------------------------------------------------
+
+class Scooter:
+    &quot;&quot;&quot;[Context] 외부(앱·관제·센서)가 보는 유일한 객체. 상태를 묻지 않고 위임만 한다.
+
+    공개 메서드에 상태 분기가 없다는 점에 주목하라. 새 상태가 추가되어도 이 클래스는
+    바뀌지 않는다(OCP). 바뀌는 것은 새 상태 클래스와, 그 상태로 &#x27;들어가는&#x27; 이웃 상태뿐이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, scooter_id: str, battery: int = 100) -&gt; None:
+        &quot;&quot;&quot;새 킥보드는 Available에서 시작한다.&quot;&quot;&quot;
+        self.scooter_id = scooter_id
+        self.battery = battery
+        self._state: ScooterState = Available()
+        self.charges: list[tuple[str, int]] = []
+        self.history: list[str] = []   # 전이 로그 — 한 곳(change_state)에서만 쌓인다
+
+    # --- 상태 객체가 쓰는 협력 메서드 ----------------------------------------------
+    def change_state(self, new_state: ScooterState) -&gt; None:
+        &quot;&quot;&quot;상태 객체 전용. 이름에 밑줄을 붙이지 않은 이유는 &#x27;다른 클래스(상태)가 부른다&#x27;는
+        사실을 숨기지 않기 위해서다. 대신 외부 클라이언트용 API가 아님을 문서로 밝힌다.
+
+        모든 전이가 이 한 지점을 지나가므로 로그·통지(옵저버, 11장)·지표 수집을 붙이기 좋다.
+        &quot;&quot;&quot;
+        self.history.append(f&quot;{self._state!r} → {new_state!r}&quot;)
+        self._state = new_state
+
+    def charge(self, reason: str, amount: int) -&gt; None:
+        &quot;&quot;&quot;정산 기록. 상태 객체가 Scooter 내부 리스트를 직접 만지지 않게 하는 좁은 창구.&quot;&quot;&quot;
+        self.charges.append((reason, amount))
+
+    # --- 외부 API: 전부 한 줄 위임 -------------------------------------------------
+    def reserve(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약.&quot;&quot;&quot;
+        self._state.reserve(self, user, now)
+
+    def unlock(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제.&quot;&quot;&quot;
+        self._state.unlock(self, user, now)
+
+    def end_ride(self, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 후 요금 반환.&quot;&quot;&quot;
+        return self._state.end_ride(self, now)
+
+    def tick(self, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 이벤트.&quot;&quot;&quot;
+        self._state.tick(self, now)
+
+    def update_battery(self, level: int) -&gt; None:
+        &quot;&quot;&quot;배터리 기록은 상태와 무관한 &#x27;데이터&#x27;라 Context가 하고, 그 의미 해석은 상태에 맡긴다.&quot;&quot;&quot;
+        self.battery = level
+        self._state.on_battery_changed(self)
+
+    def send_to_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        self._state.send_to_maintenance(self)
+
+    def finish_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 완료.&quot;&quot;&quot;
+        self._state.finish_maintenance(self)
+
+    def report_lost(self) -&gt; None:
+        &quot;&quot;&quot;분실 신고.&quot;&quot;&quot;
+        self._state.report_lost(self)
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 표시 문구.&quot;&quot;&quot;
+        return self._state.label()
+
+
+def attempt(desc: str, action) -&gt; None:
+    &quot;&quot;&quot;데모용: 동작을 시도하고 불법 전이면 거부 메시지를 출력한다.&quot;&quot;&quot;
+    try:
+        action()
+        print(f&quot;    {desc}: 성공&quot;)
+    except IllegalTransition as e:
+        print(f&quot;    {desc}: 거부 — {e}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납 (배터리 10%)&quot;)
+    s = Scooter(&quot;KG-001&quot;)
+    s.reserve(&quot;민지&quot;, now=0)
+    s.unlock(&quot;민지&quot;, now=120)
+    s.update_battery(10)                     # 주행 중 방전: Riding은 이 이벤트를 무시한다
+    fare = s.end_ride(now=120 + 12 * 60)
+    print(f&quot;    반납 요금 {fare:,}원, 상태: {s.label()}&quot;)
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s.history))
+
+    print(&quot;[2] 시간 기반 전이: 예약 만료&quot;)
+    s2 = Scooter(&quot;KG-002&quot;)
+    s2.reserve(&quot;도현&quot;, now=1_000)
+    s2.tick(now=1_300)                       # 5분 경과: 아무 일도 없음
+    print(&quot;    5분 뒤:&quot;, s2.label())
+    s2.tick(now=1_000 + RESERVATION_TTL)
+    print(&quot;    10분 뒤:&quot;, s2.label(), &quot;/ 정산:&quot;, s2.charges)
+
+    print(&quot;[3] 순진한 코드의 버그 시나리오를 그대로 다시 시도&quot;)
+    s3 = Scooter(&quot;KG-003&quot;)
+    s3.send_to_maintenance()
+    attempt(&quot;정비 중 잠금 해제&quot;, lambda: s3.unlock(&quot;해커&quot;, now=2_000))
+    s4 = Scooter(&quot;KG-004&quot;)
+    s4.unlock(&quot;서윤&quot;, now=0)
+    attempt(&quot;주행 중 분실 신고&quot;, s4.report_lost)
+    attempt(&quot;남의 예약 가로채기&quot;, lambda: (s2.reserve(&quot;도현&quot;, 5_000), s2.unlock(&quot;지호&quot;, 5_010)))
+    print(&quot;    KG-003:&quot;, s3.label(), &quot;/ KG-004:&quot;, s4.label(), &quot;/ KG-002:&quot;, s2.label())
+
+    print(&quot;[4] 분실 → 회수 → 정비 → 복귀: 회수된 기기는 정비를 건너뛸 수 없다&quot;)
+    s5 = Scooter(&quot;KG-005&quot;)
+    s5.report_lost()
+    attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
+    s5.send_to_maintenance()
+    s5.finish_maintenance()
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (1–94행)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
 상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
 두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
@@ -381,7 +734,347 @@ class ScooterState(ABC):
   <p>동작 메서드를 모두 <code>@abstractmethod</code>로 만들면 더 엄격해 보인다. 하지만 그러면 상태마다 거부용 메서드 대여섯 개를 복사해 붙여야 하고, 그 복붙 속에서 다시 실수가 난다. 무엇이든 반드시 달라야 하는 <code>label()</code>만 추상으로 남긴 이유다.</p>
 
   <p class="lead-in">다음은 구체 상태 여섯 개다. 각 클래스가 <em>"이 상태에서 무엇이 허용되는가"</em>와 <em>"그다음은 어디인가"</em>만 말한다는 점을 보라. <code>Maintenance</code>가 <code>unlock()</code>을 아예 재정의하지 않는다는 사실이 바로 사고에 대한 해답이다. <code>Reserved.unlock()</code>의 <dfn class="term" id="term-guard-condition" data-term="guard-condition" title="전이가 일어나기 위해 추가로 만족해야 하는 조건(예: 예약자 본인만 잠금 해제).">가드(guard)</dfn> 조건도 보라. 가드는 전이가 일어나려면 사건 외에 추가로 만족해야 하는 조건이다(여기서는 "예약자 본인일 것"). 같은 사건이라도 가드가 거짓이면 전이는 거부된다.</p>
-  <figure class="code"><figcaption>src/13_state/02_state.py  (96–224행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+  <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
+
+상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
+이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+
+핵심 설계 결정 세 가지:
+1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
+   `Scooter`(Context)에는 상태 분기가 한 줄도 남지 않는다.
+2. 상태 기본 클래스의 기본 구현은 &#x27;사용자 명령은 거부(예외)&#x27;다. 그래서 새 상태를 추가할 때
+   허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
+   순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
+3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import NoReturn
+
+RESERVATION_TTL = 600      # 예약 유지 시간(초)
+LOW_BATTERY = 15           # 이 미만이면 대여 불가
+UNLOCK_FEE = 1_000         # 원
+PER_MINUTE = 150           # 원
+NO_SHOW_FEE = 500          # 원
+
+
+class IllegalTransition(Exception):
+    &quot;&quot;&quot;현재 상태에서 허용되지 않는 동작을 요청했을 때.
+
+    ValueError 대신 전용 예외를 두는 이유: API 계층이 이 예외만 골라 409 Conflict로
+    번역할 수 있고, 테스트도 &#x27;불법 전이가 거부되었다&#x27;는 의도를 정확히 단언할 수 있다.
+    &quot;&quot;&quot;
+
+
+class ScooterState(ABC):
+    &quot;&quot;&quot;[State] 킥보드 상태의 공통 인터페이스이자 &#x27;기본은 거부&#x27; 정책의 보관소.
+
+    메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
+    있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+
+    추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
+    새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
+    &quot;&quot;&quot;
+
+    # --- 사용자 명령: 기본은 거부. 허용하는 상태만 오버라이드한다. -------------------
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 요청.&quot;&quot;&quot;
+        self._reject(&quot;예약&quot;)
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제(주행 시작) 요청.&quot;&quot;&quot;
+        self._reject(&quot;잠금 해제&quot;)
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 요청. 요금을 돌려준다.&quot;&quot;&quot;
+        self._reject(&quot;반납&quot;)
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 입고&quot;)
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 완료 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 완료&quot;)
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;분실 신고(관제 시스템).&quot;&quot;&quot;
+        self._reject(&quot;분실 신고&quot;)
+
+    # --- 시스템 이벤트: 기본은 무시. ------------------------------------------------
+    # 시계·센서 이벤트는 누가 &#x27;요청&#x27;한 것이 아니라 그냥 일어나는 일이다. 대부분 상태에서
+    # 의미가 없으므로 예외 대신 조용히 무시하는 편이 맞다. 기본값을 이벤트 종류에 따라
+    # 다르게 두는 것 자체가 설계 판단이며, 그 판단이 이 기본 클래스 한 곳에 모여 있다.
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;주기적 시간 이벤트.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;배터리 값이 갱신된 직후 호출된다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 지도에 표시할 문구. 상태마다 반드시 달라야 하므로 유일한 추상 메서드다.&quot;&quot;&quot;
+
+    def _reject(self, action: str) -&gt; NoReturn:
+        &quot;&quot;&quot;불법 전이를 한 가지 형식의 예외로 알린다. NoReturn 덕분에 end_ride(-&gt; int)의
+        기본 구현이 return 없이 끝나도 타입 검사기가 &#x27;값을 안 돌려준다&#x27;고 불평하지 않는다.&quot;&quot;&quot;
+        raise IllegalTransition(f&quot;[{self.label()}] 상태에서는 {action}할 수 없습니다&quot;)
+
+    def __repr__(self) -&gt; str:
+        &quot;&quot;&quot;전이 로그에 클래스 이름이 찍히도록.&quot;&quot;&quot;
+        return type(self).__name__
+
+
+# ---------------------------------------------------------------------------
+# 구체 상태들 — 각 클래스는 &#x27;이 상태에서 허용되는 것&#x27;과 &#x27;그다음 어디로 가는지&#x27;만 안다.
+# ---------------------------------------------------------------------------
+
+class Available(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 대여 가능. 가장 많은 동작이 허용되는 출발점.&quot;&quot;&quot;
+
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약하면 Reserved로. 예약자·시각은 &#x27;그 상태의 데이터&#x27;이므로 새 상태 객체가 품는다.&quot;&quot;&quot;
+        scooter.change_state(Reserved(user, now))
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 없이 바로 타는 경우.&quot;&quot;&quot;
+        scooter.change_state(Riding(user, now))
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;주차된 채 GPS 신호가 끊긴 경우.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;대기 중 방전되면 지도에서 대여 불가로 바꾼다.&quot;&quot;&quot;
+        if scooter.battery &lt; LOW_BATTERY:
+            scooter.change_state(LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;대여 가능&quot;
+
+
+class Reserved(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 예약됨. 예약자와 예약 시각을 &#x27;이 상태만의 데이터&#x27;로 가진다.
+
+    순진한 코드에서는 reserved_by가 Scooter 필드라 예약이 끝난 뒤에도 값이 남았다.
+    여기서는 Reserved 객체가 버려지는 순간 데이터도 함께 사라진다 — 찌꺼기가 생길 수 없다.
+    &quot;&quot;&quot;
+
+    def __init__(self, user: str, reserved_at: int) -&gt; None:
+        &quot;&quot;&quot;예약자와 예약 시각을 기억한다.&quot;&quot;&quot;
+        self.user = user
+        self.reserved_at = reserved_at
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약자 본인만 잠금 해제할 수 있다. 가드(guard) 조건도 상태 안에 있다.&quot;&quot;&quot;
+        if user != self.user:
+            raise IllegalTransition(f&quot;{self.user}님이 예약한 킥보드입니다&quot;)
+        scooter.change_state(Riding(user, now))
+
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 기반 전이: 만료되면 노쇼 수수료를 물리고 Available로 돌아간다.&quot;&quot;&quot;
+        if now - self.reserved_at &gt;= RESERVATION_TTL:
+            scooter.charge(f&quot;{self.user} 노쇼&quot;, NO_SHOW_FEE)
+            scooter.change_state(Available())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;예약자 이름까지 보여 준다 — 상태 데이터를 가진 상태라서 가능한 일.&quot;&quot;&quot;
+        return f&quot;예약됨({self.user})&quot;
+
+
+class Riding(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 주행 중. 요금 계산 책임이 여기 모인다(SRP: 주행에 관한 것은 주행 상태에).&quot;&quot;&quot;
+
+    def __init__(self, rider: str, started_at: int) -&gt; None:
+        &quot;&quot;&quot;탑승자와 출발 시각.&quot;&quot;&quot;
+        self.rider = rider
+        self.started_at = started_at
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;요금을 정산하고, 배터리에 따라 다음 상태를 &#x27;스스로&#x27; 고른다.&quot;&quot;&quot;
+        minutes = max(1, (now - self.started_at + 59) // 60)   # 시작한 분은 1분으로 친다
+        fare = UNLOCK_FEE + PER_MINUTE * minutes
+        scooter.charge(f&quot;{self.rider} 주행 {minutes}분&quot;, fare)
+        # 전이 결정이 이 상태 안에 있다: Riding은 자신의 후속 상태(LowBattery/Available)를 안다.
+        # 이 &#x27;상태끼리 서로를 안다&#x27;는 결합이 상태 패턴의 대가다(6절 트레이드오프).
+        scooter.change_state(LowBattery() if scooter.battery &lt; LOW_BATTERY else Available())
+        return fare
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;주행 중&quot;
+
+
+class LowBattery(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 배터리 부족. 대여는 막고, 충전·정비·분실 처리만 받는다.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;충전 기사가 교체하면 다시 대여 가능.&quot;&quot;&quot;
+        if scooter.battery &gt;= LOW_BATTERY:
+            scooter.change_state(Available())
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;방전된 채 사라지는 경우가 실제로 가장 흔하다.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;배터리 부족&quot;
+
+
+class Maintenance(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 정비 중. unlock을 오버라이드하지 않았으므로 잠금 해제는 &#x27;자동으로&#x27; 거부된다.&quot;&quot;&quot;
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비가 끝나면 배터리 상태에 따라 복귀한다.&quot;&quot;&quot;
+        scooter.change_state(Available() if scooter.battery &gt;= LOW_BATTERY else LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;정비 중&quot;
+
+
+class Lost(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 분실 신고. 회수되면 무조건 정비부터 받는다.&quot;&quot;&quot;
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;회수된 기기는 점검 없이 바로 대여 가능으로 돌리지 않는다 — 규칙이 코드에 드러난다.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;분실 신고&quot;
+
+
+# ---------------------------------------------------------------------------
+# Context
+# ---------------------------------------------------------------------------
+
+class Scooter:
+    &quot;&quot;&quot;[Context] 외부(앱·관제·센서)가 보는 유일한 객체. 상태를 묻지 않고 위임만 한다.
+
+    공개 메서드에 상태 분기가 없다는 점에 주목하라. 새 상태가 추가되어도 이 클래스는
+    바뀌지 않는다(OCP). 바뀌는 것은 새 상태 클래스와, 그 상태로 &#x27;들어가는&#x27; 이웃 상태뿐이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, scooter_id: str, battery: int = 100) -&gt; None:
+        &quot;&quot;&quot;새 킥보드는 Available에서 시작한다.&quot;&quot;&quot;
+        self.scooter_id = scooter_id
+        self.battery = battery
+        self._state: ScooterState = Available()
+        self.charges: list[tuple[str, int]] = []
+        self.history: list[str] = []   # 전이 로그 — 한 곳(change_state)에서만 쌓인다
+
+    # --- 상태 객체가 쓰는 협력 메서드 ----------------------------------------------
+    def change_state(self, new_state: ScooterState) -&gt; None:
+        &quot;&quot;&quot;상태 객체 전용. 이름에 밑줄을 붙이지 않은 이유는 &#x27;다른 클래스(상태)가 부른다&#x27;는
+        사실을 숨기지 않기 위해서다. 대신 외부 클라이언트용 API가 아님을 문서로 밝힌다.
+
+        모든 전이가 이 한 지점을 지나가므로 로그·통지(옵저버, 11장)·지표 수집을 붙이기 좋다.
+        &quot;&quot;&quot;
+        self.history.append(f&quot;{self._state!r} → {new_state!r}&quot;)
+        self._state = new_state
+
+    def charge(self, reason: str, amount: int) -&gt; None:
+        &quot;&quot;&quot;정산 기록. 상태 객체가 Scooter 내부 리스트를 직접 만지지 않게 하는 좁은 창구.&quot;&quot;&quot;
+        self.charges.append((reason, amount))
+
+    # --- 외부 API: 전부 한 줄 위임 -------------------------------------------------
+    def reserve(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약.&quot;&quot;&quot;
+        self._state.reserve(self, user, now)
+
+    def unlock(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제.&quot;&quot;&quot;
+        self._state.unlock(self, user, now)
+
+    def end_ride(self, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 후 요금 반환.&quot;&quot;&quot;
+        return self._state.end_ride(self, now)
+
+    def tick(self, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 이벤트.&quot;&quot;&quot;
+        self._state.tick(self, now)
+
+    def update_battery(self, level: int) -&gt; None:
+        &quot;&quot;&quot;배터리 기록은 상태와 무관한 &#x27;데이터&#x27;라 Context가 하고, 그 의미 해석은 상태에 맡긴다.&quot;&quot;&quot;
+        self.battery = level
+        self._state.on_battery_changed(self)
+
+    def send_to_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        self._state.send_to_maintenance(self)
+
+    def finish_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 완료.&quot;&quot;&quot;
+        self._state.finish_maintenance(self)
+
+    def report_lost(self) -&gt; None:
+        &quot;&quot;&quot;분실 신고.&quot;&quot;&quot;
+        self._state.report_lost(self)
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 표시 문구.&quot;&quot;&quot;
+        return self._state.label()
+
+
+def attempt(desc: str, action) -&gt; None:
+    &quot;&quot;&quot;데모용: 동작을 시도하고 불법 전이면 거부 메시지를 출력한다.&quot;&quot;&quot;
+    try:
+        action()
+        print(f&quot;    {desc}: 성공&quot;)
+    except IllegalTransition as e:
+        print(f&quot;    {desc}: 거부 — {e}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납 (배터리 10%)&quot;)
+    s = Scooter(&quot;KG-001&quot;)
+    s.reserve(&quot;민지&quot;, now=0)
+    s.unlock(&quot;민지&quot;, now=120)
+    s.update_battery(10)                     # 주행 중 방전: Riding은 이 이벤트를 무시한다
+    fare = s.end_ride(now=120 + 12 * 60)
+    print(f&quot;    반납 요금 {fare:,}원, 상태: {s.label()}&quot;)
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s.history))
+
+    print(&quot;[2] 시간 기반 전이: 예약 만료&quot;)
+    s2 = Scooter(&quot;KG-002&quot;)
+    s2.reserve(&quot;도현&quot;, now=1_000)
+    s2.tick(now=1_300)                       # 5분 경과: 아무 일도 없음
+    print(&quot;    5분 뒤:&quot;, s2.label())
+    s2.tick(now=1_000 + RESERVATION_TTL)
+    print(&quot;    10분 뒤:&quot;, s2.label(), &quot;/ 정산:&quot;, s2.charges)
+
+    print(&quot;[3] 순진한 코드의 버그 시나리오를 그대로 다시 시도&quot;)
+    s3 = Scooter(&quot;KG-003&quot;)
+    s3.send_to_maintenance()
+    attempt(&quot;정비 중 잠금 해제&quot;, lambda: s3.unlock(&quot;해커&quot;, now=2_000))
+    s4 = Scooter(&quot;KG-004&quot;)
+    s4.unlock(&quot;서윤&quot;, now=0)
+    attempt(&quot;주행 중 분실 신고&quot;, s4.report_lost)
+    attempt(&quot;남의 예약 가로채기&quot;, lambda: (s2.reserve(&quot;도현&quot;, 5_000), s2.unlock(&quot;지호&quot;, 5_010)))
+    print(&quot;    KG-003:&quot;, s3.label(), &quot;/ KG-004:&quot;, s4.label(), &quot;/ KG-002:&quot;, s2.label())
+
+    print(&quot;[4] 분실 → 회수 → 정비 → 복귀: 회수된 기기는 정비를 건너뛸 수 없다&quot;)
+    s5 = Scooter(&quot;KG-005&quot;)
+    s5.report_lost()
+    attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
+    s5.send_to_maintenance()
+    s5.finish_maintenance()
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (96–224행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 구체 상태들 — 각 클래스는 &#x27;이 상태에서 허용되는 것&#x27;과 &#x27;그다음 어디로 가는지&#x27;만 안다.
 # ---------------------------------------------------------------------------
 
@@ -513,7 +1206,347 @@ class Lost(ScooterState):
   <p><code>Reserved</code>와 <code>Riding</code>은 생성자에서 그 상태만의 데이터를 받는다. 예약이 끝나 <code>Reserved</code> 객체가 버려지면 예약자 정보도 함께 사라진다. 순진한 코드의 찌꺼기 문제가 데이터의 수명을 상태의 수명에 묶는 방식으로 풀렸다. 가드 조건(예약자 본인만 잠금 해제 가능)과 시간 기반 전이(예약 만료)도 그 상태 안에 들어 있다.</p>
 
   <p class="lead-in">마지막으로 컨텍스트다. 공개 메서드가 모두 한 줄짜리 위임이라는 점, 그리고 모든 전이가 <code>change_state()</code> 한곳을 지나간다는 점에 주목하라. docstring이 말하는 <dfn class="term" id="term-metrics-collection" data-term="metrics-collection" title="시스템 동작 수치(횟수·지연 등)를 모아 모니터링하는 것.">지표 수집</dfn>은 전이 횟수·지연 같은 동작 수치를 모아 모니터링하는 일이다.</p>
-  <figure class="code"><figcaption>src/13_state/02_state.py  (226–296행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+  <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
+
+상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
+이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+
+핵심 설계 결정 세 가지:
+1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
+   `Scooter`(Context)에는 상태 분기가 한 줄도 남지 않는다.
+2. 상태 기본 클래스의 기본 구현은 &#x27;사용자 명령은 거부(예외)&#x27;다. 그래서 새 상태를 추가할 때
+   허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
+   순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
+3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import NoReturn
+
+RESERVATION_TTL = 600      # 예약 유지 시간(초)
+LOW_BATTERY = 15           # 이 미만이면 대여 불가
+UNLOCK_FEE = 1_000         # 원
+PER_MINUTE = 150           # 원
+NO_SHOW_FEE = 500          # 원
+
+
+class IllegalTransition(Exception):
+    &quot;&quot;&quot;현재 상태에서 허용되지 않는 동작을 요청했을 때.
+
+    ValueError 대신 전용 예외를 두는 이유: API 계층이 이 예외만 골라 409 Conflict로
+    번역할 수 있고, 테스트도 &#x27;불법 전이가 거부되었다&#x27;는 의도를 정확히 단언할 수 있다.
+    &quot;&quot;&quot;
+
+
+class ScooterState(ABC):
+    &quot;&quot;&quot;[State] 킥보드 상태의 공통 인터페이스이자 &#x27;기본은 거부&#x27; 정책의 보관소.
+
+    메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
+    있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+
+    추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
+    새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
+    &quot;&quot;&quot;
+
+    # --- 사용자 명령: 기본은 거부. 허용하는 상태만 오버라이드한다. -------------------
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 요청.&quot;&quot;&quot;
+        self._reject(&quot;예약&quot;)
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제(주행 시작) 요청.&quot;&quot;&quot;
+        self._reject(&quot;잠금 해제&quot;)
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 요청. 요금을 돌려준다.&quot;&quot;&quot;
+        self._reject(&quot;반납&quot;)
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 입고&quot;)
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 완료 요청(운영자).&quot;&quot;&quot;
+        self._reject(&quot;정비 완료&quot;)
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;분실 신고(관제 시스템).&quot;&quot;&quot;
+        self._reject(&quot;분실 신고&quot;)
+
+    # --- 시스템 이벤트: 기본은 무시. ------------------------------------------------
+    # 시계·센서 이벤트는 누가 &#x27;요청&#x27;한 것이 아니라 그냥 일어나는 일이다. 대부분 상태에서
+    # 의미가 없으므로 예외 대신 조용히 무시하는 편이 맞다. 기본값을 이벤트 종류에 따라
+    # 다르게 두는 것 자체가 설계 판단이며, 그 판단이 이 기본 클래스 한 곳에 모여 있다.
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;주기적 시간 이벤트.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;배터리 값이 갱신된 직후 호출된다.&quot;&quot;&quot;
+
+    @abstractmethod
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 지도에 표시할 문구. 상태마다 반드시 달라야 하므로 유일한 추상 메서드다.&quot;&quot;&quot;
+
+    def _reject(self, action: str) -&gt; NoReturn:
+        &quot;&quot;&quot;불법 전이를 한 가지 형식의 예외로 알린다. NoReturn 덕분에 end_ride(-&gt; int)의
+        기본 구현이 return 없이 끝나도 타입 검사기가 &#x27;값을 안 돌려준다&#x27;고 불평하지 않는다.&quot;&quot;&quot;
+        raise IllegalTransition(f&quot;[{self.label()}] 상태에서는 {action}할 수 없습니다&quot;)
+
+    def __repr__(self) -&gt; str:
+        &quot;&quot;&quot;전이 로그에 클래스 이름이 찍히도록.&quot;&quot;&quot;
+        return type(self).__name__
+
+
+# ---------------------------------------------------------------------------
+# 구체 상태들 — 각 클래스는 &#x27;이 상태에서 허용되는 것&#x27;과 &#x27;그다음 어디로 가는지&#x27;만 안다.
+# ---------------------------------------------------------------------------
+
+class Available(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 대여 가능. 가장 많은 동작이 허용되는 출발점.&quot;&quot;&quot;
+
+    def reserve(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약하면 Reserved로. 예약자·시각은 &#x27;그 상태의 데이터&#x27;이므로 새 상태 객체가 품는다.&quot;&quot;&quot;
+        scooter.change_state(Reserved(user, now))
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약 없이 바로 타는 경우.&quot;&quot;&quot;
+        scooter.change_state(Riding(user, now))
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;주차된 채 GPS 신호가 끊긴 경우.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;대기 중 방전되면 지도에서 대여 불가로 바꾼다.&quot;&quot;&quot;
+        if scooter.battery &lt; LOW_BATTERY:
+            scooter.change_state(LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;대여 가능&quot;
+
+
+class Reserved(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 예약됨. 예약자와 예약 시각을 &#x27;이 상태만의 데이터&#x27;로 가진다.
+
+    순진한 코드에서는 reserved_by가 Scooter 필드라 예약이 끝난 뒤에도 값이 남았다.
+    여기서는 Reserved 객체가 버려지는 순간 데이터도 함께 사라진다 — 찌꺼기가 생길 수 없다.
+    &quot;&quot;&quot;
+
+    def __init__(self, user: str, reserved_at: int) -&gt; None:
+        &quot;&quot;&quot;예약자와 예약 시각을 기억한다.&quot;&quot;&quot;
+        self.user = user
+        self.reserved_at = reserved_at
+
+    def unlock(self, scooter: Scooter, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약자 본인만 잠금 해제할 수 있다. 가드(guard) 조건도 상태 안에 있다.&quot;&quot;&quot;
+        if user != self.user:
+            raise IllegalTransition(f&quot;{self.user}님이 예약한 킥보드입니다&quot;)
+        scooter.change_state(Riding(user, now))
+
+    def tick(self, scooter: Scooter, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 기반 전이: 만료되면 노쇼 수수료를 물리고 Available로 돌아간다.&quot;&quot;&quot;
+        if now - self.reserved_at &gt;= RESERVATION_TTL:
+            scooter.charge(f&quot;{self.user} 노쇼&quot;, NO_SHOW_FEE)
+            scooter.change_state(Available())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;예약자 이름까지 보여 준다 — 상태 데이터를 가진 상태라서 가능한 일.&quot;&quot;&quot;
+        return f&quot;예약됨({self.user})&quot;
+
+
+class Riding(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 주행 중. 요금 계산 책임이 여기 모인다(SRP: 주행에 관한 것은 주행 상태에).&quot;&quot;&quot;
+
+    def __init__(self, rider: str, started_at: int) -&gt; None:
+        &quot;&quot;&quot;탑승자와 출발 시각.&quot;&quot;&quot;
+        self.rider = rider
+        self.started_at = started_at
+
+    def end_ride(self, scooter: Scooter, now: int) -&gt; int:
+        &quot;&quot;&quot;요금을 정산하고, 배터리에 따라 다음 상태를 &#x27;스스로&#x27; 고른다.&quot;&quot;&quot;
+        minutes = max(1, (now - self.started_at + 59) // 60)   # 시작한 분은 1분으로 친다
+        fare = UNLOCK_FEE + PER_MINUTE * minutes
+        scooter.charge(f&quot;{self.rider} 주행 {minutes}분&quot;, fare)
+        # 전이 결정이 이 상태 안에 있다: Riding은 자신의 후속 상태(LowBattery/Available)를 안다.
+        # 이 &#x27;상태끼리 서로를 안다&#x27;는 결합이 상태 패턴의 대가다(6절 트레이드오프).
+        scooter.change_state(LowBattery() if scooter.battery &lt; LOW_BATTERY else Available())
+        return fare
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;주행 중&quot;
+
+
+class LowBattery(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 배터리 부족. 대여는 막고, 충전·정비·분실 처리만 받는다.&quot;&quot;&quot;
+
+    def on_battery_changed(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;충전 기사가 교체하면 다시 대여 가능.&quot;&quot;&quot;
+        if scooter.battery &gt;= LOW_BATTERY:
+            scooter.change_state(Available())
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def report_lost(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;방전된 채 사라지는 경우가 실제로 가장 흔하다.&quot;&quot;&quot;
+        scooter.change_state(Lost())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;배터리 부족&quot;
+
+
+class Maintenance(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 정비 중. unlock을 오버라이드하지 않았으므로 잠금 해제는 &#x27;자동으로&#x27; 거부된다.&quot;&quot;&quot;
+
+    def finish_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;정비가 끝나면 배터리 상태에 따라 복귀한다.&quot;&quot;&quot;
+        scooter.change_state(Available() if scooter.battery &gt;= LOW_BATTERY else LowBattery())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;정비 중&quot;
+
+
+class Lost(ScooterState):
+    &quot;&quot;&quot;[Concrete State] 분실 신고. 회수되면 무조건 정비부터 받는다.&quot;&quot;&quot;
+
+    def send_to_maintenance(self, scooter: Scooter) -&gt; None:
+        &quot;&quot;&quot;회수된 기기는 점검 없이 바로 대여 가능으로 돌리지 않는다 — 규칙이 코드에 드러난다.&quot;&quot;&quot;
+        scooter.change_state(Maintenance())
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;지도 표시 문구.&quot;&quot;&quot;
+        return &quot;분실 신고&quot;
+
+
+# ---------------------------------------------------------------------------
+# Context
+# ---------------------------------------------------------------------------
+
+class Scooter:
+    &quot;&quot;&quot;[Context] 외부(앱·관제·센서)가 보는 유일한 객체. 상태를 묻지 않고 위임만 한다.
+
+    공개 메서드에 상태 분기가 없다는 점에 주목하라. 새 상태가 추가되어도 이 클래스는
+    바뀌지 않는다(OCP). 바뀌는 것은 새 상태 클래스와, 그 상태로 &#x27;들어가는&#x27; 이웃 상태뿐이다.
+    &quot;&quot;&quot;
+
+    def __init__(self, scooter_id: str, battery: int = 100) -&gt; None:
+        &quot;&quot;&quot;새 킥보드는 Available에서 시작한다.&quot;&quot;&quot;
+        self.scooter_id = scooter_id
+        self.battery = battery
+        self._state: ScooterState = Available()
+        self.charges: list[tuple[str, int]] = []
+        self.history: list[str] = []   # 전이 로그 — 한 곳(change_state)에서만 쌓인다
+
+    # --- 상태 객체가 쓰는 협력 메서드 ----------------------------------------------
+    def change_state(self, new_state: ScooterState) -&gt; None:
+        &quot;&quot;&quot;상태 객체 전용. 이름에 밑줄을 붙이지 않은 이유는 &#x27;다른 클래스(상태)가 부른다&#x27;는
+        사실을 숨기지 않기 위해서다. 대신 외부 클라이언트용 API가 아님을 문서로 밝힌다.
+
+        모든 전이가 이 한 지점을 지나가므로 로그·통지(옵저버, 11장)·지표 수집을 붙이기 좋다.
+        &quot;&quot;&quot;
+        self.history.append(f&quot;{self._state!r} → {new_state!r}&quot;)
+        self._state = new_state
+
+    def charge(self, reason: str, amount: int) -&gt; None:
+        &quot;&quot;&quot;정산 기록. 상태 객체가 Scooter 내부 리스트를 직접 만지지 않게 하는 좁은 창구.&quot;&quot;&quot;
+        self.charges.append((reason, amount))
+
+    # --- 외부 API: 전부 한 줄 위임 -------------------------------------------------
+    def reserve(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;예약.&quot;&quot;&quot;
+        self._state.reserve(self, user, now)
+
+    def unlock(self, user: str, now: int) -&gt; None:
+        &quot;&quot;&quot;잠금 해제.&quot;&quot;&quot;
+        self._state.unlock(self, user, now)
+
+    def end_ride(self, now: int) -&gt; int:
+        &quot;&quot;&quot;반납 후 요금 반환.&quot;&quot;&quot;
+        return self._state.end_ride(self, now)
+
+    def tick(self, now: int) -&gt; None:
+        &quot;&quot;&quot;시간 이벤트.&quot;&quot;&quot;
+        self._state.tick(self, now)
+
+    def update_battery(self, level: int) -&gt; None:
+        &quot;&quot;&quot;배터리 기록은 상태와 무관한 &#x27;데이터&#x27;라 Context가 하고, 그 의미 해석은 상태에 맡긴다.&quot;&quot;&quot;
+        self.battery = level
+        self._state.on_battery_changed(self)
+
+    def send_to_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 입고.&quot;&quot;&quot;
+        self._state.send_to_maintenance(self)
+
+    def finish_maintenance(self) -&gt; None:
+        &quot;&quot;&quot;정비 완료.&quot;&quot;&quot;
+        self._state.finish_maintenance(self)
+
+    def report_lost(self) -&gt; None:
+        &quot;&quot;&quot;분실 신고.&quot;&quot;&quot;
+        self._state.report_lost(self)
+
+    def label(self) -&gt; str:
+        &quot;&quot;&quot;앱 표시 문구.&quot;&quot;&quot;
+        return self._state.label()
+
+
+def attempt(desc: str, action) -&gt; None:
+    &quot;&quot;&quot;데모용: 동작을 시도하고 불법 전이면 거부 메시지를 출력한다.&quot;&quot;&quot;
+    try:
+        action()
+        print(f&quot;    {desc}: 성공&quot;)
+    except IllegalTransition as e:
+        print(f&quot;    {desc}: 거부 — {e}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    print(&quot;[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납 (배터리 10%)&quot;)
+    s = Scooter(&quot;KG-001&quot;)
+    s.reserve(&quot;민지&quot;, now=0)
+    s.unlock(&quot;민지&quot;, now=120)
+    s.update_battery(10)                     # 주행 중 방전: Riding은 이 이벤트를 무시한다
+    fare = s.end_ride(now=120 + 12 * 60)
+    print(f&quot;    반납 요금 {fare:,}원, 상태: {s.label()}&quot;)
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s.history))
+
+    print(&quot;[2] 시간 기반 전이: 예약 만료&quot;)
+    s2 = Scooter(&quot;KG-002&quot;)
+    s2.reserve(&quot;도현&quot;, now=1_000)
+    s2.tick(now=1_300)                       # 5분 경과: 아무 일도 없음
+    print(&quot;    5분 뒤:&quot;, s2.label())
+    s2.tick(now=1_000 + RESERVATION_TTL)
+    print(&quot;    10분 뒤:&quot;, s2.label(), &quot;/ 정산:&quot;, s2.charges)
+
+    print(&quot;[3] 순진한 코드의 버그 시나리오를 그대로 다시 시도&quot;)
+    s3 = Scooter(&quot;KG-003&quot;)
+    s3.send_to_maintenance()
+    attempt(&quot;정비 중 잠금 해제&quot;, lambda: s3.unlock(&quot;해커&quot;, now=2_000))
+    s4 = Scooter(&quot;KG-004&quot;)
+    s4.unlock(&quot;서윤&quot;, now=0)
+    attempt(&quot;주행 중 분실 신고&quot;, s4.report_lost)
+    attempt(&quot;남의 예약 가로채기&quot;, lambda: (s2.reserve(&quot;도현&quot;, 5_000), s2.unlock(&quot;지호&quot;, 5_010)))
+    print(&quot;    KG-003:&quot;, s3.label(), &quot;/ KG-004:&quot;, s4.label(), &quot;/ KG-002:&quot;, s2.label())
+
+    print(&quot;[4] 분실 → 회수 → 정비 → 복귀: 회수된 기기는 정비를 건너뛸 수 없다&quot;)
+    s5 = Scooter(&quot;KG-005&quot;)
+    s5.report_lost()
+    attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
+    s5.send_to_maintenance()
+    s5.finish_maintenance()
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (226–296행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # Context
 # ---------------------------------------------------------------------------
 
@@ -584,7 +1617,20 @@ class Scooter:
         &quot;&quot;&quot;앱 표시 문구.&quot;&quot;&quot;
         return self._state.label()
 </code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_state.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_state.py</figcaption><pre><code>[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납 (배터리 10%)
+    반납 요금 2,800원, 상태: 배터리 부족
+    전이 로그: Available → Reserved | Reserved → Riding | Riding → LowBattery
+[2] 시간 기반 전이: 예약 만료
+    5분 뒤: 예약됨(도현)
+    10분 뒤: 대여 가능 / 정산: [(&#x27;도현 노쇼&#x27;, 500)]
+[3] 순진한 코드의 버그 시나리오를 그대로 다시 시도
+    정비 중 잠금 해제: 거부 — [정비 중] 상태에서는 잠금 해제할 수 없습니다
+    주행 중 분실 신고: 거부 — [주행 중] 상태에서는 분실 신고할 수 없습니다
+    남의 예약 가로채기: 거부 — 도현님이 예약한 킥보드입니다
+    KG-003: 정비 중 / KG-004: 주행 중 / KG-002: 예약됨(도현)
+[4] 분실 → 회수 → 정비 → 복귀: 회수된 기기는 정비를 건너뛸 수 없다
+    분실 기기 바로 정비 완료 처리: 거부 — [분실 신고] 상태에서는 정비 완료할 수 없습니다
+    전이 로그: Available → Lost | Lost → Maintenance | Maintenance → Available</code></pre></figure>
   <p>출력 [3]은 순진한 코드에서 사고를 냈던 세 시나리오(정비 중 잠금 해제, 주행 중 분실 신고, 남의 예약 가로채기)가 모두 거부되는 모습이다. [1]과 [4]의 전이 로그는 <code>change_state()</code> 한곳에서 쌓였다. 이 관문에 옵저버(11장)를 붙이면, 상태 클래스를 하나도 건드리지 않고 "상태가 바뀌면 앱에 푸시"를 추가할 수 있다.</p>
   <div class="callout ok"><span class="label">핵심 정리</span>
     <p>상태 패턴이 바꾼 것은 세 가지다. ① 분기 기준이 <em>메서드 축</em>에서 <em>상태 축</em>으로 옮겨 갔다. ② 기본값이 '허용'에서 '거부'로 바뀌었다. ③ 상태별 데이터의 수명이 상태 객체에 묶였다. 그 결과 새 상태를 추가할 때 고칠 곳은 새 클래스 하나와, 그 상태로 <em>들어가는</em> 이웃 상태뿐이다.</p>
@@ -827,7 +1873,22 @@ if __name__ == &quot;__main__&quot;:
     t.battery = 12                                           # 주행 중 방전
     print(f&quot;    app_server_end_ride → {app_server_end_ride(t, now=300):,}원, 상태 {t.label()}&quot;)
     print(&quot;    (동작은 같지만 if isinstance 분기와 배터리 규칙이 Scooter 밖에 한 벌 더 생겼다)&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_state_vs_strategy.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_state_vs_strategy.py</figcaption><pre><code>[1] 운영 콘솔이 요금 전략을 바꾸고, 상태는 사건에 반응해 스스로 바뀐다
+    민지 요금: 2,500원 (출발 시점 기본 요금 적용 — 소급 없음)
+    도현 요금: 3,250원 (출발 시점이 심야 요금)
+    [상태 전이] Available → Riding
+    [전략 교체] 운영 콘솔 22:00 스케줄: StandardPricing → NightPricing
+    [상태 전이] Riding → Available
+    [상태 전이] Available → Riding
+    [상태 전이] Riding → Available
+[2] 전략은 아무 때나 무엇으로든 바꿔도 된다. 상태는 그렇지 않다
+    정책 두 번 교체: 검사할 불변식이 없으므로 아무 문제 없음
+    주행 중이 아닌데 반납 시도 → [대여 가능] 반납 불가
+[3] 가드가 상태 안에 있으므로 클라이언트는 배터리 규칙을 모른다
+    거부: 배터리 부족으로 대여할 수 없습니다 / 현재: 배터리 부족
+[4] 반례: 전이 결정을 앱 서버로 옮기면 분기가 돌아온다
+    app_server_end_ride → 1,750원, 상태 배터리 부족
+    (동작은 같지만 if isinstance 분기와 배터리 규칙이 Scooter 밖에 한 벌 더 생겼다)</code></pre></figure>
   <p>출력 [1]의 로그를 보면 교체가 두 갈래로 일어난다. 전략 교체는 운영 콘솔이라는 <em>바깥의 결정</em>이고, 상태 전이는 잠금 해제나 반납 같은 <em>사건에 대한 객체 자신의 반응</em>이다. 두 패턴이 협력하는 지점도 보인다. <code>Riding</code>은 출발하는 순간의 요금 정책을 붙잡아 두기 때문에, 주행 도중 운영팀이 정책을 바꿔도 이미 출발한 손님에게는 소급되지 않는다. 상태 데이터가 업무 규칙("계약은 시작 시점에 확정된다")을 표현한다.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>관점</th><th>전략 (요금 정책)</th><th>상태 (대여 생명주기)</th></tr></thead>
@@ -1100,7 +2161,22 @@ if __name__ == &quot;__main__&quot;:
     except IllegalTransition as e:
         print(&quot;    해커: 거부 —&quot;, e)
     print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(sc.history))</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_pythonic_fsm.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 04_pythonic_fsm.py</figcaption><pre><code>[1] 전이표를 그대로 출력 — 관제팀장이 원한 &#x27;한 장짜리 규칙&#x27;
+    AVAILABLE   : RESERVE→RESERVED, UNLOCK→RIDING, BATTERY_LOW→LOW_BATTERY, MAINTAIN→MAINTENANCE, LOSE→LOST
+    RESERVED    : UNLOCK→RIDING, EXPIRE→AVAILABLE
+    RIDING      : END_RIDE→AVAILABLE
+    LOW_BATTERY : BATTERY_OK→AVAILABLE, MAINTAIN→MAINTENANCE, LOSE→LOST
+    MAINTENANCE : REPAIRED→AVAILABLE
+    LOST        : MAINTAIN→MAINTENANCE
+[2] 정적 검증: 도달 불가 상태와 출구 없는 상태 찾기
+    도달 불가: 없음 / 출구 없음: 없음
+[3] 표 버전과 match 버전이 모든 (상태, 사건) 조합에서 같은가
+    54/54 조합 일치
+[4] 시나리오: 예약 → 남의 잠금 해제 시도 → 본인 해제 → 방전 상태로 반납 → 정비 중 해제 시도
+    지호: 거부 — 민지님이 예약한 킥보드입니다
+    민지: 잠금 해제 성공
+    해커: 거부 — [정비 중] 상태에서 UNLOCK 불가
+    전이 로그: AVAILABLE -RESERVE-&gt; RESERVED | RESERVED -UNLOCK-&gt; RIDING | RIDING -END_RIDE-&gt; AVAILABLE | AVAILABLE -BATTERY_LOW-&gt; LOW_BATTERY | LOW_BATTERY -MAINTAIN-&gt; MAINTENANCE</code></pre></figure>
   <p>출력 [1]과 [2]는 표 방식만의 장점이다. 전이 규칙이 데이터이기 때문에 출력하고, 도달할 수 없는 상태나 출구 없는 상태를 프로그램으로 검증할 수 있다. 상태 클래스 방식에서는 이 검증이 어렵다. 전이가 메서드 본문 속 코드로 흩어져 있어, 연습문제 1 해설처럼 바이트코드를 분석해 간선을 근사할 수는 있지만 조건부 전이(어느 분기에서 어느 상태로 가는가)는 놓친다. <code>match</code> 버전([3])은 <code>|</code> 패턴으로 규칙을 압축할 수 있지만 그 역시 코드라서 같은 한계를 가진다.</p>
   <p>대가도 분명하다. 예약자와 탑승자는 다시 <code>Scooter</code> 필드가 되었다. <code>_enter()</code>로 정리 규칙을 한곳에 모아 찌꺼기 문제를 줄였지만 근본 해결은 아니다. 반납 후 배터리에 따라 갈라지는 조건부 전이는 사건 두 개로 쪼개야 했다. 그 결과 방전 반납은 잠깐 <code>AVAILABLE</code>을 거친다(출력 [4]의 전이 로그). 전이 관문에 옵저버를 붙여 앱에 푸시한다면 지도에 '대여 가능'이 순간적으로 떴다 사라진다. 중간 상태가 바깥에 보이는 비용이다. 상태마다 <em>행동</em>이 크게 다를수록 표 방식은 불리해지고, <em>전이 구조</em>가 핵심일수록 유리해진다.</p>
 
@@ -1283,7 +2359,21 @@ if __name__ == &quot;__main__&quot;:
     k.unlock(&quot;서윤&quot;)
     k.unlock(&quot;해커&quot;)                               # RidingScooter가 unlock을 물려받았다
     print(f&quot;    주행 중 두 번째 unlock 결과: {k.label()}, 탑승자 {k.rider!r} ← 예외 없음&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 05_pythonic_variants.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 05_pythonic_variants.py</figcaption><pre><code>[A-1] 3만 대의 킥보드가 상태 객체 두 개를 공유한다
+    서로 다른 상태 객체 수: 2 (킥보드마다 새로 만들었다면 30,000)
+    fleet[0]: 주행 중(민지) / fleet[1]: 대여 가능
+    상태 객체 하나의 크기: 32바이트 (__slots__ = () 덕분에 __dict__ 없음)
+[A-2] 공유 상태 객체에 개별 데이터를 넣으려는 실수는 즉시 막힌다
+    AttributeError: &#x27;_Riding&#x27; object has no attribute &#x27;rider&#x27; and no __dict__ for setting new attributes
+[B-1] __class__ 교체: 동작은 한다
+    처음: 대여 가능 ClassSwapScooter
+    잠금 해제 후: 주행 중 RidingScooter
+[B-2] 문제 1 — 객체의 &#x27;타입&#x27;이 수명 중에 바뀐다
+    반납 후 type(k) = ClassSwapScooter, 그런데 캐시 키는 RidingScooter
+[B-3] 문제 2 — 이전 상태의 데이터가 남는다(01의 찌꺼기 문제 재발)
+    대여 가능 상태인데 k.rider = &#x27;서윤&#x27;
+[B-4] 문제 3 — 상속 때문에 &#x27;주행 중 잠금 해제&#x27;가 조용히 허용된다
+    주행 중 두 번째 unlock 결과: 주행 중, 탑승자 &#x27;해커&#x27; ← 예외 없음</code></pre></figure>
   <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 02의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
   <p><code>__class__</code> 교체(B)는 짧고 영리하다. 그러나 [B-2]에서 보듯 객체의 타입이 수명 중에 바뀌어 타입을 키로 쓰는 코드가 깨진다. [B-3]처럼 이전 상태의 속성이 남고, [B-4]처럼 상태 클래스끼리의 상속 때문에 금지해야 할 동작을 물려받는다. 타입 검사기와 디버거도 따라오지 못한다. 동작한다는 것과 유지보수할 수 있다는 것은 다른 문제다. 이 트릭은 언어의 유연성을 보여 주는 예로 알아 두기만 하라.</p>
 </section>
@@ -1485,7 +2575,16 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] Relocating 추가 시 수정해야 했던 곳&quot;)
     print(&quot;    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)&quot;)
     print(&quot;    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex1_transition_owner.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex1_transition_owner.py</figcaption><pre><code>[1] 두 방식 모두 같은 시나리오를 통과한다: 방전 반납 → 재배치 → 도착
+    분산: Available, 배터리 100 / 집중: AVAILABLE, 배터리 100
+[2] 분산 방식: 상태 클래스 사이의 이름 의존(그래프의 간선 = 결합)
+    Riding      → [&#x27;Available&#x27;, &#x27;LowBattery&#x27;]
+    Available   → -
+    LowBattery  → [&#x27;Relocating&#x27;]
+    Relocating  → [&#x27;Available&#x27;]
+[3] Relocating 추가 시 수정해야 했던 곳
+    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)
+    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다</code></pre></figure>
     </details>
   </div>
 
@@ -1686,7 +2785,18 @@ if __name__ == &quot;__main__&quot;:
         doc.edit(&quot;노트북 30대&quot;)
     except IllegalTransition as e:
         print(&quot;    &quot;, e, &quot;/ 본문 유지:&quot;, doc.body)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_approval_state.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_approval_state.py</figcaption><pre><code>[1] 빈 문서 상신 → 거부
+     빈 문서는 상신할 수 없습니다
+[2] 작성 → 상신 → 반려 → 수정 → 재상신 → 승인
+      (작성 중 → 상신)
+      (상신 → 반려: 견적서 누락)
+    현재: 반려: 견적서 누락
+      (반려: 견적서 누락 → 작성 중)
+      (작성 중 → 상신)
+      (상신 → 승인(박 팀장))
+    현재: 승인(박 팀장)
+[3] 승인된 문서 수정 시도 → 거부 (원래 코드에서는 허용되던 버그)
+     [승인(박 팀장)] 수정 불가 / 본문 유지: 노트북 3대 + 견적서 첨부</code></pre></figure>
     </details>
   </div>
 
@@ -1765,7 +2875,11 @@ if __name__ == &quot;__main__&quot;:
             print(f&quot;    {ev:&lt;9} → {room.state.text} ({room.state.color})&quot;)
         except ValueError as e:
             print(f&quot;    {ev:&lt;9} → 거부: {e}&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex3_enum_table.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex3_enum_table.py</figcaption><pre><code>    book      → 예약됨 (yellow)
+    check_in  → 사용 중 (red)
+    book      → 거부: 사용 중 상태에서 &#x27;book&#x27; 불가
+    leave     → 비어 있음 (green)
+    walk_in   → 사용 중 (red)</code></pre></figure>
     </details>
   </div>
 
@@ -1831,5 +2945,7 @@ class Scooter:
     fig.querySelector("figcaption").appendChild(btn);
   });
 </script>
+<script src="assets/pyrun.js"></script>
+<script src="assets/textbook-code.js"></script>
 </body>
 </html>

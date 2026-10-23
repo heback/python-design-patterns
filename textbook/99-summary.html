@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/pyrun.css">
 <script>
   /* 테마는 페이지 렌더 전에 적용해야 깜빡임이 없다. 저장소 접근이 막힌 환경도 고려. */
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -18,6 +19,9 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">종합 · 종합: 패턴 비교와 조합</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
+  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
+  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
+  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -231,7 +235,23 @@ if __name__ == &quot;__main__&quot;:
     lazy.move(&quot;B-11&quot;)
     lazy.move(&quot;B-12&quot;)
     print(f&quot;  두 번 이동한 뒤 연결 수: {RealDriver.created}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_lookalikes.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 01_lookalikes.py</figcaption><pre><code>[1] 전략: 관제 시스템이 구역에 따라 규칙을 바꾼다 (교체 결정 = 바깥)
+  일반 구역 40kg: 1.2 m/s
+  유리 구역 40kg: 0.5 m/s
+
+[2] 상태: 로봇이 배터리에 따라 스스로 모드를 바꾼다 (교체 결정 = 상태 객체)
+  주행 후 배터리 55% → 모드 정상, 40kg 속도 1.2 m/s
+  주행 후 배터리 25% → 모드 절전, 40kg 속도 0.5 m/s
+  주행 후 배터리 40% → 모드 절전, 40kg 속도 0.5 m/s
+  주행 후 배터리 70% → 모드 정상, 40kg 속도 1.2 m/s
+
+[3] 데코레이터: 이미 연결된 드라이버를 받아 감싼다 — 연결은 조립 시점에 일어남
+  감싼 직후 연결 수: 1
+  [&#x27;move(A-03) 기록&#x27;]
+
+[4] 프록시: 실제 드라이버를 스스로 만든다 — 연결은 첫 사용 시점
+  프록시 생성 직후 연결 수: 0
+  두 번 이동한 뒤 연결 수: 1</code></pre></figure>
   <p>[1]과 [2]의 차이는 교체를 일으키는 코드의 위치다. 전략에서는 바깥(관제 시스템)이 <code>r.rule = careful</code>로 갈아 끼우고, 로봇은 규칙이 바뀐 줄도 모른다. 상태에서는 <code>Normal.after_trip()</code>이 배터리를 보고 <code>PowerSave</code>를 돌려준다. 그래서 상태 쪽에만 "다음 상태를 고르는 메서드"가 있고, 구체 상태끼리 서로를 안다. <a href="13-state.html#structure">13장 3절</a>은 상태 패턴의 화살표 두 개를 지적했다. 상태가 컨텍스트에 전이를 요청하는 역방향 의존, 그리고 구체 상태끼리의 의존이다. 이 코드에는 후자만 있다. <code>after_trip()</code>이 다음 상태를 <em>반환</em>하고 컨텍스트가 갈아 끼우는 변형이라 전자는 없다. 전략에는 둘 다 없다.</p>
   <p>[3]과 [4]의 차이는 연결 수에 있다. 데코레이터는 이미 만들어진 드라이버를 <em>받으므로</em> 감싸는 순간 연결이 이미 일어나 있다. 프록시는 실제 드라이버를 <em>스스로 만들므로</em> 연결 시점을 통제할 수 있고, 클라이언트는 실제 객체의 참조를 한 번도 갖지 않는다. <a href="09-proxy.html#structure">9장</a>이 "차이는 «create» 화살표 하나"라고 한 것이 이것이다.</p>
   <h3>판별 질문 모음</h3>
@@ -343,7 +363,17 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] 방금 주문을 취소하고 싶다면? → 방법이 없다(이미 실행됨)&quot;)
     print(&quot;[4] 이 클래스를 고쳐야 하는 이유: 제조사 추가, 경로 알고리즘, 주문 정책,&quot;)
     print(&quot;    배터리 규칙, 알림 채널, 재고 계층 — 변경 축 여섯 개가 한 클래스에 묶여 있다&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_naive_wms.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 02_naive_wms.py</figcaption><pre><code>[1] MUG 재고: 9
+[2] MUG 2개 주문 — 즉시 실행
+    [roboko] move(&#x27;A1-1-01&#x27;) pick(01)
+    [대시보드] R2 A1-1-01 피킹, 배터리 25%
+    [대시보드] R2 충전 시작 (주문 처리 도중!)
+    [roboko] move(&#x27;B1-1-01&#x27;) pick(01)
+    [대시보드] R2 B1-1-01 피킹, 배터리 0%
+    [대시보드] R2 충전 시작 (주문 처리 도중!)
+[3] 방금 주문을 취소하고 싶다면? → 방법이 없다(이미 실행됨)
+[4] 이 클래스를 고쳐야 하는 이유: 제조사 추가, 경로 알고리즘, 주문 정책,
+    배터리 규칙, 알림 채널, 재고 계층 — 변경 축 여섯 개가 한 클래스에 묶여 있다</code></pre></figure>
   <p>주석이 가리키는 축을 정리하면 이렇다. (1) 재고 계층의 깊이가 4중 반복문에 박혀 있다. (2) 주문이 즉시 실행되어 대기·취소가 불가능하다. (3) 경로 알고리즘이 <code>if</code> 분기다. (4) 제조사 SDK 차이가 업무 로직 한가운데 있다. (5) 대시보드 갱신이 직접 호출이다. (6) 배터리 대응이 진행 중인 주문과 뒤엉킨다. 각 축은 서로 다른 팀이, 서로 다른 시점에 바꾸자고 한다. 한 클래스가 바뀔 이유가 여섯이다.</p>
 
   <h3>2.3 변경 축을 세고, 축마다 하나씩</h3>
@@ -948,7 +978,29 @@ if __name__ == &quot;__main__&quot;:
         o = build(route)
         order = [x.code for x in o.ctx.route((9, 9), [bn for bn in o.ctx.inventory.walk() if bn.sku == &quot;MUG&quot;])]
         print(f&quot;  {route:7}: (9,9)에서 출발한 MUG 방문 순서 {order}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_wms.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+  <figure class="output"><figcaption>$ python3 03_wms.py</figcaption><pre><code>[1] 재고 조회 — 계층 깊이와 무관한 집계(컴포지트 + 반복자)
+  MUG 9개, PLATE 9개
+
+[2] 주문 세 건 접수 후 하나 취소 — 아직 실행 전이라 가능(커맨드)
+  O-002 취소: True / 대기열: [&#x27;주문 O-001(MUG×2)&#x27;, &#x27;주문 O-003(CUP×1)&#x27;]
+
+[3] 실행 — 배터리 경고 &#x27;이벤트&#x27;가 충전 &#x27;명령&#x27;이 되어 대기열 앞에 끼어든다(옵저버 + 커맨드)
+    [대시보드] O-001 완료: R2가 2개
+    [대시보드] R2 배터리 20%
+    [대시보드] R2 충전 완료 100%
+    [대시보드] O-003 완료: R2가 1개
+    [대시보드] R2 배터리 85%
+  실행 순서: [&#x27;주문 O-001(MUG×2)&#x27;, &#x27;충전 R2(배터리 20% &lt; 30%)&#x27;, &#x27;주문 O-003(CUP×1)&#x27;]
+  남은 MUG 7개
+
+[4] 충전 명령은 스스로 &#x27;취소 불가&#x27;를 밝힌다 — 호출자는 타입을 묻지 않고 cancellable만 본다
+  charge-R1 취소 시도: False / 대기열: [&#x27;충전 R1(안전: 배터리 셀 온도 경고 후 보호 충전)&#x27;]
+    [대시보드] R1 충전 완료 100%
+  실행: [&#x27;충전 R1(안전: 배터리 셀 온도 경고 후 보호 충전)&#x27;]
+
+[5] 경로 전략 교체는 조립 시점의 이름 하나 — 같은 주문, 다른 방문 순서
+  nearest: (9,9)에서 출발한 MUG 방문 순서 [&#x27;B1-1-01&#x27;, &#x27;A1-1-01&#x27;]
+  sweep  : (9,9)에서 출발한 MUG 방문 순서 [&#x27;A1-1-01&#x27;, &#x27;B1-1-01&#x27;]</code></pre></figure>
   <p>[1]의 재고 집계는 <code>sum(b.qty for b in node.walk() ...)</code> 한 줄이다. 신축 동의 칸막이 단계는 <code>Group</code>을 한 겹 더 넣는 <em>데이터</em> 변경일 뿐 코드 변경이 아니다. [2]에서 주문은 대기열에 있는 동안 그냥 데이터이므로 취소된다. 프로토타입에서는 불가능했던 일이다.</p>
   <p>[3]이 이 사례의 핵심이다. R2가 첫 주문을 마치자 배터리가 20%가 되었고, <code>PickOrder</code>는 그 <em>사실</em>을 <code>robot.battery</code> 이벤트로 알렸다. <code>BatteryGuard</code>는 그 이벤트를 듣고 충전 <em>명령</em>을 만들어 대기열 맨 앞에 넣었다. 그 결과 실행 순서가 "주문 → 충전 → 주문"이 되었다. 프로토타입의 "주문 처리 도중 충전" 사고가 구조적으로 사라졌다. 충전은 진행 중인 명령이 끝난 뒤, 다음 명령이 시작되기 전에만 일어날 수 있다. [4]는 취소 판단을 명령 자신이 한다는 것을 보여준다. <code>TaskQueue.cancel()</code>은 명령의 구체 타입을 묻지 않고 <code>key</code>와 <code>cancellable</code>만 본다. 충전 명령은 안전 조치라서 스스로 취소 불가를 밝히고, 실행 이력에는 사유가 함께 남는다. [5]는 경로 전략 교체가 조립 시점의 이름 하나라는 것을 보여준다.</p>
   <p>단, [3]의 출력이 BatteryGuard docstring의 "재진입" 근거까지 보여 주지는 않는다. 지금 <code>PickOrder</code>는 <code>execute()</code>의 맨 끝에서 배터리를 알리므로, 관찰자가 그 자리에서 직접 충전해도 충전은 똑같이 주문 사이에 일어난다. 달라지는 것은 실행 이력에 충전 항목과 사유가 남지 않고, <code>ChargeRobot</code>이 내던 <code>robot.charged</code> 이벤트, 곧 대시보드의 "충전 완료" 줄도 사라진다는 점이다. 재진입 위험 자체는 이 출력에 나타나지 않는다. 명령으로 미루는 것은 발행 시점이 바뀌어도 안전하게 하려는 <em>설계 근거</em>다. 3.1절에서 다룬다.</p>
@@ -1265,7 +1317,14 @@ if __name__ == &quot;__main__&quot;:
     log.clear()
     lot.leave(&quot;56다7890&quot;, &quot;sedan&quot;, 30)
     print(&quot;  &quot;, log)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_parking.py</figcaption><pre><code>(--no-run: 실행 생략)</code></pre></figure>
+      <figure class="output"><figcaption>$ python3 ex2_parking.py</figcaption><pre><code>[1] 일반 주차장, 구형 차단기
+   GateCo #2 열림 [&#x27;전광판: 12가3456 1000원&#x27;, &#x27;문자: 12가3456님 1000원 결제&#x27;]
+
+[2] 직원 주차장으로 바꾸고 신형 차단기 설치 — ParkingLot 코드 수정 0줄
+   BarrierX BX-7 5000ms 열림 [&#x27;전광판: 34나5678 0원&#x27;, &#x27;문자: 34나5678님 0원 결제&#x27;]
+
+[3] 정산 시스템이 알림을 받고 싶다 — 구독 한 줄
+   [&#x27;전광판: 56다7890 0원&#x27;, &#x27;문자: 56다7890님 0원 결제&#x27;, &#x27;정산: 56다7890 0&#x27;]</code></pre></figure>
     </details>
   </div>
 
@@ -1323,5 +1382,7 @@ if __name__ == &quot;__main__&quot;:
     fig.querySelector("figcaption").appendChild(btn);
   });
 </script>
+<script src="assets/pyrun.js"></script>
+<script src="assets/textbook-code.js"></script>
 </body>
 </html>
