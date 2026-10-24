@@ -96,7 +96,7 @@ def render(tpl_name, content_js, app_js):
 
 
 def make_samples():
-    """교사용 화면을 체험·시험할 수 있는 예시 학생 JSON 두 개."""
+    """교사용 화면을 체험·시험할 수 있는 예시 학생 JSON 두 개와, 5주 전체 정답 예시를 담은 모범답안 JSON."""
     out = ROOT / "sample"
     out.mkdir(exist_ok=True)
 
@@ -130,6 +130,11 @@ def make_samples():
                             continue
                         a[it["id"]] = ans if not flip else ans.split(".")[0][:60] + "."
         return a
+
+    scale_ids = {it["id"] for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] == "scales"}   # 자기 평가 문항은 정답이 없다
+    model = {"app": "dp-inquiry", "schema": 1, "student": {"klass": "교사", "number": "0", "name": "모범답안"},
+             "saved": "2026-10-21T05:00:00.000Z", "answers": {k: v for k, v in answers(len(WEEKS), False).items() if k not in scale_ids}, "feedback": {}}
+    (out / "모범답안_탐구학습.json").write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
 
     samples = [("2-3", "17", "김하늘", answers(2, False)), ("2-3", "18", "박도윤", answers(3, True))]
     for klass, num, name, ans in samples:
