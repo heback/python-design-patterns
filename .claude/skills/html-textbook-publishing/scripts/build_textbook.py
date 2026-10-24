@@ -195,7 +195,7 @@ def build(do_run: bool) -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "assets").mkdir(parents=True)
-    for asset in ("style.css", "pyrun.css", "pyrun.js", "textbook-code.js"):    # 코드 실행·편집(Pyodide) 자산 포함
+    for asset in ("style.css", "pyrun.css", "pyhl.js", "pyrun.js", "textbook-code.js"):    # 코드 실행·편집(Pyodide) 자산 포함
         shutil.copy(SKILL / "assets" / asset, OUT / "assets" / asset)
 
     for i, ch in enumerate(chapters):

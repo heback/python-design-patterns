@@ -149,18 +149,7 @@ figure.output pre { color: var(--text); }
 figure.output figcaption::before { content: "▶"; color: var(--ok); }
 .missing-src { border: 2px dashed var(--warn); color: var(--warn); padding: 12px; border-radius: var(--radius); }
 
-/* Prism 토큰 — 테마 CSS 대신 토큰 변수 사용(다크 모드 자동) */
-.token.comment, .token.prolog { color: var(--tok-comment); font-style: italic; }
-.token.triple-quoted-string, .token.string-interpolation .token.string { color: var(--tok-string); }
-.token.triple-quoted-string { color: var(--tok-comment); }
-.token.string { color: var(--tok-string); }
-.token.keyword, .token.builtin.keyword { color: var(--tok-keyword); }
-.token.function { color: var(--tok-func); }
-.token.class-name { color: var(--tok-class); }
-.token.number, .token.boolean { color: var(--tok-number); }
-.token.decorator, .token.annotation { color: var(--tok-deco); }
-.token.builtin { color: var(--tok-func); }
-.token.operator, .token.punctuation { color: var(--muted); }
+/* 문법 강조 토큰 규칙(.token.*)은 pyrun.css 에 있다(교재·학습지 공용). 색 변수 --tok-* 는 위 :root 에서 정의한다. */
 
 /* ---- UML 다이어그램 ---- */
 figure.diagram { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }

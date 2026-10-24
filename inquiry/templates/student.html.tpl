@@ -27,6 +27,7 @@
   <noscript>이 학습지는 JavaScript가 필요합니다.</noscript>
   <section id="week"></section>
 </main>
+<script>/*@PYHL@*/</script>
 <script>/*@PYRUN@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>

@@ -134,9 +134,15 @@ const PyRun = (function () {
     const outPre = h("pre", { class: "pr-pre" });
     const outBox = h("div", { class: "pr-out", hidden: true }, h("div", { class: "pr-outhead" }, h("span", {}, "출력"),
       h("button", { class: "pr-btn small", type: "button", onclick: () => { outBox.hidden = true; outPre.textContent = ""; } }, "지우기")), outPre);
-    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), ta, outBox);
+    /* 문법 강조: 글자를 투명하게 만든 textarea 뒤에 같은 글꼴의 색칠된 <pre> 를 깔고 스크롤을 맞춘다. */
+    const hlCode = h("code", {}), hl = h("pre", { class: "pr-hl", "aria-hidden": "true" }, hlCode);
+    const stack = h("div", { class: "pr-stack" }, hl, ta);
+    const paint = () => { hlCode.innerHTML = (typeof PyHL !== "undefined" ? PyHL.html(ta.value) : ta.value.replace(/&/g, "&amp;").replace(/</g, "&lt;")) + "\n"; syncScroll(); };
+    const syncScroll = () => { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; };
+    ta.addEventListener("scroll", syncScroll);
+    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), stack, outBox);
 
-    ta.addEventListener("input", () => { fit(ta); opts.onChange && opts.onChange(ta.value); });
+    ta.addEventListener("input", () => { fit(ta); paint(); opts.onChange && opts.onChange(ta.value); });
     ta.addEventListener("keydown", e => {
       if (e.key === "Tab") {
         e.preventDefault(); const s = ta.selectionStart, en = ta.selectionEnd;
@@ -144,12 +150,12 @@ const PyRun = (function () {
           const a = ta.value.lastIndexOf("\n", s - 1) + 1, seg = ta.value.slice(a, en), out = seg.replace(/^ {1,4}/gm, "");
           ta.setRangeText(out, a, en, "preserve");
         } else ta.setRangeText("    ", s, en, "end");
-        opts.onChange && opts.onChange(ta.value); fit(ta);
+        opts.onChange && opts.onChange(ta.value); fit(ta); paint();
       } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); }
       else if (e.key === "Enter" && !e.shiftKey && !e.altKey) {   // 자동 들여쓰기
         const s = ta.selectionStart, line = ta.value.slice(ta.value.lastIndexOf("\n", s - 1) + 1, s);
         let ind = (/^ */.exec(line) || [""])[0]; if (/:\s*$/.test(line)) ind += "    ";
-        if (ind) { e.preventDefault(); ta.setRangeText("\n" + ind, s, ta.selectionEnd, "end"); opts.onChange && opts.onChange(ta.value); fit(ta); }
+        if (ind) { e.preventDefault(); ta.setRangeText("\n" + ind, s, ta.selectionEnd, "end"); opts.onChange && opts.onChange(ta.value); fit(ta); paint(); }
       }
     });
 
@@ -176,14 +182,14 @@ const PyRun = (function () {
     bStop.addEventListener("click", () => PyRun.stop());
     bReset.addEventListener("click", () => {
       if (ta.value !== starter && ta.value.trim() && !confirm("내가 고친 코드가 처음 코드로 바뀝니다. 계속할까요?")) return;
-      ta.value = starter; fit(ta); opts.onChange && opts.onChange(ta.value);
+      ta.value = starter; fit(ta); paint(); opts.onChange && opts.onChange(ta.value);
     });
     bCopy.addEventListener("click", () => copyText(ta.value).then(() => flash(bCopy, "복사됨"), () => flash(bCopy, "복사 실패")));
     if (bEx) bEx.addEventListener("click", () => showExample({ title: opts.exampleTitle, code: opts.example, opener: bEx }));
-    requestAnimationFrame(() => fit(ta)); setTimeout(() => fit(ta), 80);
+    paint(); requestAnimationFrame(() => fit(ta)); setTimeout(() => fit(ta), 80);
     return {
       el: root, textarea: ta, getValue: () => ta.value,
-      setValue(v) { ta.value = v; fit(ta); }, refit: () => fit(ta),
+      setValue(v) { ta.value = v; fit(ta); paint(); }, refit: () => fit(ta),
     };
   }
 
@@ -192,7 +198,8 @@ const PyRun = (function () {
   function showExample(o) {
     closeExample();
     const prev = o.opener || document.activeElement;
-    const pre = h("pre", { class: "pr-modal-code", tabindex: "0" }, h("code", {}, o.code));
+    const pre = h("pre", { class: "pr-modal-code", tabindex: "0" }, h("code", { class: "language-python" }, o.code));
+    if (typeof PyHL !== "undefined") PyHL.apply(pre);
     const bCopy = h("button", { class: "pr-btn", type: "button" }, "📋 복사");
     const bClose = h("button", { class: "pr-btn primary", type: "button" }, "닫기");
     const title = h("h3", { id: "pr-modal-title" }, o.title || "예시 코드");

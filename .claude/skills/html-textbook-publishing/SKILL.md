@@ -25,7 +25,7 @@ python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py --no-r
 - 색은 `style.css`의 `:root` 토큰으로만 정의하고, 다크 모드는 `prefers-color-scheme`와 수동 토글(`data-theme`) 두 경로에서 같은 토큰을 바꾼다. 원고나 SVG에 색을 하드코딩하면 이 체계가 깨진다.
 - 분류별 강조색: `--part-create`/`--part-struct`/`--part-behave`. `body[data-part]`로 자동 적용된다.
 - 본문 폭 72ch, 코드 13.5px JetBrains Mono, 한글 Noto Sans KR + 제목 Noto Serif KR. 900px 이하에서는 사이드 목차를 숨긴다.
-- 문법 강조는 Prism(cdnjs)으로 하되 Prism 테마 CSS는 쓰지 않는다. 토큰 색이 `--tok-*` 변수에 묶여 있어야 다크 모드가 자동으로 맞는다.
+- 문법 강조는 자체 `pyhl.js`가 맡는다(Prism 미사용, 오프라인 동작). 토큰 색은 `--tok-*` 변수에만 묶는다. 자세한 규칙은 `syntax-highlighting` 스킬.
 - 인쇄 시 해설(`details.solution`)을 펼치고 내비게이션을 숨긴다.
 
 ## 원고에서 쓸 수 있는 클래스

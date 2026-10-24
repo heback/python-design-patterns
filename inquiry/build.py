@@ -88,6 +88,7 @@ def render(tpl_name, content_js, app_js):
     page = (t / tpl_name).read_text(encoding="utf-8")
     return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN_CSS@*/", (PYRUN / "pyrun.css").read_text(encoding="utf-8"))
+                .replace("/*@PYHL@*/", (PYRUN / "pyhl.js").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))

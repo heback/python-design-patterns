@@ -19,6 +19,7 @@
 </header>
 <nav class="tabs" id="views" role="tablist"></nav>
 <main id="main"></main>
+<script>/*@PYHL@*/</script>
 <script>/*@PYRUN@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>

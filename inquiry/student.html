@@ -10,6 +10,8 @@
   --ok: #2e7d4f; --ok-soft: #e4f3ea; --warn: #b4630f; --warn-soft: #fbeedd; --bad: #b3352b; --bad-soft: #fbe6e3;
   --teacher: #7a3e9d; --teacher-soft: #f3e9f9;
   --stage-1: #d9822b; --stage-2: #2c5d8f; --stage-3: #2e7d4f; --stage-4: #7a3e9d; --stage-5: #b3352b; --stage-6: #5b6770;
+  --tok-comment: #6a737d; --tok-keyword: #a3195b; --tok-string: #1f6b3a; --tok-func: #6639ba;
+  --tok-class: #8a4b08; --tok-number: #0b5c99; --tok-deco: #b3561d;
   --radius: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
@@ -18,6 +20,8 @@
     --border: #33383f; --accent: #8ab4e8; --accent-soft: #1f2a37; --accent-text: #0f1720;
     --ok: #7ccf9a; --ok-soft: #1a2c22; --warn: #f0a868; --warn-soft: #33261b; --bad: #f08c82; --bad-soft: #35201d;
     --teacher: #cf9be8; --teacher-soft: #2b2033;
+    --tok-comment: #8b949e; --tok-keyword: #ff7b9c; --tok-string: #a5d6a7; --tok-func: #d2a8ff;
+    --tok-class: #f0c674; --tok-number: #79c0ff; --tok-deco: #ffa657;
     --stage-1: #f0a868; --stage-2: #8ab4e8; --stage-3: #7ccf9a; --stage-4: #cf9be8; --stage-5: #f08c82; --stage-6: #a3adb5;
   }
 }
@@ -26,6 +30,8 @@
   --border: #33383f; --accent: #8ab4e8; --accent-soft: #1f2a37; --accent-text: #0f1720;
   --ok: #7ccf9a; --ok-soft: #1a2c22; --warn: #f0a868; --warn-soft: #33261b; --bad: #f08c82; --bad-soft: #35201d;
   --teacher: #cf9be8; --teacher-soft: #2b2033;
+  --tok-comment: #8b949e; --tok-keyword: #ff7b9c; --tok-string: #a5d6a7; --tok-func: #d2a8ff;
+  --tok-class: #f0c674; --tok-number: #79c0ff; --tok-deco: #ffa657;
   --stage-1: #f0a868; --stage-2: #8ab4e8; --stage-3: #7ccf9a; --stage-4: #cf9be8; --stage-5: #f08c82; --stage-6: #a3adb5;
 }
 * { box-sizing: border-box; }
@@ -250,6 +256,29 @@ textarea.pr-ta:focus { box-shadow: inset 0 0 0 2px var(--accent); }
 .pr-err { color: var(--pr-bad); }
 .pr-note, .pr-dim { color: var(--muted); }
 
+/* 문법 강조 층: 투명 글자의 textarea 아래에 같은 글꼴·여백의 색칠된 pre 를 겹친다. 두 칸의 글꼴·여백·줄 높이는 반드시 같아야 한다. */
+.pr-stack { position: relative; background: var(--pr-bg); }
+.pr-stack pre.pr-hl, .pr-stack textarea.pr-ta {
+  font: 13.5px/1.6 var(--pr-mono); tab-size: 4; padding: 14px 16px; margin: 0; border: 0; border-radius: 0; letter-spacing: 0;
+  white-space: pre; word-spacing: 0; text-indent: 0;
+}
+.pr-stack pre.pr-hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--pr-fg); background: none; }
+.pr-stack pre.pr-hl code { font: inherit; background: none; padding: 0; color: inherit; }
+.pr-stack textarea.pr-ta { position: relative; background: transparent; color: transparent; caret-color: var(--pr-fg); }
+.pr-stack textarea.pr-ta::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); color: transparent; }
+
+/* 문법 강조 토큰 (pyhl.js 가 만든다). 색은 --tok-* 변수로만 정한다 → 라이트/다크 자동. 변수가 없으면 var() 의 두 번째 값(라이트 기본색)을 쓴다. */
+.token.comment { color: var(--tok-comment, #6a737d); font-style: italic; }
+.token.string { color: var(--tok-string, #1f6b3a); }
+.token.triple-quoted-string { color: var(--tok-comment, #6a737d); }
+.token.string-interpolation { color: var(--pr-fg, inherit); }
+.token.keyword { color: var(--tok-keyword, #a3195b); }
+.token.function, .token.builtin { color: var(--tok-func, #6639ba); }
+.token.class-name { color: var(--tok-class, #8a4b08); }
+.token.number, .token.boolean { color: var(--tok-number, #0b5c99); }
+.token.decorator { color: var(--tok-deco, #b3561d); }
+.token.operator, .token.punctuation { color: var(--muted, #656d76); }
+
 /* 예시 코드 팝업 */
 body.pr-lock { overflow: hidden; }
 .pr-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, .5); display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -303,6 +332,82 @@ figure.code.editing > .pr { margin: 0; border: 0; border-radius: 0; }
   <noscript>이 학습지는 JavaScript가 필요합니다.</noscript>
   <section id="week"></section>
 </main>
+<script>"use strict";
+/* 파이썬 문법 강조 공용 모듈 (교재 textbook/ 과 탐구 학습지 inquiry/ 가 함께 쓴다). 외부 라이브러리·네트워크 없이 동작한다.
+   토큰 클래스 이름은 Prism 과 같다(.token.keyword 등). 색은 pyrun.css 의 --tok-* 변수만 쓰므로 다크 모드가 자동으로 맞는다.
+   공개 API: PyHL.html(code) → 색칠한 HTML 문자열 · PyHL.apply(root) → root 안의 code.language-python 을 색칠한다 */
+const PyHL = (function () {
+  const KEYWORDS = new Set(("and as assert async await break class continue def del elif else except finally for from global if import " +
+    "in is lambda nonlocal not or pass raise return try while with yield match case").split(" "));
+  const CONSTS = new Set(["True", "False", "None"]);
+  const BUILTINS = new Set(("abs all any bool bytes callable chr dict dir divmod enumerate filter float format frozenset getattr hasattr hash " +
+    "id input int isinstance issubclass iter len list map max min next object open ord pow print property range repr reversed round set setattr " +
+    "slice sorted staticmethod classmethod str sum super tuple type vars zip self cls NotImplemented Ellipsis " +
+    "Exception ValueError TypeError KeyError IndexError AttributeError RuntimeError NotImplementedError StopIteration ZeroDivisionError").split(" "));
+
+  /* 한 번에 한 토큰씩 앞에서부터 읽는다. 순서가 중요하다: 긴 문자열·주석을 먼저 잡아야 그 안의 키워드가 색칠되지 않는다. */
+  const RE = new RegExp([
+    "(#[^\\n]*)",                                                                           // 1 주석
+    "((?:[rRbBuUfF]{1,2})?(?:\"\"\"[\\s\\S]*?(?:\"\"\"|$)|'''[\\s\\S]*?(?:'''|$)))",       // 2 삼중 따옴표(독스트링)
+    "((?:[rRbBuUfF]{1,2})?(?:\"(?:\\\\.|[^\"\\\\\\n])*\"?|'(?:\\\\.|[^'\\\\\\n])*'?))",     // 3 문자열
+    "(^[ \\t]*@[A-Za-z_][\\w.]*)",                                                          // 4 데코레이터
+    "(\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|\\d[\\d_]*\\.?[\\d_]*(?:[eE][+-]?\\d+)?j?)\\b|\\.\\d[\\d_]*)", // 5 숫자
+    "([A-Za-z_][A-Za-z_0-9]*)",                                                             // 6 식별자
+    "([+\\-*/%=<>!&|^~:]+)",                                                                // 7 연산자
+    "([()\\[\\]{},.;])",                                                                    // 8 구두점
+  ].join("|"), "gm");
+
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const span = (cls, s) => '<span class="token ' + cls + '">' + esc(s) + "</span>";
+
+  /* f-문자열의 {표현식} 은 문자열 색에서 빼 준다. */
+  function fstring(s) {
+    if (!/^[rRbBuU]*[fF]/.test(s)) return span("string", s);
+    return s.split(/(\{\{|\}\}|\{[^{}\n]*\})/).map((p, i) => i % 2 && p.length > 2 && p[1] !== "{" ?
+      '<span class="token string-interpolation">' + esc(p) + "</span>" : span("string", p)).join("");
+  }
+
+  function html(code) {
+    let out = "", last = 0, prev = "", m;           // prev: 직전 의미 있는 토큰(def/class 뒤 이름 판별용)
+    RE.lastIndex = 0;
+    while ((m = RE.exec(code))) {
+      if (m.index > last) out += esc(code.slice(last, m.index));
+      const t = m[0]; last = RE.lastIndex;
+      if (m[1] != null) out += span("comment", t);
+      else if (m[2] != null) out += /^[rRbBuU]*[fF]/.test(t) ? fstring(t).replace(/class="token string"/g, 'class="token triple-quoted-string string"') : span("triple-quoted-string string", t);
+      else if (m[3] != null) out += fstring(t);
+      else if (m[4] != null) out += esc(t.slice(0, t.indexOf("@"))) + span("decorator", t.slice(t.indexOf("@")));
+      else if (m[5] != null) out += span("number", t);
+      else if (m[6] != null) {
+        const next = code.slice(last).match(/^[ \t]*(\()?/)[1];
+        if (prev === "def") out += span("function", t);
+        else if (prev === "class") out += span("class-name", t);
+        else if (KEYWORDS.has(t)) out += span("keyword", t);
+        else if (CONSTS.has(t)) out += span("boolean", t);
+        else if (BUILTINS.has(t)) out += span("builtin", t);
+        else if (next && prev !== ".") out += span("function", t);        // 일반 호출 f(...)
+        else if (next) out += span("function", t);                        // 메서드 호출 obj.f(...)
+        else if (/^[A-Z][A-Za-z0-9]*$/.test(t) && /[a-z]/.test(t)) out += span("class-name", t);   // CamelCase 는 클래스로 본다
+        else out += esc(t);
+        prev = t;
+        continue;
+      }
+      else if (m[7] != null) out += span("operator", t);
+      else out += span("punctuation", t);
+      prev = "";
+    }
+    return out + esc(code.slice(last));
+  }
+
+  function apply(root) {
+    (root || document).querySelectorAll("code.language-python:not([data-hl])").forEach(c => {
+      c.innerHTML = html(c.textContent); c.dataset.hl = "1";
+    });
+  }
+
+  return { html, apply };
+})();
+</script>
 <script>"use strict";
 /* 브라우저 안에서 파이썬을 실행·편집하는 공용 모듈 (교재 textbook/ 과 탐구 학습지 inquiry/ 가 함께 쓴다).
    - Pyodide(WebAssembly 파이썬)를 Web Worker 에서 돌린다. 무한 루프도 '중지'로 끊을 수 있다.
@@ -439,9 +544,15 @@ const PyRun = (function () {
     const outPre = h("pre", { class: "pr-pre" });
     const outBox = h("div", { class: "pr-out", hidden: true }, h("div", { class: "pr-outhead" }, h("span", {}, "출력"),
       h("button", { class: "pr-btn small", type: "button", onclick: () => { outBox.hidden = true; outPre.textContent = ""; } }, "지우기")), outPre);
-    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), ta, outBox);
+    /* 문법 강조: 글자를 투명하게 만든 textarea 뒤에 같은 글꼴의 색칠된 <pre> 를 깔고 스크롤을 맞춘다. */
+    const hlCode = h("code", {}), hl = h("pre", { class: "pr-hl", "aria-hidden": "true" }, hlCode);
+    const stack = h("div", { class: "pr-stack" }, hl, ta);
+    const paint = () => { hlCode.innerHTML = (typeof PyHL !== "undefined" ? PyHL.html(ta.value) : ta.value.replace(/&/g, "&amp;").replace(/</g, "&lt;")) + "\n"; syncScroll(); };
+    const syncScroll = () => { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; };
+    ta.addEventListener("scroll", syncScroll);
+    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), stack, outBox);
 
-    ta.addEventListener("input", () => { fit(ta); opts.onChange && opts.onChange(ta.value); });
+    ta.addEventListener("input", () => { fit(ta); paint(); opts.onChange && opts.onChange(ta.value); });
     ta.addEventListener("keydown", e => {
       if (e.key === "Tab") {
         e.preventDefault(); const s = ta.selectionStart, en = ta.selectionEnd;
@@ -449,12 +560,12 @@ const PyRun = (function () {
           const a = ta.value.lastIndexOf("\n", s - 1) + 1, seg = ta.value.slice(a, en), out = seg.replace(/^ {1,4}/gm, "");
           ta.setRangeText(out, a, en, "preserve");
         } else ta.setRangeText("    ", s, en, "end");
-        opts.onChange && opts.onChange(ta.value); fit(ta);
+        opts.onChange && opts.onChange(ta.value); fit(ta); paint();
       } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); }
       else if (e.key === "Enter" && !e.shiftKey && !e.altKey) {   // 자동 들여쓰기
         const s = ta.selectionStart, line = ta.value.slice(ta.value.lastIndexOf("\n", s - 1) + 1, s);
         let ind = (/^ */.exec(line) || [""])[0]; if (/:\s*$/.test(line)) ind += "    ";
-        if (ind) { e.preventDefault(); ta.setRangeText("\n" + ind, s, ta.selectionEnd, "end"); opts.onChange && opts.onChange(ta.value); fit(ta); }
+        if (ind) { e.preventDefault(); ta.setRangeText("\n" + ind, s, ta.selectionEnd, "end"); opts.onChange && opts.onChange(ta.value); fit(ta); paint(); }
       }
     });
 
@@ -481,14 +592,14 @@ const PyRun = (function () {
     bStop.addEventListener("click", () => PyRun.stop());
     bReset.addEventListener("click", () => {
       if (ta.value !== starter && ta.value.trim() && !confirm("내가 고친 코드가 처음 코드로 바뀝니다. 계속할까요?")) return;
-      ta.value = starter; fit(ta); opts.onChange && opts.onChange(ta.value);
+      ta.value = starter; fit(ta); paint(); opts.onChange && opts.onChange(ta.value);
     });
     bCopy.addEventListener("click", () => copyText(ta.value).then(() => flash(bCopy, "복사됨"), () => flash(bCopy, "복사 실패")));
     if (bEx) bEx.addEventListener("click", () => showExample({ title: opts.exampleTitle, code: opts.example, opener: bEx }));
-    requestAnimationFrame(() => fit(ta)); setTimeout(() => fit(ta), 80);
+    paint(); requestAnimationFrame(() => fit(ta)); setTimeout(() => fit(ta), 80);
     return {
       el: root, textarea: ta, getValue: () => ta.value,
-      setValue(v) { ta.value = v; fit(ta); }, refit: () => fit(ta),
+      setValue(v) { ta.value = v; fit(ta); paint(); }, refit: () => fit(ta),
     };
   }
 
@@ -497,7 +608,8 @@ const PyRun = (function () {
   function showExample(o) {
     closeExample();
     const prev = o.opener || document.activeElement;
-    const pre = h("pre", { class: "pr-modal-code", tabindex: "0" }, h("code", {}, o.code));
+    const pre = h("pre", { class: "pr-modal-code", tabindex: "0" }, h("code", { class: "language-python" }, o.code));
+    if (typeof PyHL !== "undefined") PyHL.apply(pre);
     const bCopy = h("button", { class: "pr-btn", type: "button" }, "📋 복사");
     const bClose = h("button", { class: "pr-btn primary", type: "button" }, "닫기");
     const title = h("h3", { id: "pr-modal-title" }, o.title || "예시 코드");
