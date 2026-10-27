@@ -68,7 +68,7 @@ inquiry_block = f'''<h2>탐구 학습지 · 5주 과정</h2>
 <li>JSON 파일을 선생님이 정한 방법으로 제출합니다.</li>
 <li>다음 시간에는 <b>📂 불러오기</b>로 파일을 열어 이어서 풀고, 선생님 코멘트 파일도 같은 방법으로 봅니다.</li></ol>''' if with_inquiry else ""
 cta_inquiry = '<a class="btn" href="inquiry/">🔍 탐구 학습지</a>' if with_inquiry else ""
-footer_note = " 답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다." if with_inquiry else ""
+footer_html = "<footer>답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다.</footer>" if with_inquiry else ""
 
 (DOCS / "index.html").write_text(f'''<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>파이썬 디자인 패턴</title>
@@ -98,6 +98,6 @@ footer{{margin-top:48px;color:var(--m);font-size:13px}}
 {inquiry_block}
 <h2>교재 목차</h2>
 <div class="toc">{toc}</div>
-<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다.{footer_note}</footer>
+{footer_html}
 </main></body></html>''', encoding="utf-8")
 print("docs/ 생성 완료", "(교사용 포함!)" if with_teacher else "(교사용 제외)")
