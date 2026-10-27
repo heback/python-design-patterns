@@ -89,6 +89,6 @@ footer{{margin-top:48px;color:var(--m);font-size:13px}}
 
 <h2>교재 목차</h2>
 <div class="toc">{toc}</div>
-<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다. 답은 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장됩니다.</footer>
+<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다. 답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다.</footer>
 </main></body></html>''', encoding="utf-8")
 print("docs/ 생성 완료", "(교사용 포함!)" if with_teacher else "(교사용 제외)")
