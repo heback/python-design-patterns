@@ -20,27 +20,14 @@ h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}h2{font-size:20px;margin:
 footer{margin-top:48px;color:var(--m);font-size:13px}
 </style></head><body><main>
 <h1>파이썬으로 배우는 디자인 패턴</h1>
-<p class="lead">객체지향 원리를 이미 아는 학생을 위한 교재와, 5주 개념기반 탐구 학습지입니다.</p>
-<div class="cta"><a class="btn p" href="inquiry/">🔍 탐구 학습지 시작하기</a><a class="btn" href="textbook/index.html" target="_blank" rel="noopener">📘 교재 보기</a><a class="btn" href="textbook/glossary.html" target="_blank" rel="noopener">용어집</a></div>
+<p class="lead">객체지향 원리를 이미 아는 학생을 위한 교재입니다.</p>
+<div class="cta"><a class="btn p" href="textbook/index.html" target="_blank" rel="noopener">📘 교재 보기</a><a class="btn" href="textbook/glossary.html" target="_blank" rel="noopener">용어집</a></div>
 
-<h2>탐구 학습지 · 5주 과정</h2>
-<p class="lead">주차를 누르면 해당 주차 학습지로 바로 들어갑니다.</p>
-<div class="grid"><a class="card wk" href="inquiry/#w1"><b>1주차 · 변화</b><span>변화는 어디서 오는가</span><small>전략 · 템플릿 메서드</small></a>
-<a class="card wk" href="inquiry/#w2"><b>2주차 · 책임</b><span>누가 만드는가</span><small>팩토리 메서드 · 추상 팩토리 · 빌더 · 싱글턴</small></a>
-<a class="card wk" href="inquiry/#w3"><b>3주차 · 경계</b><span>경계에 서는 객체</span><small>어댑터 · 데코레이터 · 컴포지트 · 퍼사드 · 프록시</small></a>
-<a class="card wk" href="inquiry/#w4"><b>4주차 · 상호작용</b><span>누가 누구를 아는가</span><small>옵저버 · 커맨드 · 상태 · 반복자</small></a>
-<a class="card wk" href="inquiry/#w5"><b>5주차 · 균형</b><span>얼마나 넣을 것인가</span><small>패턴 비교와 조합 · 종합 설계</small></a></div>
-<h3 style="margin-top:22px">학습지 사용 방법</h3>
-<ol class="steps">
-<li>학습지를 열고 학번·성명을 입력한 뒤 풀이합니다.</li>
-<li>쓰는 동안 이 브라우저에 임시 저장됩니다. 수업이 끝나면 <b>💾 저장</b>으로 JSON 파일을 내려받습니다.</li>
-<li>JSON 파일을 선생님이 정한 방법으로 제출합니다.</li>
-<li>다음 시간에는 <b>📂 불러오기</b>로 파일을 열어 이어서 풀고, 선생님 코멘트 파일도 같은 방법으로 봅니다.</li></ol>
 
 <h2>교재 목차</h2>
 <div class="toc"><section><h3>시작과 정리</h3><ul><li><a href="textbook/00-intro.html" target="_blank" rel="noopener"><b>서론: OOP 원리에서 패턴으로</b></a><small>원리를 알면서도 설계가 막히는 순간, 패턴은 무엇을 더해 주는가</small></li><li><a href="textbook/99-summary.html" target="_blank" rel="noopener"><b>종합: 패턴 비교와 조합</b></a><small>닮은 패턴을 의도로 가르고, 변경 축만큼만 패턴을 넣기</small></li></ul></section>
 <section><h3>생성 패턴</h3><ul><li><a href="textbook/01-factory-method.html" target="_blank" rel="noopener"><b>팩토리 메서드 (Factory Method)</b></a><small>'언제 만들지'는 프레임워크가, '무엇을 만들지'는 하위 클래스가</small></li><li><a href="textbook/02-abstract-factory.html" target="_blank" rel="noopener"><b>추상 팩토리 (Abstract Factory)</b></a><small>함께 쓰여야 하는 객체들을, 섞이지 않게 한 번에</small></li><li><a href="textbook/03-builder.html" target="_blank" rel="noopener"><b>빌더 (Builder)</b></a><small>한 번에 만들기 어려운 객체를, 단계적으로 읽히게 조립하기</small></li><li><a href="textbook/04-singleton.html" target="_blank" rel="noopener"><b>싱글턴 (Singleton)</b></a><small>'하나여야 한다'와 '어디서든 얻는다'를 떼어 놓기</small></li></ul></section>
 <section><h3>구조 패턴</h3><ul><li><a href="textbook/05-adapter.html" target="_blank" rel="noopener"><b>어댑터 (Adapter)</b></a><small>고칠 수 없는 남의 인터페이스를 우리 언어로 번역하기</small></li><li><a href="textbook/06-decorator.html" target="_blank" rel="noopener"><b>데코레이터 (Decorator)</b></a><small>같은 인터페이스를 유지한 채 책임을 겹겹이 덧입히기</small></li><li><a href="textbook/07-composite.html" target="_blank" rel="noopener"><b>컴포지트 (Composite)</b></a><small>부분과 전체를 같은 질문으로 다루기</small></li><li><a href="textbook/08-facade.html" target="_blank" rel="noopener"><b>퍼사드 (Facade)</b></a><small>복잡한 서브시스템 앞에 단순한 정문을 하나 두기</small></li><li><a href="textbook/09-proxy.html" target="_blank" rel="noopener"><b>프록시 (Proxy)</b></a><small>같은 얼굴을 한 대리인이 실제 객체로 가는 길을 통제하기</small></li></ul></section>
 <section><h3>행위 패턴</h3><ul><li><a href="textbook/10-strategy.html" target="_blank" rel="noopener"><b>전략 (Strategy)</b></a><small>교체 가능한 알고리즘을 객체로, 그리고 함수로</small></li><li><a href="textbook/11-observer.html" target="_blank" rel="noopener"><b>옵저버 (Observer)</b></a><small>변화를 알리는 쪽이 듣는 쪽을 모르게 하기</small></li><li><a href="textbook/12-command.html" target="_blank" rel="noopener"><b>커맨드 (Command)</b></a><small>요청을 객체로 만들어 되돌리고, 묶고, 보내기</small></li><li><a href="textbook/13-state.html" target="_blank" rel="noopener"><b>상태 (State)</b></a><small>행동이 상태에 따라 달라질 때, 분기 대신 객체를 바꾼다</small></li><li><a href="textbook/14-template-method.html" target="_blank" rel="noopener"><b>템플릿 메서드 (Template Method)</b></a><small>절차의 골격은 한 곳에 고정하고, 달라지는 단계만 열어 둔다</small></li><li><a href="textbook/15-iterator.html" target="_blank" rel="noopener"><b>반복자 (Iterator)</b></a><small>내부 표현을 감춘 채 순서대로 꺼내기, 그리고 언어가 흡수한 패턴</small></li></ul></section></div>
-<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다. 답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다.</footer>
+<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다.</footer>
 </main></body></html>

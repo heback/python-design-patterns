@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """GitHub Pages용 docs/ 생성: 교재 + 학생용 탐구 학습지(+ 선택: 교사용).
 
-사용: python3 inquiry/publish.py            # 학생에게 공개해도 되는 것만
+사용: python3 inquiry/publish.py            # 교재만 (탐구 학습지는 제외)
+      python3 inquiry/publish.py --with-inquiry   # 학생용 탐구 학습지까지 포함
       python3 inquiry/publish.py --with-teacher   # 교사용(정답 포함)까지 — 공개 저장소에서는 금지
 Pages 설정: Settings → Pages → Deploy from a branch → main / docs
 """
@@ -19,10 +20,15 @@ if DOCS.exists():
     shutil.rmtree(DOCS)
 (DOCS / "inquiry").mkdir(parents=True)
 shutil.copytree(REPO / "textbook", DOCS / "textbook")          # 학생 화면의 '../textbook/…' 링크가 열리도록
-shutil.copy(ROOT / "student.html", DOCS / "inquiry" / "index.html")
+with_inquiry = "--with-inquiry" in sys.argv or "--with-teacher" in sys.argv
+if with_inquiry:
+    shutil.copy(ROOT / "student.html", DOCS / "inquiry" / "index.html")
+else:
+    shutil.rmtree(DOCS / "inquiry")
 (DOCS / ".nojekyll").write_text("")
 with_teacher = "--with-teacher" in sys.argv
 if with_teacher:
+    (DOCS / "inquiry").mkdir(exist_ok=True)
     shutil.copy(ROOT / "teacher.html", DOCS / "inquiry" / "teacher.html")
 
 sys.path.insert(0, str(ROOT))
@@ -52,6 +58,18 @@ for stem, title, sub, part in chapters():
     groups[part].append(f'<li><a href="textbook/{stem}.html" target="_blank" rel="noopener"><b>{title}</b></a><small>{sub}</small></li>')
 toc = "\n".join(f'<section><h3>{p}</h3><ul>{"".join(groups[p])}</ul></section>' for p in order)
 
+inquiry_block = f'''<h2>탐구 학습지 · 5주 과정</h2>
+<p class="lead">주차를 누르면 해당 주차 학습지로 바로 들어갑니다.</p>
+<div class="grid">{week_cards}</div>
+<h3 style="margin-top:22px">학습지 사용 방법</h3>
+<ol class="steps">
+<li>학습지를 열고 학번·성명을 입력한 뒤 풀이합니다.</li>
+<li>쓰는 동안 이 브라우저에 임시 저장됩니다. 수업이 끝나면 <b>💾 저장</b>으로 JSON 파일을 내려받습니다.</li>
+<li>JSON 파일을 선생님이 정한 방법으로 제출합니다.</li>
+<li>다음 시간에는 <b>📂 불러오기</b>로 파일을 열어 이어서 풀고, 선생님 코멘트 파일도 같은 방법으로 봅니다.</li></ol>''' if with_inquiry else ""
+cta_inquiry = '<a class="btn" href="inquiry/">🔍 탐구 학습지</a>' if with_inquiry else ""
+footer_note = " 답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다." if with_inquiry else ""
+
 (DOCS / "index.html").write_text(f'''<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>파이썬 디자인 패턴</title>
 <style>
@@ -74,21 +92,12 @@ h1{{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}}h2{{font-size:20px;marg
 footer{{margin-top:48px;color:var(--m);font-size:13px}}
 </style></head><body><main>
 <h1>파이썬으로 배우는 디자인 패턴</h1>
-<p class="lead">객체지향 원리를 이미 아는 학생을 위한 교재와, 5주 개념기반 탐구 학습지입니다.</p>
-<div class="cta"><a class="btn p" href="inquiry/">🔍 탐구 학습지 시작하기</a><a class="btn" href="textbook/index.html" target="_blank" rel="noopener">📘 교재 보기</a><a class="btn" href="textbook/glossary.html" target="_blank" rel="noopener">용어집</a></div>
+<p class="lead">객체지향 원리를 이미 아는 학생을 위한 교재입니다.</p>
+<div class="cta">{cta_inquiry}<a class="btn p" href="textbook/index.html" target="_blank" rel="noopener">📘 교재 보기</a><a class="btn" href="textbook/glossary.html" target="_blank" rel="noopener">용어집</a></div>
 
-<h2>탐구 학습지 · 5주 과정</h2>
-<p class="lead">주차를 누르면 해당 주차 학습지로 바로 들어갑니다.</p>
-<div class="grid">{week_cards}</div>
-<h3 style="margin-top:22px">학습지 사용 방법</h3>
-<ol class="steps">
-<li>학습지를 열고 학번·성명을 입력한 뒤 풀이합니다.</li>
-<li>쓰는 동안 이 브라우저에 임시 저장됩니다. 수업이 끝나면 <b>💾 저장</b>으로 JSON 파일을 내려받습니다.</li>
-<li>JSON 파일을 선생님이 정한 방법으로 제출합니다.</li>
-<li>다음 시간에는 <b>📂 불러오기</b>로 파일을 열어 이어서 풀고, 선생님 코멘트 파일도 같은 방법으로 봅니다.</li></ol>
-
+{inquiry_block}
 <h2>교재 목차</h2>
 <div class="toc">{toc}</div>
-<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다. 답은 [📤 제출]을 누르기 전까지 서버로 전송되지 않고 내 브라우저와 내 JSON 파일에만 저장되며, 제출하면 선생님께 전달됩니다.</footer>
+<footer>모든 예제 코드는 저장소의 <code>src/</code> 폴더에서 직접 실행할 수 있습니다.{footer_note}</footer>
 </main></body></html>''', encoding="utf-8")
 print("docs/ 생성 완료", "(교사용 포함!)" if with_teacher else "(교사용 제외)")
