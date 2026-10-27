@@ -18,7 +18,7 @@
 - 교사 도메인은 `firestore.rules`의 `isTeacher()`, `functions/config.js`, `firebase-config.js`의 `TEACHER_DOMAIN`을 함께 바꾼다.
 
 ## 개인정보
-Gemini에는 학생의 응답 텍스트와 교사용 기준만 보내고 이름·학급은 보내지 않는다. 다만 응답 본문에 개인정보를 쓰지 않도록 학생에게 안내한다.
+Gemini에는 학생의 응답 텍스트와 교사용 기준만 보내고 학번·성명은 보내지 않는다. 다만 응답 본문에 개인정보를 쓰지 않도록 학생에게 안내한다.
 
 ## 테스트
 ```bash
