@@ -58,7 +58,7 @@ if (GATED) gate(); else boot();
 
 function persistT() { lsSet(LS_T, JSON.stringify({ students: T.students })); }
 const keyOf = d => [d.student.klass, d.student.number, d.student.name].map(x => (x || "").trim()).join("|");
-const labelOf = d => [d.student.klass, d.student.number && d.student.number + "번", d.student.name].filter(x => x && String(x).trim()).join(" ") || "(이름 없음)";
+const labelOf = d => [d.student.klass, d.student.number, d.student.name].filter(x => x && String(x).trim()).join(" ") || "(이름 없음)";
 
 async function importFiles(files) {
   let ok = 0, msgs = [];
@@ -280,11 +280,11 @@ function exportAll() {
 }
 function exportCsv() {
   const q = s => '"' + String(s).replace(/"/g, '""') + '"';
-  const lines = [["학급", "번호", "이름", ...CONTENT.weeks.map(w => w.n + "주 응답률(%)"), "선택형 정답/전체", "주차별 총평"].map(q).join(",")];
+  const lines = [["학번", "성명", ...CONTENT.weeks.map(w => w.n + "주 응답률(%)"), "선택형 정답/전체", "주차별 총평"].map(q).join(",")];
   Object.values(T.students).forEach(d => {
     let ok = 0, tot = 0;
     CONTENT.weeks.forEach(w => itemsOf(w).forEach(it => { if (["choice", "multi", "sort"].includes(it.type) && it.answer) { const c = autoCheck(it, d.answers[it.id]); if (c) { tot++; if (c.state === "ok") ok++; } } }));
-    lines.push([d.student.klass, d.student.number, d.student.name,
+    lines.push([d.student.number, d.student.name,
       ...CONTENT.weeks.map(w => { const p = weekProgress(w, d.answers); return p.total ? Math.round(100 * p.done / p.total) : 0; }),
       `${ok}/${tot}`, CONTENT.weeks.map(w => { const f = d.feedback["week-" + w.n] || {}; return f.ai ? "" : (f.comment || ""); }).join(" / ")].map(q).join(","));
   });
