@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// 탐구학습 피드백 생성기 규칙.
+//  - 학생(익명 로그인): 자기 uid가 만든 제출 문서만 쓰고, 교사가 연 주차에만 제출한다. 공개된 피드백만 읽는다.
+//  - 교사: 학교 Google 계정(아래 도메인) + (있으면) config/teachers 허용 목록. 도메인을 바꾸면 functions/config.js도 함께 바꾼다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isTeacher() {
+      return request.auth != null
+        && 'email' in request.auth.token
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email.matches('.+@ts[.]hs[.]kr')
+        && (!exists(/databases/$(database)/documents/config/teachers)
+            || get(/databases/$(database)/documents/config/teachers).data.get('emails', []).size() == 0
+            || request.auth.token.email in get(/databases/$(database)/documents/config/teachers).data.emails);
+    }
+
+    // 제출 설정. 문서가 없으면 닫힘.
+    function settings() { return get(/databases/$(database)/documents/config/submission).data; }
+    function hasSettings() { return exists(/databases/$(database)/documents/config/submission); }
+    function inWindow(s) {
+      return (!('opensAt' in s) || request.time >= s.opensAt)
+          && (!('closesAt' in s) || request.time < s.closesAt);
+    }
+    function anyOpen() { return hasSettings() && settings().open == true && inWindow(settings()); }
+    function weekOpen(w) {
+      return anyOpen() && settings().weeks.get(w, false) == true;
+    }
+    function codeOk(d) {
+      return !exists(/databases/$(database)/documents/config/submissionSecret)
+        || get(/databases/$(database)/documents/config/submissionSecret).data.get('code', '') == ''
+        || ('code' in d && d.code == get(/databases/$(database)/documents/config/submissionSecret).data.code);
+    }
+
+    function isOwner(sid) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/submissions/$(sid)).data.uid == request.auth.uid;
+    }
+
+    // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.
+    match /config/submission { allow read: if true; allow write: if isTeacher(); }
+    match /config/submissionSecret { allow read, write: if isTeacher(); }
+    match /config/teachers { allow read, write: if isTeacher(); }
+
+    match /submissions/{sid} {
+      allow get: if isTeacher() || (request.auth != null && resource.data.uid == request.auth.uid);
+      allow list, delete: if isTeacher();
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid
+                    && anyOpen() && codeOk(request.resource.data)
+                    && request.resource.data.keys().hasOnly(['student', 'uid', 'code', 'updatedAt']);
+      allow update: if (isTeacher())
+                    || (request.auth != null && resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == resource.data.uid
+                        && anyOpen() && codeOk(request.resource.data)
+                        && request.resource.data.keys().hasOnly(['student', 'uid', 'code', 'updatedAt']));
+
+      // 주차별 응답: 열린 주차에만 본인이 쓴다.
+      match /weeks/{w} {
+        allow read: if isTeacher() || (request.auth != null && isOwner(sid));
+        allow create, update: if request.auth != null && isOwner(sid)
+                              && w in ['1', '2', '3', '4', '5'] && weekOpen(w)
+                              && codeOk(request.resource.data)
+                              && request.resource.data.keys().hasOnly(['json', 'code', 'updatedAt'])
+                              && request.resource.data.json is string
+                              && request.resource.size() < 400000;
+        allow delete: if isTeacher();
+      }
+
+      // AI 초안: 교사만.
+      match /drafts/{k} { allow read, write: if isTeacher(); }
+
+      // 공개 피드백: 교사가 쓰고 소유 학생이 읽는다.
+      match /published/{k} {
+        allow read: if isTeacher() || (request.auth != null && isOwner(sid));
+        allow write: if isTeacher();
+      }
+    }
+  }
+}

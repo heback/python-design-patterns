@@ -6,6 +6,7 @@
 """
 import copy
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -17,6 +18,8 @@ from course import COURSE
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
 TEACHER_ONLY_ITEM = {"answer", "note"}
+FB_DIR = ROOT.parent / "firebase"
+FB_CONFIG = ROOT / "firebase-config.js"      # 있을 때만 Firebase 기능을 넣는다(없으면 기존 JSON 방식 그대로)
 PYRUN = ROOT.parent / ".claude" / "skills" / "html-textbook-publishing" / "assets"   # 교재와 공용인 파이썬 실행기
 TEACHER_ONLY_STAGE = {"tnote"}
 TEACHER_ONLY_WEEK = {"teacher", "target"}
@@ -62,7 +65,7 @@ def validate():
     return errs
 
 
-def strip(weeks):
+def strip(weeks, keep_code_answer=True):
     out = copy.deepcopy(weeks)
     for w in out:
         for k in TEACHER_ONLY_WEEK:
@@ -72,7 +75,7 @@ def strip(weeks):
                 st.pop(k, None)
             for it in st["items"]:
                 for k in TEACHER_ONLY_ITEM:
-                    if k == "answer" and it["type"] == "code":
+                    if k == "answer" and it["type"] == "code" and keep_code_answer:
                         continue        # 코드 문항의 정답은 학생에게 '예시 코드' 팝업으로 보여 준다
                     it.pop(k, None)
     return out
@@ -83,6 +86,13 @@ def js(obj):
     return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
 
 
+def fb_snippet():
+    """firebase-config.js + fb.js. 설정 파일이 없으면 빈 문자열."""
+    if not FB_CONFIG.exists():
+        return ""
+    return FB_CONFIG.read_text(encoding="utf-8") + "\n" + (ROOT / "templates" / "fb.js").read_text(encoding="utf-8")
+
+
 def render(tpl_name, content_js, app_js):
     t = ROOT / "templates"
     page = (t / tpl_name).read_text(encoding="utf-8")
@@ -90,6 +100,7 @@ def render(tpl_name, content_js, app_js):
                 .replace("/*@PYRUN_CSS@*/", (PYRUN / "pyrun.css").read_text(encoding="utf-8"))
                 .replace("/*@PYHL@*/", (PYRUN / "pyhl.js").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
+                .replace("/*@FB@*/", fb_snippet())
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
                 .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))
@@ -148,12 +159,28 @@ def main():
     if errs:
         print("콘텐츠 오류:\n  " + "\n  ".join(errs))
         sys.exit(1)
+    gated = FB_CONFIG.exists()
     student = render("student.html.tpl", "const CONTENT = " + js({"weeks": strip(WEEKS)}) + ";", "student.js")
-    teacher = render("teacher.html.tpl", "const CONTENT = " + js({"weeks": WEEKS}) + ";\nconst COURSE = " + js(COURSE) + ";", "teacher.js")
+    if gated:
+        # 로그인 게이트 모드: 호스팅되는 파일에는 정답·교사 메모·운영 안내를 넣지 않는다. 로그인 후 getTeacherContent()가 내려준다.
+        teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False)}) + ";\nlet COURSE = null;\nconst GATED = true;", "teacher.js")
+        (FB_DIR / "public").mkdir(parents=True, exist_ok=True)
+        (FB_DIR / "public" / "index.html").write_text(teacher, encoding="utf-8")
+        # 학생용도 같은 사이트의 /inquiry/ 에 둔다(교재 링크 ../textbook/ 가 열리도록 textbook도 복사). 교재가 빌드돼 있을 때만.
+        (FB_DIR / "public" / "inquiry").mkdir(parents=True, exist_ok=True)
+        (FB_DIR / "public" / "inquiry" / "index.html").write_text(student, encoding="utf-8")
+        if (ROOT.parent / "textbook").exists():
+            shutil.rmtree(FB_DIR / "public" / "textbook", ignore_errors=True)
+            shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
+    else:
+        teacher = render("teacher.html.tpl", "const CONTENT = " + js({"weeks": WEEKS}) + ";\nconst COURSE = " + js(COURSE) + ";\nconst GATED = false;", "teacher.js")
+    (FB_DIR / "functions").mkdir(parents=True, exist_ok=True)
+    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "course": COURSE}, ensure_ascii=False), encoding="utf-8")
     (ROOT / "student.html").write_text(student, encoding="utf-8")
     (ROOT / "teacher.html").write_text(teacher, encoding="utf-8")
     make_samples()
     n_items = sum(1 for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] != "info")
+    print(f"Firebase: {'켜짐(교사 화면 로그인 게이트)' if gated else '꺼짐(firebase-config.js 없음)'}")
     print(f"완료: student.html({len(student)//1024}KB), teacher.html({len(teacher)//1024}KB) · 주차 {len(WEEKS)} · 응답 문항 {n_items}")
 
 

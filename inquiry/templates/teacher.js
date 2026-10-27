@@ -13,7 +13,9 @@ const PHRASES = [
 ];
 const itemsOf = w => w.stages.flatMap(s => s.items).filter(ANSWERABLE);
 
-(function boot() {
+let booted = false;
+function boot() {
+  if (booted) return; booted = true;
   const raw = lsGet(LS_T);
   if (raw) { try { const d = JSON.parse(raw); if (d && d.students) T.students = d.students; } catch (e) {} }
   T.student = Object.keys(T.students)[0] || null;
@@ -23,8 +25,36 @@ const itemsOf = w => w.stages.flatMap(s => s.items).filter(ANSWERABLE);
   $("#btn-print").addEventListener("click", () => print());
   $("#btn-clear").addEventListener("click", () => { if (confirm("불러온 모든 학생 데이터와 작성 중인 코멘트를 이 브라우저에서 지웁니다. 코멘트 파일을 내보냈는지 확인하셨나요?")) { T.students = {}; T.student = null; persistT(); render(); } });
   bindDrop(importFiles);
+  if (typeof FB !== "undefined") { $("#btn-sync").hidden = false; $("#btn-sync").addEventListener("click", syncFromServer); }
   render();
-})();
+}
+
+/* ---- 로그인 게이트: 학교 Google 계정으로 로그인하고 서버(getTeacherContent)가 교사로 확인해 줘야 화면이 열린다 ---- */
+function gate() {
+  const g = $("#gate"), app = $("#app"), msg = $("#gate-msg"), btn = $("#btn-google");
+  app.hidden = true; g.hidden = false; initTheme();
+  btn.addEventListener("click", async () => {
+    msg.textContent = "";
+    try { await FB.signIn(); } catch (e) { if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") msg.textContent = FB.fbErr(e); }
+  });
+  FB.onAuth(async user => {
+    if (!user || user.isAnonymous) { app.hidden = true; g.hidden = false; btn.hidden = false; return; }
+    btn.hidden = true; msg.textContent = "권한 확인 중…";
+    try {
+      const r = await FB.teacherContent();
+      CONTENT = { weeks: r.weeks }; COURSE = r.course;
+      msg.textContent = ""; g.hidden = true; app.hidden = false;
+      $("#who").hidden = false; $("#who").textContent = user.email; $("#btn-logout").hidden = false;
+      $("#btn-logout").onclick = async () => { await FB.signOut(); location.reload(); };
+      boot();
+    } catch (e) {
+      await FB.signOut();
+      msg.textContent = /permission/i.test(e.code + e.message) ? `학교 계정(@${FB.domain})의 교사 계정으로 로그인해 주세요. (${user.email} 은(는) 권한이 없습니다)` : "오류: " + FB.fbErr(e);
+      btn.hidden = false;
+    }
+  });
+}
+if (GATED) gate(); else boot();
 
 function persistT() { lsSet(LS_T, JSON.stringify({ students: T.students })); }
 const keyOf = d => [d.student.klass, d.student.number, d.student.name].map(x => (x || "").trim()).join("|");
@@ -49,10 +79,10 @@ async function importFiles(files) {
 
 function render() {
   const nav = $("#views"); nav.replaceChildren(
-    ...[["guide", "📘 수업 가이드·예시 정답"], ["review", `🧑‍🎓 학생 응답·코멘트 (${Object.keys(T.students).length})`]].map(([k, l]) =>
+    ...[["guide", "📘 수업 가이드·예시 정답"], ["review", `🧑‍🎓 학생 응답·코멘트 (${Object.keys(T.students).length})`]].concat(typeof FB !== "undefined" ? [["submit", "📮 제출 관리"]] : []).map(([k, l]) =>
       el("button", { class: "tab", role: "tab", "aria-selected": String(T.view === k), onclick: () => { T.view = k; render(); scrollTo(0, 0); } }, el("b", {}, l))));
   const main = $("#main"); main.replaceChildren();
-  (T.view === "guide" ? renderGuide : renderReview)(main);
+  (T.view === "guide" ? renderGuide : T.view === "submit" ? renderSubmit : renderReview)(main);
 }
 
 /* ===================== 수업 가이드 ===================== */
@@ -139,17 +169,25 @@ function fbBox(d, id, label) {
   const f = d.feedback[id] || {};
   const wrap = el("div", { class: "fb no-print-border" });
   const marks = el("div", { style: "display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px" }, el("b", {}, label || "교사 코멘트"));
-  const ta = taInput(f.comment || "", v => { const x = fbOf(d, id); x.comment = v; x.at = new Date().toISOString(); persistT(); }, { rows: 2, placeholder: "학생에게 보낼 코멘트…" });
+  const badge = el("span", {});
+  const syncBadge = () => {
+    const x = d.feedback[id] || {}; badge.replaceChildren();
+    if (x.ai) { badge.className = "ai-badge"; badge.append("AI 초안 · 미검수 "); badge.append(el("button", { class: "btn small", type: "button", onclick: () => { x.ai = false; x.at = new Date().toISOString(); persistT(); syncBadge(); } }, "✔ 이대로 검수 확인")); }
+    else if (x.published) { badge.className = "ai-badge done"; badge.textContent = "공개됨"; }
+    else badge.className = "";
+  };
+  const edited = x => { x.ai = false; x.published = false; x.at = new Date().toISOString(); };   // 손댄 항목은 검수 완료, 다시 공개해야 학생에게 보인다
+  const ta = taInput(f.comment || "", v => { const x = fbOf(d, id); x.comment = v; edited(x); persistT(); syncBadge(); }, { rows: 2, placeholder: "학생에게 보낼 코멘트…" });
   [3, 2, 1].forEach(m => {
     const b = el("button", { class: "btn small" + ((f.mark === m) ? " primary" : ""), type: "button", onclick: () => {
-      const x = fbOf(d, id); x.mark = x.mark === m ? null : m; x.at = new Date().toISOString(); persistT();
+      const x = fbOf(d, id); x.mark = x.mark === m ? null : m; edited(x); persistT(); syncBadge();
       $$("button[data-m]", marks).forEach(bb => bb.classList.toggle("primary", Number(bb.dataset.m) === x.mark));
     }, "data-m": m }, MARKS[m][0] + " " + MARKS[m][1]);
     marks.append(b);
   });
   const sel = el("select", { style: "width:auto;max-width:260px;font-size:13px;padding:2px 6px", onchange: e => { if (!e.target.value) return; ta.value = (ta.value ? ta.value + "\n" : "") + e.target.value; ta.dispatchEvent(new Event("input")); e.target.value = ""; } },
     el("option", { value: "" }, "＋ 자주 쓰는 코멘트"), PHRASES.map(p => el("option", { value: p }, p.length > 30 ? p.slice(0, 30) + "…" : p)));
-  marks.append(sel);
+  marks.append(sel, badge); syncBadge();
   wrap.append(marks, ta); return wrap;
 }
 function answerBlock(it, d) {
@@ -172,10 +210,13 @@ function reviewByStudent(main) {
       Object.entries(T.students).map(([k, s]) => { const o = el("option", { value: k }, labelOf(s)); if (k === T.student) o.selected = true; return o; })),
     el("span", { class: "lead" }, "저장 시각 " + (d.saved ? stamp(new Date(d.saved)) : "—")),
     el("span", { class: "grow", style: "flex:1" }),
+    typeof FB !== "undefined" && el("button", { class: "btn", id: "btn-ai", onclick: e => genDraft(d, w, e.target) }, `🤖 ${w.n}주차 AI 초안`),
+    typeof FB !== "undefined" && el("button", { class: "btn", onclick: e => publishOne(d, e.target) }, "🌐 검수한 코멘트 공개"),
     el("button", { class: "btn primary", onclick: () => exportStudent(d) }, "💾 이 학생 코멘트 파일 내보내기"),
     el("button", { class: "btn", onclick: exportAll }, "전체 내보내기"),
     el("button", { class: "btn", onclick: exportCsv }, "요약 CSV"),
-    el("button", { class: "btn ghost danger", onclick: () => { if (confirm(labelOf(d) + " 학생 데이터를 목록에서 제거할까요?")) { delete T.students[T.student]; T.student = null; persistT(); render(); } } }, "제거"));
+    el("button", { class: "btn ghost danger", onclick: () => { if (confirm(labelOf(d) + " 학생 데이터를 목록에서 제거할까요?")) { delete T.students[T.student]; T.student = null; persistT(); render(); } } }, "제거"),
+    typeof FB !== "undefined" && el("button", { class: "btn ghost danger", title: "서버에 올라간 이 학생의 제출·초안·공개본을 지웁니다(다른 기기에서 다시 제출해야 할 때)", onclick: () => removeRemote(d) }, "서버 제출 삭제"));
   main.append(side);
   const p = weekProgress(w, d.answers);
   main.append(el("p", { class: "lead" }, `${w.n}주차 응답 ${p.done}/${p.total}`));
@@ -215,7 +256,7 @@ function reviewMatrix(main) {
   const rows = Object.entries(T.students).map(([k, d]) => {
     let ok = 0, tot = 0;
     CONTENT.weeks.forEach(w => itemsOf(w).forEach(it => { if (["choice", "multi", "sort"].includes(it.type) && it.answer) { const c = autoCheck(it, d.answers[it.id]); if (c) { tot++; if (c.state === "ok") ok++; } } }));
-    const n = Object.values(d.feedback).filter(f => f && (f.comment || f.mark)).length;
+    const n = Object.values(d.feedback).filter(f => f && !f.ai && (f.comment || f.mark)).length;
     return el("tr", {}, el("th", { style: "cursor:pointer", onclick: () => { T.student = k; T.mode = "by-student"; render(); } }, labelOf(d)),
       CONTENT.weeks.map(w => { const p = weekProgress(w, d.answers), pct = p.total ? Math.round(100 * p.done / p.total) : 0;
         return el("td", { style: `background:linear-gradient(90deg,var(--ok-soft) ${pct}%,transparent ${pct}%)` }, `${p.done}/${p.total}`); }),
@@ -227,7 +268,8 @@ function reviewMatrix(main) {
 
 /* ---------- 내보내기 ---------- */
 function exportStudent(d) {
-  const out = Object.assign({}, d, { teacherSaved: new Date().toISOString() });
+  const fb = Object.fromEntries(Object.entries(d.feedback).filter(([, f]) => f && !f.ai));    // 미검수 AI 초안은 내보내지 않는다
+  const out = Object.assign({}, d, { feedback: fb, teacherSaved: new Date().toISOString() });
   const name = [d.student.klass, d.student.number, d.student.name].map(safeName).filter(Boolean).join("_") + "_코멘트.json";
   download(name, JSON.stringify(out, null, 2)); toast("내보냈습니다: " + name);
 }
@@ -244,7 +286,7 @@ function exportCsv() {
     CONTENT.weeks.forEach(w => itemsOf(w).forEach(it => { if (["choice", "multi", "sort"].includes(it.type) && it.answer) { const c = autoCheck(it, d.answers[it.id]); if (c) { tot++; if (c.state === "ok") ok++; } } }));
     lines.push([d.student.klass, d.student.number, d.student.name,
       ...CONTENT.weeks.map(w => { const p = weekProgress(w, d.answers); return p.total ? Math.round(100 * p.done / p.total) : 0; }),
-      `${ok}/${tot}`, CONTENT.weeks.map(w => ((d.feedback["week-" + w.n] || {}).comment || "")).join(" / ")].map(q).join(","));
+      `${ok}/${tot}`, CONTENT.weeks.map(w => { const f = d.feedback["week-" + w.n] || {}; return f.ai ? "" : (f.comment || ""); }).join(" / ")].map(q).join(","));
   });
   download("탐구학습_현황.csv", "﻿" + lines.join("\n"), "text/csv"); toast("CSV를 내보냈습니다");
 }
@@ -259,4 +301,92 @@ function loadDemo() {
     else if (typeof a === "string") d.answers[it.id] = "(체험용) " + a.split(/(?<=[.다요])\s/)[0];
   }
   T.students[keyOf(d)] = d; T.student = keyOf(d); T.view = "review"; persistT(); render();
+}
+
+/* ===================== Firebase: 제출 불러오기·AI 초안·공개·제출 설정 ===================== */
+const errText = e => FB.fbErr(e).replace(/^.*?: /, "");
+
+async function syncFromServer() {
+  const b = $("#btn-sync"); b.disabled = true; b.textContent = "불러오는 중…";
+  try {
+    const list = await FB.listSubmissions(); let n = 0;
+    for (const d of list) {
+      if (!d.student.name) continue;
+      const k = keyOf(d), old = T.students[k];
+      if (old) d.feedback = Object.assign({}, d.feedback, Object.fromEntries(Object.entries(old.feedback).filter(([, f]) => f && !f.ai)));   // 내가 검수·수정한 코멘트가 우선
+      T.students[k] = d; T.student = T.student || k; n++;
+    }
+    persistT(); T.view = "review"; render(); toast(`서버에서 ${n}명의 제출을 불러왔습니다`);
+  } catch (e) { alert("불러오지 못했습니다: " + errText(e)); }
+  b.disabled = false; b.textContent = "☁ 제출 불러오기";
+}
+
+async function genDraft(d, w, btn) {
+  btn.disabled = true; const t0 = btn.textContent; btn.textContent = "생성 중… (최대 1분)";
+  try {
+    const r = await FB.generate(FB.sid(d.student), w.n); let n = 0;
+    for (const [k, draft] of Object.entries(r.drafts)) {
+      const cur = d.feedback[k];
+      if (cur && !cur.ai && (cur.comment || cur.mark)) continue;        // 이미 직접 쓴 코멘트는 덮어쓰지 않는다
+      d.feedback[k] = Object.assign({}, draft, { ai: true }); n++;
+    }
+    persistT(); render(); toast(`AI 초안 ${n}개를 만들었습니다. 검수한 뒤 공개하세요`);
+  } catch (e) { alert("AI 초안을 만들지 못했습니다: " + errText(e)); btn.disabled = false; btn.textContent = t0; }
+}
+
+async function publishOne(d, btn) {
+  const pending = Object.values(d.feedback).filter(f => f && f.ai).length;
+  if (pending && !confirm(`미검수 AI 초안 ${pending}개는 공개되지 않습니다. 검수한 코멘트만 공개할까요?`)) return;
+  btn.disabled = true;
+  try {
+    const n = await FB.publish(d.student, d.feedback);
+    Object.values(d.feedback).forEach(f => { if (f && !f.ai && (f.comment || f.mark)) f.published = true; });
+    persistT(); render(); toast(`${labelOf(d)}: ${n}개를 학생에게 공개했습니다`);
+  } catch (e) { alert("공개하지 못했습니다: " + errText(e)); btn.disabled = false; }
+}
+
+async function removeRemote(d) {
+  if (!confirm(`${labelOf(d)} 학생의 서버 제출·초안·공개본을 모두 삭제합니다. (이 브라우저의 불러온 데이터는 그대로입니다) 계속할까요?`)) return;
+  try { await FB.removeSubmission(d.student); toast("서버 제출을 삭제했습니다"); } catch (e) { alert("삭제하지 못했습니다: " + errText(e)); }
+}
+
+const toLocal = ms => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16); };
+async function renderSubmit(main) {
+  const box = el("div", { class: "panel" }, el("p", { class: "lead" }, "설정을 불러오는 중…")); main.append(box);
+  let cur; try { cur = await FB.loadSettings(); } catch (e) { box.replaceChildren(el("p", { class: "lead" }, "설정을 불러오지 못했습니다: " + errText(e))); return; }
+  if (T.view !== "submit") return;
+  const s = cur.settings, wk = Object.assign({}, s.weeks || {});
+  const ms = x => x && x.toMillis ? x.toMillis() : null;
+  const open = el("input", { type: "checkbox", ...(s.open ? { checked: "" } : {}) });
+  const from = el("input", { type: "datetime-local", value: ms(s.opensAt) ? toLocal(ms(s.opensAt)) : "" });
+  const to = el("input", { type: "datetime-local", value: ms(s.closesAt) ? toLocal(ms(s.closesAt)) : "" });
+  const code = el("input", { type: "text", value: cur.code, placeholder: "비우면 코드 없이 제출", style: "width:180px", autocomplete: "off" });
+  const toggles = el("div", { class: "wk-toggles" }, CONTENT.weeks.map(w => {
+    const c = el("input", { type: "checkbox", ...(wk[w.n] ? { checked: "" } : {}) }); c.onchange = () => { wk[w.n] = c.checked; };
+    return el("label", {}, c, `${w.n}주차 · ${w.concept}`);
+  }));
+  const status = el("p", {}); const paint = () => { status.className = open.checked ? "status-open" : "status-closed"; status.textContent = open.checked ? "● 제출 받는 중(아래에서 열어 둔 주차만)" : "● 제출 닫힘 — 학생은 제출할 수 없습니다"; }; open.onchange = paint; paint();
+  box.replaceChildren(el("h3", {}, "학생 제출 설정"),
+    el("p", { class: "lead" }, "저장 전까지 바뀌지 않습니다. 설정은 서버 규칙이 강제하므로, 닫힌 주차는 학생 화면을 우회해도 제출할 수 없습니다. 문서가 없으면 전체 닫힘입니다."),
+    el("label", { style: "display:flex;gap:8px;align-items:center;font-weight:700" }, open, "제출 받기"), status, toggles,
+    el("div", { style: "display:flex;gap:14px;flex-wrap:wrap;align-items:center" }, el("label", {}, "시작 ", from), el("label", {}, "마감 ", to),
+      el("label", {}, "제출 코드 ", code, el("button", { class: "btn small", type: "button", onclick: () => { code.value = String(Math.floor(1000 + Math.random() * 9000)); } }, "무작위 4자리"))),
+    el("p", {}, el("button", { class: "btn primary", onclick: async e => {
+      if (from.value && to.value && new Date(to.value) <= new Date(from.value)) { alert("마감은 시작보다 늦어야 합니다."); return; }
+      e.target.disabled = true;
+      try { await FB.saveSettings({ open: open.checked, weeks: Object.fromEntries(CONTENT.weeks.map(w => [w.n, !!wk[w.n]])), opensAt: from.value, closesAt: to.value }, code.value.trim()); toast("제출 설정을 저장했습니다"); }
+      catch (err) { alert("저장하지 못했습니다: " + errText(err)); }
+      e.target.disabled = false;
+    } }, "💾 설정 저장")));
+  main.append(el("div", { class: "panel" }, el("h3", {}, "제출 현황"), el("p", { class: "lead" }, "[☁ 제출 불러오기]로 서버의 응답을 가져온 뒤 학생별 화면에서 AI 초안을 만들고, 검수한 코멘트를 공개하세요."),
+    el("button", { class: "btn", onclick: syncFromServer }, "☁ 제출 불러오기"),
+    typeof FB !== "undefined" && Object.keys(T.students).length > 1 && el("button", { class: "btn", style: "margin-left:8px", onclick: publishAll }, "🌐 모든 학생의 검수한 코멘트 공개")));
+}
+async function publishAll(e) {
+  const list = Object.values(T.students);
+  if (!confirm(`${list.length}명의 검수한 코멘트를 학생에게 공개합니다. 미검수 AI 초안은 제외됩니다. 계속할까요?`)) return;
+  e.target.disabled = true; let n = 0;
+  try { for (const d of list) { n += await FB.publish(d.student, d.feedback); Object.values(d.feedback).forEach(f => { if (f && !f.ai && (f.comment || f.mark)) f.published = true; }); } persistT(); toast(`${n}개 코멘트를 공개했습니다`); }
+  catch (err) { alert("공개 중 오류: " + errText(err)); }
+  e.target.disabled = false;
 }

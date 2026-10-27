@@ -216,3 +216,15 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .recall .val { margin: 4px 0 0; white-space: pre-wrap; }
 .recall .rl { color: var(--accent); font-weight: 600; }
 .opt-tag { display: inline-block; border: 1px solid var(--muted); color: var(--muted); border-radius: 10px; padding: 0 7px; font-size: 12px; margin-right: 6px; font-weight: 400; }
+
+/* ---- Firebase 제출·교사 로그인·AI 초안 ---- */
+[hidden] { display: none !important; }
+.gate { max-width: 420px; margin: 18vh auto; text-align: center; padding: 0 16px; }
+.gate .err { color: var(--bad); margin-top: 12px; }
+.ai-badge { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12px; font-weight: 700; background: var(--warn-soft); color: var(--warn); }
+.ai-badge.done { background: var(--ok-soft); color: var(--ok); }
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.panel h3 { margin: 0 0 8px; }
+.wk-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.wk-toggles label { display: flex; gap: 6px; align-items: center; }
+.status-open { color: var(--ok); font-weight: 700; } .status-closed { color: var(--bad); font-weight: 700; }

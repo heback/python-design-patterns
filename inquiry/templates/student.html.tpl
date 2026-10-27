@@ -17,6 +17,9 @@
   <span class="savestate" id="savestate"></span>
   <button class="btn primary" id="btn-save" title="내 답을 JSON 파일로 내려받기">💾 저장</button>
   <button class="btn" id="btn-load" title="저장해 둔 JSON 파일(또는 선생님 코멘트가 담긴 파일) 불러오기">📂 불러오기</button>
+  <input class="id" id="f-code" placeholder="제출 코드" aria-label="제출 코드" autocomplete="off" hidden>
+  <button class="btn primary" id="btn-submit" hidden title="이번 주차 응답을 선생님께 제출">📤 제출</button>
+  <button class="btn" id="btn-getfb" hidden title="선생님이 공개한 코멘트 가져오기">📥 코멘트 확인</button>
   <button class="btn ghost" id="btn-print">🖨</button>
   <button class="btn ghost danger" id="btn-reset">초기화</button>
   <button class="btn ghost theme-toggle" title="밝게/어둡게">◐</button>
@@ -29,6 +32,7 @@
 </main>
 <script>/*@PYHL@*/</script>
 <script>/*@PYRUN@*/</script>
+<script>/*@FB@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>
 <script>/*@APP@*/</script>

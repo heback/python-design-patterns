@@ -1,0 +1,10 @@
+node_modules/
+.firebaserc
+*.log
+.firebase/
+public/index.html
+functions/teacher-content.json
+functions/.secret.local
+public/inquiry/
+public/textbook/
+firebase/.omc/

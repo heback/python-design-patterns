@@ -13,6 +13,7 @@ let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
   bindTop();
   render();
   bindDrop(files => importFile(files[0]));
+  initFb();
   addEventListener("beforeunload", e => { if (dirty && hasAnswers()) { e.preventDefault(); e.returnValue = ""; } });
 })();
 
@@ -68,6 +69,49 @@ async function importFile(file) {
   } catch (e) { alert(e.message); }
 }
 
+/* ---------- 제출(Firebase) ---------- */
+let SET;   // 제출 설정: undefined=확인 중/불러오기 실패, null=설정 없음(닫힘), 객체=교사 설정
+function initFb() {
+  if (typeof FB === "undefined") return;
+  ["#btn-submit", "#btn-getfb"].forEach(q => { $(q).hidden = false; });
+  $("#btn-submit").addEventListener("click", submitCurrent);
+  $("#btn-getfb").addEventListener("click", getFeedback);
+  FB.watchSettings(s => { SET = s; updateSubmitUi(); }).catch(() => { SET = undefined; updateSubmitUi(); });
+}
+function weekStatus(n) {
+  if (SET === undefined) return { ok: false, msg: "제출 설정을 확인하는 중이에요(인터넷 연결 확인). 파일 저장은 언제든 할 수 있어요." };
+  if (!SET || !SET.open || !(SET.weeks || {})[n]) return { ok: false, msg: `${n}주차는 지금 제출할 수 없어요. 선생님이 열어 주면 제출할 수 있어요. (JSON 저장은 가능)` };
+  const now = Date.now(), t = x => x && x.toMillis ? x.toMillis() : null;
+  if (t(SET.opensAt) && now < t(SET.opensAt)) return { ok: false, msg: `${n}주차 제출은 ${stamp(new Date(t(SET.opensAt)))}부터예요.` };
+  if (t(SET.closesAt) && now >= t(SET.closesAt)) return { ok: false, msg: `${n}주차 제출이 ${stamp(new Date(t(SET.closesAt)))}에 마감됐어요.` };
+  return { ok: true, msg: `${n}주차 제출이 열려 있어요` + (t(SET.closesAt) ? ` · 마감 ${stamp(new Date(t(SET.closesAt)))}` : "") + ". 마감 전에는 다시 제출해 덮어쓸 수 있어요." };
+}
+function updateSubmitUi() {
+  if (typeof FB === "undefined") return;
+  const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
+  $("#btn-submit").disabled = !st.ok; $("#btn-submit").title = st.msg;
+  $("#f-code").hidden = !(SET && SET.hasCode);
+  const note = $("#submit-note"); if (note) { note.textContent = st.msg; note.style.opacity = st.ok ? "1" : ".8"; }
+}
+const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 이름으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
+async function submitCurrent() {
+  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
+  if (!st.ok) { toast(st.msg); return; }
+  if (SET.hasCode && !$("#f-code").value.trim()) { toast("선생님이 알려 준 제출 코드를 입력해 주세요"); $("#f-code").focus(); return; }
+  if (!confirm(`${n}주차 응답을 선생님께 제출할까요? 마감 전에는 다시 제출할 수 있어요.`)) return;
+  try { const c = await FB.submitWeek(S, n, $("#f-code").value.trim()); toast(`${n}주차 제출 완료 (응답 ${c}개)`); }
+  catch (e) { alert(fbMsg(e)); }
+}
+async function getFeedback() {
+  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  try {
+    const fb = await FB.fetchPublished(S.student);
+    if (!Object.keys(fb).length) { toast("아직 공개된 코멘트가 없어요"); return; }
+    S.feedback = Object.assign({}, S.feedback, fb); persist(); render(); toast("선생님 코멘트를 가져왔어요");
+  } catch (e) { alert(/permission|denied/i.test(e.code + e.message) ? "이 브라우저에서 제출한 기록이 없어요. 제출한 같은 기기·브라우저에서 눌러 주세요(다른 기기는 선생님이 보낸 코멘트 파일을 [불러오기])." : "오류: " + FB.fbErr(e)); }
+}
+
 /* ---------- 화면 ---------- */
 function render() {
   $("#f-name").value = S.student.name; $("#f-num").value = S.student.number; $("#f-class").value = S.student.klass;
@@ -93,6 +137,7 @@ function refreshProgress() {
 function renderWeek() {
   const w = CONTENT.weeks[curWeek], main = $("#week"); main.replaceChildren();
   const hasFb = Object.values(S.feedback || {}).some(f => f && (f.comment || f.mark));
+  if (typeof FB !== "undefined") main.append(el("div", { class: "banner", id: "submit-note" }));
   if (hasFb) main.append(el("div", { class: "banner" }, el("b", {}, "선생님 코멘트가 도착했어요. "), "각 문항 아래 보라색 상자와 주차 마지막의 총평을 읽어 보고, 고쳐 쓴 뒤 다시 저장해서 제출하세요."));
   const fbWeek = (S.feedback || {})["week-" + w.n];
   main.append(el("section", { class: "hero" },
@@ -120,7 +165,9 @@ function renderWeek() {
   if (curWeek === CONTENT.weeks.length - 1 && ov && ov.comment) main.append(el("div", { class: "fb" }, el("b", {}, "선생님 종합 코멘트"), el("div", { class: "val" }, ov.comment)));
   main.append(el("div", { class: "no-print", style: "margin-top:24px;display:flex;gap:8px;flex-wrap:wrap" },
     el("button", { class: "btn primary", onclick: saveFile }, "💾 JSON으로 저장"),
+    typeof FB !== "undefined" && el("button", { class: "btn primary", onclick: submitCurrent }, "📤 이번 주차 제출"),
     curWeek < CONTENT.weeks.length - 1 && el("button", { class: "btn", onclick: () => { curWeek++; lsSet(LS_KEY + "-week", curWeek); renderTabs(); renderWeek(); scrollTo(0, 0); } }, "다음 주차 →")));
+  updateSubmitUi();
 }
 
 function renderItem(it, no) {
