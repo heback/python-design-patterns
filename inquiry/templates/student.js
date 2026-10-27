@@ -20,8 +20,8 @@ let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
 function hasAnswers() { return Object.keys(S.answers).length > 0; }
 
 function bindTop() {
-  const f = $("#f-name"), n = $("#f-num"), k = $("#f-class");
-  [[f, "name"], [n, "number"], [k, "klass"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
+  const f = $("#f-name"), n = $("#f-num");
+  [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
   $("#btn-save").addEventListener("click", saveFile);
   $("#btn-load").addEventListener("click", () => $("#file-in").click());
   $("#file-in").addEventListener("change", e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ""; });
@@ -50,9 +50,10 @@ function updateSaveState(lsOk) {
 }
 
 function saveFile() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   S.saved = new Date().toISOString();
-  const name = [S.student.klass, S.student.number, S.student.name].map(safeName).filter(Boolean).join("_") + "_탐구학습.json";
+  const name = [S.student.number, S.student.name].map(safeName).filter(Boolean).join("_") + "_탐구학습.json";
   download(name, JSON.stringify(S, null, 2));
   dirty = false; persist(); updateSaveState(); toast("저장했습니다: " + name);
 }
@@ -93,9 +94,10 @@ function updateSubmitUi() {
   $("#f-code").hidden = !(SET && SET.hasCode);
   const note = $("#submit-note"); if (note) { note.textContent = st.msg; note.style.opacity = st.ok ? "1" : ".8"; }
 }
-const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 이름으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
+const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 학번·성명으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
 async function submitCurrent() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
   if (!st.ok) { toast(st.msg); return; }
   if (SET.hasCode && !$("#f-code").value.trim()) { toast("선생님이 알려 준 제출 코드를 입력해 주세요"); $("#f-code").focus(); return; }
@@ -104,7 +106,8 @@ async function submitCurrent() {
   catch (e) { alert(fbMsg(e)); }
 }
 async function getFeedback() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   try {
     const fb = await FB.fetchPublished(S.student);
     if (!Object.keys(fb).length) { toast("아직 공개된 코멘트가 없어요"); return; }
@@ -114,7 +117,7 @@ async function getFeedback() {
 
 /* ---------- 화면 ---------- */
 function render() {
-  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number; $("#f-class").value = S.student.klass;
+  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number;
   renderTabs(); renderWeek(); updateSaveState();
 }
 
@@ -155,7 +158,7 @@ function renderWeek() {
   w.stages.forEach((st, si) => {
     const sec = el("section", { class: "stage", "data-s": STAGE_NO[st.key], id: `st-${w.n}-${si}` },
       el("header", {}, el("span", { class: "badge" }, `${si + 1}. ${st.title}`), el("span", { class: "min" }, `${st.en} · 약 ${st.minutes}분`)));
-    if (st.intro) sec.append(el("p", { class: "intro" }, st.intro));
+    if (st.intro) sec.append(el("p", { class: "intro", html: st.intro }));
     let no = 0;
     st.items.forEach(it => sec.append(renderItem(it, ANSWERABLE(it) ? ++no : 0)));
     main.append(sec);

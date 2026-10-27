@@ -102,7 +102,7 @@ function enhanceCode(root) {
 function renderInput(it, val, set) {
   switch (it.type) {
     case "info": return enhanceCode(el("div", { html: it.html || "" }));
-    case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: it.hint });
+    case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: (it.hint || "").replace(/<[^>]+>/g, "") });
     case "code": {
       const ed = PyRun.mountEditor({
         code: val == null ? (it.starter || "") : val, starter: it.starter || "", minRows: 8, label: "코드 작성",
@@ -168,7 +168,7 @@ function renderInput(it, val, set) {
       const wrap = el("div"), emit = () => set(rows.slice());
       const draw = () => {
         wrap.replaceChildren(...rows.map((r, i) => {
-          const x = el("input", { type: "text", placeholder: it.hint || "" }); x.value = r;
+          const x = el("input", { type: "text", placeholder: (it.hint || "").replace(/<[^>]+>/g, "") }); x.value = r;
           x.addEventListener("input", () => { rows[i] = x.value; emit(); });
           return el("div", { class: "listrow" }, el("span", { class: "n" }, i + 1 + "."), x,
             el("button", { class: "xbtn", type: "button", title: "삭제", onclick: () => { rows.splice(i, 1); if (!rows.length) rows.push(""); emit(); draw(); } }, "×"));

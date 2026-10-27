@@ -327,9 +327,8 @@ figure.code.editing > .pr { margin: 0; border: 0; border-radius: 0; }
 <body>
 <header class="topbar">
   <h1>🔍 디자인 패턴 탐구 학습지</h1>
-  <input class="id" id="f-class" placeholder="학급" aria-label="학급">
-  <input class="id sm" id="f-num" placeholder="번호" aria-label="번호">
-  <input class="id" id="f-name" placeholder="이름" aria-label="이름">
+  <input class="id" id="f-num" placeholder="학번" aria-label="학번" inputmode="numeric">
+  <input class="id" id="f-name" placeholder="성명" aria-label="성명">
   <span class="grow"></span>
   <span class="savestate" id="savestate"></span>
   <button class="btn primary" id="btn-save" title="내 답을 JSON 파일로 내려받기">💾 저장</button>
@@ -879,7 +878,7 @@ function enhanceCode(root) {
 function renderInput(it, val, set) {
   switch (it.type) {
     case "info": return enhanceCode(el("div", { html: it.html || "" }));
-    case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: it.hint });
+    case "text": return taInput(val, set, { rows: it.rows || 3, placeholder: (it.hint || "").replace(/<[^>]+>/g, "") });
     case "code": {
       const ed = PyRun.mountEditor({
         code: val == null ? (it.starter || "") : val, starter: it.starter || "", minRows: 8, label: "코드 작성",
@@ -945,7 +944,7 @@ function renderInput(it, val, set) {
       const wrap = el("div"), emit = () => set(rows.slice());
       const draw = () => {
         wrap.replaceChildren(...rows.map((r, i) => {
-          const x = el("input", { type: "text", placeholder: it.hint || "" }); x.value = r;
+          const x = el("input", { type: "text", placeholder: (it.hint || "").replace(/<[^>]+>/g, "") }); x.value = r;
           x.addEventListener("input", () => { rows[i] = x.value; emit(); });
           return el("div", { class: "listrow" }, el("span", { class: "n" }, i + 1 + "."), x,
             el("button", { class: "xbtn", type: "button", title: "삭제", onclick: () => { rows.splice(i, 1); if (!rows.length) rows.push(""); emit(); draw(); } }, "×"));
@@ -1054,8 +1053,8 @@ let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
 function hasAnswers() { return Object.keys(S.answers).length > 0; }
 
 function bindTop() {
-  const f = $("#f-name"), n = $("#f-num"), k = $("#f-class");
-  [[f, "name"], [n, "number"], [k, "klass"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
+  const f = $("#f-name"), n = $("#f-num");
+  [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
   $("#btn-save").addEventListener("click", saveFile);
   $("#btn-load").addEventListener("click", () => $("#file-in").click());
   $("#file-in").addEventListener("change", e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ""; });
@@ -1084,9 +1083,10 @@ function updateSaveState(lsOk) {
 }
 
 function saveFile() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   S.saved = new Date().toISOString();
-  const name = [S.student.klass, S.student.number, S.student.name].map(safeName).filter(Boolean).join("_") + "_탐구학습.json";
+  const name = [S.student.number, S.student.name].map(safeName).filter(Boolean).join("_") + "_탐구학습.json";
   download(name, JSON.stringify(S, null, 2));
   dirty = false; persist(); updateSaveState(); toast("저장했습니다: " + name);
 }
@@ -1127,9 +1127,10 @@ function updateSubmitUi() {
   $("#f-code").hidden = !(SET && SET.hasCode);
   const note = $("#submit-note"); if (note) { note.textContent = st.msg; note.style.opacity = st.ok ? "1" : ".8"; }
 }
-const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 이름으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
+const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 학번·성명으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
 async function submitCurrent() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
   if (!st.ok) { toast(st.msg); return; }
   if (SET.hasCode && !$("#f-code").value.trim()) { toast("선생님이 알려 준 제출 코드를 입력해 주세요"); $("#f-code").focus(); return; }
@@ -1138,7 +1139,8 @@ async function submitCurrent() {
   catch (e) { alert(fbMsg(e)); }
 }
 async function getFeedback() {
-  if (!S.student.name.trim()) { toast("먼저 이름을 입력해 주세요"); $("#f-name").focus(); return; }
+  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
+  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
   try {
     const fb = await FB.fetchPublished(S.student);
     if (!Object.keys(fb).length) { toast("아직 공개된 코멘트가 없어요"); return; }
@@ -1148,7 +1150,7 @@ async function getFeedback() {
 
 /* ---------- 화면 ---------- */
 function render() {
-  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number; $("#f-class").value = S.student.klass;
+  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number;
   renderTabs(); renderWeek(); updateSaveState();
 }
 
@@ -1189,7 +1191,7 @@ function renderWeek() {
   w.stages.forEach((st, si) => {
     const sec = el("section", { class: "stage", "data-s": STAGE_NO[st.key], id: `st-${w.n}-${si}` },
       el("header", {}, el("span", { class: "badge" }, `${si + 1}. ${st.title}`), el("span", { class: "min" }, `${st.en} · 약 ${st.minutes}분`)));
-    if (st.intro) sec.append(el("p", { class: "intro" }, st.intro));
+    if (st.intro) sec.append(el("p", { class: "intro", html: st.intro }));
     let no = 0;
     st.items.forEach(it => sec.append(renderItem(it, ANSWERABLE(it) ? ++no : 0)));
     main.append(sec);

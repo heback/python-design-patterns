@@ -10,9 +10,8 @@
 <body>
 <header class="topbar">
   <h1>🔍 디자인 패턴 탐구 학습지</h1>
-  <input class="id" id="f-class" placeholder="학급" aria-label="학급">
-  <input class="id sm" id="f-num" placeholder="번호" aria-label="번호">
-  <input class="id" id="f-name" placeholder="이름" aria-label="이름">
+  <input class="id" id="f-num" placeholder="학번" aria-label="학번" inputmode="numeric">
+  <input class="id" id="f-name" placeholder="성명" aria-label="성명">
   <span class="grow"></span>
   <span class="savestate" id="savestate"></span>
   <button class="btn primary" id="btn-save" title="내 답을 JSON 파일로 내려받기">💾 저장</button>
