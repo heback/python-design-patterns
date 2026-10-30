@@ -2,14 +2,14 @@
 """교재 빌드 스크립트: chapters/*.html + src/**.py → textbook/.
 
 상황: 집필자는 장 원고를 '본문 조각'으로 쓰고 코드는 <pre data-src="..."> 자리표시자로만
-참조한다. 이 스크립트가 공통 레이아웃(base.html)을 씌우고, 자리표시자를 실제 코드와
-실제 실행 결과로 치환한다. 그래서 원고에 적힌 코드/출력이 src/ 의 파일과 어긋날 수 없다.
+참조한다. 이 스크립트가 공통 레이아웃(base.html)을 씌우고, 자리표시자를 실제 코드로
+치환한다. 그래서 원고에 적힌 코드가 src/ 의 파일과 어긋날 수 없다. 실행 결과는 미리 싣지
+않는다. 독자가 브라우저에서 [▶ 실행]으로 직접 확인한다.
 
 사용법:
-    python3 build_textbook.py            # 전체 빌드
-    python3 build_textbook.py --no-run   # data-run 실행 생략(빠른 레이아웃 확인용)
+    python3 build_textbook.py
 
-종료 코드: 참조 누락·실행 실패·깨진 링크가 있으면 1.
+종료 코드: 참조 누락·깨진 링크가 있으면 1.
 """
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ import html
 import json
 import re
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,7 +47,6 @@ def load_terms() -> dict[str, dict]:
 
 
 TERMS = load_terms()
-run_cache: dict[str, str] = {}    # 같은 파일을 여러 장에서 실행하지 않도록 캐시
 
 
 @dataclass
@@ -108,35 +106,10 @@ def render_src(match: re.Match, chapter: Chapter) -> str:
             f'<pre><code class="language-python">{code}</code></pre></figure>')
 
 
-def render_run(match: re.Match, chapter: Chapter, do_run: bool) -> str:
-    """<pre data-run="x.py"></pre> 를 실제 실행 출력으로 바꾼다."""
-    rel = match.group("path")
-    path = SRC / rel
-    if not path.exists():
-        problems.append(f"{chapter.out_name}: data-run 대상 없음 src/{rel}")
-        return f'<div class="missing-src">⚠ 실행 파일 없음: src/{html.escape(rel)}</div>'
-    if not do_run:
-        out = "(--no-run: 실행 생략)"
-    elif rel in run_cache:
-        out = run_cache[rel]
-    else:
-        proc = subprocess.run([sys.executable, path.name], cwd=path.parent,
-                              capture_output=True, text=True, timeout=30)
-        out = proc.stdout.rstrip()
-        if proc.returncode != 0:
-            problems.append(f"{chapter.out_name}: 실행 실패 src/{rel} — {proc.stderr.strip().splitlines()[-1:]}")
-            out += "\n" + proc.stderr.rstrip()
-        run_cache[rel] = out
-    return (f'<figure class="output"><figcaption>$ python3 {html.escape(Path(rel).name)}</figcaption>'
-            f'<pre><code>{html.escape(out)}</code></pre></figure>')
-
-
-def process_body(ch: Chapter, do_run: bool) -> tuple[str, str]:
+def process_body(ch: Chapter) -> tuple[str, str]:
     """본문 자리표시자 치환, SVG 마커 주입, 장 내부 목차 생성. (본문, 목차 HTML)을 돌려준다."""
     body = re.sub(r'<pre\s+data-src="(?P<path>[^"]+)"(?:\s+data-lines="(?P<lines>\d+-\d+)")?\s*>\s*</pre>',
                   lambda m: render_src(m, ch), ch.body)
-    body = re.sub(r'<pre\s+data-run="(?P<path>[^"]+)"\s*>\s*</pre>',
-                  lambda m: render_run(m, ch, do_run), body)
     # 원고에 직접 쓴 표는 좁은 화면에서 가로 스크롤되도록 감싼다.
     body = re.sub(r"(<table\b.*?</table>)", r'<div class="table-wrap">\1</div>', body, flags=re.S)
     body = re.sub(r"(<svg\b[^>]*>)", lambda m: m.group(1) + SVG_DEFS, body)
@@ -188,7 +161,7 @@ def chapter_label(ch: Chapter) -> str:
     return {"00": "서론", "99": "종합"}.get(ch.nn, f"{int(ch.nn)}장")
 
 
-def build(do_run: bool) -> int:
+def build() -> int:
     """전체 빌드를 수행하고 종료 코드를 돌려준다."""
     template = (SKILL / "assets" / "base.html").read_text(encoding="utf-8")
     chapters = load_chapters()
@@ -199,7 +172,7 @@ def build(do_run: bool) -> int:
         shutil.copy(SKILL / "assets" / asset, OUT / "assets" / asset)
 
     for i, ch in enumerate(chapters):
-        body, toc = process_body(ch, do_run)
+        body, toc = process_body(ch)
         prev_ch = chapters[i - 1] if i > 0 else None
         next_ch = chapters[i + 1] if i + 1 < len(chapters) else None
         pager = '<nav class="pager">'
@@ -269,4 +242,4 @@ def build(do_run: bool) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(build(do_run="--no-run" not in sys.argv))
+    sys.exit(build())

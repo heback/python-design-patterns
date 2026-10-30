@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구조의 핵심 (여러 파일을 봐야 알 수 있는 것)
 
-- **원고와 코드는 분리되어 있고 빌드 때 합쳐진다.** `chapters/{nn}-{slug}.html`은 본문 조각이며 코드를 직접 담지 않는다. `<pre data-src="{nn}_{slug}/파일.py">`는 코드로, `<pre data-run="...">`는 실제 실행 출력으로 빌드 시 치환된다. 따라서 코드 수정은 `src/`에서만 하고, `data-lines` 범위가 밀리지 않았는지 확인한다.
+- **원고와 코드는 분리되어 있고 빌드 때 합쳐진다.** `chapters/{nn}-{slug}.html`은 본문 조각이며 코드를 직접 담지 않는다. `<pre data-src="{nn}_{slug}/파일.py">`는 코드로 빌드 시 치환된다. 실행 결과는 싣지 않고 독자가 코드 블록의 [▶ 실행]으로 확인하며, 편집기는 연습문제 시작 코드에만 있다(교재는 내 코드를 저장하지 않는다). 따라서 코드 수정은 `src/`에서만 하고, `data-lines` 범위가 밀리지 않았는지 확인한다.
 - `textbook/`은 빌드 산출물이라 매번 삭제 후 재생성된다. 직접 수정하지 말고 `chapters/`, `src/`, `.claude/skills/html-textbook-publishing/assets/`를 고친다.
 - 장 구조·섹션 id·주석 규칙은 `.claude/skills/pattern-chapter-writing/SKILL.md`, 검증 규칙은 `.claude/skills/code-verification/` 이 기준이다.
 - `src/` 예제는 표준 라이브러리만 쓰고, 파일 간 import 없이 단독 실행된다.
@@ -33,7 +33,7 @@ python3 .claude/skills/code-verification/scripts/verify_chapter.py all    # 전�
 # 예제 하나 실행
 python3 src/03_builder/02_builder.py
 
-# HTML 빌드 → textbook/  (--no-run: 실행 출력 생략, 빠른 레이아웃 확인)
+# HTML 빌드 → textbook/
 python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
 open textbook/index.html
 ```
@@ -54,4 +54,5 @@ open textbook/index.html
 | 2026-10-24 | 코드 실행·편집(Pyodide)·예시 코드 팝업·내 코드 JSON 저장/불러오기 추가 | assets/pyrun.*, textbook-code.js, inquiry/templates | 학생이 웹페이지만으로 실습·제출하도록 |
 | 2026-10-24 | 탐구학습지 점검·개선 하네스 추가(inquiry-review 스킬, inquiry-reviewer 에이전트), 일반화 수정본·논쟁 문항·주 간 연결 도입, 시간 100분 정렬, 리커트·개수 채우기 정리 | skills/inquiry-review, agents/inquiry-reviewer, inquiry/content | 사고력 중심 점검 요청: 논쟁 질문 미회수, 일반화 검증 루프 부재, 분량 과다 |
 | 2026-10-25 | 파이썬 문법 강조 추가: Prism 대신 자체 pyhl.js, 편집기 오버레이·예시 팝업·학습지 적용, syntax-highlighting 스킬 | assets/pyhl.js, pyrun.*, inquiry/templates, skills/syntax-highlighting | 편집기·팝업·학습지 코드에 색이 없었음 |
+| 2026-10-30 | 교재: 연습문제 편집기에 행 번호·점선·Tab/Shift+Tab, 예제 코드는 실행 전용(미리 실린 출력 `data-run` 삭제), 내 코드 저장/불러오기 제거(평가 문제는 별도 제작 예정) | assets/pyrun.*, textbook-code.js, base.html, build_textbook.py, chapters | 편집이 필요 없는 코드는 실행만, 결과는 학생이 직접 확인 |
 | 2026-10-27 | Firebase 피드백 생성기 추가: 학생 제출, 교사 학교 계정 로그인 게이트, 제출 가능 설정, Gemini AI 초안→교사 검수→공개 | firebase/, inquiry/templates/fb.js, build.py | 교사의 수동 코멘트 부담 완화 |

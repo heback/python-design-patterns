@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">서론 · 서론: OOP 원리에서 패턴으로</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -123,19 +120,6 @@ if __name__ == &quot;__main__&quot;:
     for r in reasons:
         print(f&quot;  - {r}&quot;)
     print(f&quot;  → 변경 이유 {len(reasons)}가지가 한 함수에 모여 있다&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 지점·회원·자료별 연체료 (모두 5일 연체)
-  새솔: book/adult=  500  dvd/adult= 2500  book/child=  250  book/university=    0
-  하늘: book/adult=  500  dvd/adult= 3500  book/child=  250  book/university=  500
-  바다: book/adult=  500  dvd/adult= 2500  book/child=  500  book/university=    0
-
-[2] 이 함수를 수정해야 하는 이유를 세어 보면
-  - 자료 유형 요율 변경
-  - 회원 감면 정책 변경
-  - 시험 기간 변경
-  - 지점별 예외 추가
-  - 새 지점 개설
-  - 상한·하한 도입
-  → 변경 이유 6가지가 한 함수에 모여 있다</code></pre></figure>
   <p>[1]의 표는 지금은 정확하다. 문제는 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
   <ol>
     <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
@@ -273,16 +257,6 @@ if __name__ == &quot;__main__&quot;:
     a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
     b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
     print(f&quot;  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_refactored.py</figcaption><pre><code>[1] 01_naive.py와 같은 입력, 같은 결과
-  새솔: book/adult=  500  dvd/adult= 2500  book/child=  250  book/university=    0
-  하늘: book/adult=  500  dvd/adult= 3500  book/child=  250  book/university=  500
-  바다: book/adult=  500  dvd/adult= 2500  book/child=  500  book/university=    0
-
-[2] 새 요구: 하늘 지점만 상한 3,000원 — 기존 클래스 수정 없이 조립만 바꾼다
-  상한 전 3500원 → 상한 후 3000원
-
-[3] 순서가 결과를 바꾸는 경우, 그 순서는 이제 리스트에 &#x27;쓰여&#x27; 있다
-  감면→상한: 1750원, 상한→감면: 1500원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)</code></pre></figure>
   <p>[1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
   <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn class="term" id="term-chain-of-responsibility" data-term="chain-of-responsibility" title="요청을 처리할 수 있는 객체들을 사슬로 잇고, 각 객체가 처리하거나 다음으로 넘기게 하는 GoF 행위 패턴(이 책의 범위 밖).">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
 </section>
@@ -442,18 +416,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;\n[3] 테스트 대역도 상속 없이 람다 한 줄 — Protocol이라 가능하다&quot;)
     always_100 = FeePolicy({&quot;book&quot;: 100}, [lambda loan, fee: 100])
     print(f&quot;  {always_100.late_fee(Loan(&#x27;book&#x27;, &#x27;adult&#x27;, due, back))}원&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 함수·클로저·__call__ 객체가 한 목록 안에서 똑같이 쓰인다
-  새솔: 규칙 종류 [&#x27;function&#x27;, &#x27;ExamWaiver&#x27;] → 아동 DVD 5일 연체 1250원
-  하늘: 규칙 종류 [&#x27;function&#x27;, &#x27;function&#x27;] → 아동 DVD 5일 연체 1750원
-  바다: 규칙 종류 [&#x27;ExamWaiver&#x27;] → 아동 DVD 5일 연체 2500원
-
-[2] 클래스로 둔 규칙만 자기 자신을 설명할 수 있다
-  EXAM → ExamWaiver(start=datetime.date(2026, 6, 8), end=datetime.date(2026, 6, 21))
-  EXAM.describe() → 시험 기간 06/08~06/21 대학생 면제
-  cap(3000) → &lt;function cap.&lt;locals&gt;.apply&gt;  (설정값 3000이 공개 인터페이스로 드러나지 않는다)
-
-[3] 테스트 대역도 상속 없이 람다 한 줄 — Protocol이라 가능하다
-  100원</code></pre></figure>
   <p>[1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
   <p>그렇다고 클래스가 사라지지는 않는다. [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
   <div class="table-wrap"><table data-preview>
@@ -722,15 +684,6 @@ if __name__ == &quot;__main__&quot;:
     wrong = [donated_flat, out_of_print, minimum(1000), child_half]
     # 하한을 감면 &#x27;앞&#x27;에 두면 1,500원(하한 통과) → 감면 750원. 원래 코드는 감면 뒤에 하한을 둔다.
     print(f&quot;  {compensation_fn(cases[3], wrong)}원 — 하한(1,000원)이 무력화된다&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_lost_item_two_ways.py</figcaption><pre><code>[1] 두 버전은 같은 결과를 낸다
-  정가  18000 기증=False 절판=False adult → ABC  18000 / 함수  18000
-  정가  18000 기증=True  절판=False adult → ABC   5000 / 함수   5000
-  정가  18000 기증=False 절판=True  adult → ABC  27000 / 함수  27000
-  정가   1500 기증=False 절판=False child → ABC   1000 / 함수   1000
-  정가  18000 기증=True  절판=True  adult → ABC   5000 / 함수   5000
-
-[2] 순서를 바꾸면 결과가 바뀐다: 하한 → 감면 순서로 두면 아동 1,500원 자료가
-  750원 — 하한(1,000원)이 무력화된다</code></pre></figure>
     </details>
   </div>
 

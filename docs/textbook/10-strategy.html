@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">10장 · 전략 (Strategy)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -151,16 +148,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[4] 운영팀: &#x27;제주 지역은 이번 주만 정액 1,900원&#x27; → 코드 수정 + 재배포가 필요&quot;)
     o4 = Order(Customer(&quot;하준&quot;), Store(&quot;흑돼지집&quot;), distance_km=4.0, region=&quot;jeju&quot;)
     print(&quot;    지금 제주 배달비:&quot;, o4.delivery_fee(), &quot;(else 분기의 임시값)&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 강남(A안) 3.2km, 맑음, 낮
-    배달비: 4600
-[2] 해운대(B안) 3.2km, 비, 밤 11시
-    배달비: 5000
-[3] 새벽 5시대 주문 — 두 지역의 심야 기준이 다르다
-    seoul-gangnam   배달비: 5000
-    busan-haeundae  배달비: 2500
-    → 같은 &#x27;심야 할증&#x27;인데 한쪽만 붙는다. 복제된 분기가 어긋난 흔적이다.
-[4] 운영팀: &#x27;제주 지역은 이번 주만 정액 1,900원&#x27; → 코드 수정 + 재배포가 필요
-    지금 제주 배달비: 3000 (else 분기의 임시값)</code></pre></figure>
 <p>출력의 [3]이 CS 문의의 재현이다. 같은 '심야 할증'인데 서울(<code>hour &lt; 6</code>)과 부산(<code>hour &lt; 5</code>)의 기준이 다르다. 이것이 의도된 정책 차이인지 복사 실수인지는 코드만 봐서는 알 수 없다 — 할증 판정이라는 <em>공통 규칙</em>과 요금표라는 <em>가변 규칙</em>이 같은 블록에 섞여 있기 때문이다.</p>
 <p>이 코드가 위반하는 원칙은 서론(00장)의 세 원칙 그대로다.</p>
 <ul>
@@ -1300,22 +1287,6 @@ REGION_CONFIG: dict[str, dict[str, Any]] = {
     &quot;busan-haeundae&quot;: {&quot;type&quot;: &quot;tiered&quot;, &quot;tiers&quot;: [(2, 2500), (5, 4000)], &quot;over_fee&quot;: 6000},
     &quot;jeju&quot;: {&quot;type&quot;: &quot;flat&quot;, &quot;fee&quot;: 1900},
 }</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_strategy.py</figcaption><pre><code>[1] 정책 단독 테스트 — Order 없이 FeeInput 한 줄이면 된다
-    distance(base=3000, per_km=500)  →  7100원
-    tiered(2 tiers)                  →  6000원
-    flat(1900)                       →  1900원
-[2] 지역 설정으로 서비스 조립 — 선택은 설정, 계산은 정책, 위임은 서비스
-    busan-haeundae: tiered(2 tiers) → 5000원 (가게 할인 1,000원 반영)
-[3] 새벽 5시대 주문 — 이제 두 정책의 심야 기준이 같다
-    seoul-gangnam   → 5000원
-    busan-haeundae  → 4000원
-[4] 운영 중 정책 교체(A/B 실험 전환) — 서비스 클래스는 그대로
-    교체 전 distance(base=3000, per_km=500)  → 4600원
-    교체 후 tiered(2 tiers)                  → 4500원
-[5] 구독 회원 — 어떤 정책이든 0원(Context의 공통 규칙)
-    jeju → 0원
-[6] 오타 난 설정은 즉시 실패한다
-    ValueError: 알 수 없는 정책 type: &#x27;flatt&#x27;</code></pre></figure>
 <p>출력을 순서대로 읽어 보자. [1]은 <code>Order</code> 없이 정책 셋을 같은 입력으로 비교한다 — 순진한 설계에서는 불가능했던 단위 테스트다. [3]에서 새벽 5시대 주문의 심야 할증이 두 지역 모두에 붙는다. 심야 판정이 한 곳에 모이자 '의도하지 않은 차이'가 사라졌다. [4]는 실행 중인 서비스의 정책을 대입 한 번으로 바꾼다. 운영팀이 설정을 바꾸면 서버가 <code>build_policy()</code>를 다시 부르기만 하면 된다.</p>
 <div class="callout">
   <span class="label">선택 로직은 어디에 두는가</span>
@@ -1947,20 +1918,6 @@ REGION_CONFIG_JSON = &quot;&quot;&quot;
   &quot;incheon&quot;:        {&quot;type&quot;: &quot;surge&quot;, &quot;base&quot;: 3000, &quot;multiplier&quot;: 1.5}
 }
 &quot;&quot;&quot;</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 네 가지 형태의 전략이 같은 자리에 꽂힌다
-    seoul-gangnam   →  7100원
-    seoul-mapo      →  6780원
-    busan-haeundae  →  6000원
-    jeju            →  1900원
-    incheon         →  6900원
-[2] 로그에 남는 정책 이름(repr) — 클래스가 여전히 필요한 이유 중 하나
-    seoul-mapo      &lt;function make_distance.&lt;locals&gt;.policy&gt;
-    busan-haeundae  functools.partial(&lt;function tiered&gt;, tiers=[(2, 2500), (5, 4000)], ove…
-    incheon         SurgePricing(base=3000, multiplier=1.5)
-[3] 테스트에서는 람다 하나로 정책을 대체할 수 있다(가짜 객체 클래스 불필요)
-    가게 할인 1,500원 적용: 2500 원
-[4] 런타임 교체도 필드 대입 한 번
-    jeju(정액 이벤트 종료 후) → 7100 원</code></pre></figure>
 <p>출력 [2]가 이 절의 핵심 질문에 대한 단서다. 클로저 정책의 repr은 <code>make_distance.&lt;locals&gt;.policy</code>뿐이라 A/B 실험 로그에서 "마포는 km당 얼마였지?"에 답할 수 없다. <code>partial</code>은 채운 인자가 보이지만 장황하다. <code>dataclass</code>는 <code>SurgePricing(base=3000, multiplier=1.5)</code>를 공짜로 준다. [3]은 반대 방향의 이점이다. 테스트에서 <code>lambda _: 4000</code> 하나로 정책을 대체할 수 있어 가짜 클래스를 만들 필요가 없다.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>전략의 성격</th><th>권하는 형태</th><th>이유</th></tr></thead>
@@ -2128,13 +2085,6 @@ if __name__ == &quot;__main__&quot;:
         resize(row, 4, &quot;bicubic&quot;)
     except ValueError as e:
         print(&quot;ValueError:&quot;, e)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_resize_registry.py</figcaption><pre><code>원본       : [0, 100, 200, 100, 0, 50, 250, 50]
-nearest  4칸: [0, 200, 50, 50]
-linear   4칸: [0, 167, 33, 50]
-box      4칸: [50, 150, 25, 150]
-linear  11칸: [0, 70, 140, 190, 120, 50, 10, 45, 170, 190, 50]
-max     4칸: [100, 200, 50, 250] ← resize() 수정 없이 추가된 전략
-ValueError: 지원하지 않는 mode: &#x27;bicubic&#x27; (가능: [&#x27;box&#x27;, &#x27;linear&#x27;, &#x27;max&#x27;, &#x27;nearest&#x27;])</code></pre></figure>
     <p>흔한 오답은 <code>Interpolator</code> ABC와 구체 클래스 셋을 만드는 것이다. 틀렸다기보다 과하다. 각 클래스에는 상태도, 두 번째 메서드도 없으므로 클래스가 주는 이점(repr, 필드, 여러 메서드의 계약)이 하나도 쓰이지 않는다. 또 하나의 오답은 공개 API를 <code>resize(row, size, algo=linear)</code>로 바꿔 버리는 것이다. 문자열 <code>mode</code>는 HTTP 요청 파라미터처럼 바깥에서 들어오는 값이므로 이름 → 함수 매핑이 어딘가에는 필요하고, 기존 호출자를 깨지 않는 편이 낫다.</p>
   </details>
 </div>
@@ -2186,14 +2136,6 @@ if __name__ == &quot;__main__&quot;:
         print(f&quot;[{opt} 순]&quot;)
         for line in report(rows, opt):
             print(&quot;   &quot;, line)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_sort_key.py</figcaption><pre><code>[revenue 순]
-    분식집    15,100,000원
-    국밥집    12,500,000원
-    마라탕집   8,200,000원
-[name 순]
-    국밥집    12,500,000원
-    마라탕집   8,200,000원
-    분식집    15,100,000원</code></pre></figure>
     <p>판단 근거를 일반화하면 세 가지다. (1) 변형의 수와 증가 가능성: 두 개이고 리포트 화면의 드롭다운이 갑자기 열 개로 늘 일은 드물다. (2) 변형의 복잡도: 각 기준이 속성 하나 읽기다. (3) 언어가 제공하는 자리: <code>key</code>가 있다. 클래스 계층이 정당화되는 경우는 정렬 기준마다 "화면 표시 이름, 기본 방향, 권한 검사" 같은 <em>여러 속성</em>이 붙을 때다. 그때도 먼저 <code>SORT_OPTIONS</code>의 값을 작은 <code>NamedTuple</code>로 키우는 것을 고려하라.</p>
     <p>흔한 오답은 "나중에 늘어날 수 있으니 미리 패턴을 적용한다"이다. 늘어날 때 <code>SORT_OPTIONS</code>에 한 줄을 추가하면 된다. 이 구조도 이미 OCP를 만족한다.</p>
   </details>
@@ -2284,11 +2226,6 @@ if __name__ == &quot;__main__&quot;:
         for rain in (flat_rain, per_km_rain):
             svc = DeliveryFeeService(base, [rain, night])
             print(f&quot;    {base.__name__:14s} + {rain.__name__:12s} → {svc.quote(q):&gt;5}원&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex4_surcharge_slot.py</figcaption><pre><code>4.5km, 비, 21시 주문 — 2×2 실험 조합
-    distance_base  + flat_rain    →  6250원
-    distance_base  + per_km_rain  →  6150원
-    tiered_base    + flat_rain    →  5000원
-    tiered_base    + per_km_rain  →  4900원</code></pre></figure>
     <p>할증 슬롯을 <em>리스트</em>로 둔 것은 할증끼리 서로 더해지는 독립적 관계이기 때문이다. 만약 할증이 "기본 요금에 1.2배" 같은 <em>변형</em>이라면 순서가 중요해지고, 그때는 기본 요금 전략을 감싸는 06장의 데코레이터 구조가 더 자연스럽다. 흔한 오답은 <code>DistancePolicy</code>를 상속해 <code>DistancePerKmRainPolicy</code>를 만드는 것인데, 이는 정확히 전략 패턴이 피하려 한 "상속으로 인한 <dfn class="term" id="term-class-explosion" data-term="class-explosion" title="합성 가능한 변이(예: 모양 × 색상 × 재질)마다 하위 클래스를 만들면, 조합 수만큼 클래스가 곱절로 늘어나는 현상.">클래스 폭발</dfn>"을 되살린다. 클래스 폭발이란 서로 독립적으로 바뀌는 차원(여기서는 요금표와 할증) 여러 개를 상속으로 조합할 때, 클래스 수가 각 차원의 종류 수를 곱한 만큼 늘어나는 현상이다.</p>
   </details>
 </div>

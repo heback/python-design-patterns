@@ -18,7 +18,6 @@ part:
   <p>열다섯 장을 지나 온 독자는 이미 눈치챘을 것이다. 클래스 다이어그램만 놓고 보면 구별되지 않는 패턴이 많다. 전략과 상태는 "Context가 교체 가능한 객체에 위임한다"는 같은 그림이고, 데코레이터와 프록시는 "같은 인터페이스로 감싸고 위임한다"는 같은 그림이다. 서론(<a href="00-intro.html">0장</a>)에서 말했듯 패턴을 가르는 것은 모양이 아니라 의도다. 그리고 의도는 대개 하나의 질문으로 드러난다. <strong>누가 무엇을 결정하는가?</strong></p>
   <p class="lead-in">먼저 가장 자주 혼동되는 두 쌍을 같은 모양으로 짠 코드다. 창고 로봇의 속도 규칙을 전략과 상태로 각각 만들고, 로봇 드라이버를 데코레이터와 프록시로 각각 감쌌다. <code>StrategyRobot</code>과 <code>StateRobot</code>에서 다음 규칙을 고르는 코드가 <em>어디에</em> 있는지, <code>TimingDriver</code>와 <code>LazyDriver</code>에서 실제 드라이버를 <em>누가</em> 만드는지에 주목하라.</p>
   <pre data-src="99_summary/01_lookalikes.py"></pre>
-  <pre data-run="99_summary/01_lookalikes.py"></pre>
   <p>[1]과 [2]의 차이는 교체를 일으키는 코드의 위치다. 전략에서는 바깥(관제 시스템)이 <code>r.rule = careful</code>로 갈아 끼우고, 로봇은 규칙이 바뀐 줄도 모른다. 상태에서는 <code>Normal.after_trip()</code>이 배터리를 보고 <code>PowerSave</code>를 돌려준다. 그래서 상태 쪽에만 "다음 상태를 고르는 메서드"가 있고, 구체 상태끼리 서로를 안다. <a href="13-state.html#structure">13장 3절</a>은 상태 패턴의 화살표 두 개를 지적했다. 상태가 컨텍스트에 전이를 요청하는 역방향 의존, 그리고 구체 상태끼리의 의존이다. 이 코드에는 후자만 있다. <code>after_trip()</code>이 다음 상태를 <em>반환</em>하고 컨텍스트가 갈아 끼우는 변형이라 전자는 없다. 전략에는 둘 다 없다.</p>
   <p>[3]과 [4]의 차이는 연결 수에 있다. 데코레이터는 이미 만들어진 드라이버를 <em>받으므로</em> 감싸는 순간 연결이 이미 일어나 있다. 프록시는 실제 드라이버를 <em>스스로 만들므로</em> 연결 시점을 통제할 수 있고, 클라이언트는 실제 객체의 참조를 한 번도 갖지 않는다. <a href="09-proxy.html#structure">9장</a>이 "차이는 «create» 화살표 하나"라고 한 것이 이것이다.</p>
   <h3>판별 질문 모음</h3>
@@ -56,7 +55,6 @@ part:
   <h3>2.2 순진한 프로토타입</h3>
   <p class="lead-in">도윤의 <code>WMS</code> 클래스다. <code># ⚠ 문제:</code> 주석 여섯 개가 각각 서로 다른 변경 축을 가리킨다는 점을 세어 보라. 그리고 데모 [2]에서 "충전 시작" 뒤에도 피킹이 이어져 배터리가 0%가 되는 것을 보라. 주석의 <dfn data-term="stock-keeping-unit">SKU</dfn>는 재고 관리 단위, 곧 상품을 식별하는 코드다.</p>
   <pre data-src="99_summary/02_naive_wms.py"></pre>
-  <pre data-run="99_summary/02_naive_wms.py"></pre>
   <p>주석이 가리키는 축을 정리하면 이렇다. (1) 재고 계층의 깊이가 4중 반복문에 박혀 있다. (2) 주문이 즉시 실행되어 대기·취소가 불가능하다. (3) 경로 알고리즘이 <code>if</code> 분기다. (4) 제조사 SDK 차이가 업무 로직 한가운데 있다. (5) 대시보드 갱신이 직접 호출이다. (6) 배터리 대응이 진행 중인 주문과 뒤엉킨다. 각 축은 서로 다른 팀이, 서로 다른 시점에 바꾸자고 한다. 한 클래스가 바뀔 이유가 여섯이다.</p>
 
   <h3>2.3 변경 축을 세고, 축마다 하나씩</h3>
@@ -150,7 +148,6 @@ part:
   <h3>2.4 조합된 코드</h3>
   <p class="lead-in">완성된 WMS다. 파일이 길지만 구획마다 패턴 하나이고, 각 클래스 docstring 첫 줄의 역할 태그가 그림 99-1과 대응한다. 경로 전략 <code>nearest_first</code>가 쓰는 <dfn data-term="manhattan-distance">맨해튼 거리</dfn>는 두 점의 x 차이와 y 차이의 절댓값을 더한 거리로, 통로를 따라 직각으로 움직이는 창고 로봇에 맞는 척도다. 처음 읽을 때는 세 곳만 보라. <code>PickOrder.execute()</code>가 배터리를 판단하지 않고 "사실만" 알리는 부분, <code>BatteryGuard</code> docstring의 "왜 여기서 바로 충전하지 않는가", 그리고 모든 배선이 모인 <code>build()</code>다. 모듈 docstring 끝에는 넣지 않은 패턴 목록이 있다.</p>
   <pre data-src="99_summary/03_wms.py"></pre>
-  <pre data-run="99_summary/03_wms.py"></pre>
   <p>[1]의 재고 집계는 <code>sum(b.qty for b in node.walk() ...)</code> 한 줄이다. 신축 동의 칸막이 단계는 <code>Group</code>을 한 겹 더 넣는 <em>데이터</em> 변경일 뿐 코드 변경이 아니다. [2]에서 주문은 대기열에 있는 동안 그냥 데이터이므로 취소된다. 프로토타입에서는 불가능했던 일이다.</p>
   <p>[3]이 이 사례의 핵심이다. R2가 첫 주문을 마치자 배터리가 20%가 되었고, <code>PickOrder</code>는 그 <em>사실</em>을 <code>robot.battery</code> 이벤트로 알렸다. <code>BatteryGuard</code>는 그 이벤트를 듣고 충전 <em>명령</em>을 만들어 대기열 맨 앞에 넣었다. 그 결과 실행 순서가 "주문 → 충전 → 주문"이 되었다. 프로토타입의 "주문 처리 도중 충전" 사고가 구조적으로 사라졌다. 충전은 진행 중인 명령이 끝난 뒤, 다음 명령이 시작되기 전에만 일어날 수 있다. [4]는 취소 판단을 명령 자신이 한다는 것을 보여준다. <code>TaskQueue.cancel()</code>은 명령의 구체 타입을 묻지 않고 <code>key</code>와 <code>cancellable</code>만 본다. 충전 명령은 안전 조치라서 스스로 취소 불가를 밝히고, 실행 이력에는 사유가 함께 남는다. [5]는 경로 전략 교체가 조립 시점의 이름 하나라는 것을 보여준다.</p>
   <p>단, [3]의 출력이 BatteryGuard docstring의 "재진입" 근거까지 보여 주지는 않는다. 지금 <code>PickOrder</code>는 <code>execute()</code>의 맨 끝에서 배터리를 알리므로, 관찰자가 그 자리에서 직접 충전해도 충전은 똑같이 주문 사이에 일어난다. 달라지는 것은 실행 이력에 충전 항목과 사유가 남지 않고, <code>ChargeRobot</code>이 내던 <code>robot.charged</code> 이벤트, 곧 대시보드의 "충전 완료" 줄도 사라진다는 점이다. 재진입 위험 자체는 이 출력에 나타나지 않는다. 명령으로 미루는 것은 발행 시점이 바뀌어도 안전하게 하려는 <em>설계 근거</em>다. 3.1절에서 다룬다.</p>
@@ -338,7 +335,6 @@ part:
       <p>넣지 않은 것도 답의 일부다. 차량의 입차/출차 상태는 <code>bool</code> 하나라 상태 패턴이 필요 없고, 주차장이 하나라고 싱글턴을 만들 이유도 없다. 출차 흐름 하나뿐인데 퍼사드를 씌우면 통과용 메서드만 생긴다.</p>
       <p>흔한 오답 두 가지. 첫째, 요금 규칙마다 <code>FeePolicy</code> ABC를 상속한 클래스를 만드는 것. 틀리지는 않지만 메서드 하나·상태 없음인 전략에 클래스 계층은 소음이다(10장 표). 둘째, 알림을 데코레이터로 푸는 것(<code>NotifyingParkingLot(lot)</code>). 알림 대상이 늘 때마다 래퍼가 한 겹씩 늘고, 순서를 조립 코드가 관리해야 한다. "반응하는 쪽이 늘어난다"는 축에는 옵저버가 맞다. 해설 코드의 <code>-(-minutes // 30)</code>은 <dfn data-term="ceiling-division">올림 나눗셈</dfn> 관용구다. 내림 나눗셈 <code>//</code>을 부호를 뒤집어 적용해 나눗셈 결과를 올림한다(31분은 2구간).</p>
       <pre data-src="99_summary/solutions/ex2_parking.py"></pre>
-      <pre data-run="99_summary/solutions/ex2_parking.py"></pre>
     </details>
   </div>
 

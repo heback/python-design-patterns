@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">6장 · 데코레이터 (Decorator)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -170,13 +167,6 @@ if __name__ == &quot;__main__&quot;:
         ch_b.send(reading(i))
     print(f&quot;    원본 합계 {sum(len(reading(i)) for i in range(10))} bytes → 전송 {ch_b.sent_sizes}&quot;)
     print(&quot;    (동작은 한다. 문제는 기능을 하나 더하거나 순서를 바꿀 때 드러난다)&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 상속 방식: 기능 4개 → 필요한 클래스 16개 (2^4, 기본 채널 포함)
-[2] 상속 방식의 압축+암호화 채널
-    전송 크기: [65]
-[3] 플래그 방식: 압축+암호화+배치(10)+로그
-    [log] 104 bytes 전송
-    원본 합계 620 bytes → 전송 [104]
-    (동작은 한다. 문제는 기능을 하나 더하거나 순서를 바꿀 때 드러난다)</code></pre></figure>
 <p>두 방식의 결함은 이렇게 정리된다.</p>
 <ul>
   <li><strong>상속 방식은 '조합'을 '타입'으로 표현한다.</strong> 기능 n개의 모든 부분집합이 클래스가 되므로 2<sup>n</sup>개가 필요하고, 출력 [1]처럼 기능 넷이면 열여섯이다. 게다가 상속은 <dfn class="term" id="term-compiler" data-term="compiler" title="소스 코드를 실행 가능한 형태(기계어·바이트코드)로 번역하는 프로그램.">컴파일</dfn> 시점에 고정되므로(컴파일은 소스를 실행 가능한 형태로 번역하는 단계이며, 파이썬에서는 클래스 정의문이 실행되는 시점이 이에 해당한다) "설정 파일로 조합을 바꾸자"는 요구를 근본적으로 충족할 수 없다. 순서를 바꾸고 싶으면 계층을 다시 짜야 한다.</li>
@@ -1008,21 +998,6 @@ if __name__ == &quot;__main__&quot;:
         print(f&quot;    {name}: {sink.sent_sizes[0]} bytes&quot;)
     raw = sum(len(reading(i)) for i in range(10)) + 9   # 줄바꿈 9개
     print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_decorator.py</figcaption><pre><code>[1] 농장 A: 배치(10) → 로그(원본) → 압축 → 로그(압축 후) → 암호화 → MQTT
-    [log:배치 원본] 629 bytes
-    [log:압축 후] 104 bytes
-    [log:배치 원본] 639 bytes
-    [log:압축 후] 105 bytes
-    [log:배치 원본] 319 bytes
-    [log:압축 후] 87 bytes
-    MQTT가 받은 크기: [104, 105, 87]
-[2] 농장 B: 로그만 필요 — 같은 클래스들로 다른 조합, 새 클래스 없음
-    [log:raw] 62 bytes
-    [log:raw] 62 bytes
-[3] 순서가 의미를 바꾼다: 압축→암호화 vs 암호화→압축 (배치 10건 1묶음)
-    압축→암호화: 104 bytes
-    암호화→압축: 640 bytes
-    (원본 629 bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)</code></pre></figure>
 <p>출력 [1]에서 25건이 10+10+5로 나뉘어 나갔다. 마지막 5건은 <code>collect()</code> 끝의 <code>flush()</code>가 바깥 배치 래퍼에서 출발해 체인을 타고 내려간 결과다. 로그 두 줄은 같은 클래스의 두 인스턴스가 체인의 다른 위치에서 각각 629바이트(원본)와 104바이트(압축 후)를 관찰했음을 보여 준다. 플래그 방식으로는 할 수 없던 일이다.</p>
 <p>출력 [3]이 이 장의 두 번째 학습 목표다. 같은 두 래퍼를 순서만 바꿔 감쌌더니 104바이트와 640바이트가 되었다. 원본(629바이트)보다도 커졌다. 암호화의 출력은 무작위처럼 보이므로 압축기가 찾을 반복 패턴이 없고, 압축 헤더만큼 오히려 늘어난다. <strong>데코레이터들은 서로를 모르지만, 그것들이 함께 내는 결과는 순서에 의존한다.</strong> 이것은 패턴의 결함이 아니라 본질이다. 순서가 의미를 갖는다면 그 규칙은 어딘가에 명시되어야 한다. 조립 코드에 주석으로, 설정 검증 로직으로, 혹은 아예 "압축+암호화"를 하나의 데코레이터로 묶어서 말이다.</p>
 <div class="callout warn">
@@ -2167,25 +2142,6 @@ if __name__ == &quot;__main__&quot;:
     except TypeError as e:
         print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
     print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 함수 래퍼 중첩: logged(compressed(encrypted(mqtt_send)))
-    [log:in] 360 bytes
-    MQTT 수신 크기 [49], 바깥 래퍼의 __name__ = &#x27;mqtt_send&#x27; (wraps 덕분)
-[2] @ 문법은 정의 시점 1회 적용 — 이름 send_to_debug_port가 래퍼를 가리킨다
-    [log:debug] 360 bytes
-    (debug port) 49 bytes 기록
-    __wrapped__ 로 한 겹 벗기면: send_to_debug_port (compressed 래퍼)
-    등록 데코레이터: PARSERS = [&#x27;soil&#x27;], parse_soil은 감싸지지 않음 → True
-[3] 설정 목록으로 런타임 조립 — 순서만 바꿔 본다
-    config=[&#x27;log&#x27;, &#x27;compress&#x27;, &#x27;encrypt&#x27;]
-    [log:cfg] 360 bytes
-    config=[&#x27;compress&#x27;, &#x27;log&#x27;, &#x27;encrypt&#x27;]
-    [log:cfg] 49 bytes
-[4] __getattr__ 투명 래퍼의 구멍
-    w.connect() → connected  (일반 메서드는 위임된다)
-    [log] 40 bytes
-    len(w) 실패 → TypeError: object of type &#x27;TransparentLogging&#x27; has no len()
-    with w: 실패 → TypeError: &#x27;TransparentLogging&#x27; object does not support the context manager protocol
-    isinstance(w, MqttClient) = False</code></pre></figure>
 <p>출력 [4]가 핵심이다. <code>w.connect()</code> 같은 일반 메서드는 잘 위임되지만, <code>len(w)</code>와 <code>with w:</code>는 실패한다. 파이썬은 <code>__len__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 <strong>타입</strong>에서 직접 찾기 때문에 인스턴스 수준의 <code>__getattr__</code>을 거치지 않는다. 또 래퍼는 <code>MqttClient</code>를 상속하지 않으므로 <code>isinstance</code> 검사도 실패한다. "같은 인터페이스"를 약속하는 데코레이터에게 이것은 치명적이다. 감싼 객체를 <code>with</code> 문에 쓰던 코드가 래퍼를 끼우는 순간 깨진다. 해결책은 필요한 특수 메서드를 래퍼 클래스에 명시적으로 정의하거나, 인터페이스를 ABC/Protocol로 좁혀 위임 목록을 명확히 하는 것이다.</p>
 </section>
 
@@ -2362,13 +2318,6 @@ if __name__ == &quot;__main__&quot;:
     c = measure(lambda s: Compress(Encrypt(Batch(s, 10))))
     print(f&quot;    배치가 바깥(묶은 뒤 압축): {a} bytes&quot;)
     print(f&quot;    배치가 안쪽(건별 압축 뒤 묶음): {c} bytes&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex1_order.py</figcaption><pre><code>[0] 아무 래퍼 없음: 6290 bytes (100건)
-[1] 압축과 암호화의 순서 (배치 10건이 가장 바깥)
-    압축→암호화: 1048 bytes  (17%)
-    암호화→압축: 6490 bytes  (103%)
-[2] 배치의 위치 (압축→암호화 고정)
-    배치가 바깥(묶은 뒤 압축): 1048 bytes
-    배치가 안쪽(건별 압축 뒤 묶음): 6359 bytes</code></pre></figure>
   </details>
 </div>
 
@@ -2530,18 +2479,6 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 재시도만 필요한 호출부 — 같은 클래스, 다른 조합&quot;)
     print(f&quot;    결과: {RetryingNotifier(SmsNotifier(fail_times=5), 3).send(&#x27;테스트&#x27;)}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_notifier.py</figcaption><pre><code>[1] 제한 → 로그(최종) → 재시도 → 로그(시도별) → SMS (처음 2번 실패)
-    [try] 실패: SMS 게이트웨이 응답 없음
-    [try] 실패: SMS 게이트웨이 응답 없음
-      (SMS) 3번 하우스 수분 15% 미만
-    [try] 결과: True
-    [final] 결과: True
-    [rate] 차단: &#x27;3번 하우스 수분 14% 미만&#x27;
-      (SMS) 3번 하우스 관수 완료
-    [try] 결과: True
-    [final] 결과: True
-[2] 재시도만 필요한 호출부 — 같은 클래스, 다른 조합
-    결과: False</code></pre></figure>
   </details>
 </div>
 
@@ -2711,14 +2648,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[C] GoF 데코레이터 객체(메서드별 정책)&quot;)
     valve = WriteProtected(ValveResource())
     print(f&quot;    익명 GET → {valve.get(anon)} / 익명 POST → {valve.post(anon)} / alice POST → {valve.post(alice)}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_auth.py</figcaption><pre><code>[A] 함수 @decorator
-    익명 → 401 Unauthorized / alice → 200 alice의 대시보드 / health → 200 ok
-[B] 미들웨어 리스트 [timing, auth]
-    /dashboard user=None → 401 Unauthorized (timed)
-    /dashboard user=alice → 200 alice의 대시보드 (timed)
-    /health user=None → 200 ok (timed)
-[C] GoF 데코레이터 객체(메서드별 정책)
-    익명 GET → 200 valve=closed / 익명 POST → 401 Unauthorized / alice POST → 200 valve opened</code></pre></figure>
   </details>
 </div>
 </section>

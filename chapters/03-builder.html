@@ -25,7 +25,6 @@ part: 생성 패턴
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">하은의 <code>SalesQuery</code>다. 생성자 docstring이 말하는 <dfn data-term="telescoping-constructor">점층적 생성자</dfn>(telescoping constructor)는 선택 인자가 늘 때마다 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록을 쓰게 되는 모양을 말한다. 생성자 시그니처와 데모 [1]의 호출부를 먼저 비교해 보라. 그다음 <code>to_sql()</code>이 <code>WHERE</code>와 <code>AND</code>를 붙이는 방식, 그리고 <code>to_summary()</code>가 <code>to_sql()</code>의 분기를 어떻게 따라 하다 하나를 놓쳤는지에 주목하라.</p>
   <pre data-src="03_builder/01_naive.py"></pre>
-  <pre data-run="03_builder/01_naive.py"></pre>
   <p>[2]의 <code>WHERE AND</code>는 사소한 버그처럼 보이지만 구조적 원인이 있다. 문자열을 순서대로 이어 붙이면 "지금이 첫 조건인가"라는 숨은 상태를 코드 전체가 공유하게 되는데, 그 상태를 아무도 관리하지 않는다. [3]의 쿼리는 <code>category</code>가 <code>GROUP BY</code>에 없으므로 <dfn data-term="postgresql">PostgreSQL</dfn>(널리 쓰이는 오픈 소스 관계형 데이터베이스)이 거부한다. 문제는 그 거부가 <em>운영 DB에 보낸 뒤에야</em> 일어난다는 점이다. 객체를 만드는 시점에 검사할 자리가 없다. [4]는 값이 SQL 텍스트에 섞여 들어가는 순간 피할 수 없는 결과다. 이 쿼리는 문법상 유효하고, <code>OR</code>가 <code>AND</code>보다 우선순위가 낮아 기간 조건까지 무력화되므로 전체 주문이 조회된다.</p>
   <p>[5]가 가장 교훈적이다. <code>to_sql()</code>과 <code>to_summary()</code>는 "어떤 부분이 있으면 무엇을 덧붙인다"는 <em>조립 절차</em>를 각자 들고 있다. 절차가 둘이니 언젠가 어긋난다. 필요한 것은 절차를 한 곳에 두고 "각 부분을 어떻게 표현하는가"만 바꾸는 구조다. 이것이 GoF가 빌더라고 부른 것이다.</p>
   <div class="callout warn">
@@ -135,7 +134,6 @@ part: 생성 패턴
     코드에 처음 나오는 말들이다. <dfn data-term="method-chaining">체이닝</dfn>(메서드 체이닝)은 메서드가 객체 자신을 돌려주게 해 여러 호출을 점으로 이어 붙이는 기법이다. <dfn data-term="parameter-binding">매개변수 바인딩</dfn>은 SQL 텍스트에는 <code>%s</code> 같은 자리표시자만 두고 값은 따로 넘겨, 데이터베이스와 통신하는 라이브러리인 <dfn data-term="database-driver">DB 드라이버</dfn>가 안전하게 결합하게 하는 방식이다(테이블·열 이름 같은 식별자는 바인딩할 수 없다). 그래서 식별자는 <dfn data-term="allowlist">화이트리스트</dfn>, 곧 허용할 패턴을 명시하고 그 밖은 모두 거부하는 검사로 막는다. <code><dfn data-term="frozenset">frozenset</dfn></code>은 생성 후 바꿀 수 없는 집합이다. docstring의 "<dfn data-term="hashable">해시</dfn> 가능"은 수명 동안 해시값이 변하지 않아 딕셔너리 키나 집합 원소가 될 수 있다는 뜻이다. 줄 끝의 <code><dfn data-term="type-ignore-comment"># type: ignore</dfn>[arg-type]</code>는 그 줄에 대해 정적 타입 검사기의 특정 경고(대괄호 안의 오류 코드)를 끄는 주석 지시문이다.
   </div>
   <pre data-src="03_builder/02_builder.py"></pre>
-  <pre data-run="03_builder/02_builder.py"></pre>
   <p>[1]의 호출부는 그 자체로 쿼리를 설명한다. 단계마다 이름이 있으니 None 행렬이 생길 수 없다. [2]에서 <code>WHERE AND</code>가 사라진 이유는 영리한 분기 때문이 아니라 조건을 리스트에 모은 뒤 <code>" AND ".join()</code>으로 <em>한 번에</em> 렌더링하기 때문이다. "첫 조건인가"라는 숨은 상태 자체가 없어졌다.</p>
   <p>[3]이 빌더가 정말 값을 하는 장면이다. UI 토글에 따라 단계를 붙이거나 건너뛰는 코드가 반복문과 조건문 사이에 자연스럽게 섞인다. 조립 순서는 자유롭다. <code>having()</code>을 <code>group_by()</code>보다 먼저 불러도 된다. 대신 완성 조건은 엄격하다. [4]처럼 <code>build()</code>가 교차 제약을 한 번에 검사하고, 통과하지 못하면 <code>Query</code>는 아예 존재하지 않는다. "조립 중에는 관대하게, 완성 시에는 엄격하게"가 빌더의 계약이다.</p>
   <p>[5]는 <code>Query</code>가 <code>frozen=True</code>이고 컬렉션 필드가 전부 튜플이라 얻는 이득이다. 빌더를 계속 바꿔도 이미 만든 <code>Query</code>는 영향받지 않고, 해시 가능하므로 대시보드 결과 캐시의 키로 쓸 수 있다. [6]은 주입 방어가 두 겹이라는 것을 보여준다. 값은 <code>%s</code> 자리표시자와 <code>params</code>로 분리해 DB 드라이버가 바인딩하게 하고, 매개변수로 바인딩할 수 없는 식별자(테이블·열 이름)와 연산자는 화이트리스트로 검사한다.</p>
@@ -143,7 +141,6 @@ part: 생성 패턴
   <h3>4.2 GoF 빌더: 같은 절차, 다른 표현</h3>
   <p class="lead-in">이제 [5]의 문제, 즉 SQL과 요약이 조립 절차를 복제하다 어긋난 문제를 원전의 빌더로 푼다. <code>QueryDirector.construct()</code>가 절차의 유일한 소유자라는 점, 두 렌더러는 단계 하나하나를 자기 방식으로 표현만 한다는 점, 그리고 <code>QueryRenderer</code>에 <code>result()</code>가 없는 이유에 주목하라. docstring이 예로 드는 <dfn data-term="pandas">데이터프레임</dfn> 코드 생성기의 데이터프레임은 표 형태 데이터를 다루는 파이썬 분석 라이브러리 pandas의 핵심 자료형이다.</p>
   <pre data-src="03_builder/03_director.py"></pre>
-  <pre data-run="03_builder/03_director.py"></pre>
   <p>[1]과 [2]는 같은 <code>Query</code>를 같은 <code>construct()</code>에 통과시켰다. 다른 것은 건네준 렌더러뿐이다. 요약에서 회원 등급 조건이 더 이상 빠지지 않는 이유는 요약 렌더러가 꼼꼼해서가 아니라, 조건을 "종류별로" 다루는 분기 자체가 사라졌기 때문이다. 렌더러는 Director가 넘겨준 조건 묶음을 표현만 한다. [3]은 "WHERE가 없으면 필터 단계를 건너뛴다" 같은 생략 규칙까지 Director에 있으므로 두 표현에 똑같이 적용된다는 것을 보여준다. 새 표현, 예컨대 pandas 필터 코드를 생성하는 렌더러를 추가해도 절차는 다시 쓰지 않는다.</p>
   <p><code>QueryRenderer</code>에 <code>result()</code>를 두지 않은 것은 의도적이다. GoF도 지적하듯 구체 빌더들이 만드는 제품은 공통 부모 타입이 있을 이유가 거의 없다. <code>SqlStatement</code>와 <code>str</code>을 하나의 추상 반환 타입으로 묶으면 <code>object</code>밖에 남지 않는다. 그래서 클라이언트는 자기가 만든 구체 빌더에서 결과를 직접 꺼낸다. 이 점이 같은 생성 패턴인 추상 팩토리(제품이 공통 인터페이스를 갖는다)와 구별되는 지점이다.</p>
   <div class="callout ok">
@@ -157,7 +154,6 @@ part: 생성 패턴
   <p>Bloch의 빌더가 Java에서 필요했던 가장 큰 이유는 이름 있는 인자와 기본값이 없어서였다. 파이썬에는 둘 다 있다. 거기에 <code>dataclass</code>의 <code><dfn data-term="kw-only-true">kw_only</dfn></code>(<code>@dataclass(kw_only=True)</code>, 3.10+: 생성자를 키워드 전용으로 만들어 위치 인자 호출을 막는 옵션), <code>frozen</code>, <code>__post_init__</code>, 그리고 <code>dataclasses.replace</code>가 더해지면 유창한 빌더가 하던 일의 상당 부분이 언어 기능으로 흡수된다. 그렇다면 남는 것은 무엇인가?</p>
   <p class="lead-in">아래 코드는 빌더 없이 같은 <code>Query</code>를 다룬다. <code>kw_only=True</code>가 무엇을 막는지, <code>__post_init__</code>이 <code>build()</code>의 역할을 어떻게 대신하는지, <code>replace()</code>가 검증을 다시 거치는지를 확인하라. docstring의 "<dfn data-term="value-object">값 객체</dfn>"는 담긴 값만으로 의미가 정해지는, 대개 불변인 작은 객체를 말한다(같은 값을 담았으면 같은 것으로 본다). 코드의 <code><dfn data-term="compare-false">field(compare=False)</dfn></code>는 그 필드를 동등성 비교와 해시에서 빼는 옵션으로, 정의의 일부가 아닌 메모 같은 정보에 쓴다. 마지막 <code>assemble_from_ui()</code>는 이 방식이 어색해지는 지점이다.</p>
   <pre data-src="03_builder/04_pythonic.py"></pre>
-  <pre data-run="03_builder/04_pythonic.py"></pre>
   <p>[1]과 [2]가 보여주듯 키워드 전용 생성자는 점층적 생성자 문제를 완전히 없앤다. [3]의 <code>replace()</code>는 "기존 쿼리에서 하나만 바꾼 쿼리"를 만드는 가장 간결한 방법이고, 내부적으로 <code>__init__</code>을 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다. 불변 객체의 단계적 파생에는 빌더가 필요 없다. [4]의 <code>field(compare=False)</code>는 "정의의 일부가 아닌 정보"를 동등성과 해시에서 빼는 방법이다.</p>
   <p>[5]의 <code>assemble_from_ui()</code>가 경계선이다. 조각들이 조건문과 반복문 속에서 하나씩 결정되면, 생성자를 한 번에 부르기 위해 임시 리스트에 먼저 모아야 한다. 그 임시 리스트들과 "다 모은 뒤 생성자를 부른다"는 규칙이 바로 <em>손으로 만든 빌더</em>다. 이런 조립이 한 곳뿐이면 그대로 두는 편이 낫다. 여러 곳에서 반복되거나 단계마다 검증·정규화가 붙기 시작하면 그것을 클래스로 묶은 것이 02의 <code>QueryBuilder</code>다.</p>
   <table>
@@ -246,7 +242,6 @@ r3 = Request("POST", "https://ads.example.com/v2/jobs", body=b"{}", retries=5)</
       <p>불변성은 <code>frozen=True</code>만으로는 부족하다. <code>headers</code>가 <code>dict</code>이면 <code>req.headers["Authorization"] = ...</code>처럼 <em>내부</em>를 바꿀 수 있다. 해설은 <code><dfn data-term="types-mappingproxytype">MappingProxyType</dfn></code>으로 읽기 전용 뷰를 씌우고, 빌더의 dict를 복사해서 넘겨 빌더를 재사용해도 완성품이 영향받지 않게 했다. <code>MappingProxyType</code>은 딕셔너리를 감싸 읽기 전용으로 보여 주는 뷰라서, 원본이 바뀌면 그 변화를 그대로 비춰 보인다. 복사본을 감싸야 하는 이유다. 코드 docstring의 <dfn data-term="query-string">쿼리 문자열</dfn>은 URL의 <code>?</code> 뒤에 <code>이름=값&amp;…</code>으로 붙는 요청 매개변수다.</p>
       <p>흔한 오답 두 가지. 첫째, 기존 가변 <code>Request</code>를 그대로 두고 빌더만 얹는 것. <code>build()</code>를 통과한 뒤 누군가 <code>r.body = ...</code>를 하면 검증이 무의미해진다. 빌더의 검증은 제품이 불변일 때만 보장이 된다. 둘째, 각 단계에서 <code>self</code>가 아니라 새 빌더를 돌려주게 만들고 일부 호출부만 반환값을 받는 것. 반환값을 버리는 호출의 단계가 조용히 사라진다.</p>
       <pre data-src="03_builder/solutions/ex2_request_builder.py"></pre>
-      <pre data-run="03_builder/solutions/ex2_request_builder.py"></pre>
     </details>
   </div>
 

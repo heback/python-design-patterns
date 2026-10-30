@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">12장 · 커맨드 (Command)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -156,18 +153,6 @@ if __name__ == &quot;__main__&quot;:
     ed.on_context_delete(&quot;arrow&quot;)
     ed.on_undo()
     print(&quot;    결과      :&quot;, ed.dump(), &quot;← arrow는 영영 사라졌다&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[0] 시작      : box(10,10,black), arrow(50,20,black)
-[1] 툴바로 box를 (-30, 0) 이동 → x가 0에서 잘림, 그리고 Ctrl+Z
-    이동 후   : box(0,10,black), arrow(50,20,black)
-    undo 후   : box(30,10,black), arrow(50,20,black) ← 원래 x=10이 아니라 30이 됐다
-[2] 같은 이동을 단축키로 → 캔버스 밖(음수 좌표)으로 나간다
-    이동 후   : box(30,10,black), arrow(-10,20,black)
-[3] 색 변경 두 번 후 Ctrl+Z 두 번 → 한 번만 되돌려진다
-    (되돌릴 동작 없음)
-    결과      : box(30,10,red), arrow(-10,20,black) ← black이 아니라 red
-[4] 우클릭으로 arrow 삭제 후 Ctrl+Z
-    (되돌릴 동작 없음)
-    결과      : box(30,10,red) ← arrow는 영영 사라졌다</code></pre></figure>
 <p>네 버그는 모두 같은 뿌리를 가진다. [1]은 역연산이 "요청한 이동량"을 되돌렸기 때문이다. 실제로는 경계에서 잘려 10만큼만 움직였는데 30을 되돌렸다. [2]는 같은 동작이 두 곳에 복제되어 있어서 생긴다. [3]은 이력이 하나뿐이어서, [4]는 기록 책임이 각 핸들러에 맡겨져 있어서 생긴다.</p>
 <ul>
   <li><strong>요청과 호출 지점이 묶여 있다.</strong> "도형을 옮긴다"는 요청이 "툴바 버튼을 눌렀다"는 사건과 분리되지 않아, 호출 지점마다 복제된다(SRP 위반).</li>
@@ -1451,31 +1436,6 @@ def shortcut_arrow_key(history: CommandHistory, canvas: Canvas, shape_id: str, k
 def context_menu_delete(history: CommandHistory, canvas: Canvas, shape_id: str) -&gt; None:
     &quot;&quot;&quot;우클릭 &#x27;삭제&#x27;. undo 기록을 &#x27;잊을&#x27; 방법이 없다 — 이력은 Invoker가 일괄 관리한다.&quot;&quot;&quot;
     history.execute(DeleteShape(canvas, shape_id))</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_command.py</figcaption><pre><code>[0] 시작        : box(10,10,black), arrow(50,20,black)
-[1] 툴바로 box (-30,0) 이동(0에서 잘림) 후 Ctrl+Z — 정확히 x=10으로
-    이동 후     : box(0,10,black), arrow(50,20,black)
-    실행 취소: box 이동(-30,+0)
-    결과        : box(10,10,black), arrow(50,20,black)
-[2] 단축키로 arrow를 왼쪽 6번 — 같은 명령이라 캔버스 밖으로 나가지 않는다
-    결과        : box(10,10,black), arrow(0,20,black)
-[3] 색 변경 두 번 후 Ctrl+Z 두 번 → black까지 되돌아간다
-    실행 취소: box 색→blue
-    실행 취소: box 색→red
-    결과        : box(10,10,black), arrow(0,20,black)
-[4] 우클릭 삭제 후 Ctrl+Z → 같은 z-순서 자리에 복원, Ctrl+Y로 재삭제
-    삭제 후     : arrow(0,20,black)
-    실행 취소: box 삭제
-    복원        : box(10,10,black), arrow(0,20,black)
-    다시 실행: box 삭제
-    다시 실행   : arrow(0,20,black)
-    실행 취소: box 삭제
-[5] 매크로 &#x27;강조하기&#x27; = 오른쪽 이동 + 빨간색 → undo 한 번에 통째로
-    실행 후     : box(30,10,red), arrow(0,20,black)
-    실행 취소: 매크로[강조하기]
-    결과        : box(10,10,black), arrow(0,20,black)
-[6] 중간 단계가 실패하는 매크로 — 앞 단계(이동)가 롤백되어 반쯤 적용된 상태가 남지 않는다
-    실패        : &#x27;ghost&#x27; is not in list
-    결과        : box(10,10,black), arrow(0,20,black)</code></pre></figure>
 <p>출력이 네 버그를 하나씩 지운다. [1] 경계에서 잘린 이동이 정확히 x=10으로 돌아온다. [2] 단축키 이동은 툴바와 같은 명령을 쓰므로 x가 0에서 멈춘다. [3] 두 단계 undo가 black까지 간다. [4] 우클릭 삭제가 이력에 들어가고, 원래 z-순서 자리(arrow 앞)에 복원되며, Ctrl+Y로 다시 실행된다. [5]의 매크로는 명령 둘을 하나로 묶어 undo 한 번에 통째로 되돌린다. <code>MacroCommand</code>가 <code>Command</code>이면서 <code>Command</code> 목록을 갖는 구조는 7장 컴포지트 그대로다. [6]은 매크로의 원자성 문제다. 두 번째 단계(없는 도형 삭제)가 실패하면 <code>CommandHistory.execute()</code>는 예외로 중단되어 매크로를 이력에 넣지 않는다. 롤백이 없다면 첫 단계의 이동만 캔버스에 남고, 그 변경은 이력에 없으므로 Ctrl+Z로도 되돌릴 수 없는 "반쯤 적용된" 상태가 된다. 그래서 <code>MacroCommand</code>는 실행한 단계를 기억했다가 실패 시 역순으로 undo한 뒤 예외를 다시 던진다. 다만 이 롤백은 각 단계의 <code>undo()</code>가 정확하다는 가정에 기대며, 이메일 발송처럼 되돌릴 수 없는 단계가 섞이면 원자성은 보장되지 않는다.</p>
 <div class="callout warn">
   <span class="label">redo 스택을 비우는 이유</span>
@@ -2513,22 +2473,6 @@ if __name__ == &quot;__main__&quot;:
     def undo(self) -&gt; None:
         &quot;&quot;&quot;최근 명령 취소. 협업 로그에는 &#x27;취소&#x27;를 별도 이벤트로 보내야 하지만 여기선 생략.&quot;&quot;&quot;
         self.history.pop().undo(self.canvas)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] partial 커맨드: 실행은 되지만 undo·직렬화는 불가
-    실행        : box(40,10,black), arrow(50,20,black)
-    undo 가능?  : False — 이전 좌표를 담을 곳이 없다
-    직렬화?     : TypeError — Object of type partial is not JSON serializable
-[2] 은우의 세션: 매크로 &#x27;강조하기&#x27;를 box에 실행, 그것을 품은 중첩 매크로를 arrow에 재생
-    은우 캔버스 : box(30,10,red), arrow(70,50,red)
-[3] 서버로 보낸 로그(JSON) — undo 정보(_before, _prev)는 실리지 않는다
-    {&quot;type&quot;: &quot;macro&quot;, &quot;name&quot;: &quot;강조하기&quot;, &quot;steps&quot;: [{&quot;type&quot;: &quot;move&quot;, &quot;shape_id&quot;: &quot;box&quot;, &quot;dx&quot;: 20, &quot;dy&quot;: 0}, {&quot;type&quot;: &quot;recolor&quot;, &quot;shape_id&quot;: &quot;box&quot;, &quot;color&quot;: &quot;red&quot;}]}
-    {&quot;type&quot;: &quot;macro&quot;, &quot;name&quot;: &quot;강조 후 내리기&quot;, &quot;steps&quot;: [{&quot;type&quot;: &quot;macro&quot;, &quot;name&quot;: &quot;강조하기&quot;, &quot;steps&quot;: [{&quot;type&quot;: &quot;move&quot;, &quot;shape_id&quot;: &quot;arrow&quot;, &quot;dx&quot;: 20, &quot;dy&quot;: 0}, {&quot;type&quot;: &quot;recolor&quot;, &quot;shape_id&quot;: &quot;arrow&quot;, &quot;color&quot;: &quot;red&quot;}]}, {&quot;type&quot;: &quot;move&quot;, &quot;shape_id&quot;: &quot;arrow&quot;, &quot;dx&quot;: 0, &quot;dy&quot;: 30}]}
-[4] 동료 지아의 캔버스에서 로그 재생 → 같은 상태
-    지아 캔버스 : box(30,10,red), arrow(70,50,red)
-    일치?       : True
-[5] 은우가 Ctrl+Z — 재생용 새 인스턴스 덕분에 arrow 쪽 중첩 매크로만 정확히 되돌아간다
-    은우 캔버스 : box(30,10,red), arrow(50,20,black)
-[6] kind를 선언하지 않은 하위 클래스는 정의 시점에 거부된다(등록 덮어쓰기 방지)
-    TypeError   : FastMove: 직렬화 이름(kind)을 선언해야 한다</code></pre></figure>
 <p>[3]의 로그에는 <code>_before</code>, <code>_prev</code>가 없다. undo 정보는 실행한 쪽의 로컬 상태이기 때문이다. [4]에서 지아의 캔버스는 로그만으로 같은 상태가 된다. [2]·[3]에서 "강조하기" 매크로를 품은 중첩 매크로가 arrow로 재지정되어 실행되고, 로그에는 중첩 구조 그대로 실린다. [5]에서 은우의 Ctrl+Z는 arrow에 재생한 중첩 매크로만 정확히 되돌린다. [6]은 <code>kind</code>를 빠뜨린 하위 클래스가 정의 시점에 거부되는 모습이다. 실제 협업 도구는 여기에 동시 편집 충돌 해결(<dfn class="term" id="term-operational-transformation-crdt" data-term="operational-transformation-crdt" title="OT(Operational Transformation, 연산 변환)와 CRDT(Conflict-free Replicated Data Type, 충돌 없는 복제 데이터 타입) — 여러 사람이 동시에 편집할 때 순서가 뒤바뀌어 도착한 연산들을 자동으로 화해시키는 두 갈래 기법.">OT·CRDT</dfn> — Operational Transformation과 Conflict-free Replicated Data Type, 여러 사용자의 동시 편집을 자동으로 맞추는 알고리즘 계열)이 더해지지만, 그 출발점은 언제나 "편집 동작이 직렬화 가능한 명령 객체"라는 이 구조다.</p>
 <div class="table-wrap"><table>
   <thead><tr><th>요구</th><th>권하는 형태</th></tr></thead>
@@ -2726,18 +2670,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] 사용자가 1번 버튼을 &#x27;온도 -2&#x27;로 재배치&quot;)
     remote.assign(1, lambda: AdjustTemp(thermo, -2))
     remote.press(1)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_remote_undo.py</figcaption><pre><code>[1] 1, 1(연타), 3, 3 버튼
-    조명 켜짐
-    조명 켜짐
-    설정 온도 23℃
-    설정 온도 24℃
-[2] 취소 네 번 — 연타한 켜기까지 정확히 원래(꺼짐)로
-    (취소) 설정 온도 23℃
-    (취소) 설정 온도 22℃
-    (취소) 조명 켜짐
-    (취소) 조명 꺼짐
-[3] 사용자가 1번 버튼을 &#x27;온도 -2&#x27;로 재배치
-    설정 온도 20℃</code></pre></figure>
     <p>두 명령의 undo 방식이 다르다는 점을 보라. <code>LightSwitch</code>는 스냅샷(이전 on/off 상태)을 쓴다. "켜기"의 역을 "끄기"로 두면, 이미 켜진 조명에 켜기를 누른 뒤 취소했을 때 조명이 꺼지는 버그가 생긴다 — 켜기 연산은 "원래 켜져 있었는지"라는 정보를 잃기 때문이다. <code>AdjustTemp</code>는 상한·하한이 없으므로 역연산(−delta)이 정확하다. 실제 온도 조절기처럼 16~30℃ 범위가 있다면 본문 <code>MoveShape</code>처럼 스냅샷으로 바꿔야 한다.</p>
     <p>흔한 오답은 버튼마다 "토글" 명령 하나를 두고 undo도 토글로 구현하는 것이다. 토글은 자기 자신이 역연산이라 우아해 보이지만, 리모컨 밖(벽 스위치)에서 상태가 바뀌면 리모컨의 가정과 실제가 어긋난다. 스냅샷은 실행 순간의 실제 상태를 기준으로 하므로 이 문제가 없다.</p>
   </details>
@@ -2794,12 +2726,6 @@ if __name__ == &quot;__main__&quot;:
     for argv in ([&quot;status&quot;], [&quot;deploy&quot;, &quot;v1.5.0&quot;], [&quot;rollback&quot;]):
         print(f&quot;$ shipit {&#x27; &#x27;.join(argv)}&quot;)
         main(argv)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_cli_dispatch.py</figcaption><pre><code>$ shipit status
-    prod: v1.4.2 (정상)
-$ shipit deploy v1.5.0
-    v1.5.0 배포 시작
-$ shipit rollback
-    알 수 없는 명령 &#x27;rollback&#x27;. 가능: status, deploy, logs</code></pre></figure>
     <p>판단이 바뀌는 요구는 커맨드 패턴의 나머지 능력이 필요해질 때다. (1) <code>deploy</code>를 <code>rollback</code>으로 되돌리는 undo가 필요하면 배포 전 버전을 기억할 상태가 생긴다. (2) 명령마다 도움말·인자 정의·권한 수준 같은 <em>여러 속성</em>이 붙으면 함수 하나로는 계약이 표현되지 않는다(실제로 Click, Django management command가 클래스나 데코레이터 메타데이터를 쓰는 이유다). (3) 명령을 큐에 넣어 원격 워커가 실행하게 하면 직렬화 가능한 데이터 객체가 필요하다.</p>
     <p>흔한 오답은 "명령이 늘어날 수 있으니 미리 클래스로"이다. 명령 수가 늘어나는 것은 dict도 감당한다. 클래스가 필요해지는 축은 <em>개수</em>가 아니라 명령 하나가 가져야 하는 <em>능력</em>이다.</p>
   </details>

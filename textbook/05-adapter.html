@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">5장 · 어댑터 (Adapter)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -221,17 +218,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] PG C 거래 환불 — 15,000원을 환불해야 한다&quot;)
     svc.refund(&quot;C&quot;, tids[&quot;C&quot;], 15_000)
     print(&quot;    → 1500000이어야 할 금액이 15000 minor unit(=150원)으로 나갔다. 복제된 분기의 버그다.&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 세 PG로 각각 15,000원 결제
-    PG A → 거래번호 A1001
-    PG B → 거래번호 B1002
-    PG C → 거래번호 C1003
-[2] 한도 초과 카드 — 실패 메시지 형식이 PG마다 제각각이다
-    PG A: 결제 실패: A-401 한도 초과
-    PG B: 결제 실패: B-51 잔액 부족
-    PG C: 결제 실패: C card_declined
-[3] PG C 거래 환불 — 15,000원을 환불해야 한다
-    (C SDK) C1003에 대해 15000 minor unit 환불 처리
-    → 1500000이어야 할 금액이 15000 minor unit(=150원)으로 나갔다. 복제된 분기의 버그다.</code></pre></figure>
 <p>출력 [2]가 보여주는 것은 실패의 모양이 PG마다 제각각이라는 사실이다. A는 예외, B는 상태 코드, C는 콜백 인자로 실패를 알리고, <code>OrderService</code>는 그 셋을 모두 해석해야 한다. 출력 [3]은 그 결과로 생긴 버그다. 이 코드의 결함을 정리하면 다음과 같다.</p>
 <ul>
   <li><strong>번역 규칙이 흩어져 있다.</strong> "B는 Decimal", "C는 ×100"이라는 지식이 <code>pay()</code>와 <code>refund()</code>에 따로 존재한다. 같은 지식의 사본이 둘 이상이면 언젠가 어긋난다.</li>
@@ -1409,18 +1395,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
         OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_adapter.py</figcaption><pre><code>[1] 같은 OrderService 코드로 세 PG 결제 → 환불
-    주문 ORD-A 결제 완료: PaymentResult(transaction_id=&#x27;A1001&#x27;, amount_krw=15000, gateway=&#x27;A&#x27;)
-    A 거래 A1001 환불 완료
-    주문 ORD-B 결제 완료: PaymentResult(transaction_id=&#x27;B1002&#x27;, amount_krw=15000, gateway=&#x27;B&#x27;)
-    B 거래 B1002 환불 완료
-    주문 ORD-C 결제 완료: PaymentResult(transaction_id=&#x27;C1003&#x27;, amount_krw=15000, gateway=&#x27;C&#x27;)
-    (C SDK) C1003에 대해 1500000 minor unit 환불 처리
-    C 거래 C1003 환불 완료
-[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다
-    주문 ORD-A-X 결제 거절: [A] A-401 한도 초과  (SDK 원인 예외: PgAError)
-    주문 ORD-B-X 결제 거절: [B] 결제 실패: 코드 51 잔액 부족  (SDK 원인 예외: 없음)
-    주문 ORD-C-X 결제 거절: [C] card_declined  (SDK 원인 예외: 없음)</code></pre></figure>
 <p>출력 [1]의 C 환불을 보라. 이번에는 <code>1500000</code> minor unit이 나갔다. 단위 규칙이 <code>MINOR_PER_KRW</code> 한 곳에 있고 <code>pay()</code>와 <code>refund()</code>가 그것을 공유하므로, 01의 사고는 구조적으로 재발할 수 없다. 출력 [2]는 세 가지 실패 방식이 <code>PaymentDeclined</code> 하나로 수렴했음을 보여준다. A의 경우 <code>raise ... from e</code> 덕분에 원래의 <code>PgAError</code>가 <code>__cause__</code>로 남아 있어, 로그를 볼 때 원인 정보도 잃지 않는다.</p>
 <div class="callout ok">
   <span class="label">핵심 정리</span>
@@ -1623,16 +1597,6 @@ if __name__ == &quot;__main__&quot;:
         translate_errors(flaky)
     except PaymentDeclined as e:
         print(f&quot;    PaymentDeclined: {e} / __cause__ = {e.__cause__!r}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] Protocol: 상속 없이도 Target으로 인정된다
-    isinstance(b, PaymentGateway) = True
-    결제 → B-77, 영수증 → https://pg-b.example/receipts/B-77
-[2] 함수 어댑터: partial + 내부 함수로 A SDK를 Charger 모양으로
-    settle_batch → [&#x27;A-M01-1000&#x27;, &#x27;A-M01-2500&#x27;]
-[3] __getattr__ 위임의 함정
-    leaky.create_payment(...) → PaymentResponse(status_code=51, payment_id=None)  ← 호출자가 status_code를 다시 알게 됐다
-    오타 paay → AttributeError: &#x27;PgBClient&#x27; object has no attribute &#x27;paay&#x27;  ← 어댑터가 아닌 SDK 이름이 보인다
-[4] raise ... from: 원인 예외가 __cause__로 남는다
-    PaymentDeclined: PG 통신 실패 / __cause__ = ConnectionError(&#x27;pg-b.example:443 연결 거부&#x27;)</code></pre></figure>
 <h3>Protocol: 어댑터는 Target을 상속하지 않아도 된다</h3>
 <p>Java의 어댑터는 Target 인터페이스를 <code>implements</code>해야 한다. 파이썬에서 Target을 <code>typing.Protocol</code>로 정의하면 어댑터는 '모양만 맞으면' Target이다. 이는 어댑터가 서드파티 라이브러리에 이미 존재하는 경우에 특히 중요하다. 남의 클래스가 우연히 <code>pay</code>/<code>refund</code>를 갖고 있다면 어댑터 없이 바로 쓸 수 있다. 대가는 검사 시점이다. ABC는 구현 누락을 인스턴스화할 때 잡지만, Protocol은 mypy 같은 정적 검사기를 돌려야 잡는다. <code>@runtime_checkable</code>의 <code>isinstance</code>는 메서드 이름의 존재만 본다는 점도 기억하라. 팀이 정적 타입 검사를 <dfn class="term" id="term-continuous-integration" data-term="continuous-integration" title="변경을 자주 통합하며 빌드·테스트·정적 검사를 자동으로 돌리는 지속적 통합 체계.">CI</dfn>(지속적 통합: 변경을 올릴 때마다 빌드·테스트·정적 검사를 자동으로 돌리는 체계)에서 돌린다면 Protocol, 그렇지 않다면 ABC가 더 안전하다.</p>
 <h3>함수 하나짜리 인터페이스는 함수 어댑터로</h3>
@@ -1775,14 +1739,6 @@ if __name__ == &quot;__main__&quot;:
     except AttributeError as e:
         print(f&quot;    refund_all 실패: AttributeError: {e}&quot;)
         print(&quot;    SDK는 PaymentResponse를 기대했지만 우리 refund()가 None을 돌려줬다.&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex1_class_adapter.py</figcaption><pre><code>[1] MRO — 두 부모가 한 줄로 선형화된다
-    PgBClassAdapter → PaymentGateway → ABC → PgBClient → object
-[2] 인터페이스 오염 — Target에 없는 SDK 메서드가 그대로 공개된다
-    호출 가능한 SDK 원본 메서드: [&#x27;create_payment&#x27;, &#x27;refund_all&#x27;]
-    isinstance(adapter, PgBClient) = True  ← SDK 타입을 받는 곳에도 들어간다
-[3] 이름 충돌 — SDK 내부의 self.refund()가 우리 refund()로 납치된다
-    refund_all 실패: AttributeError: &#x27;NoneType&#x27; object has no attribute &#x27;status_code&#x27;
-    SDK는 PaymentResponse를 기대했지만 우리 refund()가 None을 돌려줬다.</code></pre></figure>
   </details>
 </div>
 
@@ -1900,9 +1856,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 센서별 섭씨 값:&quot;, [round(s.get_celsius(), 1) for s in sensors])
     print(f&quot;[2] 평균 온도: {average_celsius(sensors):.1f}℃&quot;)
     print(f&quot;[3] 최고 온도: {max_celsius(sensors):.1f}℃  (두 클라이언트 모두 isinstance가 사라졌다)&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_thermometer.py</figcaption><pre><code>[1] 센서별 섭씨 값: [25.0, 23.0, 22.0]
-[2] 평균 온도: 23.3℃
-[3] 최고 온도: 25.0℃  (두 클라이언트 모두 isinstance가 사라졌다)</code></pre></figure>
   </details>
 </div>
 
@@ -1996,11 +1949,6 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 메서드 하나만 필요하면 바운드 메서드가 곧 어댑터다&quot;)
     print(f&quot;    run_settlement(PgDClient().make_payment) → {run_settlement(PgDClient().make_payment)}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_rename_only.py</figcaption><pre><code>[1] 명시적 얇은 어댑터
-    (D SDK) D-12000 12000원 취소
-    hasattr(gw, &#x27;debug_dump&#x27;) = False  ← SDK 내부 기능이 새지 않는다
-[2] 메서드 하나만 필요하면 바운드 메서드가 곧 어댑터다
-    run_settlement(PgDClient().make_payment) → D-3000</code></pre></figure>
   </details>
 </div>
 </section>

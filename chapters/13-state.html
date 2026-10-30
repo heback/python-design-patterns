@@ -24,7 +24,6 @@ part: 행위 패턴
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">아래는 사고가 난 시점의 <code>Scooter</code>다. 메서드마다 상태 목록이 되풀이되는 모양, 그리고 <code>unlock()</code>의 <code>else</code>가 무엇을 삼키는지에 주목하라. <code># ⚠ 문제:</code> 주석이 결함 지점이다. 데모 [3]과 [4]가 실제 버그를 재현한다. 맨 위 상수 이름에 든 <dfn data-term="time-to-live">TTL</dfn>(Time To Live)은 예약처럼 유효 기간이 있는 것의 유지 시간으로, 지나면 만료된다. 코드 주석에 나오는 <dfn data-term="illegal-transition">불법 전이</dfn>는 현재 상태에서 허용되지 않는 동작이 받아들여져, 일어나서는 안 되는 상태 변화가 생기는 것을 말한다. 정비 중인 기기의 주행 시작이 바로 그런 예이고, 이 장의 모든 설계는 이것을 어떻게 막느냐로 수렴한다.</p>
   <pre data-src="13_state/01_naive.py"></pre>
-  <pre data-run="13_state/01_naive.py"></pre>
   <p>출력 [3]이 사고를 그대로 재현한다. 정비 중인 킥보드인데도 <code>unlock()</code>이 예외 없이 지나가 주행 중이 된다. [4]는 덜 눈에 띄는 버그다. <code>report_lost()</code>가 아무 상태에서나 분실로 바꾸기 때문에, 주행 중이던 손님의 요금이 정산 기록에 남지 않는다. 두 버그는 원인이 같다.</p>
   <ul>
     <li><strong>규칙이 상태가 아니라 메서드 기준으로 흩어져 있다.</strong> "정비 중이면 무엇이 되고 무엇이 안 되는가"를 알려면 <code>label()</code>까지 메서드 아홉 개를 모두 읽어야 한다. 상태 하나의 규칙을 한곳에서 볼 수 없다.</li>
@@ -102,7 +101,6 @@ part: 행위 패턴
 
   <p class="lead-in">마지막으로 컨텍스트다. 공개 메서드가 모두 한 줄짜리 위임이라는 점, 그리고 모든 전이가 <code>change_state()</code> 한곳을 지나간다는 점에 주목하라. docstring이 말하는 <dfn data-term="metrics-collection">지표 수집</dfn>은 전이 횟수·지연 같은 동작 수치를 모아 모니터링하는 일이다.</p>
   <pre data-src="13_state/02_state.py" data-lines="226-296"></pre>
-  <pre data-run="13_state/02_state.py"></pre>
   <p>출력 [3]은 순진한 코드에서 사고를 냈던 세 시나리오(정비 중 잠금 해제, 주행 중 분실 신고, 남의 예약 가로채기)가 모두 거부되는 모습이다. [1]과 [4]의 전이 로그는 <code>change_state()</code> 한곳에서 쌓였다. 이 관문에 옵저버(11장)를 붙이면, 상태 클래스를 하나도 건드리지 않고 "상태가 바뀌면 앱에 푸시"를 추가할 수 있다.</p>
   <div class="callout ok"><span class="label">핵심 정리</span>
     <p>상태 패턴이 바꾼 것은 세 가지다. ① 분기 기준이 <em>메서드 축</em>에서 <em>상태 축</em>으로 옮겨 갔다. ② 기본값이 '허용'에서 '거부'로 바뀌었다. ③ 상태별 데이터의 수명이 상태 객체에 묶였다. 그 결과 새 상태를 추가할 때 고칠 곳은 새 클래스 하나와, 그 상태로 <em>들어가는</em> 이웃 상태뿐이다.</p>
@@ -112,7 +110,6 @@ part: 행위 패턴
   <p>그림 13-1을 10장의 전략 그림 옆에 놓으면 거의 구별되지 않는다. 컨텍스트가 추상 타입 필드를 들고 위임하고, 구체 클래스 여럿이 그 타입을 구현한다. GoF가 두 패턴을 따로 둔 이유는 구조가 아니라 <strong>누가, 언제, 왜 교체하는가</strong>에 있다. 10장은 이 비교를 이 장으로 미뤘다. 이제 두 패턴을 한 클래스에 나란히 놓아 보자.</p>
   <p class="lead-in">킥고 운영팀은 시간대마다 요금 정책을 바꾼다. 아래 <code>Scooter</code>는 요금 정책 슬롯(전략)과 대여 생명주기 슬롯(상태)을 함께 가진다. 두 슬롯의 <em>교체 경로</em>를 비교하라. <code>set_pricing()</code>은 바깥에서 부르고, <code>change_state()</code>는 상태 객체만 부른다. 맨 아래의 <code>app_server_end_ride()</code>는 전이 책임을 바깥으로 옮겼을 때 무슨 일이 생기는지 보여 주는 반례다. 모듈 docstring의 <dfn data-term="state-machine">상태 기계</dfn>(유한 상태 기계)는 유한한 상태 집합과 "(현재 상태, 사건) → 다음 상태"라는 전이 규칙으로 객체의 동작을 기술하는 모델이다. 상태 패턴은 상태 기계를 객체로 구현하는 한 방법이고, 5.1절은 같은 기계를 표로 구현한다.</p>
   <pre data-src="13_state/03_state_vs_strategy.py"></pre>
-  <pre data-run="13_state/03_state_vs_strategy.py"></pre>
   <p>출력 [1]의 로그를 보면 교체가 두 갈래로 일어난다. 전략 교체는 운영 콘솔이라는 <em>바깥의 결정</em>이고, 상태 전이는 잠금 해제나 반납 같은 <em>사건에 대한 객체 자신의 반응</em>이다. 두 패턴이 협력하는 지점도 보인다. <code>Riding</code>은 출발하는 순간의 요금 정책을 붙잡아 두기 때문에, 주행 도중 운영팀이 정책을 바꿔도 이미 출발한 손님에게는 소급되지 않는다. 상태 데이터가 업무 규칙("계약은 시작 시점에 확정된다")을 표현한다.</p>
   <table>
     <thead><tr><th>관점</th><th>전략 (요금 정책)</th><th>상태 (대여 생명주기)</th></tr></thead>
@@ -140,7 +137,6 @@ part: 행위 패턴
     <p><code>match</code> 문은 값의 구조를 여러 패턴과 차례로 대조해 분기하는 문법이다(파이썬 3.10+). <code>|</code>로 여러 패턴을 묶고, <code>case</code> 뒤의 <code>if</code>로 조건을 덧붙인다. 마지막의 <code>case _</code>는 어떤 값과도 맞는 <dfn data-term="wildcard-pattern">와일드카드</dfn> 패턴으로, 전이표의 "키 없음"에 해당한다. <code>_enter()</code>가 하는 <dfn data-term="entry-action">진입 동작</dfn>(entry action)은 어떤 상태로 들어갈 때마다 실행되는 동작으로, 여기서는 그 상태에 필요 없는 데이터를 지운다. 정적 검증에 쓰는 <dfn data-term="collections-deque"><code>deque</code></dfn>는 양쪽 끝에서 빠르게 넣고 뺄 수 있는 큐이고, <code>reachable_from()</code>은 이를 써서 <dfn data-term="breadth-first-search">BFS</dfn>(너비 우선 탐색: 가까운 노드부터 차례로 방문)로 도달 가능한 상태를 찾는다.</p>
   </div>
   <pre data-src="13_state/04_pythonic_fsm.py"></pre>
-  <pre data-run="13_state/04_pythonic_fsm.py"></pre>
   <p>출력 [1]과 [2]는 표 방식만의 장점이다. 전이 규칙이 데이터이기 때문에 출력하고, 도달할 수 없는 상태나 출구 없는 상태를 프로그램으로 검증할 수 있다. 상태 클래스 방식에서는 이 검증이 어렵다. 전이가 메서드 본문 속 코드로 흩어져 있어, 연습문제 1 해설처럼 바이트코드를 분석해 간선을 근사할 수는 있지만 조건부 전이(어느 분기에서 어느 상태로 가는가)는 놓친다. <code>match</code> 버전([3])은 <code>|</code> 패턴으로 규칙을 압축할 수 있지만 그 역시 코드라서 같은 한계를 가진다.</p>
   <p>대가도 분명하다. 예약자와 탑승자는 다시 <code>Scooter</code> 필드가 되었다. <code>_enter()</code>로 정리 규칙을 한곳에 모아 찌꺼기 문제를 줄였지만 근본 해결은 아니다. 반납 후 배터리에 따라 갈라지는 조건부 전이는 사건 두 개로 쪼개야 했다. 그 결과 방전 반납은 잠깐 <code>AVAILABLE</code>을 거친다(출력 [4]의 전이 로그). 전이 관문에 옵저버를 붙여 앱에 푸시한다면 지도에 '대여 가능'이 순간적으로 떴다 사라진다. 중간 상태가 바깥에 보이는 비용이다. 상태마다 <em>행동</em>이 크게 다를수록 표 방식은 불리해지고, <em>전이 구조</em>가 핵심일수록 유리해진다.</p>
 
@@ -148,7 +144,6 @@ part: 행위 패턴
   <p>킥보드가 3만 대로 늘자 서진은 전이마다 새 상태 객체를 만드는 일이 마음에 걸렸다. GoF는 "상태 객체는 흔히 싱글턴"이라고 쓴다. 파이썬에서는 4장의 싱글턴 클래스 기법이 필요 없다. 모듈 수준 상수 하나면 충분하다. 파이썬에는 더 과격한 선택지도 있다. 객체의 <code>__class__</code>를 바꿔 GoF 의도의 문구 그대로 "클래스가 바뀐 것처럼" 만드는 방법이다.</p>
   <p class="lead-in">A 부분에서는 <dfn data-term="slots"><code>__slots__</code></dfn> <code>= ()</code>가 공유 상태 객체를 어떻게 보호하는지 보라. <code>__slots__</code>는 인스턴스가 가질 속성 이름을 클래스에서 고정해 인스턴스별 <code>__dict__</code>를 없애는 클래스 속성이다. 메모리를 아끼고, 목록에 없는 속성의 추가를 막는다(빈 튜플이면 어떤 속성도 추가할 수 없다). B 부분에서는 <code>__class__</code> 교체가 실제로 동작한다는 사실과, 그 뒤에 따라오는 세 가지 문제를 데모 출력으로 확인하라.</p>
   <pre data-src="13_state/05_pythonic_variants.py"></pre>
-  <pre data-run="13_state/05_pythonic_variants.py"></pre>
   <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 02의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
   <p><code>__class__</code> 교체(B)는 짧고 영리하다. 그러나 [B-2]에서 보듯 객체의 타입이 수명 중에 바뀌어 타입을 키로 쓰는 코드가 깨진다. [B-3]처럼 이전 상태의 속성이 남고, [B-4]처럼 상태 클래스끼리의 상속 때문에 금지해야 할 동작을 물려받는다. 타입 검사기와 디버거도 따라오지 못한다. 동작한다는 것과 유지보수할 수 있다는 것은 다른 문제다. 이 트릭은 언어의 유연성을 보여 주는 예로 알아 두기만 하라.</p>
 </section>
@@ -196,7 +191,6 @@ part: 행위 패턴
       <p>(a) 분산 방식에서는 새 클래스 <code>Relocating</code>과 함께 <strong>새 상태로 들어가는 이웃</strong>인 <code>LowBattery</code>를 고쳐야 한다. 새 사건(<code>relocate</code>, <code>arrive</code>)이 생기므로 기본 클래스와 컨텍스트의 위임 메서드도 늘어난다. (b) 집중 방식에서는 <code>Enum</code>에 한 줄, 표에 두 줄을 추가하면 끝나고 다른 상태는 전혀 바뀌지 않는다. 상태가 서로를 모르기 때문이다.</p>
       <p>결합도로 보면, (a)에서는 상태 그래프의 간선이 그대로 클래스 의존이다. 아래 코드가 <code>co_names</code>로 측정한 의존 목록이 바로 그 간선이다. (b)에서는 모든 간선이 표라는 한 객체에 모이고, 상태 사이의 의존은 0이다. 그렇다고 (b)가 언제나 낫지는 않다. 조건부 전이(<code>end_ride</code>)와 진입 동작(배터리 100으로 갱신)이 컨텍스트로 돌아온 것을 보라. <strong>흔한 오답</strong>은 "표 방식이 결합도가 낮으니 항상 더 좋다"이다. 결합이 사라진 것이 아니라 컨텍스트 한곳으로 집중된 것이다. 상태별 행동이 많다면 그 집중이 곧 순진한 코드의 거대 if로 되돌아가는 길이다.</p>
       <pre data-src="13_state/solutions/ex1_transition_owner.py"></pre>
-      <pre data-run="13_state/solutions/ex1_transition_owner.py"></pre>
     </details>
   </div>
 
@@ -238,7 +232,6 @@ part: 행위 패턴
       <p>버그 1: <code>edit()</code>는 "상신 중"만 막고 나머지를 허용한다. 그래서 <strong>승인된 문서도 수정된다</strong>. 이는 킥보드의 <code>else</code>와 같은 '기본값이 허용'인 결함이다. 버그 2: 재상신 뒤에도 <code>reject_reason</code>이 남아, 화면이 승인된 문서에 옛 반려 사유를 보여 줄 수 있다. 상태별 데이터가 객체 전체에 깔려 있어서 생기는 찌꺼기다.</p>
       <p>해설 코드는 두 버그를 구조로 없앤다. <code>edit()</code>는 <code>Draft</code>와 <code>Rejected</code>만 재정의하므로 <code>Approved</code>에서는 자동으로 거부된다. 반려 사유는 <code>Rejected</code> 객체의 필드이므로, 그 상태를 떠나는 순간 사라진다. 빈 문서 상신을 막는 가드는 <code>Draft.submit()</code> 안에 넣었다. <strong>흔한 오답</strong>은 상태 클래스를 만든 뒤에도 <code>Document.edit()</code>에 <code>if isinstance(self._state, Approved)</code>를 남기는 것이다. 그렇게 하면 분기가 사라지지 않고 모양만 바뀐다.</p>
       <pre data-src="13_state/solutions/ex2_approval_state.py"></pre>
-      <pre data-run="13_state/solutions/ex2_approval_state.py"></pre>
     </details>
   </div>
 
@@ -250,7 +243,6 @@ part: 행위 패턴
       <p><code>Enum</code> + 전이표를 택한다. 상태 패턴의 이득은 "상태별로 다른 <em>행동</em>"을 다형성으로 나누는 데서 오는데, 여기서는 나눌 행동이 없다. 클래스 세 개의 본문이 "다음은 X, 색은 Y" 한두 줄씩일 것이다. 반면 전이표는 규칙 전체를 다섯 줄에 보여 주고, 표시 속성은 <code>Enum</code> 값에 붙이면 된다.</p>
       <p>판단을 뒤집을 신호는 <strong>특정 상태에만 무거운 행동이 생길 때</strong>다. 예를 들어 '사용 중'에만 연장 결제와 다음 예약자 알림이 붙는 경우다. 그때도 전체를 갈아엎을 필요는 없다. 그 상태만 객체로 승격하는 혼합형(6절 표의 가운데 줄)으로 충분하다. <strong>흔한 오답</strong>은 "확장될지 모르니 처음부터 상태 패턴"이다. 확장 방향을 모르는 채로 미리 깐 계층은 대개 엉뚱한 축으로 나뉘어 있다.</p>
       <pre data-src="13_state/solutions/ex3_enum_table.py"></pre>
-      <pre data-run="13_state/solutions/ex3_enum_table.py"></pre>
     </details>
   </div>
 

@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">3장 · 빌더 (Builder)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -150,21 +147,6 @@ if __name__ == &quot;__main__&quot;:
     vip = SalesQuery(&quot;orders&quot;, &quot;SUM(amount)&quot;, start=&quot;2026-01-01&quot;, region=&quot;서울&quot;, grade=&quot;VIP&quot;)
     print(&quot;   SQL :&quot;, vip.to_sql())
     print(&quot;   요약:&quot;, vip.to_summary())</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 정상 경로: 기간 + 지역 필터, 월별 집계
-   SELECT month, SUM(amount) FROM orders WHERE order_date &gt;= &#x27;2026-01-01&#x27; AND order_date &lt; &#x27;2026-07-01&#x27; AND region = &#x27;서울&#x27; GROUP BY month ORDER BY month
-
-[2] 기간 없이 지역만 걸면
-   SELECT * FROM orders WHERE AND region = &#x27;부산&#x27;
-
-[3] GROUP BY 없이 HAVING (오타로 group_by 인자를 빠뜨림)
-   SELECT category, SUM(amount) FROM orders HAVING SUM(amount) &gt; 1000000
-
-[4] 대시보드 검색창에 누군가 따옴표를 입력하면
-   SELECT * FROM orders WHERE order_date &gt;= &#x27;2026-01-01&#x27; AND region = &#x27;서울&#x27; OR &#x27;1&#x27;=&#x27;1&#x27;
-
-[5] 같은 쿼리의 요약 — 회원 등급 필터가 사라졌다
-   SQL : SELECT SUM(amount) FROM orders WHERE order_date &gt;= &#x27;2026-01-01&#x27; AND region = &#x27;서울&#x27; AND member_grade = &#x27;VIP&#x27;
-   요약: orders에서 SUM(amount), 기간 2026-01-01~현재, 지역=서울</code></pre></figure>
   <p>[2]의 <code>WHERE AND</code>는 사소한 버그처럼 보이지만 구조적 원인이 있다. 문자열을 순서대로 이어 붙이면 "지금이 첫 조건인가"라는 숨은 상태를 코드 전체가 공유하게 되는데, 그 상태를 아무도 관리하지 않는다. [3]의 쿼리는 <code>category</code>가 <code>GROUP BY</code>에 없으므로 <dfn class="term" id="term-postgresql" data-term="postgresql" title="널리 쓰이는 오픈 소스 관계형 데이터베이스.">PostgreSQL</dfn>(널리 쓰이는 오픈 소스 관계형 데이터베이스)이 거부한다. 문제는 그 거부가 <em>운영 DB에 보낸 뒤에야</em> 일어난다는 점이다. 객체를 만드는 시점에 검사할 자리가 없다. [4]는 값이 SQL 텍스트에 섞여 들어가는 순간 피할 수 없는 결과다. 이 쿼리는 문법상 유효하고, <code>OR</code>가 <code>AND</code>보다 우선순위가 낮아 기간 조건까지 무력화되므로 전체 주문이 조회된다.</p>
   <p>[5]가 가장 교훈적이다. <code>to_sql()</code>과 <code>to_summary()</code>는 "어떤 부분이 있으면 무엇을 덧붙인다"는 <em>조립 절차</em>를 각자 들고 있다. 절차가 둘이니 언젠가 어긋난다. 필요한 것은 절차를 한 곳에 두고 "각 부분을 어떻게 표현하는가"만 바꾸는 구조다. 이것이 GoF가 빌더라고 부른 것이다.</p>
   <div class="callout warn">
@@ -519,27 +501,6 @@ if __name__ == &quot;__main__&quot;:
         QueryBuilder(&quot;orders&quot;).select(&quot;order_id; DROP TABLE orders&quot;)
     except ValueError as e:
         print(f&quot;  식별자 자리: ValueError — {e}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_builder.py</figcaption><pre><code>[1] 월별 서울 매출 — 각 단계가 이름을 가지므로 None 행렬이 없다
-  SQL   : SELECT month, SUM(amount) FROM orders WHERE order_date &gt;= %s AND order_date &lt; %s AND region = %s GROUP BY month ORDER BY month
-  params: [&#x27;2026-01-01&#x27;, &#x27;2026-07-01&#x27;, &#x27;서울&#x27;]
-
-[2] 기간 없이 지역만 — &#x27;WHERE AND&#x27;가 생길 수 없는 구조
-   (&#x27;SELECT order_id FROM orders WHERE region = %s&#x27;, [&#x27;부산&#x27;])
-
-[3] 대시보드 UI 토글에 따라 단계를 조건부로 붙인다 (빌더가 빛나는 지점)
-   (&#x27;SELECT category, SUM(amount) FROM orders WHERE category = %s AND region IN (%s, %s) GROUP BY category HAVING SUM(amount) &gt; %s ORDER BY SUM(amount) DESC LIMIT 10&#x27;, [&#x27;가전&#x27;, &#x27;서울&#x27;, &#x27;경기&#x27;, 1000000])
-
-[4] 잘못된 조합은 build()에서 막힌다
-  GROUP BY 없는 HAVING: ValueError — HAVING은 GROUP BY와 함께 써야 한다(대시보드 규칙)
-  비집계 열 누락: ValueError — GROUP BY에 없는 비집계 열: [&#x27;region&#x27;]
-
-[5] Query는 불변·해시 가능 → 대시보드 결과 캐시의 키로 쓸 수 있다
-  빌더 수정 후에도 top10.limit = 10, 새 build().limit = 20
-  limit을 10으로 되돌려 다시 build하면 값이 같은 Query → 같은 키: 어제 계산한 결과
-
-[6] 주입 시도는 값이면 바인딩되고, 식별자면 거부된다
-  값 자리: SELECT order_id FROM orders WHERE region = %s  params=[&quot;서울&#x27; OR &#x27;1&#x27;=&#x27;1&quot;]
-  식별자 자리: ValueError — 허용되지 않는 식별자/식: &#x27;order_id; DROP TABLE orders&#x27;</code></pre></figure>
   <p>[1]의 호출부는 그 자체로 쿼리를 설명한다. 단계마다 이름이 있으니 None 행렬이 생길 수 없다. [2]에서 <code>WHERE AND</code>가 사라진 이유는 영리한 분기 때문이 아니라 조건을 리스트에 모은 뒤 <code>" AND ".join()</code>으로 <em>한 번에</em> 렌더링하기 때문이다. "첫 조건인가"라는 숨은 상태 자체가 없어졌다.</p>
   <p>[3]이 빌더가 정말 값을 하는 장면이다. UI 토글에 따라 단계를 붙이거나 건너뛰는 코드가 반복문과 조건문 사이에 자연스럽게 섞인다. 조립 순서는 자유롭다. <code>having()</code>을 <code>group_by()</code>보다 먼저 불러도 된다. 대신 완성 조건은 엄격하다. [4]처럼 <code>build()</code>가 교차 제약을 한 번에 검사하고, 통과하지 못하면 <code>Query</code>는 아예 존재하지 않는다. "조립 중에는 관대하게, 완성 시에는 엄격하게"가 빌더의 계약이다.</p>
   <p>[5]는 <code>Query</code>가 <code>frozen=True</code>이고 컬렉션 필드가 전부 튜플이라 얻는 이득이다. 빌더를 계속 바꿔도 이미 만든 <code>Query</code>는 영향받지 않고, 해시 가능하므로 대시보드 결과 캐시의 키로 쓸 수 있다. [6]은 주입 방어가 두 겹이라는 것을 보여준다. 값은 <code>%s</code> 자리표시자와 <code>params</code>로 분리해 DB 드라이버가 바인딩하게 하고, 매개변수로 바인딩할 수 없는 식별자(테이블·열 이름)와 연산자는 화이트리스트로 검사한다.</p>
@@ -760,16 +721,6 @@ if __name__ == &quot;__main__&quot;:
     for renderer in (PostgresRenderer(), SummaryRenderer()):
         director.construct(simple, renderer)
         print(f&quot;  {type(renderer).__name__:16}: {renderer.result()}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_director.py</figcaption><pre><code>[1] 같은 Query, 같은 절차 → PostgreSQL 표현
-  text  : SELECT category, SUM(amount) FROM orders WHERE region = %s AND member_grade = %s AND order_date &gt;= %s GROUP BY category HAVING SUM(amount) &gt; %s LIMIT 5
-  params: (&#x27;서울&#x27;, &#x27;VIP&#x27;, &#x27;2026-01-01&#x27;, 1000000)
-
-[2] 같은 Query, 같은 절차 → 사람이 읽는 요약 (회원 등급 필터가 빠지지 않는다)
-   [orders] category · SUM(amount) / 조건: region 서울, member_grade VIP, order_date 2026-01-01 이상 / category별 집계 (집계 후 SUM(amount) 1000000 초과) / 상위 5개
-
-[3] 필터·집계 없는 단순 쿼리 — 생략 규칙도 Director 한 곳에서 두 표현에 똑같이 적용
-  PostgresRenderer: SqlStatement(text=&#x27;SELECT order_id, amount FROM orders LIMIT 3&#x27;, params=())
-  SummaryRenderer : [orders] order_id · amount / 상위 3개</code></pre></figure>
   <p>[1]과 [2]는 같은 <code>Query</code>를 같은 <code>construct()</code>에 통과시켰다. 다른 것은 건네준 렌더러뿐이다. 요약에서 회원 등급 조건이 더 이상 빠지지 않는 이유는 요약 렌더러가 꼼꼼해서가 아니라, 조건을 "종류별로" 다루는 분기 자체가 사라졌기 때문이다. 렌더러는 Director가 넘겨준 조건 묶음을 표현만 한다. [3]은 "WHERE가 없으면 필터 단계를 건너뛴다" 같은 생략 규칙까지 Director에 있으므로 두 표현에 똑같이 적용된다는 것을 보여준다. 새 표현, 예컨대 pandas 필터 코드를 생성하는 렌더러를 추가해도 절차는 다시 쓰지 않는다.</p>
   <p><code>QueryRenderer</code>에 <code>result()</code>를 두지 않은 것은 의도적이다. GoF도 지적하듯 구체 빌더들이 만드는 제품은 공통 부모 타입이 있을 이유가 거의 없다. <code>SqlStatement</code>와 <code>str</code>을 하나의 추상 반환 타입으로 묶으면 <code>object</code>밖에 남지 않는다. 그래서 클라이언트는 자기가 만든 구체 빌더에서 결과를 직접 꺼낸다. 이 점이 같은 생성 패턴인 추상 팩토리(제품이 공통 인터페이스를 갖는다)와 구별되는 지점이다.</p>
   <div class="callout ok">
@@ -874,21 +825,6 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;\n[5] 조건부 조립이 필요해지면 임시 리스트(=손수 만든 빌더)가 등장한다&quot;)
     print(&quot;  &quot;, assemble_from_ui({&quot;region&quot;: &quot;부산&quot;, &quot;category&quot;: None, &quot;group&quot;: &quot;category&quot;}))</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_pythonic.py</figcaption><pre><code>[1] 키워드 인자만으로 — 무엇이 무엇인지 호출부에 이름이 남는다
-   Query(table=&#x27;orders&#x27;, select=(&#x27;month&#x27;, &#x27;SUM(amount)&#x27;), where=((&#x27;region&#x27;, &#x27;=&#x27;, &#x27;서울&#x27;),), group_by=(&#x27;month&#x27;,), having=(), limit=None, note=&#x27;월간 리포트&#x27;)
-
-[2] 위치 인자는 아예 거부된다 (kw_only)
-   TypeError: Query.__init__() takes 1 positional argument but 3 were given
-
-[3] replace로 파생: 월별 쿼리에 LIMIT 3을 더한 변형. 원본은 그대로, 검증은 다시 돈다
-   원본 limit=None, 파생 limit=3
-   잘못된 파생은 거부: HAVING은 GROUP BY와 함께 써야 한다(대시보드 규칙)
-
-[4] note는 compare=False — 메모만 다른 두 쿼리는 같은 캐시 키
-   True
-
-[5] 조건부 조립이 필요해지면 임시 리스트(=손수 만든 빌더)가 등장한다
-   Query(table=&#x27;orders&#x27;, select=(&#x27;category&#x27;, &#x27;SUM(amount)&#x27;), where=((&#x27;region&#x27;, &#x27;=&#x27;, &#x27;부산&#x27;),), group_by=(&#x27;category&#x27;,), having=(), limit=None, note=&#x27;&#x27;)</code></pre></figure>
   <p>[1]과 [2]가 보여주듯 키워드 전용 생성자는 점층적 생성자 문제를 완전히 없앤다. [3]의 <code>replace()</code>는 "기존 쿼리에서 하나만 바꾼 쿼리"를 만드는 가장 간결한 방법이고, 내부적으로 <code>__init__</code>을 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다. 불변 객체의 단계적 파생에는 빌더가 필요 없다. [4]의 <code>field(compare=False)</code>는 "정의의 일부가 아닌 정보"를 동등성과 해시에서 빼는 방법이다.</p>
   <p>[5]의 <code>assemble_from_ui()</code>가 경계선이다. 조각들이 조건문과 반복문 속에서 하나씩 결정되면, 생성자를 한 번에 부르기 위해 임시 리스트에 먼저 모아야 한다. 그 임시 리스트들과 "다 모은 뒤 생성자를 부른다"는 규칙이 바로 <em>손으로 만든 빌더</em>다. 이런 조립이 한 곳뿐이면 그대로 두는 편이 낫다. 여러 곳에서 반복되거나 단계마다 검증·정규화가 붙기 시작하면 그것을 클래스로 묶은 것이 02의 <code>QueryBuilder</code>다.</p>
   <div class="table-wrap"><table>
@@ -1093,17 +1029,6 @@ if __name__ == &quot;__main__&quot;:
         req.headers[&quot;Authorization&quot;] = &quot;탈취&quot;  # type: ignore[index]
     except TypeError as e:
         print(f&quot;  TypeError: {e}&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_request_builder.py</figcaption><pre><code>[1] 광고 성과 조회 — 필터는 쿼리 매개변수로
-  GET https://ads.example.com/v2/reports params={&#x27;from&#x27;: &#x27;2026-09-01&#x27;, &#x27;to&#x27;: &#x27;2026-09-30&#x27;} retries=3
-
-[2] 사고를 낸 조합: GET + 본문
-  ValueError: GET 요청에는 본문을 둘 수 없다 — 필터는 param()으로
-
-[3] 타임아웃 없는 재시도
-  ValueError: 재시도를 쓰려면 timeout()을 지정해야 한다
-
-[4] 완성된 Request의 헤더는 바꿀 수 없다
-  TypeError: &#x27;mappingproxy&#x27; object does not support item assignment</code></pre></figure>
     </details>
   </div>
 

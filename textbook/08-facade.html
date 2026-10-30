@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">8장 · 퍼사드 (Facade)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -182,14 +179,6 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[3] 모바일 앱: 여권이 다른 사람인데도 탑승권이 나온다&quot;)
     print(&quot;    &quot; + MobileApp().check_in(&quot;NR11AB&quot;, &quot;Lee&quot;, &quot;P&lt;KORPARK&lt;&lt;MINA&quot;, &quot;aisle&quot;, 1))</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 키오스크: 미국행 체크인
-    (APIS) US7Q2K 승객 정보 전송
-    [탑승권] Kim US7Q2K → JFK 좌석 23A / 수하물 100,000원
-[2] 모바일 앱: 같은 승객, 같은 노선
-    [탑승권] Kim US7Q2K → JFK 좌석 23A / 수하물 100,000원
-    → APIS 전송 로그가 없다. 그리고 좌석은 여권 판독 &#x27;전에&#x27; 배정됐다.
-[3] 모바일 앱: 여권이 다른 사람인데도 탑승권이 나온다
-    [탑승권] Lee NR11AB → NRT 좌석 23C / 수하물 0원</code></pre></figure>
 <p>출력 [2]에는 APIS 전송 로그가 없다. [3]은 더 심각하다. 여권 MRZ의 성(PARK)이 예약자(Lee)와 다른데도 탑승권이 나왔다. 모바일 앱은 판독 결과를 확인하지 않고 진행했다. 정리하면 다음과 같다.</p>
 <ul>
   <li><strong>흐름 지식의 복제.</strong> 호출 순서, 실패 조건, 노선별 단계가 클라이언트마다 따로 존재한다. 복제본은 시간이 지나면 반드시 어긋난다.</li>
@@ -765,17 +754,6 @@ if __name__ == &quot;__main__&quot;:
     result = facade.check_in(&quot;NR55CD&quot;, &quot;Choi&quot;, &quot;P&lt;KORCHOI&lt;&lt;YUNA&quot;, &quot;aisle&quot;, 1)
     print(f&quot;    퍼사드 결과: {result.boarding_pass}&quot;)
     print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_facade.py</figcaption><pre><code>[1] 키오스크와 모바일 — 같은 미국행 승객, 같은 결과(APIS 포함)
-    (APIS) US7Q2K 승객 정보 전송
-    [탑승권] Kim US7Q2K → JFK 좌석 31A / 수하물 100,000원
-    (APIS) US7Q2K 승객 정보 전송
-    {&#x27;ok&#x27;: True, &#x27;pass&#x27;: &#x27;[탑승권] Kim US7Q2K → JFK 좌석 31A&#x27;, &#x27;fee&#x27;: 100000}
-[2] 여권 불일치 — 어느 클라이언트든 좌석 배정 전에 멈춘다
-    ⚠ 여권 정보가 예약자와 일치하지 않습니다 — 카운터로 가 주세요
-    {&#x27;ok&#x27;: False, &#x27;error&#x27;: &#x27;여권 정보가 예약자와 일치하지 않습니다&#x27;}
-[3] 카운터 직원 웹 — 퍼사드로 체크인한 뒤, 서브시스템에 직접 접근해 좌석 수동 변경
-    퍼사드 결과: [탑승권] Choi NR55CD → NRT 좌석 31C
-    직원 수동 변경: 12F (퍼사드는 이 길을 막지 않는다)</code></pre></figure>
 <p>출력 [1]에서 키오스크와 모바일 모두 APIS를 전송했다. 모바일 팀이 APIS를 '기억해서'가 아니라, 기억할 필요가 없어졌기 때문이다. [2]에서 여권 불일치는 두 클라이언트 모두 좌석 배정 전에 멈췄고, 각자 자기 형식(화면 문구, JSON)으로 보여 준다. 공통 흐름은 공유하고 표현은 각자 한다. [3]의 직원 수동 변경은 퍼사드를 거치지 않았다. 이것이 학습 목표 1의 "직접 접근을 막지 않는다"이다.</p>
 <p>학습 목표 3의 측정을 해 보자. 클라이언트가 직접 의존하는 서브시스템 모듈 수다.</p>
 <div class="table-wrap"><table>
@@ -916,21 +894,6 @@ if __name__ == &quot;__main__&quot;:
                           stdout=subprocess.PIPE, text=True) as proc:
         assert proc.stdout is not None
         print(f&quot;    Popen 직접: {proc.stdout.readline().strip()!r}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] with 한 줄 + 함수 하나로 체크인
-    (판독기) 연결
-    (프린터) 연결
-    [탑승권] Lee NR11AB
-    (프린터) 해제
-    (판독기) 해제
-[2] 작업 중 예외가 나도 장치는 닫힌다
-    (판독기) 연결
-    (프린터) 연결
-    (프린터) 해제
-    (판독기) 해제
-    예외 전파: 여권 불일치
-[3] 표준 라이브러리의 퍼사드: subprocess.run
-    run(): &#x27;hello from child&#x27;, returncode=0
-    Popen 직접: &#x27;streamed&#x27;</code></pre></figure>
 <h3>모듈이 곧 퍼사드다</h3>
 <p>파이썬 패키지의 <code>__init__.py</code>는 그 자체로 퍼사드 역할을 한다. 패키지 내부에 모듈이 스무 개 있어도 <code>__init__.py</code>가 <code>from ._checkin import check_in</code>과 <code>__all__ = ["check_in"]</code>만 노출하면, 사용자에게 패키지는 함수 하나짜리 단순한 정문이 된다. 그러면서도 <code>pkg._seats</code> 같은 내부 모듈은 여전히 import 가능하다. 밑줄 접두사는 "공개 API가 아니다"라는 관례적 표시일 뿐 접근을 막지 않으므로, "퍼사드는 서브시스템을 숨기지 않는다"는 원칙과 정확히 맞는다. 상태가 없는 퍼사드라면 함수가 가장 단순한 형태다. 단, 서브시스템을 모듈 전역 기본값으로 숨기면 테스트에서 교체하기 어려운 전역 상태가 생기므로(4장 싱글턴의 함정), 위 코드처럼 키워드 인자로 주입받게 했다.</p>
 <h3><code>contextmanager</code> 퍼사드: 순서 규칙 + 정리 보장</h3>
@@ -1134,13 +1097,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;   &quot;, upload_handler(facade, {&quot;filename&quot;: &quot;old.avi&quot;, &quot;title&quot;: &quot;구형 영상&quot;, &quot;data&quot;: b&quot;..&quot;}))
     print(&quot;[3] 일괄 등록 CLI — 흐름과 보상 규칙을 복제하지 않고 같은 퍼사드를 부른다&quot;)
     print(f&quot;    실패 목록: {cli_bulk_upload(facade, [&#x27;menu.mp4&#x27;, &#x27;promo.avi&#x27;, &#x27;map.mp4&#x27;])}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_video_upload.py</figcaption><pre><code>[1] 정상 업로드: (201, &#x27;/videos/42 (썸네일 s3://ife-media/safety.mp4.thumb5.jpg)&#x27;)
-[2] 실패 업로드 — 퍼사드가 원본을 정리한다
-    (storage) 삭제 s3://ife-media/old.avi
-    (422, &#x27;old.avi: 지원하지 않는 코덱&#x27;)
-[3] 일괄 등록 CLI — 흐름과 보상 규칙을 복제하지 않고 같은 퍼사드를 부른다
-    (storage) 삭제 s3://ife-media/promo.avi
-    실패 목록: [&#x27;promo.avi: 지원하지 않는 코덱&#x27;]</code></pre></figure>
   </details>
 </div>
 
@@ -1230,9 +1186,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 승객 퍼사드:&quot;, passenger.choose_seat(&quot;NR11AB&quot;, window=True))
     print(&quot;[2] 직원 퍼사드:&quot;, agent.force_seat(&quot;NR11AB&quot;, &quot;12F&quot;), &quot;/&quot;, agent.close_gate(&quot;BW702&quot;))
     print(f&quot;[3] 승객 퍼사드에 force_seat(수동 지정)가 있는가? {hasattr(passenger, &#x27;force_seat&#x27;)}&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_split_facade.py</figcaption><pre><code>[1] 승객 퍼사드: 31A
-[2] 직원 퍼사드: 12F / BW702 마감
-[3] 승객 퍼사드에 force_seat(수동 지정)가 있는가? False</code></pre></figure>
   </details>
 </div>
 </section>

@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">13장 · 상태 (State)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -214,16 +211,6 @@ if __name__ == &quot;__main__&quot;:
     s2.unlock(&quot;서윤&quot;, now=0)
     s2.report_lost()
     print(&quot;    상태:&quot;, s2.label(), &quot;/ 정산 기록:&quot;, s2.charges, &quot;← 주행 요금 누락&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납
-    예약됨(민지)
-    반납 요금 2,800원, 상태: 대여 가능
-[2] 시간 기반 전이: 예약 후 10분이 지나면 자동 해제 + 노쇼 수수료
-    상태: 대여 가능, 정산 기록: (&#x27;도현 노쇼&#x27;, 500)
-[3] 버그 재현: 정비 중인 킥보드의 잠금을 해제한다
-    정비 입고 후 상태: 정비 중
-    unlock() 후 상태: 주행 중 ← 정비 중인 기기로 주행이 시작됨!
-[4] 버그 재현: 주행 중 분실 신고 → 요금이 정산되지 않는다
-    상태: 분실 신고 / 정산 기록: [] ← 주행 요금 누락</code></pre></figure>
   <p>출력 [3]이 사고를 그대로 재현한다. 정비 중인 킥보드인데도 <code>unlock()</code>이 예외 없이 지나가 주행 중이 된다. [4]는 덜 눈에 띄는 버그다. <code>report_lost()</code>가 아무 상태에서나 분실로 바꾸기 때문에, 주행 중이던 손님의 요금이 정산 기록에 남지 않는다. 두 버그는 원인이 같다.</p>
   <ul>
     <li><strong>규칙이 상태가 아니라 메서드 기준으로 흩어져 있다.</strong> "정비 중이면 무엇이 되고 무엇이 안 되는가"를 알려면 <code>label()</code>까지 메서드 아홉 개를 모두 읽어야 한다. 상태 하나의 규칙을 한곳에서 볼 수 없다.</li>
@@ -1617,20 +1604,6 @@ class Scooter:
         &quot;&quot;&quot;앱 표시 문구.&quot;&quot;&quot;
         return self._state.label()
 </code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_state.py</figcaption><pre><code>[1] 정상 흐름: 예약 → 잠금 해제 → 12분 주행 후 반납 (배터리 10%)
-    반납 요금 2,800원, 상태: 배터리 부족
-    전이 로그: Available → Reserved | Reserved → Riding | Riding → LowBattery
-[2] 시간 기반 전이: 예약 만료
-    5분 뒤: 예약됨(도현)
-    10분 뒤: 대여 가능 / 정산: [(&#x27;도현 노쇼&#x27;, 500)]
-[3] 순진한 코드의 버그 시나리오를 그대로 다시 시도
-    정비 중 잠금 해제: 거부 — [정비 중] 상태에서는 잠금 해제할 수 없습니다
-    주행 중 분실 신고: 거부 — [주행 중] 상태에서는 분실 신고할 수 없습니다
-    남의 예약 가로채기: 거부 — 도현님이 예약한 킥보드입니다
-    KG-003: 정비 중 / KG-004: 주행 중 / KG-002: 예약됨(도현)
-[4] 분실 → 회수 → 정비 → 복귀: 회수된 기기는 정비를 건너뛸 수 없다
-    분실 기기 바로 정비 완료 처리: 거부 — [분실 신고] 상태에서는 정비 완료할 수 없습니다
-    전이 로그: Available → Lost | Lost → Maintenance | Maintenance → Available</code></pre></figure>
   <p>출력 [3]은 순진한 코드에서 사고를 냈던 세 시나리오(정비 중 잠금 해제, 주행 중 분실 신고, 남의 예약 가로채기)가 모두 거부되는 모습이다. [1]과 [4]의 전이 로그는 <code>change_state()</code> 한곳에서 쌓였다. 이 관문에 옵저버(11장)를 붙이면, 상태 클래스를 하나도 건드리지 않고 "상태가 바뀌면 앱에 푸시"를 추가할 수 있다.</p>
   <div class="callout ok"><span class="label">핵심 정리</span>
     <p>상태 패턴이 바꾼 것은 세 가지다. ① 분기 기준이 <em>메서드 축</em>에서 <em>상태 축</em>으로 옮겨 갔다. ② 기본값이 '허용'에서 '거부'로 바뀌었다. ③ 상태별 데이터의 수명이 상태 객체에 묶였다. 그 결과 새 상태를 추가할 때 고칠 곳은 새 클래스 하나와, 그 상태로 <em>들어가는</em> 이웃 상태뿐이다.</p>
@@ -1873,22 +1846,6 @@ if __name__ == &quot;__main__&quot;:
     t.battery = 12                                           # 주행 중 방전
     print(f&quot;    app_server_end_ride → {app_server_end_ride(t, now=300):,}원, 상태 {t.label()}&quot;)
     print(&quot;    (동작은 같지만 if isinstance 분기와 배터리 규칙이 Scooter 밖에 한 벌 더 생겼다)&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_state_vs_strategy.py</figcaption><pre><code>[1] 운영 콘솔이 요금 전략을 바꾸고, 상태는 사건에 반응해 스스로 바뀐다
-    민지 요금: 2,500원 (출발 시점 기본 요금 적용 — 소급 없음)
-    도현 요금: 3,250원 (출발 시점이 심야 요금)
-    [상태 전이] Available → Riding
-    [전략 교체] 운영 콘솔 22:00 스케줄: StandardPricing → NightPricing
-    [상태 전이] Riding → Available
-    [상태 전이] Available → Riding
-    [상태 전이] Riding → Available
-[2] 전략은 아무 때나 무엇으로든 바꿔도 된다. 상태는 그렇지 않다
-    정책 두 번 교체: 검사할 불변식이 없으므로 아무 문제 없음
-    주행 중이 아닌데 반납 시도 → [대여 가능] 반납 불가
-[3] 가드가 상태 안에 있으므로 클라이언트는 배터리 규칙을 모른다
-    거부: 배터리 부족으로 대여할 수 없습니다 / 현재: 배터리 부족
-[4] 반례: 전이 결정을 앱 서버로 옮기면 분기가 돌아온다
-    app_server_end_ride → 1,750원, 상태 배터리 부족
-    (동작은 같지만 if isinstance 분기와 배터리 규칙이 Scooter 밖에 한 벌 더 생겼다)</code></pre></figure>
   <p>출력 [1]의 로그를 보면 교체가 두 갈래로 일어난다. 전략 교체는 운영 콘솔이라는 <em>바깥의 결정</em>이고, 상태 전이는 잠금 해제나 반납 같은 <em>사건에 대한 객체 자신의 반응</em>이다. 두 패턴이 협력하는 지점도 보인다. <code>Riding</code>은 출발하는 순간의 요금 정책을 붙잡아 두기 때문에, 주행 도중 운영팀이 정책을 바꿔도 이미 출발한 손님에게는 소급되지 않는다. 상태 데이터가 업무 규칙("계약은 시작 시점에 확정된다")을 표현한다.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>관점</th><th>전략 (요금 정책)</th><th>상태 (대여 생명주기)</th></tr></thead>
@@ -2161,22 +2118,6 @@ if __name__ == &quot;__main__&quot;:
     except IllegalTransition as e:
         print(&quot;    해커: 거부 —&quot;, e)
     print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(sc.history))</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_pythonic_fsm.py</figcaption><pre><code>[1] 전이표를 그대로 출력 — 관제팀장이 원한 &#x27;한 장짜리 규칙&#x27;
-    AVAILABLE   : RESERVE→RESERVED, UNLOCK→RIDING, BATTERY_LOW→LOW_BATTERY, MAINTAIN→MAINTENANCE, LOSE→LOST
-    RESERVED    : UNLOCK→RIDING, EXPIRE→AVAILABLE
-    RIDING      : END_RIDE→AVAILABLE
-    LOW_BATTERY : BATTERY_OK→AVAILABLE, MAINTAIN→MAINTENANCE, LOSE→LOST
-    MAINTENANCE : REPAIRED→AVAILABLE
-    LOST        : MAINTAIN→MAINTENANCE
-[2] 정적 검증: 도달 불가 상태와 출구 없는 상태 찾기
-    도달 불가: 없음 / 출구 없음: 없음
-[3] 표 버전과 match 버전이 모든 (상태, 사건) 조합에서 같은가
-    54/54 조합 일치
-[4] 시나리오: 예약 → 남의 잠금 해제 시도 → 본인 해제 → 방전 상태로 반납 → 정비 중 해제 시도
-    지호: 거부 — 민지님이 예약한 킥보드입니다
-    민지: 잠금 해제 성공
-    해커: 거부 — [정비 중] 상태에서 UNLOCK 불가
-    전이 로그: AVAILABLE -RESERVE-&gt; RESERVED | RESERVED -UNLOCK-&gt; RIDING | RIDING -END_RIDE-&gt; AVAILABLE | AVAILABLE -BATTERY_LOW-&gt; LOW_BATTERY | LOW_BATTERY -MAINTAIN-&gt; MAINTENANCE</code></pre></figure>
   <p>출력 [1]과 [2]는 표 방식만의 장점이다. 전이 규칙이 데이터이기 때문에 출력하고, 도달할 수 없는 상태나 출구 없는 상태를 프로그램으로 검증할 수 있다. 상태 클래스 방식에서는 이 검증이 어렵다. 전이가 메서드 본문 속 코드로 흩어져 있어, 연습문제 1 해설처럼 바이트코드를 분석해 간선을 근사할 수는 있지만 조건부 전이(어느 분기에서 어느 상태로 가는가)는 놓친다. <code>match</code> 버전([3])은 <code>|</code> 패턴으로 규칙을 압축할 수 있지만 그 역시 코드라서 같은 한계를 가진다.</p>
   <p>대가도 분명하다. 예약자와 탑승자는 다시 <code>Scooter</code> 필드가 되었다. <code>_enter()</code>로 정리 규칙을 한곳에 모아 찌꺼기 문제를 줄였지만 근본 해결은 아니다. 반납 후 배터리에 따라 갈라지는 조건부 전이는 사건 두 개로 쪼개야 했다. 그 결과 방전 반납은 잠깐 <code>AVAILABLE</code>을 거친다(출력 [4]의 전이 로그). 전이 관문에 옵저버를 붙여 앱에 푸시한다면 지도에 '대여 가능'이 순간적으로 떴다 사라진다. 중간 상태가 바깥에 보이는 비용이다. 상태마다 <em>행동</em>이 크게 다를수록 표 방식은 불리해지고, <em>전이 구조</em>가 핵심일수록 유리해진다.</p>
 
@@ -2359,21 +2300,6 @@ if __name__ == &quot;__main__&quot;:
     k.unlock(&quot;서윤&quot;)
     k.unlock(&quot;해커&quot;)                               # RidingScooter가 unlock을 물려받았다
     print(f&quot;    주행 중 두 번째 unlock 결과: {k.label()}, 탑승자 {k.rider!r} ← 예외 없음&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 05_pythonic_variants.py</figcaption><pre><code>[A-1] 3만 대의 킥보드가 상태 객체 두 개를 공유한다
-    서로 다른 상태 객체 수: 2 (킥보드마다 새로 만들었다면 30,000)
-    fleet[0]: 주행 중(민지) / fleet[1]: 대여 가능
-    상태 객체 하나의 크기: 32바이트 (__slots__ = () 덕분에 __dict__ 없음)
-[A-2] 공유 상태 객체에 개별 데이터를 넣으려는 실수는 즉시 막힌다
-    AttributeError: &#x27;_Riding&#x27; object has no attribute &#x27;rider&#x27; and no __dict__ for setting new attributes
-[B-1] __class__ 교체: 동작은 한다
-    처음: 대여 가능 ClassSwapScooter
-    잠금 해제 후: 주행 중 RidingScooter
-[B-2] 문제 1 — 객체의 &#x27;타입&#x27;이 수명 중에 바뀐다
-    반납 후 type(k) = ClassSwapScooter, 그런데 캐시 키는 RidingScooter
-[B-3] 문제 2 — 이전 상태의 데이터가 남는다(01의 찌꺼기 문제 재발)
-    대여 가능 상태인데 k.rider = &#x27;서윤&#x27;
-[B-4] 문제 3 — 상속 때문에 &#x27;주행 중 잠금 해제&#x27;가 조용히 허용된다
-    주행 중 두 번째 unlock 결과: 주행 중, 탑승자 &#x27;해커&#x27; ← 예외 없음</code></pre></figure>
   <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 02의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
   <p><code>__class__</code> 교체(B)는 짧고 영리하다. 그러나 [B-2]에서 보듯 객체의 타입이 수명 중에 바뀌어 타입을 키로 쓰는 코드가 깨진다. [B-3]처럼 이전 상태의 속성이 남고, [B-4]처럼 상태 클래스끼리의 상속 때문에 금지해야 할 동작을 물려받는다. 타입 검사기와 디버거도 따라오지 못한다. 동작한다는 것과 유지보수할 수 있다는 것은 다른 문제다. 이 트릭은 언어의 유연성을 보여 주는 예로 알아 두기만 하라.</p>
 </section>
@@ -2575,16 +2501,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] Relocating 추가 시 수정해야 했던 곳&quot;)
     print(&quot;    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)&quot;)
     print(&quot;    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex1_transition_owner.py</figcaption><pre><code>[1] 두 방식 모두 같은 시나리오를 통과한다: 방전 반납 → 재배치 → 도착
-    분산: Available, 배터리 100 / 집중: AVAILABLE, 배터리 100
-[2] 분산 방식: 상태 클래스 사이의 이름 의존(그래프의 간선 = 결합)
-    Riding      → [&#x27;Available&#x27;, &#x27;LowBattery&#x27;]
-    Available   → -
-    LowBattery  → [&#x27;Relocating&#x27;]
-    Relocating  → [&#x27;Available&#x27;]
-[3] Relocating 추가 시 수정해야 했던 곳
-    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)
-    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다</code></pre></figure>
     </details>
   </div>
 
@@ -2785,18 +2701,6 @@ if __name__ == &quot;__main__&quot;:
         doc.edit(&quot;노트북 30대&quot;)
     except IllegalTransition as e:
         print(&quot;    &quot;, e, &quot;/ 본문 유지:&quot;, doc.body)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_approval_state.py</figcaption><pre><code>[1] 빈 문서 상신 → 거부
-     빈 문서는 상신할 수 없습니다
-[2] 작성 → 상신 → 반려 → 수정 → 재상신 → 승인
-      (작성 중 → 상신)
-      (상신 → 반려: 견적서 누락)
-    현재: 반려: 견적서 누락
-      (반려: 견적서 누락 → 작성 중)
-      (작성 중 → 상신)
-      (상신 → 승인(박 팀장))
-    현재: 승인(박 팀장)
-[3] 승인된 문서 수정 시도 → 거부 (원래 코드에서는 허용되던 버그)
-     [승인(박 팀장)] 수정 불가 / 본문 유지: 노트북 3대 + 견적서 첨부</code></pre></figure>
     </details>
   </div>
 
@@ -2875,11 +2779,6 @@ if __name__ == &quot;__main__&quot;:
             print(f&quot;    {ev:&lt;9} → {room.state.text} ({room.state.color})&quot;)
         except ValueError as e:
             print(f&quot;    {ev:&lt;9} → 거부: {e}&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex3_enum_table.py</figcaption><pre><code>    book      → 예약됨 (yellow)
-    check_in  → 사용 중 (red)
-    book      → 거부: 사용 중 상태에서 &#x27;book&#x27; 불가
-    leave     → 비어 있음 (green)
-    walk_in   → 사용 중 (red)</code></pre></figure>
     </details>
   </div>
 

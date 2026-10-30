@@ -26,7 +26,6 @@ part: 생성 패턴
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">싱글턴 도입 전, 각 모듈이 자기 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다는 점부터 확인하라. 문제는 <code>_last_hash</code>라는 상태가 인스턴스마다 따로 있고, 세 모듈이 각자 인스턴스를 만든다는 조합에서 생긴다. 데모 출력의 <code>prev</code> 열을 위에서 아래로 따라가 보라. 주석의 <dfn data-term="append-only">append-only</dfn> 파일은 끝에 덧붙이기만 허용하고 기존 내용은 고칠 수 없게 한 파일이다.</p>
   <pre data-src="04_singleton/01_naive.py"></pre>
-  <pre data-run="04_singleton/01_naive.py"></pre>
   <p>#1과 #2의 <code>prev</code>가 GENESIS(<code>0000…</code>)인 것은 검사·원무 모듈의 기록기가 "내가 첫 기록을 쓴다"고 믿었기 때문이다. #3의 <code>prev</code>는 처방 모듈 기록기가 마지막으로 쓴 #0을 가리킨다. 파일상 직전 기록인 #2가 아니다. 각 기록기는 혼자서는 완벽하게 정확한데, 파일 하나를 공유하는 순간 서로의 존재를 모른다. 감사 로그의 가치는 "체인이 하나"라는 데 있으므로 이것은 기능 장애다.</p>
   <p>이 상황의 요구를 정확히 적으면 이렇다. <strong>"하나의 체인 파일에 대해 기록기 상태는 하나여야 한다."</strong> "어디서든 기록기에 접근할 수 있어야 한다"는 요구는 없다. 이 구분이 이 장의 결론을 결정한다.</p>
 </section>
@@ -98,7 +97,6 @@ part: 생성 패턴
     코드 주석에 처음 나오는 말들이다. <dfn data-term="cpython">CPython</dfn>은 C로 만든 파이썬의 표준 구현이고, <dfn data-term="global-interpreter-lock">GIL</dfn>(Global Interpreter Lock)은 CPython에서 한 번에 한 스레드만 파이썬 명령을 실행하게 하는 전역 잠금이다. 잠금의 <dfn data-term="reentrancy">재진입</dfn>은 이미 그 잠금을 쥔 같은 스레드가 다시 잡을 수 있는 성질로, <code>threading.Lock</code>은 재진입할 수 없고 <code>RLock</code>은 가능하다. 재진입할 수 없는 잠금을 같은 스레드가 다시 잡으려 하면 <dfn data-term="deadlock">교착</dfn> 상태, 곧 쥔 자원을 서로(또는 자신이) 기다리며 영원히 멈춘 상태가 된다. <dfn data-term="pytest">pytest</dfn>는 파이썬의 대표적 테스트 프레임워크이고, pytest-xdist는 테스트를 여러 워커 프로세스에 나눠 병렬로 돌리는 확장이다. 테스트를 찾아 실행하고 결과를 모으는 도구를 테스트 <dfn data-term="test-runner">러너</dfn>라 부른다.
   </div>
   <pre data-src="04_singleton/02_singleton.py"></pre>
-  <pre data-run="04_singleton/02_singleton.py"></pre>
   <p>[1]은 싱글턴이 약속을 지킨 장면이다. 모듈이 몇 개든, 몇 번 부르든 같은 기록기이고 체인은 하나다.</p>
   <p>구현의 두 가지 세부는 파이썬 특유의 것이다. 첫째, 파이썬에서 <code>AuditLogger()</code>는 <code><dfn data-term="type-call">type.__call__</dfn></code>(클래스 호출 <code>Cls()</code>를 실제로 처리하는 메서드)이 <code>__new__</code>로 객체를 얻은 뒤 그것이 해당 클래스의 인스턴스이면 <code>__init__</code>을 <em>다시</em> 부른다. <code>__new__</code>가 기존 객체를 돌려줘도 마찬가지다. 가드가 없으면 새 모듈이 <code>AuditLogger()</code>를 부를 때마다 기록이 초기화된다(연습문제 1). 둘째, 이중 검사 잠금이다. GIL이 있어도 "<code>_instance is None</code> 검사"와 "대입" 사이에 스레드 전환이 일어날 수 있다. 실제 초기화에 파일 열기 같은 I/O가 끼면 그 틈은 넓어진다. 서버 재시작 직후 체인이 갈라졌던 사고가 바로 이것이다(5절에서 재현한다).</p>
   <p>[2]가 2차 고통이다. 테스트 A와 B는 각자 "기록 한 줄"을 기대하지만 같은 프로세스의 같은 싱글턴을 공유하므로 B가 A의 기록을 본다. 테스트 결과가 실행 순서에 의존하는 것은 단위 테스트가 가져서는 안 되는 성질이다. [3]의 리셋 훅은 증상을 가릴 뿐이다. 운영 코드에 "유일한 인스턴스를 지우는" 뒷문이 생겼고, 스레드 기반 병렬 테스트에서는 그 뒷문이 같은 프로세스의 다른 테스트 상태를 지운다. (pytest-xdist처럼 워커가 별도 프로세스인 러너에서는 싱글턴도 워커마다 따로 있으므로, 대신 같은 워커에 배정된 테스트끼리 순서 의존이 생긴다.)</p>
@@ -118,7 +116,6 @@ part: 생성 패턴
     Borg(Monostate)는 인스턴스는 여럿 만들되 모든 인스턴스가 같은 속성 저장소를 공유해 상태만 하나로 만드는 파이썬 관용구다. 그 저장소가 <code><dfn data-term="dict">__dict__</dfn></code>, 곧 인스턴스의 속성 이름과 값을 담은 딕셔너리다. 코드 docstring의 <dfn data-term="module-cache">import 캐시</dfn>는 파이썬이 모듈을 첫 import 때 한 번만 실행하고 <code>sys.modules</code>에 보관해, 이후 import에는 같은 모듈 객체를 돌려주는 장치다. <dfn data-term="object-identity">정체성</dfn>(identity)은 값이 같은지(<code>==</code>)와 별개로 두 참조가 같은 객체인지(<code>is</code>)를 가르는 성질이다. <dfn data-term="lazy-initialization">지연 생성</dfn>(지연 초기화)은 객체를 미리 만들지 않고 처음 필요해지는 순간에 만드는 기법이다. <code><dfn data-term="threading-barrier">threading.Barrier</dfn></code>는 정해진 수의 스레드가 모두 도착할 때까지 기다렸다가 한꺼번에 통과시키는 동기화 도구로, 경쟁을 일부러 재현하는 데 쓴다.
   </div>
   <pre data-src="04_singleton/03_variants.py"></pre>
-  <pre data-run="04_singleton/03_variants.py"></pre>
   <p>[1]은 1절의 재시작 직후 사고를 재현한다. 여러 스레드가 동시에 <code>None</code>을 보고 각자 인스턴스를 만들었다. 잠금 안에서 다시 검사하는 <code>SafeLogger</code>만 하나를 지킨다. "파이썬에는 GIL이 있으니 괜찮다"는 흔한 믿음은 틀렸다. GIL은 <dfn data-term="bytecode">바이트코드</dfn>(파이썬 소스를 번역한 중간 명령어) 하나의 <dfn data-term="atomicity">원자성</dfn>(중간 상태 없이 전부 실행되거나 전혀 실행되지 않는 성질)을 줄 뿐, 검사와 대입이라는 두 동작 사이를 보호하지 않는다.</p>
   <p>[2]의 메타클래스는 <code>__init__</code> 재호출 함정이 없다. 인스턴스가 이미 있으면 <code>type.__call__</code> 자체를 건너뛰기 때문이다. 대신 메타클래스는 상속 계층 전체에 전파되고, <code>ABCMeta</code> 같은 다른 메타클래스와 섞으면 충돌을 직접 해결해야 한다. [3]의 Borg는 정체성이 아니라 <em>상태</em>를 공유한다. 주의할 점은 Borg도 <code>BorgLogger()</code>마다 <code>__init__</code>이 다시 불린다는 것이다. 이번에는 그 <code>__init__</code>이 <em>공유</em> 상태를 건드리므로 <code>self.entries = []</code>라고 쓰면 새 인스턴스를 만들 때마다 모두의 기록이 지워진다. 코드가 <code>setdefault</code>를 쓰는 이유이고, 데모의 세 번째 인스턴스가 기록을 그대로 보는 것으로 확인된다. "객체가 하나여야 한다"가 아니라 "상태가 하나여야 한다"가 진짜 요구라는 관찰에서 나왔지만, 전역 접근의 문제는 그대로 가진다.</p>
   <p>[4]가 가장 중요하다. <strong>모듈은 이미 싱글턴이다.</strong> 모듈은 첫 import 때 한 번 실행되고 <code>sys.modules</code>에 캐시되므로, 모듈 수준에 만든 <code>audit_logger</code>는 프로세스에서 하나다. 이 방식에서 클래스 <code>PlainLogger</code>는 평범하다. 유일성은 "이 모듈의 이 변수를 쓴다"는 <em>관례</em>로 보장되고, 테스트는 언제든 <code>PlainLogger()</code>를 새로 만들 수 있다. 유일성 로직이 클래스에서 빠졌다는 점에서 이미 한 걸음 나아갔다. 하지만 <code>from audit import audit_logger</code>를 함수 본문에서 쓰면 숨은 의존성은 그대로다. <code>@cache</code> 접근 함수는 생성을 첫 호출까지 미룬다는 점만 다르고, 테스트를 위해 <code>cache_clear()</code>를 부르는 순간 리셋 훅과 같은 냄새가 난다.</p>
@@ -137,7 +134,6 @@ part: 생성 패턴
   <h3>5.2 두 요구를 떼어 놓기: composition root에서 주입</h3>
   <p class="lead-in">표의 마지막 줄이 태윤의 최종 설계다. <code>AuditLogger</code>는 평범한 클래스로 돌아가고, 유일성은 <code>build_app()</code>이라는 조립 지점 하나가 책임지며, 모듈들은 기록기를 생성자로 받는다. <code>build_app()</code> docstring의 "프로세스당 하나"라는 경고와, 데모 [3]이 보여주는 이 방식의 대가를 놓치지 말라. docstring의 <dfn data-term="object-graph">객체 그래프</dfn>는 객체들이 서로를 참조하며 이루는 연결 구조이고, <dfn data-term="database-sequence">DB 시퀀스</dfn>는 데이터베이스가 원자적으로 증가하는 번호를 발급해 여러 프로세스에 걸친 유일성을 보장하는 객체다. 테스트 주석의 <dfn data-term="late-binding">늦은 바인딩</dfn>은 클로저가 변수의 값을 정의 시점이 아니라 호출 시점에 찾는 성질로, 반복문 안의 람다가 마지막 값만 보는 함정의 원인이다.</p>
   <pre data-src="04_singleton/04_injection.py"></pre>
-  <pre data-run="04_singleton/04_injection.py"></pre>
   <p>[1]에서 운영 앱의 모든 모듈은 같은 기록기를 공유하고 체인은 하나다. 1차 고통의 해결은 그대로 유지된다. [2]에서 테스트는 각자 기록기를 만든다. 순서를 바꿔도, 여덟 개를 동시에 돌려도 간섭이 없고 리셋 훅도 없다. 이 차이를 만든 것은 <code>PrescriptionModule.__init__(self, audit)</code>이라는 시그니처 한 줄이다. 의존성이 드러나자 바꿀 수 있게 되었다.</p>
   <p>[3]은 정직하게 대가를 보여준다. 언어는 누군가 composition root 밖에서 <code>AuditLogger()</code>를 하나 더 만드는 것을 막지 않는다. 그 기록은 다른 체인으로 새어 나간다. 이 방식에서 유일성은 "운영 코드에서 <code>AuditLogger(</code>를 부르는 곳은 <code>build_app</code> 하나"라는 규칙이고, grep 한 번이나 <dfn data-term="lint">린트</dfn>(코드를 실행하지 않고 규칙 위반을 찾는 정적 점검) 규칙, 코드 리뷰로 지킨다. 싱글턴은 이것을 런타임에 강제한다. 그 강제가 정말 필요한 경우가 아래 6절에서 다루는 드문 예외다.</p>
   <div class="callout">
@@ -181,7 +177,6 @@ part: 생성 패턴
       <p><strong>해결 1</strong>: <code>__init__</code> 첫 줄에서 <code>_initialized</code> 플래그를 검사해 두 번째 호출부터 즉시 반환한다(본문 02의 방식). <strong>해결 2</strong>: 상태 초기화를 <code>__new__</code>의 "처음 만들 때" 분기로 옮기고 <code>__init__</code>을 정의하지 않는다. 메타클래스 방식(본문 03)은 <code>type.__call__</code> 자체를 건너뛰므로 이 함정이 원천적으로 없다.</p>
       <p>흔한 오답은 "<code>__new__</code>가 새 객체를 만들어서"다. 실험에서 <code>cls() is cls()</code>가 <code>True</code>이므로 객체는 하나다. 사라진 것은 객체가 아니라 상태다. 또 하나의 오답은 "<code>__init__</code>에서 <code>if not hasattr(self, 'entries')</code>로 검사한다"인데, 동작은 하지만 속성이 여러 개가 되면 검사도 늘어나고, 하위 클래스가 다른 속성을 추가하면 깨진다. 초기화 여부라는 하나의 사실은 하나의 플래그로 표현하는 편이 낫다.</p>
       <pre data-src="04_singleton/solutions/ex1_init_reset_bug.py"></pre>
-      <pre data-run="04_singleton/solutions/ex1_init_reset_bug.py"></pre>
     </details>
   </div>
 
@@ -225,7 +220,6 @@ class NightCall:
       <p>테스트는 <code>dataclasses.replace(settings, night_start_hour=20)</code>으로 하나만 바꾼 설정을 만들어 넣는다. 원래 설정은 불변이라 영향받지 않고, 되돌릴 것도 없으며, 병렬로 돌려도 안전하다.</p>
       <p>흔한 오답 두 가지. 첫째, 모듈 생성자의 기본값을 <code>settings=Config.instance()</code>로 두는 것. 시그니처에 의존성이 드러나는 것은 좋지만, 기본값이 import 시점에 한 번 평가되어 싱글턴이 그대로 숨어 있고, 주입을 깜빡한 호출부는 조용히 전역을 쓴다. 둘째, <code>Config</code>에 <code>set_instance(fake)</code>를 추가해 테스트에서 바꿔 끼우는 것. 이것은 리셋 훅의 변형으로, 전역 상태를 테스트가 조작한다는 문제를 그대로 둔다.</p>
       <pre data-src="04_singleton/solutions/ex2_config_injection.py"></pre>
-      <pre data-run="04_singleton/solutions/ex2_config_injection.py"></pre>
     </details>
   </div>
 

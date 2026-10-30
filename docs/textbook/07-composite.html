@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">7장 · 컴포지트 (Composite)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -141,13 +138,6 @@ if __name__ == &quot;__main__&quot;:
     except AttributeError as e:
         print(f&quot;    AttributeError: {e}&quot;)
         print(&quot;    → 깊이 가정이 깨졌다. 루프를 한 겹 더 중첩해야 할까? 다음 설계 변경 때는?&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 평평한 목록 시절: 단품 하나는 잘 된다
-    M8 볼트: 120원
-[2] 3단계 BOM(엔진 → 피스톤 조립품 → 단품)
-    엔진 원가 72,520원, 중량 638g
-[3] 설계 변경: 피스톤 링이 &#x27;링 세트 조립품&#x27;이 되어 4단계가 됐다
-    AttributeError: &#x27;Assembly&#x27; object has no attribute &#x27;unit_cost&#x27;
-    → 깊이 가정이 깨졌다. 루프를 한 겹 더 중첩해야 할까? 다음 설계 변경 때는?</code></pre></figure>
 <p>출력 [2]까지는 맞다(피스톤 조립품 15,300원 × 2 + 볼트 1,920원 + 엔진 공임 40,000원 = 72,520원). [3]에서 무너진 원인은 세 가지로 정리된다.</p>
 <ul>
   <li><strong>클라이언트가 부분과 전체를 구별해야 한다.</strong> 공통 타입이 없으니 자식을 만지는 모든 곳에서 <code>isinstance</code>를 물어야 한다. 새로운 종류의 항목(예: 외주 가공품)이 생기면 모든 분기를 고친다.</li>
@@ -957,26 +947,6 @@ if __name__ == &quot;__main__&quot;:
         ring_set.add(tiller)
     except ValueError as e:
         print(f&quot;    거부됨 — {e}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_composite.py</figcaption><pre><code>[1] 같은 클라이언트 코드로 단품·중간 조립품·완제품 계산 (깊이 5단계)
-    M8 볼트: 원가 120원 / 중량 18g / 리드타임 3일
-    피스톤 조립품: 원가 16,100원 / 중량 175g / 리드타임 17일
-    경운기: 원가 482,000원 / 중량 41,070g / 리드타임 39일
-[2] 깊이 우선 트리 출력
-    + 경운기 ×1  (공임 120,000원)
-      + 엔진 ×1  (공임 40,000원)
-        - 실린더 블록 ×1  (180,000원)
-        + 피스톤 조립품 ×2  (공임 5,000원)
-          + 링 세트 ×1  (공임 800원)
-            - 피스톤 링 ×3  (2,400원)
-          - 피스톤 핀 ×1  (3,100원)
-        - M8 볼트 ×16  (120원)
-      + 프레임 ×1  (공임 15,000원)
-        - 강관 프레임 ×2  (45,000원)
-        - M8 볼트 ×24  (120원)
-[3] 단종 부품이 포함된 경로
-    경운기 &gt; 엔진 &gt; 피스톤 조립품 &gt; 피스톤 핀
-[4] 순환 참조 시도: 링 세트에 경운기를 넣는다
-    거부됨 — 순환 참조: 경운기 안에 이미 링 세트이(가) 있다</code></pre></figure>
 <p>출력 [1]은 첫 번째 학습 목표의 증거다. <code>report()</code>에는 <code>isinstance</code>도 루프 중첩도 없고, 깊이가 5여도 상관없다. 리드타임 39일은 '실린더 블록 30일 → 엔진 조립 5일 → 경운기 조립 4일'의 최장 경로다. 피스톤 핀이 10일, 링이 14일 걸려도 실린더 블록을 기다리는 동안 끝나므로 결과에 영향이 없다. 원가의 <code>sum</code>을 <code>max</code>로 바꾸기만 했는데 '임계 경로'라는 전혀 다른 질문에 답한 것이다.</p>
 <p>출력 [2]의 트리에서 M8 볼트가 두 번 나타난 것은 공유 부품이 경로마다 방문되기 때문이다. [3]은 단종 부품을 경로와 함께 찾아, 품질팀이 "피스톤 조립품 설계를 바꾸면 된다"는 것을 바로 알게 해 준다. [4]는 순환을 추가 시점에 막았다. 이 검사가 없었다면 <code>ring_set.cost()</code>는 <code>RecursionError</code>로 끝났을 것이다.</p>
 <div class="callout warn">
@@ -1167,20 +1137,6 @@ if __name__ == &quot;__main__&quot;:
         co2_g(&quot;엔진&quot;)
     except TypeError as e:
         print(f&quot;    잘못된 입력 → {e}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 순회 한 번 + 다형적 own_cost로 원가
-    경운기 원가 300,400원, 단품 하나도 같은 함수로: 120원
-[2] 소요량 전개 — 경운기 10대
-    M8 볼트     400개
-    피스톤 링      60개
-    피스톤 핀      20개
-    강관 프레임     20개
-[3] 컨테이너 프로토콜
-    len(engine) = 2  (직접 자식 종류 수)
-    bolt in frame = True, pin in frame = False
-    for 순회: [&#x27;피스톤 링&#x27;, &#x27;피스톤 핀&#x27;]
-[4] singledispatch로 클래스 밖에서 새 연산 추가
-    경운기 탄소 배출 49,690g
-    잘못된 입력 → co2_g를 모르는 타입: str</code></pre></figure>
 <h3>순회와 연산의 분리: <code>yield from</code></h3>
 <p>02와 달리 <code>BomItem</code>에는 연산마다 추상 메서드를 두지 않고, 두 가지만 남겼다. 항목 자체의 몫인 <code>own_cost</code>(단품은 단가, 조립품은 공임)와 순회 <code>walk()</code>다. 둘 다 다형적이므로 <code>Assembly.walk()</code>는 자식이 단품인지 묻지 않고 <code>yield from child.walk(...)</code> 한 줄로 내려가고, <code>total_cost()</code>는 <code>sum(item.own_cost * qty ...)</code>로 끝난다. 2절에서 없애려 한 타입 분기는 여기서도 다시 나타나지 않는다. <code>walk()</code>는 재귀를 한 곳에 가둔다. 결과는 평평한 이터레이터이므로 원가는 <code>sum</code>, 소요량 전개는 <code>Counter</code>, 필터링은 컴프리헨션으로 표현된다. 출력 [2]에서 볼트 400개는 엔진 16 + 프레임 24 = 40개 × 10대로, 공유 부품이 자동으로 합산되었다. <code>explode()</code>에 남은 <code>isinstance(item, Part)</code>는 성격이 다르다. 타입마다 같은 계산을 다르게 하는 분기가 아니라, "단품만 골라 달라"는 <em>필터</em>다. 질문 자체가 단품 목록이므로 타입이 곧 조건이다. (03의 BOM은 02보다 작다. 실린더 블록과 링 세트가 없으므로 원가 300,400원을 02의 482,000원과 비교하지 말 것.) 이 방식은 '자식 결과를 합산하는' 연산에 특히 잘 맞는다. 반면 리드타임처럼 <em>트리의 모양</em>(형제 중 최댓값, 그 위에 부모의 몫을 더함)을 써야 하는 연산은 평평한 스트림으로는 표현하기 어렵다. 그런 연산은 여전히 재귀 메서드가 자연스럽다. 순회 추상화는 반복자 패턴(15장)에서 본격적으로 다룬다.</p>
 <h3>컨테이너 프로토콜</h3>
@@ -1322,9 +1278,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 조립품에 추가:&quot;, on_add_clicked(engine, bolt))
     print(&quot;[2] 단품에 추가:&quot;, on_add_clicked(bolt, Part(&quot;와셔&quot;, 30)))
     print(f&quot;[3] 엔진 원가 {engine.cost():,}원 — 계산 쪽은 두 설계 모두 똑같이 투명하다&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex1_transparency.py</figcaption><pre><code>[1] 조립품에 추가: 엔진에 M8 볼트 추가됨
-[2] 단품에 추가: 오류: M8 볼트은(는) 단품이라 하위 항목을 가질 수 없다
-[3] 엔진 원가 40,120원 — 계산 쪽은 두 설계 모두 똑같이 투명하다</code></pre></figure>
   </details>
 </div>
 
@@ -1434,10 +1387,6 @@ if __name__ == &quot;__main__&quot;:
     print(f&quot;[1] {hq.name}: {hq.headcount()}명, 인건비 {hq.payroll():,}만 원&quot;)
     for unit in hq.members:
         print(f&quot;    └ {unit.name}: {unit.headcount()}명, {unit.payroll():,}만 원&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_org_chart.py</figcaption><pre><code>[1] 생산본부: 5명, 인건비 32,500만 원
-    └ 본부장: 1명, 12,000만 원
-    └ 생산관리실: 3명, 15,000만 원
-    └ 품질팀: 1명, 5,500만 원</code></pre></figure>
   </details>
 </div>
 
@@ -1497,11 +1446,6 @@ if __name__ == &quot;__main__&quot;:
         Category(&quot;소모품&quot;, [Product(&quot;엔진 오일 1L&quot;, 9_800)]),
     ]
     print(&quot;\n&quot;.join(render_menu(menu)))</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_fixed_depth.py</figcaption><pre><code>▸ 엔진 부품 (2)
-    피스톤 링 세트 — 7,900원
-    점화 플러그 — 4,500원
-▸ 소모품 (1)
-    엔진 오일 1L — 9,800원</code></pre></figure>
   </details>
 </div>
 </section>

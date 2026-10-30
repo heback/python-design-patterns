@@ -14,7 +14,7 @@ python3 .claude/skills/code-verification/scripts/verify_chapter.py 03      # 한
 python3 .claude/skills/code-verification/scripts/verify_chapter.py all     # 전체
 ```
 
-확인 항목: .py 실행 성공(20초 제한) · 모듈/클래스/함수 docstring · 주석 비율 ≥30% · 원고 메타 블록 · 필수 섹션과 순서 · `#context`에 코드 없음 & 첫 코드보다 앞 · 모든 본문 코드 앞 `lead-in` · `data-src`/`data-run`/`data-lines` 참조 무결성 · SVG 다이어그램 존재 · 연습문제 ≥3 & 해설 존재. WARN은 실패가 아니지만 보고서에 남긴다.
+확인 항목: .py 실행 성공(20초 제한) · 모듈/클래스/함수 docstring · 주석 비율 ≥30% · 원고 메타 블록 · 필수 섹션과 순서 · `#context`에 코드 없음 & 첫 코드보다 앞 · 모든 본문 코드 앞 `lead-in` · `data-src`/`data-lines` 참조 무결성 · SVG 다이어그램 존재 · 연습문제 ≥3 & 해설 존재. WARN은 실패가 아니지만 보고서에 남긴다.
 
 용어 순서(책 전체):
 ```bash
@@ -40,7 +40,7 @@ python3 .claude/skills/code-verification/scripts/check_terms.py --scan 훅 hook 
 
 **원고 ↔ 코드 정합성**
 - [ ] 원고가 언급한 클래스·메서드·변수 이름이 코드에 그대로 존재하는가.
-- [ ] 원고의 출력 설명이 `data-run` 실제 출력과 일치하는가(스크립트로 실행해 비교).
+- [ ] 원고의 출력 설명("출력 [2]…")이 `src/` 파일을 실제로 실행한 출력과 일치하는가(스크립트로 실행해 비교).
 - [ ] `data-lines` 범위가 원고가 설명하는 부분을 정확히 잘라내는가(코드 수정 후 범위가 밀리는 일이 잦다).
 - [ ] SVG 다이어그램의 클래스 이름·관계(상속/합성/의존)가 코드와 일치하는가.
 

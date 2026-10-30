@@ -26,7 +26,6 @@ part: 구조 패턴
 <p>수아의 첫 시도를 재현한다. 실제 다운로드는 하지 않고, 받은 MB를 누적해 비용을 숫자로 드러낸다.</p>
 <p class="lead-in"><code>SatelliteImage.__init__</code>의 <code>archive.fetch()</code> 한 줄이 데모 [1]에서 어떤 숫자가 되는지 보라. 그리고 <code>CatalogScreen.open()</code>에 섞인 두 검사(권한, 캐시)가 이 화면에만 있다는 점에 주목하라. 코드의 <dfn data-term="raster">raster</dfn>(래스터)는 영상을 격자(픽셀) 값의 배열로 표현한 데이터이고, 주석의 <dfn data-term="cache-hit">캐시 적중</dfn>은 요청한 값이 이미 캐시에 있어 다시 받지 않고 돌려준 경우를 말한다.</p>
 <pre data-src="09_proxy/01_naive.py"></pre>
-<pre data-run="09_proxy/01_naive.py"></pre>
 <p>출력 [1]의 800,000MB는 목록을 그리려고 만든 객체 2,000개의 대가다. [2]는 화면 코드가 직접 검사를 떠안아 문제를 '해결'한 모습이다. 동작은 맞지만 구조적으로 세 가지가 잘못되었다.</p>
 <ul>
   <li><strong>생성과 사용이 붙어 있다.</strong> 객체를 갖는 것(목록에 올리기)과 무거운 데이터를 쓰는 것(확대)은 다른 시점의 일인데, 생성자가 둘을 묶어 버렸다.</li>
@@ -147,7 +146,6 @@ part: 구조 패턴
 </ul>
 <p class="lead-in">마지막으로 클라이언트와 데모다. <code>CatalogScreen</code>에는 지연·권한·캐시 검사가 하나도 없다. 데모 [3]에서는 다른 화면이 같은 영상을 <em>새</em> 프록시로 연다.</p>
 <pre data-src="09_proxy/02_proxy.py" data-lines="189-222"></pre>
-<pre data-run="09_proxy/02_proxy.py"></pre>
 <p>출력 [1]에서 2,000장의 목록이 다운로드 0MB로 그려졌다. 목록에 필요한 메타데이터는 프록시가 실제 객체 없이 답한다. [2]의 첫 확대에서 비로소 400MB를 받았고, 같은 프록시의 두 번째 확대는 이미 만든 실제 객체를 썼다. 인턴의 요청은 보호 프록시가 다운로드 <em>전에</em> 거부했다. [3]에서는 비교 뷰가 새 프록시를 만들었으니 새 <code>RealSatelliteImage</code>가 생성되었지만, 그 생성자가 부른 <code>fetch()</code>를 캐싱 프록시가 받아 원격 다운로드 없이 끝났다. 원격 다운로드 총량은 400MB, 캐시 적중 1회다.</p>
 <div class="callout ok">
   <span class="label">프록시와 데코레이터, 한 줄 구분</span>
@@ -161,7 +159,6 @@ part: 구조 패턴
 <p class="lead-in">아래 파일은 (1) 그 범용 <code>LazyProxy</code>를 만들어 한계를 확인하고, (2) 프록시 없이 객체 내부에서 지연시키는 <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>(첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 이후에는 일반 속성처럼 읽히게 하는 도구), (3) 캐싱 프록시의 함수 버전인 <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>(함수 인자를 키로 결과를 기억하는 LRU 캐시), (4) 표준 라이브러리의 프록시인 <dfn data-term="weak-reference"><code>weakref</code></dfn><code>.proxy</code>를 차례로 본다. <code>weakref</code>는 약한 참조, 즉 대상 객체를 살려 두지 않는 참조를 만드는 모듈이다. 데모 [1]과 [4]에서 <code>len()</code>의 결과가 어떻게 다른지 비교하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn data-term="sentinel">센티널</dfn>: <code>None</code> 같은 정상 값과 구별되도록 <code>object()</code>로 만든 표시용 고유 객체. 코드의 <code>_UNSET</code>이 '아직 안 만듦'을 나타낸다. <dfn data-term="reference-counting">참조 카운트</dfn>: 객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식. <dfn data-term="garbage-collection">가비지 컬렉션</dfn>(GC): 더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. <code>gc.collect()</code>는 서로를 참조하는 고리까지 찾아 회수하도록 강제한다.</p></div>
 <pre data-src="09_proxy/03_pythonic.py"></pre>
-<pre data-run="09_proxy/03_pythonic.py"></pre>
 <h3><code>__getattr__</code> 범용 프록시와 그 구멍</h3>
 <p>출력 [1]에서 <code>dem.max_elevation()</code>은 잘 위임되었고, 그 순간에야 로딩이 일어났다. 지연은 성공이다. 그러나 <code>len(dem)</code>은 <code>TypeError</code>, <code>isinstance(dem, DemRaster)</code>는 거짓이다. 6장에서 본 것과 같은 원인이다. 파이썬은 <code>__len__</code>, <code>__eq__</code>, <code>__iter__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 타입에서 직접 찾으므로 <code>__getattr__</code>을 거치지 않는다. 범용 프록시가 정말 투명하려면 특수 메서드를 하나하나 정의해야 하고, <code>isinstance</code>까지 속이려면 <dfn data-term="class"><code>__class__</code></dfn>(객체가 속한 클래스를 가리키는 속성)를 프로퍼티로 재정의하는 기교가 필요하다(표준 테스트 프레임워크 <dfn data-term="unittest"><code>unittest</code></dfn>에 딸린 <dfn data-term="unittest-mock"><code>unittest.mock</code></dfn>이 그렇게 한다. 어떤 속성 접근에도 응답하는 가짜 객체를 만드는 모듈이다). 프록시는 "실제 객체와 교환 가능"해야 하는데(LSP), 범용 프록시는 그 약속을 부분적으로만 지킨다. 그래서 교재의 권장은 이렇다. <strong>인터페이스가 명확하면 02처럼 Subject를 구현한 명시적 프록시를, 범용 프록시는 그 한계를 문서화한 경우에만.</strong></p>
 <h3><code>cached_property</code>: 프록시가 필요 없는 경우</h3>
@@ -251,7 +248,6 @@ part: 구조 패턴
     <p>마지막으로 보호 프록시가 실제로 보호하려면 클라이언트가 <code>RealDocumentService</code>를 직접 만들지 못하게 생성 경로를 단일화해야 한다(02의 <code>open_image()</code>와 같은 이유). 해설 코드는 생략했지만, 실제 시스템에서는 의존성 주입 설정에서 <code>DocumentService</code>로 항상 프록시를 주입한다.</p>
     <p><strong>흔한 오답:</strong> 메서드마다 <code>@admin_only</code> 함수 데코레이터를 붙이는 것. 복사된 <code>if</code>보다는 낫지만 "새 메서드에 붙이는 것을 잊는다"는 원래 문제는 그대로다(6장 연습문제 3의 함수 데코레이터 vs 미들웨어 논의와 같다).</p>
     <pre data-src="09_proxy/solutions/ex2_protection.py"></pre>
-    <pre data-run="09_proxy/solutions/ex2_protection.py"></pre>
   </details>
 </div>
 
@@ -273,7 +269,6 @@ part: 구조 패턴
     <p><strong>판단 순서:</strong> 큐브 클래스를 우리가 고칠 수 있다면 (B)가 가장 단순하고 투명하다. 외부 라이브러리라 생성자가 이미 로딩한다면 (A)다. 큐브를 쓰는 곳이 하나뿐이고 "필요할 수도, 아닐 수도 있는" 분기가 그곳에만 있다면 (C)로 충분하다. 클래스를 새로 만들 이유가 없다. 아래 실행에서 (C)는 필요 없을 때 로딩이 전혀 일어나지 않았다.</p>
     <p><strong>흔한 오답:</strong> "프록시가 가장 일반적이니 항상 (A)." 프록시는 실제 객체를 고칠 수 없거나 정책을 분리해야 할 때의 해법이다. 고칠 수 있는 객체에 프록시를 씌우면 클래스와 간접 층만 늘고, 범용 프록시라면 <code>isinstance</code>와 특수 메서드 문제까지 떠안는다.</p>
     <pre data-src="09_proxy/solutions/ex3_lazy_choice.py"></pre>
-    <pre data-run="09_proxy/solutions/ex3_lazy_choice.py"></pre>
   </details>
 </div>
 </section>

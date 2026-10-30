@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">1장 · 팩토리 메서드 (Factory Method)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -218,22 +215,6 @@ if __name__ == &quot;__main__&quot;:
     finally:
         globals()[&quot;CsvSpectrumReader&quot;] = original
     print(&quot;  → 테스트는 통과했지만, 전역 상태를 건드려야만 가능했다&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 세 장비 모두 &#x27;일단은&#x27; 잘 돌아간다
-  연결: UV-Vis 분광광도계(USB, CSV 내보내기)
-  저장: S-uv-vis → 3개 측정점, 첫 점 Sample(x=220.0, intensity=0.138)
-  연결: 질량분석기(이더넷, 고유 바이너리)
-  저장: S-mass-spec → 3개 측정점, 첫 점 Sample(x=18.0, intensity=0.226)
-  연결: 시리얼 JSON 장비(COM3)
-  저장: S-serial-json → 3개 측정점, 첫 점 Sample(x=0.0, intensity=0.5)
-
-[2] 옆 연구실이 XRD 회절계를 붙이려 하면
-  실패: 지원하지 않는 장비: &#x27;xrd&#x27; (프레임워크 수정 필요)
-
-[3] 정규화 로직만 테스트하고 싶은데, 실제 리더를 피할 방법이 없다
-  연결: 가짜 장비
-  저장: S-test → 2개 측정점, 첫 점 Sample(x=1, intensity=0.5)
-  정규화 결과: [0.5, 1.0]  (기대값 [0.5, 1.0])
-  → 테스트는 통과했지만, 전역 상태를 건드려야만 가능했다</code></pre></figure>
   <p>데모 [1]만 보면 아무 문제가 없다. 이 설계가 "틀린" 것이 아니라 <strong>변경에 대해 닫혀 있지 않다</strong>는 점이 핵심이다. [2]의 실패 메시지는 확장의 주체가 누구인지를 드러낸다. 재료공학 연구실은 자기 장비를 붙이는 데 필요한 모든 지식(포맷, 연결 방식)을 갖고 있지만, 그 지식을 꽂을 자리가 공용 코드의 <code>if</code> 사슬 안에만 있다. 확장할 능력이 있는 쪽과 확장할 권한이 있는 쪽이 어긋난 것이다.</p>
   <p>[3]은 더 은밀한 문제다. 테스트는 통과했지만 <code>globals()</code>를 직접 고쳐야 했다. <code>run()</code>이 <code>CsvSpectrumReader</code>라는 <em>이름</em>에 정적으로 묶여 있으므로, 다른 리더를 쓰게 하려면 그 이름이 가리키는 대상을 바꾸는 수밖에 없다. DIP 관점에서 보면 상위 정책(측정 흐름)이 하위 세부(CSV <dfn class="term" id="term-parser" data-term="parser" title="텍스트·바이트 입력을 해석해 구조화된 데이터로 바꾸는 코드(그 작업이 파싱).">파싱</dfn> 클래스, 곧 텍스트를 해석해 구조화된 데이터로 바꾸는 코드)에 직접 의존하고 있다.</p>
   <div class="callout warn">
@@ -584,25 +565,6 @@ if __name__ == &quot;__main__&quot;:
         ForgetfulJob(&quot;S-oops&quot;)
     except TypeError as e:
         print(f&quot;  TypeError: {e}&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_factory_method.py</figcaption><pre><code>[1] 장비별 작업 클래스를 고르면 리더는 각 클래스가 알아서 만든다
-  연결: UV-Vis 분광광도계(USB, CSV 내보내기)
-  저장: S-101 → 3개 측정점, 첫 점 Sample(x=220.0, intensity=0.138)
-  연결: 질량분석기(이더넷, 고유 바이너리)
-  저장: S-102 → 3개 측정점, 첫 점 Sample(x=18.0, intensity=0.226)
-  연결: 시리얼 JSON 장비(/dev/ttyUSB0)
-  저장: S-103 → 3개 측정점, 첫 점 Sample(x=0.0, intensity=0.5)
-
-[2] 옆 연구실은 프레임워크를 고치지 않고 XrdJob을 추가했다
-  연결: X선 회절계(옆 연구실 자체 리더)
-  저장: S-201 → 3개 측정점, 첫 점 Sample(x=20.0, intensity=0.153)
-
-[3] 테스트: 가짜 리더를 돌려주는 하위 클래스 하나면 이음새가 생긴다
-  연결: 가짜 장비
-  저장: S-test → 2개 측정점, 첫 점 Sample(x=1, intensity=0.5)
-  정규화 검증 통과 — monkeypatch 없이
-
-[4] create_reader()를 빠뜨린 하위 클래스는 만들 때 바로 걸린다
-  TypeError: Can&#x27;t instantiate abstract class ForgetfulJob without an implementation for abstract method &#x27;create_reader&#x27;</code></pre></figure>
   <p>[1]에서 호출자는 <code>job.run()</code>만 부른다. 장비를 고르는 결정은 "어떤 작업 클래스를 인스턴스화하는가"로 한 번, 맨 바깥에서 내려졌고, 그 뒤로는 다형성이 일을 한다. naive 버전의 <code>if</code> 사슬은 사라진 것이 아니라 <strong>클래스 선택으로 대체</strong>되었다. 이 차이가 중요하다. <code>if</code> 사슬은 닫힌 목록이지만 하위 클래스 집합은 열린 목록이다.</p>
   <p>[2]가 이 장의 요점이다. 재료공학 연구실은 <code>XrdReader</code>와 <code>XrdJob</code>을 <em>추가</em>했을 뿐 공용 프레임워크는 그대로다. 확장할 지식을 가진 쪽이 자기 코드 안에서 확장을 끝낸다. 동시에 <code>port</code>는 그것이 필요한 유일한 곳인 <code>SerialJsonJob</code>으로 옮겨 갔다. 생성 지식이 제자리를 찾으면 생성 인자도 함께 제자리를 찾는다.</p>
   <p>[3]의 테스트는 naive 버전의 전역 바꿔치기와 비교해 보라. 테스트는 프레임워크가 공식적으로 열어 둔 확장 지점, 즉 <code>create_reader()</code>를 통해 들어온다. 이음새가 설계의 일부가 된 것이다. [4]는 <code>ABC</code>를 고른 이유를 보여준다. 팩토리 메서드 구현을 잊은 Concrete Creator는 첫 측정 때가 아니라 인스턴스를 만드는 순간 실패한다.</p>
@@ -791,24 +753,6 @@ if __name__ == &quot;__main__&quot;:
         AcquisitionJob.from_config({&quot;device&quot;: &quot;xrd&quot;, &quot;sample_id&quot;: &quot;S-105&quot;})
     except KeyError as e:
         print(f&quot;  KeyError {e}: 표에 없는 장비 — 확장하려면 DEVICES를 고쳐야 한다 (단순 팩토리의 한계)&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] 클래스 자체가 팩토리다 — 하위 클래스 없이 UV-Vis 작업
-  연결: UV-Vis 분광광도계
-  저장: S-101 → [0.138, 1.0, 0.517]
-
-[2] 생성 인자가 필요한 리더는 partial로 인자를 미리 묶는다
-  연결: 시리얼 JSON 장비(/dev/ttyUSB0)
-  저장: S-103 → [0.5, 1.0, 0.25]
-
-[3] 테스트: 평범한 함수 하나가 가짜 리더 팩토리가 된다 (FakeJob 클래스도 필요 없음)
-  run() 전 생성 기록: []
-  연결: 가짜 장비
-  저장: S-test → [0.5, 1.0]
-  run() 후 생성 기록: [&#x27;생성됨&#x27;]  ← 생성 시점은 여전히 프레임워크가 결정
-
-[4] from_config: 설정 파일 한 줄에서 작업 만들기 (대체 생성자)
-  연결: 시리얼 JSON 장비(COM7)
-  저장: S-104 → [0.5, 1.0, 0.25]
-  KeyError &#x27;xrd&#x27;: 표에 없는 장비 — 확장하려면 DEVICES를 고쳐야 한다 (단순 팩토리의 한계)</code></pre></figure>
   <p>[1]과 [2]에서 클래스 <code>CsvSpectrumReader</code>와 <code>partial(SerialJsonReader, port=...)</code>가 똑같이 "인자 없이 호출하면 리더가 나오는 것"으로 취급된다. [3]의 생성 기록은 이 변형이 팩토리 메서드의 본질 하나를 지킨다는 것을 보여준다. 리더가 만들어지는 <em>시점</em>은 여전히 <code>run()</code>이 결정한다. 인스턴스를 바로 넘기게 했다면 이 통제가 호출자에게 넘어갔을 것이다(장비 연결처럼 생성이 비싸거나 <dfn class="term" id="term-side-effect" data-term="side-effect" title="함수가 값을 돌려주는 것 외에 바깥 상태를 바꾸는 일(파일·네트워크 I/O, 장비 연결, 전역 등록 등).">부수 효과</dfn>, 곧 값을 돌려주는 것 외에 바깥 상태를 바꾸는 일이 있을 때 결정적인 차이다).</p>
   <p>이것은 구조적으로 전략 패턴(10장)이다. 상속으로 변이를 다루던 것을 합성으로 바꿨고, 변이의 내용이 "생성"일 뿐이다. 그렇다면 02의 하위 클래스 방식은 언제 여전히 필요한가? Concrete Creator가 <code>create_reader()</code> 말고도 <code>normalize()</code>나 <code>save()</code> 같은 다른 단계도 함께 바꿔야 할 때다. 여러 훅을 일관되게 묶어 바꾸는 단위로는 클래스가 함수 여러 개를 따로 넘기는 것보다 낫다. 또 프레임워크 사용자가 "<code>XrdJob</code>"이라는 이름 붙은 개념을 문서·<dfn class="term" id="term-integrated-development-environment" data-term="integrated-development-environment" title="편집·실행·디버깅·자동 완성을 한데 묶은 통합 개발 환경.">IDE</dfn>(편집·실행·디버깅·자동 완성을 한데 묶은 통합 개발 환경)에서 발견할 수 있다는 점도 가치다.</p>
   <p>[4]의 <code>from_config()</code>는 이름 때문에 혼동이 잦다. 파이썬 커뮤니티에서는 <code>@classmethod</code> 대체 생성자를 흔히 "팩토리 메서드"라 부르지만, 무엇을 만들지 결정하는 것이 하위 클래스가 아니라 <em>데이터(설정의 <code>device</code> 키)</em>이고, 내부는 표를 조회하는 단순 팩토리다. 그래서 <code>"xrd"</code>를 지원하려면 결국 <code>DEVICES</code> 표를 고쳐야 한다. 확장의 주도권 문제로 되돌아온 것이다.</p>
@@ -979,24 +923,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;\n[5] 함정: 등록은 &#x27;모듈이 import될 때&#x27; 일어난다&quot;)
     print(&quot;  XrdReader가 든 모듈을 아무도 import하지 않으면, 코드가 분명히 있는데도 [2]처럼 &#x27;없는 장비&#x27;로 실패한다.&quot;)
     print(&quot;  그래서 플러그인 시스템은 진입점(entry points)이나 명시적 import 목록을 함께 둔다.&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_registry.py</figcaption><pre><code>[1] 프레임워크가 아는 장비: [&#x27;uv-vis&#x27;]
-  연결: UV-Vis 분광광도계
-  저장: S-101 → [0.138, 1.0, 0.517]
-
-[2] XRD 리더가 정의되기 전에는 찾을 수 없다
-  LookupError: 등록되지 않은 장비 &#x27;xrd&#x27; (등록됨: uv-vis)
-
-[3] 옆 연구실이 자기 모듈에서 클래스를 &#x27;정의&#x27;만 한다 (프레임워크 수정 0줄)
-  이제 등록된 장비: [&#x27;uv-vis&#x27;, &#x27;xrd&#x27;]
-  연결: X선 회절계(옆 연구실)
-  저장: S-201 → [0.153, 1.0, 0.418]
-
-[4] 같은 이름으로 두 번 등록하면 정의 시점에 실패한다
-  ValueError: 장비 &#x27;xrd&#x27;가 이미 XrdReader로 등록됨
-
-[5] 함정: 등록은 &#x27;모듈이 import될 때&#x27; 일어난다
-  XrdReader가 든 모듈을 아무도 import하지 않으면, 코드가 분명히 있는데도 [2]처럼 &#x27;없는 장비&#x27;로 실패한다.
-  그래서 플러그인 시스템은 진입점(entry points)이나 명시적 import 목록을 함께 둔다.</code></pre></figure>
   <p>[2]와 [3]을 나란히 보면 레지스트리의 성격이 드러난다. 프레임워크 코드는 한 글자도 바뀌지 않았는데, 클래스 정의가 실행되자 장비 목록이 늘었다. <code>__init_subclass__</code>는 파이썬 3.6에서 들어온 훅으로, 예전에는 메타클래스로 하던 일을 훨씬 가볍게 해 준다. 특히 <code>Reader</code>가 이미 <code>ABCMeta</code>를 쓰고 있어서 별도 메타클래스를 섞으면 충돌을 해결해야 하는데, <code>__init_subclass__</code>는 그 문제가 없다.</p>
   <p>엄밀히 말해 이것은 더 이상 GoF 팩토리 메서드가 아니다. Creator의 하위 클래스가 생성을 결정하지 않고, <code>AcquisitionJob</code>은 상속 계층조차 갖지 않는다. 남은 것은 팩토리 메서드가 노리던 <em>결과</em>, 즉 "새 제품은 추가만으로"다. [5]가 대가다. 등록이 import라는 부수 효과에 기대므로, 누군가 그 모듈을 import하지 않으면 코드가 분명히 있는데도 장비가 "없다". 명시적 상속 계층에서는 생길 수 없는 종류의 버그다.</p>
   <div class="table-wrap"><table>
@@ -1092,17 +1018,6 @@ if __name__ == &quot;__main__&quot;:
     print(f&quot;  datetime(1970,1,1,tzinfo=utc) == datetime.fromtimestamp(0, utc) → &quot;
           f&quot;{datetime(1970, 1, 1, tzinfo=timezone.utc) == datetime.fromtimestamp(0, tz=timezone.utc)}&quot;)
     print(&quot;  → 생성자 오버로딩이 없는 파이썬에서 &#x27;이름 붙은 생성자&#x27;를 만드는 관용구다.&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex1_alt_constructors.py</figcaption><pre><code>[1] 하위 클래스에서 호출하면 하위 클래스 인스턴스가 나온다 (cls 다형성)
-  LabTimestamp.fromtimestamp → LabTimestamp, label=LAB-19700101-0000
-  CountingDict.fromkeys → CountingDict, total=0
-
-[2] 그러나 &#x27;무엇을 만들지&#x27;는 호출자가 수신 클래스를 고르는 순간 이미 정해졌다
-  datetime.fromtimestamp(...)를 부르는 코드는 datetime을 원한다고 직접 말한 셈이다.
-  GoF처럼 &#x27;프레임워크 흐름 → 훅 호출 → 하위 클래스가 선택&#x27;하는 간접층이 없다.
-
-[3] 이 메서드들의 실제 목적: 같은 타입을 &#x27;다른 입력&#x27;에서 만들기
-  datetime(1970,1,1,tzinfo=utc) == datetime.fromtimestamp(0, utc) → True
-  → 생성자 오버로딩이 없는 파이썬에서 &#x27;이름 붙은 생성자&#x27;를 만드는 관용구다.</code></pre></figure>
     </details>
   </div>
 
@@ -1275,17 +1190,6 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;  등록된 형식:&quot;, sorted(LogCollector.registry))
     print(&quot;  for_format(&#x27;caddy&#x27;):&quot;, LogCollector.for_format(&quot;caddy&quot;).collect([&quot;503 10.0.2.5 /ms&quot;, &quot;200 10.0.2.6 /uv&quot;]))</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_log_parser.py</figcaption><pre><code>[1] 1단계 — Concrete Creator를 직접 고른다 (GoF 팩토리 메서드)
-  nginx : {&#x27;10.0.0.9&#x27;: 2}
-  apache: {&#x27;10.0.1.2&#x27;: 2}
-
-[2] 2단계 — 설정 문자열로 고른다 (정의만 하면 등록되는 레지스트리)
-  등록된 형식: [&#x27;apache&#x27;, &#x27;nginx&#x27;]
-  for_format(&#x27;apache&#x27;): {&#x27;10.0.1.2&#x27;: 2}
-
-[3] 새 형식 추가: 프레임워크(LogCollector) 수정 없이 클래스 정의만으로
-  등록된 형식: [&#x27;apache&#x27;, &#x27;caddy&#x27;, &#x27;nginx&#x27;]
-  for_format(&#x27;caddy&#x27;): {&#x27;10.0.2.5&#x27;: 1}</code></pre></figure>
     </details>
   </div>
 

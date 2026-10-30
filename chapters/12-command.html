@@ -25,7 +25,6 @@ part: 행위 패턴
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 은우의 편집기다. 이동 코드가 툴바와 단축키에 복제된 모습, 핸들러마다 <code>last_action</code>을 다른 모양으로 채우는 모습, 그리고 <code>on_undo()</code>가 모든 동작의 종류를 알아야 하는 구조에 주목하라. 코드 주석에 나오는 <dfn data-term="inverse-operation">역연산</dfn>은 어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(+30 이동 ↔ −30 이동)이다. 연산이 정보를 잃으면(경계에서 자르기, 삭제, 반올림) 올바른 역연산은 존재하지 않는다 — 이 점이 첫 번째 버그의 원인이다. 데모는 베타 사용자의 버그 보고 네 건을 그대로 재현한다.</p>
 <pre data-src="12_command/01_naive.py"></pre>
-<pre data-run="12_command/01_naive.py"></pre>
 <p>네 버그는 모두 같은 뿌리를 가진다. [1]은 역연산이 "요청한 이동량"을 되돌렸기 때문이다. 실제로는 경계에서 잘려 10만큼만 움직였는데 30을 되돌렸다. [2]는 같은 동작이 두 곳에 복제되어 있어서 생긴다. [3]은 이력이 하나뿐이어서, [4]는 기록 책임이 각 핸들러에 맡겨져 있어서 생긴다.</p>
 <ul>
   <li><strong>요청과 호출 지점이 묶여 있다.</strong> "도형을 옮긴다"는 요청이 "툴바 버튼을 눌렀다"는 사건과 분리되지 않아, 호출 지점마다 복제된다(SRP 위반).</li>
@@ -131,7 +130,6 @@ part: 행위 패턴
 
 <p class="lead-in">마지막으로 매크로, 호출자, 그리고 클라이언트다. <code>MacroCommand.execute()</code>가 중간 단계 실패 시 앞 단계를 되돌리는 이유를 docstring에서 확인하라. <code>CommandHistory.undo()</code>가 <code>cmd.undo()</code> 한 줄이라는 점을 naive 코드의 <code>on_undo()</code> 분기와 비교하라. 세 UI 진입점이 모두 같은 명령 클래스를 쓴다는 점도 보라.</p>
 <pre data-src="12_command/02_command.py" data-lines="173-267"></pre>
-<pre data-run="12_command/02_command.py"></pre>
 <p>출력이 네 버그를 하나씩 지운다. [1] 경계에서 잘린 이동이 정확히 x=10으로 돌아온다. [2] 단축키 이동은 툴바와 같은 명령을 쓰므로 x가 0에서 멈춘다. [3] 두 단계 undo가 black까지 간다. [4] 우클릭 삭제가 이력에 들어가고, 원래 z-순서 자리(arrow 앞)에 복원되며, Ctrl+Y로 다시 실행된다. [5]의 매크로는 명령 둘을 하나로 묶어 undo 한 번에 통째로 되돌린다. <code>MacroCommand</code>가 <code>Command</code>이면서 <code>Command</code> 목록을 갖는 구조는 7장 컴포지트 그대로다. [6]은 매크로의 원자성 문제다. 두 번째 단계(없는 도형 삭제)가 실패하면 <code>CommandHistory.execute()</code>는 예외로 중단되어 매크로를 이력에 넣지 않는다. 롤백이 없다면 첫 단계의 이동만 캔버스에 남고, 그 변경은 이력에 없으므로 Ctrl+Z로도 되돌릴 수 없는 "반쯤 적용된" 상태가 된다. 그래서 <code>MacroCommand</code>는 실행한 단계를 기억했다가 실패 시 역순으로 undo한 뒤 예외를 다시 던진다. 다만 이 롤백은 각 단계의 <code>undo()</code>가 정확하다는 가정에 기대며, 이메일 발송처럼 되돌릴 수 없는 단계가 섞이면 원자성은 보장되지 않는다.</p>
 <div class="callout warn">
   <span class="label">redo 스택을 비우는 이유</span>
@@ -152,7 +150,6 @@ part: 행위 패턴
 
 <p class="lead-in">마지막으로 세션(호출자)과 데모다. 은우의 화면에서 실행된 명령의 JSON 로그가 동료 지아의 캔버스에서 재생되어 같은 상태를 만드는지 확인하라.</p>
 <pre data-src="12_command/03_pythonic.py" data-lines="223-240"></pre>
-<pre data-run="12_command/03_pythonic.py"></pre>
 <p>[3]의 로그에는 <code>_before</code>, <code>_prev</code>가 없다. undo 정보는 실행한 쪽의 로컬 상태이기 때문이다. [4]에서 지아의 캔버스는 로그만으로 같은 상태가 된다. [2]·[3]에서 "강조하기" 매크로를 품은 중첩 매크로가 arrow로 재지정되어 실행되고, 로그에는 중첩 구조 그대로 실린다. [5]에서 은우의 Ctrl+Z는 arrow에 재생한 중첩 매크로만 정확히 되돌린다. [6]은 <code>kind</code>를 빠뜨린 하위 클래스가 정의 시점에 거부되는 모습이다. 실제 협업 도구는 여기에 동시 편집 충돌 해결(<dfn data-term="operational-transformation-crdt">OT·CRDT</dfn> — Operational Transformation과 Conflict-free Replicated Data Type, 여러 사용자의 동시 편집을 자동으로 맞추는 알고리즘 계열)이 더해지지만, 그 출발점은 언제나 "편집 동작이 직렬화 가능한 명령 객체"라는 이 구조다.</p>
 <table>
   <thead><tr><th>요구</th><th>권하는 형태</th></tr></thead>
@@ -228,7 +225,6 @@ part: 행위 패턴
     <p>리모컨(호출자)은 버튼 슬롯 → 명령 팩토리 dict만 갖고, 기기를 전혀 모른다. 버튼 재배치는 <code>assign()</code>으로 슬롯에 다른 팩토리를 꽂는 것이다. 취소 버튼은 실행한 명령을 스택에 쌓고 <code>pop().undo()</code>한다. 슬롯에 명령 <em>인스턴스</em>가 아니라 <em>팩토리</em>(<code>lambda: LightSwitch(light, True)</code>)를 두는 이유는 데모 [1]의 연타에 있다. 같은 인스턴스를 두 번 실행하면 두 번째 실행이 첫 번째의 되돌리기 정보(<code>_prev</code>)를 덮어써, 취소 네 번 후에도 조명이 켜진 채로 남는다. 누를 때마다 새 명령을 만들면 이력의 각 항목이 자기만의 되돌리기 정보를 갖는다 — 본문 <code>Macro.retarget()</code>과 같은 원리다.</p>
     <p>해설 코드의 <code>press()</code>에는 <dfn data-term="assignment-expression-walrus">대입 표현식</dfn>(<code>:=</code>, <code>if make := self.slots.get(button):</code>)이 쓰였다. 식 안에서 값을 이름에 대입하면서 그 값을 바로 조건으로 쓴다 — "조회해서 있으면 실행"을 한 줄로 쓰는 관용구다.</p>
     <pre data-src="12_command/solutions/ex2_remote_undo.py"></pre>
-    <pre data-run="12_command/solutions/ex2_remote_undo.py"></pre>
     <p>두 명령의 undo 방식이 다르다는 점을 보라. <code>LightSwitch</code>는 스냅샷(이전 on/off 상태)을 쓴다. "켜기"의 역을 "끄기"로 두면, 이미 켜진 조명에 켜기를 누른 뒤 취소했을 때 조명이 꺼지는 버그가 생긴다 — 켜기 연산은 "원래 켜져 있었는지"라는 정보를 잃기 때문이다. <code>AdjustTemp</code>는 상한·하한이 없으므로 역연산(−delta)이 정확하다. 실제 온도 조절기처럼 16~30℃ 범위가 있다면 본문 <code>MoveShape</code>처럼 스냅샷으로 바꿔야 한다.</p>
     <p>흔한 오답은 버튼마다 "토글" 명령 하나를 두고 undo도 토글로 구현하는 것이다. 토글은 자기 자신이 역연산이라 우아해 보이지만, 리모컨 밖(벽 스위치)에서 상태가 바뀌면 리모컨의 가정과 실제가 어긋난다. 스냅샷은 실행 순간의 실제 상태를 기준으로 하므로 이 문제가 없다.</p>
   </details>
@@ -242,7 +238,6 @@ part: 행위 패턴
     <p><code>dict[str, Callable]</code>을 택한다. 커맨드 패턴에서 이 상황이 실제로 쓰는 것은 "요청의 객체화 → 이름으로 선택" 하나뿐이고, 파이썬 함수는 이미 일급 객체라 dict에 담는 것만으로 그것을 얻는다. 새 하위 명령은 함수 하나와 dict 한 줄이다.</p>
     <p>해설 코드의 주석에 나오는 <dfn data-term="argparse">argparse</dfn>는 명령행 인자와 하위 명령(subparser)을 해석하는 표준 라이브러리다. 실제 도구라면 하위 명령마다 인자 형식을 그것으로 정의한다.</p>
     <pre data-src="12_command/solutions/ex3_cli_dispatch.py"></pre>
-    <pre data-run="12_command/solutions/ex3_cli_dispatch.py"></pre>
     <p>판단이 바뀌는 요구는 커맨드 패턴의 나머지 능력이 필요해질 때다. (1) <code>deploy</code>를 <code>rollback</code>으로 되돌리는 undo가 필요하면 배포 전 버전을 기억할 상태가 생긴다. (2) 명령마다 도움말·인자 정의·권한 수준 같은 <em>여러 속성</em>이 붙으면 함수 하나로는 계약이 표현되지 않는다(실제로 Click, Django management command가 클래스나 데코레이터 메타데이터를 쓰는 이유다). (3) 명령을 큐에 넣어 원격 워커가 실행하게 하면 직렬화 가능한 데이터 객체가 필요하다.</p>
     <p>흔한 오답은 "명령이 늘어날 수 있으니 미리 클래스로"이다. 명령 수가 늘어나는 것은 dict도 감당한다. 클래스가 필요해지는 축은 <em>개수</em>가 아니라 명령 하나가 가져야 하는 <em>능력</em>이다.</p>
   </details>

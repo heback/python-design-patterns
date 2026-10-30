@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">9장 · 프록시 (Proxy)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -132,13 +129,6 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;    &quot; + screen.open(analyst, &quot;K3-0002&quot;, &quot;장면 2&quot;, 2, &quot;남서&quot;))   # 캐시 적중
     print(&quot;    &quot; + screen.open(intern, &quot;K3-0002&quot;, &quot;장면 2&quot;, 2, &quot;북동&quot;))
     print(f&quot;    다운로드 {archive2.downloaded_mb}MB — 동작은 한다. 하지만 이 검사들을 아는 것은 이 화면뿐이다.&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 카탈로그에 2,000장 나열 — 목록용 객체를 만들기만 한다
-    다운로드 800,000MB ≈ 267분
-[2] (목록 로딩을 포기하고) 화면이 직접 지연·권한·캐시를 처리
-    장면 2 [북동] 렌더링 (원본 &lt;raster K3-0002&gt; 사용)
-    장면 2 [남서] 렌더링 (원본 &lt;raster K3-0002&gt; 사용)
-    접근 거부: 장면 2
-    다운로드 400MB — 동작은 한다. 하지만 이 검사들을 아는 것은 이 화면뿐이다.</code></pre></figure>
 <p>출력 [1]의 800,000MB는 목록을 그리려고 만든 객체 2,000개의 대가다. [2]는 화면 코드가 직접 검사를 떠안아 문제를 '해결'한 모습이다. 동작은 맞지만 구조적으로 세 가지가 잘못되었다.</p>
 <ul>
   <li><strong>생성과 사용이 붙어 있다.</strong> 객체를 갖는 것(목록에 올리기)과 무거운 데이터를 쓰는 것(확대)은 다른 시점의 일인데, 생성자가 둘을 묶어 버렸다.</li>
@@ -1349,16 +1339,6 @@ if __name__ == &quot;__main__&quot;:
     compare = open_image(ImageMeta(&quot;K3-0002&quot;, &quot;장면 2&quot;, 2), archive)
     print(&quot;    &quot; + compare.zoom(&quot;전체&quot;, analyst))
     print(f&quot;    원격 다운로드 총 {remote.downloaded_mb}MB, 캐시 적중 {archive.hits}회&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 02_proxy.py</figcaption><pre><code>[1] 2,000장 목록 — 프록시만 만든다
-    목록 표시: 장면 0 … 장면 1999, 다운로드 0MB
-[2] 확대 보기
-      (원격) K3-0002 다운로드 400MB
-    장면 2 [북동] 렌더링 (원본 &lt;raster K3-0002&gt;)
-    장면 2 [남서] 렌더링 (원본 &lt;raster K3-0002&gt;)
-    접근 거부 — 인턴: &#x27;장면 5&#x27; 원본 열람 등급 부족
-[3] 다른 화면(비교 뷰)이 같은 영상을 새 프록시로 연다 — 캐싱 프록시가 받는다
-    장면 2 [전체] 렌더링 (원본 &lt;raster K3-0002&gt;)
-    원격 다운로드 총 400MB, 캐시 적중 1회</code></pre></figure>
 <p>출력 [1]에서 2,000장의 목록이 다운로드 0MB로 그려졌다. 목록에 필요한 메타데이터는 프록시가 실제 객체 없이 답한다. [2]의 첫 확대에서 비로소 400MB를 받았고, 같은 프록시의 두 번째 확대는 이미 만든 실제 객체를 썼다. 인턴의 요청은 보호 프록시가 다운로드 <em>전에</em> 거부했다. [3]에서는 비교 뷰가 새 프록시를 만들었으니 새 <code>RealSatelliteImage</code>가 생성되었지만, 그 생성자가 부른 <code>fetch()</code>를 캐싱 프록시가 받아 원격 다운로드 없이 끝났다. 원격 다운로드 총량은 400MB, 캐시 적중 1회다.</p>
 <div class="callout ok">
   <span class="label">프록시와 데코레이터, 한 줄 구분</span>
@@ -1508,22 +1488,6 @@ if __name__ == &quot;__main__&quot;:
         weak.max_elevation()
     except ReferenceError as e:
         print(f&quot;    실제 객체 소멸 후 → ReferenceError: {e}&quot;)</code></pre></figure>
-<figure class="output"><figcaption>$ python3 03_pythonic.py</figcaption><pre><code>[1] __getattr__ 범용 지연 프록시
-    프록시 생성 직후 로딩 기록: []
-    dem.max_elevation() = 560, 로딩 기록: [&#x27;N37E127&#x27;]
-    len(dem) → TypeError: object of type &#x27;LazyProxy&#x27; has no len()  (특수 메서드는 타입에서 찾으므로 위임 안 됨)
-    isinstance(dem, DemRaster) = False
-    dem == (실제 객체) → False
-[2] cached_property — 프록시 없이 객체 내부에서 지연
-    생성 직후: [], &#x27;raster&#x27; in __dict__ = False
-    scene.raster → [&#x27;농경지&#x27;, &#x27;산림&#x27;, &#x27;수계&#x27;], 기록: [&#x27;LC-2026-09&#x27;]
-    두 번째 접근 후 기록: [&#x27;LC-2026-09&#x27;] (다시 로딩하지 않음)
-[3] lru_cache — 캐싱 프록시의 가장 가벼운 형태
-    요청 A B A C A B → 실제 다운로드: [&#x27;tile:A&#x27;, &#x27;tile:B&#x27;, &#x27;tile:C&#x27;, &#x27;tile:B&#x27;]
-    CacheInfo(hits=2, misses=4, maxsize=2, currsize=2)
-[4] weakref.proxy — 생명주기를 소유하지 않는 프록시
-    weak.max_elevation() = 560, len(weak) = 4 (특수 메서드도 위임)
-    실제 객체 소멸 후 → ReferenceError: weakly-referenced object no longer exists</code></pre></figure>
 <h3><code>__getattr__</code> 범용 프록시와 그 구멍</h3>
 <p>출력 [1]에서 <code>dem.max_elevation()</code>은 잘 위임되었고, 그 순간에야 로딩이 일어났다. 지연은 성공이다. 그러나 <code>len(dem)</code>은 <code>TypeError</code>, <code>isinstance(dem, DemRaster)</code>는 거짓이다. 6장에서 본 것과 같은 원인이다. 파이썬은 <code>__len__</code>, <code>__eq__</code>, <code>__iter__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 타입에서 직접 찾으므로 <code>__getattr__</code>을 거치지 않는다. 범용 프록시가 정말 투명하려면 특수 메서드를 하나하나 정의해야 하고, <code>isinstance</code>까지 속이려면 <dfn class="term" id="term-class" data-term="class" title="객체가 속한 클래스를 가리키는 속성. 대입하면 객체의 클래스 자체가 바뀐다."><code>__class__</code></dfn>(객체가 속한 클래스를 가리키는 속성)를 프로퍼티로 재정의하는 기교가 필요하다(표준 테스트 프레임워크 <dfn class="term" id="term-unittest" data-term="unittest" title="표준 테스트 프레임워크. TestCase의 run()이 setUp → 테스트 메서드 → tearDown 순서를 정해 부른다."><code>unittest</code></dfn>에 딸린 <dfn class="term" id="term-unittest-mock" data-term="unittest-mock" title="테스트용 가짜 객체(Mock)를 만드는 표준 라이브러리. 어떤 속성 접근에도 응답하는 범용 대역을 제공한다."><code>unittest.mock</code></dfn>이 그렇게 한다. 어떤 속성 접근에도 응답하는 가짜 객체를 만드는 모듈이다). 프록시는 "실제 객체와 교환 가능"해야 하는데(LSP), 범용 프록시는 그 약속을 부분적으로만 지킨다. 그래서 교재의 권장은 이렇다. <strong>인터페이스가 명확하면 02처럼 Subject를 구현한 명시적 프록시를, 범용 프록시는 그 한계를 문서화한 경우에만.</strong></p>
 <h3><code>cached_property</code>: 프록시가 필요 없는 경우</h3>
@@ -1744,13 +1708,6 @@ if __name__ == &quot;__main__&quot;:
             print(f&quot;    {name}: ⚠ 통과됨&quot;)
         except PermissionError:
             print(f&quot;    {name}: 거부됨&quot;)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex2_protection.py</figcaption><pre><code>[1] staff 열람: 북부 해안 관측 보고서
-[2] staff 반출: 거부 — 민호(staff)은(는) export 권한이 없다
-[2] admin 반출: 30 bytes 반출됨
-[3] 권한 없는 사용자로 각 메서드 호출 — 하나라도 통과하면 _check 누락이다
-    update: 거부됨
-    export: 거부됨
-    read(guest): 거부됨</code></pre></figure>
   </details>
 </div>
 
@@ -1853,12 +1810,6 @@ if __name__ == &quot;__main__&quot;:
     LOADS.clear()
     print(&quot;[C] 팩토리 지연(불필요):&quot;, analyze(lambda: ExternalCube(&quot;HSI-C&quot;), need=False), &quot;| 로딩:&quot;, LOADS)
     print(&quot;[C] 팩토리 지연(필요):&quot;, analyze(lambda: ExternalCube(&quot;HSI-C&quot;), need=True), &quot;| 로딩:&quot;, LOADS)</code></pre></figure>
-    <figure class="output"><figcaption>$ python3 ex3_lazy_choice.py</figcaption><pre><code>[A] 가상 프록시 생성 직후 로딩: []
-    band(3) → HSI-A:band3 | 로딩: [&#x27;HSI-A&#x27;]
-[B] cached_property 객체 생성 직후 로딩: []
-    band(3) → HSI-B:band3 | 로딩: [&#x27;HSI-B&#x27;]
-[C] 팩토리 지연(불필요): 건너뜀 | 로딩: []
-[C] 팩토리 지연(필요): HSI-C:band3 | 로딩: [&#x27;HSI-C&#x27;]</code></pre></figure>
   </details>
 </div>
 </section>

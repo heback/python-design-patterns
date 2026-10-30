@@ -26,7 +26,6 @@ part: 행위 패턴
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 석 달 동안 자란 <code>PriceFeed</code>다. 생성자가 하위 기능을 직접 만든다는 점, <code>push_price()</code>가 "시세 수신 후 할 일 목록"을 하드코딩한다는 점에 주목하라. 데모는 화면 닫기와 푸시 서버 장애를 재현한다.</p>
 <pre data-src="11_observer/01_naive.py"></pre>
-<pre data-run="11_observer/01_naive.py"></pre>
 <p>출력 [2]와 [3]에서 사용자가 닫은 차트가 계속 다시 그려진다. <code>closed</code> 플래그가 있어도 수신기는 그것을 모르고, 설령 안다 해도 "닫힌 화면은 건너뛴다"는 분기를 수신기에 넣는 순간 수신기가 화면의 생명주기까지 알게 된다. [3]에서는 알림 예외가 호출 사슬을 끊어 포트폴리오와 로그가 빠졌다.</p>
 <ul>
   <li><strong>의존 방향이 잘못되었다.</strong> 하위 기능(차트, 알림)은 자주 바뀌고 수신기는 안정적이어야 하는데, 안정적인 쪽이 불안정한 쪽을 import하고 생성한다(DIP 위반). 기능 추가마다 수신기를 수정한다(OCP 위반).</li>
@@ -106,7 +105,6 @@ part: 행위 패턴
 
 <p class="lead-in">다음은 구체 관찰자들이다. 각 관찰자가 <em>자기 생명주기에 맞춰</em> 구독과 해제를 스스로 한다는 점 — 차트는 <code>open()</code>/<code>close()</code>에서, 알림은 목표가 도달 후 통지 도중에 — 을 보라.</p>
 <pre data-src="11_observer/02_observer.py" data-lines="106-182"></pre>
-<pre data-run="11_observer/02_observer.py"></pre>
 <p>출력을 순진한 설계와 대조해 보자. [1]에서 SK하이닉스 시세에는 차트와 알림이 깨어나지 않는다 — 종목별 구독이 분기를 대신했다. [3]에서 차트는 닫힌 뒤 더 이상 다시 그려지지 않는다. [4]에서 푸시 서버 장애는 <code>!!</code> 한 줄로 기록되고 포트폴리오와 로그는 정상 실행된다. [5]에서 알림은 통지 도중 스스로 구독을 해제했는데도 바로 뒤의 포트폴리오 관찰자가 건너뛰어지지 않았다. 복사본 순회 덕분이다(연습문제 1에서 복사본이 없을 때를 재현한다).</p>
 <div class="callout warn">
   <span class="label">예외 격리는 정책이다</span>
@@ -124,7 +122,6 @@ part: 행위 패턴
 
 <p class="lead-in">이제 허브를 쓰는 주체 <code>Quote</code>와, 아무것도 상속하지 않는 관찰자 <code>ChartWidget</code>이다. <code>price</code>에 값을 대입하는 것 자체가 통지가 되도록 <code>@property</code> setter를 쓴 점을 보라.</p>
 <pre data-src="11_observer/03_pythonic.py" data-lines="88-129"></pre>
-<pre data-run="11_observer/03_pythonic.py"></pre>
 <p>[1]에서 바운드 메서드·람다·조건부 람다가 같은 이벤트에 구독되고, 같은 값 재대입은 통지를 일으키지 않는다. [2]에서 알림은 72,000원을 넘었는데도 울리지 않는다 — <code>off_alert()</code>로 해제했기 때문이다. [3]이 핵심이다. <code>del chart</code> 후 아무도 해제를 호출하지 않았는데 차트 구독이 사라졌다. <code>WeakMethod</code>가 주인 객체의 수거를 감지했고, <code>emit()</code>이 죽은 참조를 정리했다. [4]는 반대 방향의 함정이다. 람다를 약하게 잡으면 구독 직후 수거된다.</p>
 <div class="callout">
   <span class="label">약한 참조는 만능이 아니다</span>
@@ -176,7 +173,6 @@ part: 행위 패턴
     <summary>해설 보기</summary>
     <p>파이썬의 리스트 반복자는 내부 인덱스를 들고 다닌다. 인덱스 0에서 알림이 자신을 <code>remove()</code>하면 차트가 인덱스 0으로 당겨지는데, 반복자는 다음으로 인덱스 1을 본다. 리스트 길이가 1이 되었으므로 반복이 끝나고 차트는 이번 통지를 받지 못한다. 예외도 경고도 없다는 점이 이 버그를 위험하게 만든다.</p>
     <pre data-src="11_observer/solutions/ex1_unsubscribe_during_notify.py"></pre>
-    <pre data-run="11_observer/solutions/ex1_unsubscribe_during_notify.py"></pre>
     <p>해결은 통지 시작 시점의 목록을 복사해 순회하는 것이다. 의미론으로 말하면 "통지 시작 순간의 구독자 집합에게 통지하고, 통지 중의 변경은 다음 통지부터 반영한다". 추가의 경우 원본 순회에서는 새 구독자가 같은 통지를 받거나(리스트 끝에 붙으므로) 관찰자가 매번 자신을 다시 등록하면 무한 루프가 될 수도 있다. 복사본 순회는 이 경우도 같은 규칙으로 정리한다.</p>
     <p>흔한 오답은 "역순으로 순회하면 된다"이다. 자기 자신을 지우는 경우에는 우연히 동작하지만, 관찰자가 <em>다른</em> 관찰자를 해제하는 경우엔 여전히 깨지고, 통지 순서가 바뀐다. 또 다른 오답은 "해제를 큐에 모았다가 통지 후 처리"인데, 동작은 하지만 복사본 한 줄보다 복잡하고 해제된 관찰자가 이번 통지를 마저 받는 것이 의도인지 모호해진다.</p>
   </details>
@@ -203,7 +199,6 @@ def sign_up(email: str) -> int:
     <p><code>sign_up()</code>은 '회원이 가입했다'는 사실(<code>UserSignedUp</code> 이벤트)만 발행하고, 후속 작업은 각 팀의 모듈에서 구독자로 등록한다. 구독자는 상태가 없는 한 줄짜리 반응이므로 함수로 충분하다. <code>publish()</code>가 예외를 격리하므로 메일 장애가 가입을 실패시키지 않는다. 추천인 포인트는 <code>@events.subscribe</code>가 붙은 <code>award_referral_points</code> 하나로 추가되고, <code>sign_up()</code>의 흐름(저장 → 발행)은 바뀌지 않는다. 다만 정직하게 짚어 둘 점이 있다. 원래 이벤트에는 추천인 정보가 없었으므로 <code>UserSignedUp</code>에 <code>referrer_id</code> 필드를, <code>sign_up()</code>에 같은 이름의 인자를 더해야 했다. 구독자 추가는 발행자를 건드리지 않지만, 새 구독자가 필요로 하는 <em>사실</em>이 메시지에 없으면 이벤트 <dfn data-term="schema">스키마</dfn>(메시지가 가져야 할 필드와 타입의 구조)는 넓혀야 한다 — 3절에서 본 푸시 모델 메시지 설계의 비용이다. 기본값 <code>None</code>을 두어 기존 구독자와 호출자가 깨지지 않게 한 것이 이 비용을 줄이는 방법이다.</p>
     <div class="callout"><span class="label">용어</span><p>해설 코드의 <code>UserSignedUp</code> 같은 메시지를 <dfn data-term="domain-event">도메인 이벤트</dfn>라 부른다. 도메인에서 이미 일어난 사실을 과거형 이름으로 알릴 뿐, 무엇을 하라고 지시하지 않는다. 코드의 <dfn data-term="simple-mail-transfer-protocol">SMTP</dfn>는 이메일 전송 프로토콜이고, <dfn data-term="backward-compatibility">하위 호환</dfn>은 새 버전이 기존 사용 코드를 깨지 않고 그대로 동작하게 하는 성질이다.</p></div>
     <pre data-src="11_observer/solutions/ex2_signup_events.py"></pre>
-    <pre data-run="11_observer/solutions/ex2_signup_events.py"></pre>
     <p>이벤트 이름을 과거형(<code>UserSignedUp</code>)으로 지은 것이 중요하다. <code>SendWelcomeMail</code> 같은 명령형 이름은 발행자가 반응을 지시하는 것이므로 결합이 이름 속에 되살아난다. 흔한 오답은 세 호출을 <code>try/except</code>로 각각 감싸는 것이다. 장애 전파는 막지만 OCP 문제(새 요구마다 <code>sign_up()</code> 수정)는 그대로다. 실전에서 한 가지 더 생각할 것: 가입 트랜잭션이 롤백되었는데 메일이 이미 나가면 안 되므로, 실제 시스템은 커밋 <em>후</em>에 발행하거나 <dfn data-term="transactional-outbox">아웃박스 테이블</dfn>을 쓴다. 아웃박스 패턴은 보낼 메시지를 업무 데이터와 같은 트랜잭션으로 DB 테이블에 먼저 기록하고, 커밋된 뒤 별도 작업이 그 테이블을 읽어 발행하는 기법으로, "롤백됐는데 메일은 나간" 사고를 막는다.</p>
   </details>
 </div>

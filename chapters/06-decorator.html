@@ -27,7 +27,6 @@ part: 구조 패턴
 <div class="callout"><span class="label">용어</span><p>아래 코드가 쓰는 도구들이다. <dfn data-term="zlib"><code>zlib</code></dfn>: DEFLATE 알고리즘으로 데이터를 압축·해제하는 파이썬 표준 모듈. <dfn data-term="json-dumps"><code>json.dumps</code></dfn>: 파이썬 객체를 JSON 문자열로 바꾸는 함수. <dfn data-term="stream-cipher">스트림 암호</dfn>: 키로부터 만든 무작위처럼 보이는 바이트열(키스트림)을 평문과 XOR해 암호화하는 방식으로, 출력이 무작위처럼 보여 압축되지 않는다. 이 장의 <code>toy_encrypt</code>는 교육용이며, 실제 제품에서는 <dfn data-term="aes-gcm">AES-GCM</dfn>(AES 암호를 GCM 모드로 써서 암호화와 변조 검증을 함께 제공하는 표준 방식. 메시지마다 nonce라는 일회용 값과 인증 태그가 붙는다) 같은 검증된 방식을 쓴다.</p></div>
 <p class="lead-in"><code>CompressedEncryptedMqttChannel</code>에서 순서를 맞추느라 부모를 건너뛰고 압축 로직을 복제하는 부분, 그리고 <code>FlagMqttChannel.send()</code>에서 순서 규칙이 '줄 순서'에만 숨어 있는 부분에 주목하라.</p>
 <pre data-src="06_decorator/01_naive.py"></pre>
-<pre data-run="06_decorator/01_naive.py"></pre>
 <p>두 방식의 결함은 이렇게 정리된다.</p>
 <ul>
   <li><strong>상속 방식은 '조합'을 '타입'으로 표현한다.</strong> 기능 n개의 모든 부분집합이 클래스가 되므로 2<sup>n</sup>개가 필요하고, 출력 [1]처럼 기능 넷이면 열여섯이다. 게다가 상속은 <dfn data-term="compiler">컴파일</dfn> 시점에 고정되므로(컴파일은 소스를 실행 가능한 형태로 번역하는 단계이며, 파이썬에서는 클래스 정의문이 실행되는 시점이 이에 해당한다) "설정 파일로 조합을 바꾸자"는 요구를 근본적으로 충족할 수 없다. 순서를 바꾸고 싶으면 계층을 다시 짜야 한다.</li>
@@ -118,7 +117,6 @@ part: 구조 패턴
 <p>각 클래스는 자기 기능 하나만 안다. <code>CompressingChannel</code>은 zlib만, <code>EncryptingChannel</code>은 키와 암호화 함수만 안다. 새 기능(예: 전송 실패 시 재시도)이 필요해도 기존 클래스는 하나도 열지 않는다. 래퍼 클래스를 하나 추가하면 끝이다.</p>
 <p class="lead-in">마지막으로 조립과 실행이다. <code>farm_a</code>를 조립하는 중첩 표현식을 바깥에서 안쪽으로 읽으면 그것이 곧 처리 순서다. 로그 래퍼가 두 위치에 꽂혀 '압축 전'과 '압축 후' 크기를 동시에 보여 준다는 점, 그리고 데모 [3]의 두 순서 비교에 주목하라.</p>
 <pre data-src="06_decorator/02_decorator.py" data-lines="152-192"></pre>
-<pre data-run="06_decorator/02_decorator.py"></pre>
 <p>출력 [1]에서 25건이 10+10+5로 나뉘어 나갔다. 마지막 5건은 <code>collect()</code> 끝의 <code>flush()</code>가 바깥 배치 래퍼에서 출발해 체인을 타고 내려간 결과다. 로그 두 줄은 같은 클래스의 두 인스턴스가 체인의 다른 위치에서 각각 629바이트(원본)와 104바이트(압축 후)를 관찰했음을 보여 준다. 플래그 방식으로는 할 수 없던 일이다.</p>
 <p>출력 [3]이 이 장의 두 번째 학습 목표다. 같은 두 래퍼를 순서만 바꿔 감쌌더니 104바이트와 640바이트가 되었다. 원본(629바이트)보다도 커졌다. 암호화의 출력은 무작위처럼 보이므로 압축기가 찾을 반복 패턴이 없고, 압축 헤더만큼 오히려 늘어난다. <strong>데코레이터들은 서로를 모르지만, 그것들이 함께 내는 결과는 순서에 의존한다.</strong> 이것은 패턴의 결함이 아니라 본질이다. 순서가 의미를 갖는다면 그 규칙은 어딘가에 명시되어야 한다. 조립 코드에 주석으로, 설정 검증 로직으로, 혹은 아예 "압축+암호화"를 하나의 데코레이터로 묶어서 말이다.</p>
 <div class="callout warn">
@@ -166,7 +164,6 @@ part: 구조 패턴
 <h3>메서드가 많을 때: <code>__getattr__</code> 위임의 함정</h3>
 <p class="lead-in">마지막 부분은 반대 방향의 문제다. 실제 MQTT 클라이언트처럼 메서드가 많은 객체를 감쌀 때, 가로챌 메서드만 정의하고 나머지는 <code>__getattr__</code>로 넘겨 겉으로는 원본과 같아 보이게 만든 <dfn data-term="transparent-wrapper">투명 래퍼</dfn>를 만들면 어떻게 되는지 본다.</p>
 <pre data-src="06_decorator/03_pythonic.py" data-lines="132-221"></pre>
-<pre data-run="06_decorator/03_pythonic.py"></pre>
 <p>출력 [4]가 핵심이다. <code>w.connect()</code> 같은 일반 메서드는 잘 위임되지만, <code>len(w)</code>와 <code>with w:</code>는 실패한다. 파이썬은 <code>__len__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 <strong>타입</strong>에서 직접 찾기 때문에 인스턴스 수준의 <code>__getattr__</code>을 거치지 않는다. 또 래퍼는 <code>MqttClient</code>를 상속하지 않으므로 <code>isinstance</code> 검사도 실패한다. "같은 인터페이스"를 약속하는 데코레이터에게 이것은 치명적이다. 감싼 객체를 <code>with</code> 문에 쓰던 코드가 래퍼를 끼우는 순간 깨진다. 해결책은 필요한 특수 메서드를 래퍼 클래스에 명시적으로 정의하거나, 인터페이스를 ABC/Protocol로 좁혀 위임 목록을 명확히 하는 것이다.</p>
 </section>
 
@@ -208,7 +205,6 @@ part: 구조 패턴
     <p>배치 위치도 같은 원리다. 압축기는 한 번에 보는 데이터가 클수록 반복을 많이 찾는다. 62바이트짜리 측정값 하나만 압축하면 반복이 거의 없어 헤더 비용만 붙지만, 10건을 묶은 뒤 압축하면 건 사이의 반복을 활용한다.</p>
     <p><strong>흔한 오답:</strong> "암호화가 데이터를 늘리기 때문"이라는 답. 이 예제의 스트림 암호는 길이를 바꾸지 않는다(실제 AES-GCM은 nonce·태그 몇십 바이트를 붙일 뿐이다). 차이의 원인은 길이가 아니라 <em>압축 가능성</em>이다.</p>
     <pre data-src="06_decorator/solutions/ex1_order.py"></pre>
-    <pre data-run="06_decorator/solutions/ex1_order.py"></pre>
   </details>
 </div>
 
@@ -244,7 +240,6 @@ part: 구조 패턴
     <p>순서에도 의미가 있다. 호출 제한을 재시도 <em>바깥</em>에 둬야 "사용자 요청 1회"를 기준으로 제한한다. 안쪽에 두면 재시도 자체가 제한에 걸려, 첫 실패 후 재시도가 모두 차단된다.</p>
     <p><strong>흔한 오답:</strong> <code>LoggingNotifier</code>가 <code>ConnectionError</code>를 잡아서 <code>False</code>를 반환하게 만드는 것. 그러면 안쪽에 놓인 로그 래퍼가 예외를 삼켜 바깥의 재시도 래퍼가 실패를 알아채지 못한다. 관찰형 데코레이터는 흐름을 바꾸지 말아야 하므로 기록 후 다시 던진다.</p>
     <pre data-src="06_decorator/solutions/ex2_notifier.py"></pre>
-    <pre data-run="06_decorator/solutions/ex2_notifier.py"></pre>
   </details>
 </div>
 
@@ -262,7 +257,6 @@ part: 구조 패턴
     <p>따라서 실무 답은 조합이다. 전체 인증은 (B), 밸브 제어는 (C), 화면별 추가 권한은 (A). <strong>흔한 오답:</strong> "파이썬이니까 무조건 <code>@</code>". 문법의 편의가 아니라 '빠뜨렸을 때 무슨 일이 생기는가'로 판단해야 한다.</p>
     <p>해설 코드의 <code>Resource</code>는 <dfn data-term="rest-resource">REST 리소스</dfn>를 흉내 낸다. REST 방식 웹 API에서 URL로 식별되고 GET·POST 같은 HTTP 메서드로 조작되는 대상을 말한다.</p>
     <pre data-src="06_decorator/solutions/ex3_auth.py"></pre>
-    <pre data-run="06_decorator/solutions/ex3_auth.py"></pre>
   </details>
 </div>
 </section>

@@ -4,6 +4,7 @@
   --pr-bad: var(--bad, #b3352b); --pr-ok: var(--ok, #2f6b3c);
   --pr-bg: var(--code-bg, var(--surface-2, #f3f1ec)); --pr-fg: var(--code-text, var(--text, #1d1d1d));
   --pr-on-accent: var(--accent-text, #fff);
+  --pr-lh: 22px;   /* 편집기 줄 높이. 글자·행 번호·점선이 같은 격자에 놓이도록 정수 px 로 고정 */
 }
 .pr { margin: 12px 0; border: 1px solid var(--border); border-radius: var(--radius, 10px); overflow: hidden; background: var(--pr-bg); }
 .pr-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
@@ -22,7 +23,7 @@
 textarea.pr-ta {
   display: block; width: 100%; border: 0; border-radius: 0; resize: vertical; min-height: 120px; max-height: 560px;
   background: var(--pr-bg); color: var(--pr-fg); padding: 14px 16px; margin: 0;
-  font: 13.5px/1.6 var(--pr-mono); tab-size: 4; white-space: pre; overflow: auto; outline: none;
+  font: 13.5px/var(--pr-lh) var(--pr-mono); tab-size: 4; white-space: pre; overflow: auto; outline: none;
 }
 textarea.pr-ta:focus { box-shadow: inset 0 0 0 2px var(--accent); }
 .pr-out { border-top: 1px solid var(--border); background: var(--surface); }
@@ -34,13 +35,35 @@ textarea.pr-ta:focus { box-shadow: inset 0 0 0 2px var(--accent); }
 /* 문법 강조 층: 투명 글자의 textarea 아래에 같은 글꼴·여백의 색칠된 pre 를 겹친다. 두 칸의 글꼴·여백·줄 높이는 반드시 같아야 한다. */
 .pr-stack { position: relative; background: var(--pr-bg); }
 .pr-stack pre.pr-hl, .pr-stack textarea.pr-ta {
-  font: 13.5px/1.6 var(--pr-mono); tab-size: 4; padding: 14px 16px; margin: 0; border: 0; border-radius: 0; letter-spacing: 0;
+  font: 13.5px/var(--pr-lh) var(--pr-mono); tab-size: 4; padding: 14px 16px; margin: 0; border: 0; border-radius: 0; letter-spacing: 0;
   white-space: pre; word-spacing: 0; text-indent: 0;
 }
 .pr-stack pre.pr-hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--pr-fg); background: none; }
 .pr-stack pre.pr-hl code { font: inherit; background: none; padding: 0; color: inherit; }
 .pr-stack textarea.pr-ta { position: relative; background: transparent; color: transparent; caret-color: var(--pr-fg); }
 .pr-stack textarea.pr-ta::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); color: transparent; }
+
+/* 행 번호 칸 + 줄 사이 점선. 행 번호 칸(.pr-gutter)과 강조 층(.pr-hl)은 textarea 와 같은 글꼴·줄 높이·위쪽 여백을 써야 한다. */
+.pr-edit { display: flex; align-items: stretch; }
+.pr-edit > .pr-stack { flex: 1; min-width: 0; }
+.pr-gutter {
+  position: relative; flex: none; background: var(--surface-2); border-right: 1px solid var(--border);
+  font: 13.5px/var(--pr-lh) var(--pr-mono); color: var(--muted); user-select: none; -webkit-user-select: none;
+}
+.pr-gutter pre.pr-gutter-pre {
+  position: absolute; inset: 0; margin: 0; padding: 14px 10px 40px 0; overflow: hidden; text-align: right;
+  font: inherit; color: inherit; background: none; border: 0; border-radius: 0; white-space: pre; tab-size: 4;
+}
+.pr-gutter code, .pr-stack pre.pr-hl code { position: relative; display: block; isolation: isolate; }
+.pr-stack pre.pr-hl code { min-width: max-content; }
+.pr-gutter code::before, .pr-stack pre.pr-hl code::before {
+  content: ""; position: absolute; top: 0; z-index: -1; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--pr-lh) - 1px), var(--pr-rule, color-mix(in srgb, var(--muted, #888) 55%, transparent)) calc(var(--pr-lh) - 1px), var(--pr-rule, color-mix(in srgb, var(--muted, #888) 55%, transparent)) var(--pr-lh));
+  -webkit-mask-image: repeating-linear-gradient(to right, #000 0, #000 2px, transparent 2px, transparent 5px);
+          mask-image: repeating-linear-gradient(to right, #000 0, #000 2px, transparent 2px, transparent 5px);
+}
+.pr-gutter code::before { left: 0; right: -10px; bottom: 0; }
+.pr-stack pre.pr-hl code::before { left: -16px; right: -16px; bottom: var(--pr-lh); }   /* 강조 층은 끝에 "\n" 한 줄이 더 붙어 있으니 그 줄은 제외 */
 
 /* 문법 강조 토큰 (pyhl.js 가 만든다). 색은 --tok-* 변수로만 정한다 → 라이트/다크 자동. 변수가 없으면 var() 의 두 번째 값(라이트 기본색)을 쓴다. */
 .token.comment { color: var(--tok-comment, #6a737d); font-style: italic; }
@@ -73,15 +96,10 @@ pre.pr-modal-code {
 pre.pr-modal-code code { background: none; padding: 0; font: inherit; color: inherit; }
 @media print { .pr-bar, .pr-out, .pr-modal { display: none; } }
 
-/* ---- 교재 전용: 상단 저장/불러오기 버튼, 코드 블록의 편집 버튼, 알림 ---- */
-.tb-btn { font: inherit; font-size: .85em; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
-.tb-btn:hover { border-color: var(--accent); color: var(--accent); }
-figure.code figcaption .copy.edit { margin-left: auto; color: var(--accent); border-color: var(--accent); }
-figure.code figcaption .copy.edit + .copy { margin-left: 0; }
-figure.code.editing { background: var(--surface); }
-figure.code.editing > .pr { margin: 0; border: 0; border-radius: 0; }
-.tb-live { margin-left: auto; color: var(--accent); }
+/* ---- 교재 전용: 예제 코드 블록의 실행 버튼, 연습문제 편집기 ---- */
+/* 예제 코드 블록: 캡션 줄 오른쪽에 [▶ 실행] [■ 중지] 상태 [복사], 코드 아래에 출력 칸 */
+figure.code figcaption .pr-btn.run { margin-left: auto; font-family: inherit; }
+figure.code figcaption .pr-btn.run ~ .copy { margin-left: 0; }
+figure.code figcaption .pr-status { font-family: var(--font-body, inherit); margin-left: 0; }
+figure.code > .pr-out { border-top: 1px solid var(--border); }
 .exercise .pr { margin: 18px 0; }
-.tb-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #222; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 14px; opacity: 0; pointer-events: none; transition: .2s; z-index: 1100; max-width: 90vw; }
-.tb-toast.on { opacity: 1; transform: translate(-50%, 0); }
-@media (max-width: 720px) { .tb-btn { padding: 2px 6px; } }

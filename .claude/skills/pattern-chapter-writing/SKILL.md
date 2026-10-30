@@ -77,9 +77,8 @@ part: 생성 패턴
 <p class="lead-in">이제 주문서 객체를 생성자 하나로 만드는 첫 구현을 보자. 매개변수 목록이 어떻게 자라는지에 주목하라.</p>
 <pre data-src="03_builder/01_naive.py"></pre>
 <pre data-src="03_builder/02_builder.py" data-lines="12-58"></pre>   <!-- 일부만 -->
-<pre data-run="03_builder/02_builder.py"></pre>                       <!-- 실행 결과 -->
 ```
-빌드 시 `data-src`는 파일 내용(HTML 이스케이프 + 문법 강조)으로, `data-run`은 실제 실행 출력으로 치환된다. 원고에 출력을 손으로 적으면 코드 수정 시 어긋나므로 반드시 `data-run`을 쓴다. `data-lines`로 일부만 보일 때는 앞뒤 맥락이 끊기지 않게 lead-in에서 "전체 파일은 …"이라고 안내한다.
+빌드 시 `data-src`는 파일 내용(HTML 이스케이프 + 문법 강조)으로 치환된다. 실행 결과는 원고에 싣지 않는다. 독자가 코드 블록의 [▶ 실행]으로 직접 확인하므로, 본문이 출력을 설명할 때는 "실행하면 …"처럼 쓰고 데모의 `print` 라벨(`[1]`, `[2]`)로 가리킨다. 출력을 손으로 옮겨 적지 않는다(코드 수정 시 어긋난다). `data-lines`로 일부만 보일 때는 앞뒤 맥락이 끊기지 않게 lead-in에서 "전체 파일은 …"이라고 안내한다.
 
 ## 코드 주석 규칙
 
@@ -94,7 +93,7 @@ part: 생성 패턴
 - 모듈 docstring 필수. 첫 단락에 **상황 요약**(이 파일이 교재의 어떤 상황을 다루는지)을 쓴다 — 코드 파일만 열어도 맥락이 보이게.
 - 모든 클래스·함수·메서드에 docstring.
 - 주석+docstring 줄 비율 ≥ 30% (빈 줄 제외). 짧은 메서드라도 "왜"가 있으면 쓴다.
-- `if __name__ == "__main__":` 데모는 단계마다 `print`로 무슨 일이 일어나는지 보여준다. 출력은 `data-run`으로 원고에 실리므로 출력 자체가 읽히게 쓴다(예: `print("[1] 기본 옵션으로 주문 생성")`).
+- `if __name__ == "__main__":` 데모는 단계마다 `print`로 무슨 일이 일어나는지 보여준다. 독자가 [▶ 실행]으로 보는 출력이 본문의 근거이므로 출력 자체가 읽히게 쓴다(예: `print("[1] 기본 옵션으로 주문 생성")`).
 - 타입 힌트를 쓴다(학생 수준에 맞음). `from __future__ import annotations` 허용.
 
 주석 예시:
@@ -169,7 +168,6 @@ class DiscountPolicy(ABC):
     <summary>해설 보기</summary>
     <p>...</p>
     <pre data-src="03_builder/solutions/ex1_xxx.py"></pre>
-    <pre data-run="03_builder/solutions/ex1_xxx.py"></pre>
   </details>
 </div>
 ```

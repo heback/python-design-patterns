@@ -30,7 +30,6 @@ part:
   <p><dfn data-term="gang-of-four">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn data-term="program-to-an-interface">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
   <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
   <pre data-src="00_intro/01_naive.py"></pre>
-  <pre data-run="00_intro/01_naive.py"></pre>
   <p>[1]의 표는 지금은 정확하다. 문제는 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
   <ol>
     <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
@@ -39,7 +38,6 @@ part:
   </ol>
   <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 01의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn data-term="refactoring">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn data-term="typing-protocol">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn data-term="dataclasses-field">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
   <pre data-src="00_intro/02_refactored.py"></pre>
-  <pre data-run="00_intro/02_refactored.py"></pre>
   <p>[1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
   <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn data-term="chain-of-responsibility">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
 </section>
@@ -73,7 +71,6 @@ part:
   </ul>
   <p class="lead-in">2절의 리팩터링을 이 렌즈로 다시 쓰면 어떻게 되는가. 아래 코드는 상태 없는 규칙을 함수로, 설정 있는 규칙을 클로저와 <code>__call__</code> 클래스로 바꾸고, 계약을 <code>Protocol</code>로 표현한다. 세 종류의 규칙이 한 목록 안에서 똑같이 호출된다는 점, 그리고 데모 [2]가 "클래스가 필요한 순간"에 대해 무엇을 말하는지 주목하라. docstring이 말하는 "<dfn data-term="callable">호출 가능한</dfn> 것"(callable)은 <code>()</code>로 부를 수 있는 모든 것, 곧 함수·클래스·람다·<code>__call__</code>을 가진 객체이며, 타입 힌트로는 <code>Callable[[인자...], 반환]</code>으로 적는다. <dfn data-term="serialization">직렬화</dfn>는 객체를 저장하거나 전송할 수 있는 문자열·바이트 형식으로 바꾸는 것이다.</p>
   <pre data-src="00_intro/03_pythonic.py"></pre>
-  <pre data-run="00_intro/03_pythonic.py"></pre>
   <p>[1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
   <p>그렇다고 클래스가 사라지지는 않는다. [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
   <table data-preview>
@@ -203,7 +200,6 @@ part:
       <p>두 버전의 차이는 절차 함수 안의 한 줄(<code>rule.apply(...)</code> 대 <code>rule(...)</code>)뿐이다. ABC판은 규칙이 이름 있는 타입이라 문서화와 구현 누락 검사에 유리하고, 함수판은 짧고 테스트 대역이 쉽다. 설정이 있는 규칙(<code>MinimumFee</code>/<code>minimum</code>)에서만 두 방식의 성격 차이가 드러난다. 데모 [2]는 하한을 감면 앞에 두면 아동 1,500원 자료의 배상금이 750원이 되어 하한이 무력화된다는 것을 보여준다.</p>
       <p>흔한 오답은 지점마다 <code>SaesolCompensation</code>, <code>HaneulCompensation</code> 하위 클래스를 만드는 것이다. 지점의 차이가 행동이 아니라 조합이므로, 상속은 조합의 수만큼 클래스를 만든다. 합성 우선 원칙이 정확히 이 경우를 위해 있다.</p>
       <pre data-src="00_intro/solutions/ex2_lost_item_two_ways.py"></pre>
-      <pre data-run="00_intro/solutions/ex2_lost_item_two_ways.py"></pre>
     </details>
   </div>
 

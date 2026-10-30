@@ -19,9 +19,6 @@
   <a class="brand" href="index.html">파이썬 디자인 패턴</a>
   <span class="crumb">14장 · 템플릿 메서드 (Template Method)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
-  <button class="tb-btn" id="tb-save" type="button" title="내가 고친 코드를 JSON 파일로 저장">💾 내 코드 저장</button>
-  <button class="tb-btn" id="tb-load" type="button" title="저장해 둔 JSON 파일 불러오기">📂 불러오기</button>
-  <input type="file" id="tb-file" accept=".json,application/json" hidden>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
 </header>
 <div class="layout">
@@ -214,18 +211,6 @@ if __name__ == &quot;__main__&quot;:
     # 데모가 실제 디스크를 더럽히지 않도록 뒷정리한다(교재 독자의 /tmp를 위해).
     for d in Path(tempfile.gettempdir()).glob(&quot;judge-java-*&quot;):
         shutil.rmtree(d, ignore_errors=True)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 01_naive.py</figcaption><pre><code>[1] 세 언어 모두 정답 제출물은 AC
-    Python: AC
-    C++   : AC
-    Java  : AC
-[2] 같은 &#x27;느린 오답&#x27;인데 언어마다 판정이 다르다 — 단계 순서가 어긋났기 때문
-    Python: TLE (#1)
-    C++   : WA (#1)
-[3] 부동소수 문제(1/3): Python만 오차 허용, C++은 인자를 무시한다
-    Python: AC
-    C++   : WA (#1)
-[4] 샌드박스 정리 누락: 채점 후 남은 임시 디렉터리 수
-    judge-java-*: 5개 증가 (python/cpp: 0/0개)</code></pre></figure>
   <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
   <ul>
     <li><strong>절차(순서)와 단계(내용)가 한 덩어리로 복제되었다.</strong> 세 메서드에서 정말로 다른 부분은 파일 이름, 컴파일, 클래스명 검사 정도로 20%가 안 된다. 그런데 나머지 80%까지 함께 복사되었다.</li>
@@ -1031,22 +1016,6 @@ class FloatTolerantCppJudge(CppJudge):
     def outputs_match(self, actual: str, expected: str) -&gt; bool:
         &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리).&quot;&quot;&quot;
         return abs(float(actual) - float(expected)) &lt;= self.tolerance</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 02_template_method.py</figcaption><pre><code>[1] 정답 제출물
-     AC AC AC
-[2] 느린 오답: 이제 모든 언어가 같은 판정
-     TLE (#1) / TLE (#1)
-[3] 컴파일 오류는 훅이 던지고 골격이 CE로 번역한다
-     CE (class Main 없음)
-     CE (undefined reference to main)
-[4] 런타임 에러도 골격이 처리 — 하위 클래스는 try/except를 쓰지 않았다
-     RE (ZeroDivisionError)
-[5] 부동소수 문제: 훅 재정의로 해결했지만 클래스가 &#x27;언어 × 비교방식&#x27;으로 곱해진다
-     AC
-[6] 정리 보장: 이 데모가 남긴 샌드박스 수 = 0
-    기록: [&#x27;java: AC&#x27;, &#x27;java: CE (class Main 없음)&#x27;, &#x27;java: RE (ZeroDivisionError)&#x27;]
-[7] abstractmethod가 잡는 것과 못 잡는 것
-     run 누락 → 인스턴스화 시점 TypeError: Can&#x27;t instantiate abstract class GoJudge without an implementation for abstract method &#x27;run&#x27;
-     시그니처가 틀린 run → RE (TypeError) ← 채점기 결함이 학생의 런타임 에러로 오판된다</code></pre></figure>
   <p>출력 [2]에서 느린 오답은 이제 모든 언어에서 TLE다. [3]과 [4]에서는 컴파일 오류와 런타임 에러가 하위 클래스의 <code>try/except</code> 없이 골격에서 판정으로 바뀐다. [6]은 이 데모가 남긴 샌드박스가 0개임을 보여 준다. 01의 세 증상이 모두 사라졌다.</p>
   <p>[7]은 <code>abstractmethod</code>가 보장하는 범위를 정확히 보여 준다. <code>run()</code>을 아예 빠뜨린 <code>GoJudge</code>는 인스턴스화 시점에 거부된다. 그러나 <code>abstractmethod</code>는 <em>이름</em>만 확인하고 시그니처는 보지 않는다. 그래서 인자를 빠뜨린 <code>run(self)</code>를 가진 <code>SloppyJudge</code>는 문제없이 만들어지고, 채점 도중 <code>TypeError</code>가 나면 골격의 <code>except</code>가 이를 학생의 런타임 에러(RE)로 오판한다. 시그니처 불일치는 mypy 같은 타입 검사기만 잡는다.</p>
   <p>[5]는 성공처럼 보이지만 설계의 균열이다. 부동소수 문제를 Python과 Java에서도 지원하려면 <code>FloatTolerantPythonJudge</code>와 <code>FloatTolerantJavaJudge</code>가 더 필요하다. 여기에 "답의 순서를 무시하는 <dfn class="term" id="term-special-judge" data-term="special-judge" title="답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 출력을 판정하는 채점 방식.">특수 저지</dfn>"(답이 여러 개일 수 있는 문제에서 정확 일치 대신 별도 규칙으로 판정하는 방식)까지 더하면 클래스 수는 언어 수 × 비교 방식 수가 된다. <strong>변이의 축이 둘 이상이 되는 순간, 상속 하나로는 표현할 수 없다.</strong></p>
@@ -1241,17 +1210,6 @@ if __name__ == &quot;__main__&quot;:
         verdict = Judge(Toolchain(&quot;go&quot;, &quot;main.go&quot;, simulate, compile=print)).judge(
             Submission(&quot;go&quot;, &quot;no main here&quot;, lambda s: &quot;3&quot;), [(&quot;1 2&quot;, &quot;3&quot;)])
     print(&quot;     (c) compile=print →&quot;, verdict, &quot;← 타입 검사기도 런타임도 잡지 못한다(테스트의 몫)&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 03_strategy_version.py</figcaption><pre><code>[1] 언어 축과 비교 축을 자유롭게 조합한다 — 추가 클래스 없음
-    Python + 정확 일치          : WA (#1)
-    C++ + 오차 허용             : AC
-    Java + 오차 허용            : AC
-    Java + 순서 무관(특수 저지)     : AC
-[2] 런타임에 체커를 바꿀 수도 있다(문제 설정을 DB에서 읽는 경우)
-     AC
-[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 02 데모 [7]과 대응)
-     (a) run 누락 → 생성 시점 TypeError: Toolchain.__init__() missing 1 required positional argument: &#x27;run&#x27;
-     (b) compile=lambda: None → RE (TypeError) ← 채점기 결함인데 학생 탓이 된다
-     (c) compile=print → AC ← 타입 검사기도 런타임도 잡지 못한다(테스트의 몫)</code></pre></figure>
   <p>두 축을 독립적으로 조합할 수 있게 되었다. [1]처럼 추가 클래스 없이 네 가지 채점기가 만들어지고, [2]처럼 문제 설정에 따라 실행 중에 체커를 고를 수도 있다. 검사 범위는 생각만큼 달라지지 않는다([3]). 필수 단계를 빠뜨리면 dataclass가 생성 시점에 <code>TypeError</code>를 낸다. 이는 02의 <code>abstractmethod</code>(02 데모 [7])와 같은 효과다. 시그니처가 틀린 단계는 양쪽 모두 생성을 통과하고, 채점 도중 학생의 RE로 오판된다. 실행 전에 이를 잡는 것은 타입 검사기뿐이다. 시그니처는 맞지만 의미가 틀린 콜러블(<code>compile=print</code>)은 타입 검사기도 런타임도 잡지 못하고 AC를 낸다. 이런 결함은 테스트로만 잡힌다. 합성 쪽에만 있는 위험도 하나 있다. <code>None</code>을 허용한 훅은 '빠뜨림'이 조용히 '기본값'이 된다. 컴파일 언어의 <code>compile</code>을 깜빡해도 아무도 알려 주지 않는다. 단계 사이의 공유 상태(예: 컴파일 결과물 경로)를 넘기는 일도 상속에서는 <code>self</code>로 자연스러웠지만, 합성에서는 인자로 명시해야 한다.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>관점</th><th>템플릿 메서드(상속, 02)</th><th>단계 주입(합성, 03)</th></tr></thead>
@@ -1437,21 +1395,6 @@ if __name__ == &quot;__main__&quot;:
     result = unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
     print(&quot;    호출 순서:&quot;, &quot; → &quot;.join(SandboxTest.calls))
     print(f&quot;    실행 {result.testsRun}개, 실패 {len(result.failures)}개 — 실패한 테스트 뒤에도 tearDown이 불렸다&quot;)</code></pre></figure>
-  <figure class="output"><figcaption>$ python3 04_pythonic.py</figcaption><pre><code>[A] contextmanager: 본문이 예외로 끝나도 정리된다
-    [준비] cpp 샌드박스 생성
-    [정리] cpp 샌드박스 삭제 (exists=False)
-    예외는 호출자에게 전파: 컴파일러 충돌
-[B-1] 규칙을 지킨 하위 클래스는 평범하게 동작한다
-    [준비] py 샌드박스 생성
-    [정리] py 샌드박스 삭제 (exists=False)
-     AC
-[B-2] 골격을 재정의하는 하위 클래스는 &#x27;정의하는 순간&#x27; 거부된다
-    TypeError: SneakyJudge: 골격 메서드 judge()는 재정의할 수 없습니다
-[B-3] 필수 클래스 속성 누락도 정의 시점에 잡힌다
-    TypeError: KotlinJudge: 클래스 속성 [&#x27;filename&#x27;] 이(가) 필요합니다
-[C] unittest의 골격: 호출 순서를 기록해 본다
-    호출 순서: setUp → test_fails → tearDown → setUp → test_passes → tearDown
-    실행 2개, 실패 1개 — 실패한 테스트 뒤에도 tearDown이 불렸다</code></pre></figure>
   <ul>
     <li><strong>컨텍스트 관리자(A)</strong>는 "가운데 단계 하나만 다른" 템플릿 메서드를 상속 없이 표현한다. 가변 단계가 호출자의 코드 블록이므로 하위 클래스가 필요 없다. 정리를 보장하는 일이 골격의 핵심 책임인 경우(파일, 락, 트랜잭션, 샌드박스)라면 파이썬에서는 이것이 첫 번째 선택지다.</li>
     <li><strong><code>__init_subclass__</code>(B)</strong>는 <code>abstractmethod</code>(인스턴스화 시점)보다 이른, 런타임에서 가장 이른 시점인 import 시에 실패한다. 실행 전에 검사하는 <code>typing.final</code>보다는 늦지만, 타입 검사기를 돌리지 않는 환경에서도 동작한다. 다른 팀이 플러그인처럼 하위 클래스를 작성하는 상황에서 특히 유용하다. 다만 이 장치 자체가 상속 계층을 전제로 한다는 점을 기억하라. 계층이 없다면(03) 지킬 대상도 없다.</li>
@@ -1633,21 +1576,6 @@ if __name__ == &quot;__main__&quot;:
     for gen in (CsvReport(), JsonReport(), XmlReport()):
         print(gen.generate())
     print(&quot;세 형식 모두 &#x27;테스트용&#x27; 문제가 빠졌다 — 필터가 골격 한 곳에 있기 때문&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex2_report_template.py</figcaption><pre><code>problem,submissions,ac_rate
-A+B,120,0.92
-피보나치,80,0.55
-  (CsvReport: 61 bytes 저장)
-[
-  {&quot;problem&quot;: &quot;A+B&quot;, &quot;submissions&quot;: 120},
-  {&quot;problem&quot;: &quot;피보나치&quot;, &quot;submissions&quot;: 80}
-]
-  (JsonReport: 94 bytes 저장)
-&lt;report&gt;
-  &lt;row problem=&quot;A+B&quot; ac_rate=&quot;0.92&quot;/&gt;
-  &lt;row problem=&quot;피보나치&quot; ac_rate=&quot;0.55&quot;/&gt;
-&lt;/report&gt;
-  (XmlReport: 103 bytes 저장)
-세 형식 모두 &#x27;테스트용&#x27; 문제가 빠졌다 — 필터가 골격 한 곳에 있기 때문</code></pre></figure>
     </details>
   </div>
 
@@ -1761,9 +1689,6 @@ if __name__ == &quot;__main__&quot;:
         name = type(judge).__name__
         print(f&quot;    {name:&lt;11} 절약형: {judge.judge(lean, tests):&lt;6} 낭비형: {judge.judge(hungry, tests)}&quot;)
     print(&quot;    PythonJudge·JavaJudge 본문에 메모리 판정 코드는 한 줄도 없다&quot;)</code></pre></figure>
-      <figure class="output"><figcaption>$ python3 ex4_memory_limit.py</figcaption><pre><code>    PythonJudge 절약형: AC     낭비형: MLE (#1, 3991KB)
-    JavaJudge   절약형: AC     낭비형: MLE (#1, 4191KB)
-    PythonJudge·JavaJudge 본문에 메모리 판정 코드는 한 줄도 없다</code></pre></figure>
     </details>
   </div>
 </section>

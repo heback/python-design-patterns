@@ -174,10 +174,10 @@ def verify_html(nn: str, path: Path, rep: Report) -> set[str]:
         rep.check(ctx is not None and (first_pre == -1 or ctx.start() < first_pre),
                   "상황 설명이 첫 코드보다 앞", "첫 코드 블록이 #context 보다 먼저 나옴")
 
-    # 모든 본문 코드 블록 앞에 lead-in 문단 (해설 영역 제외, data-run 제외)
+    # 모든 본문 코드 블록 앞에 lead-in 문단 (해설 영역 제외)
     body = strip_details(html)
     no_lead = []
-    for m in re.finditer(r"<pre(?![^>]*data-run)[^>]*>", body):
+    for m in re.finditer(r"<pre[^>]*>", body):
         prev_end = max(body.rfind("</pre>", 0, m.start()), body.rfind("<section", 0, m.start()), 0)
         if 'class="lead-in"' not in body[prev_end:m.start()]:
             line = body.count("\n", 0, m.start()) + 1
@@ -186,11 +186,11 @@ def verify_html(nn: str, path: Path, rep: Report) -> set[str]:
 
     # 참조 경로 무결성
     refs: set[str] = set()
-    for attr, rel, lines in re.findall(r'data-(src|run)="([^"]+)"(?:\s+data-lines="([^"]+)")?', html):
+    for rel, lines in re.findall(r'data-src="([^"]+)"(?:\s+data-lines="([^"]+)")?', html):
         refs.add(rel)
         target = SRC / rel
         if not target.exists():
-            rep.fails.append(f"data-{attr} 대상 없음: src/{rel}")
+            rep.fails.append(f"data-src 대상 없음: src/{rel}")
             continue
         if lines:
             a, _, b = lines.partition("-")

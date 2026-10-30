@@ -132,8 +132,8 @@ th { background: var(--surface-2); font-weight: 700; }
 
 /* ---- 코드 ---- */
 figure { margin: 22px 0; }
-figure.code, figure.output { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--code-bg); }
-figure.code figcaption, figure.output figcaption {
+figure.code { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--code-bg); }
+figure.code figcaption {
   display: flex; align-items: center; gap: 8px; font: 12.5px/1.4 var(--font-code); color: var(--muted);
   padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2);
 }
@@ -144,9 +144,6 @@ figure.code figcaption .copy {
 pre { margin: 0; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--font-code); color: var(--code-text); tab-size: 4; }
 pre code { font-size: inherit; background: none; padding: 0; }
 .content > pre, .exercise pre:not(figure pre) { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); margin: 18px 0; }
-figure.output { background: var(--surface); }
-figure.output pre { color: var(--text); }
-figure.output figcaption::before { content: "▶"; color: var(--ok); }
 .missing-src { border: 2px dashed var(--warn); color: var(--warn); padding: 12px; border-radius: var(--radius); }
 
 /* 문법 강조 토큰 규칙(.token.*)은 pyrun.css 에 있다(교재·학습지 공용). 색 변수 --tok-* 는 위 :root 에서 정의한다. */

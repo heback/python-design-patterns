@@ -7,19 +7,17 @@ description: 디자인패턴 교재를 HTML로 빌드·조립·디자인하는 �
 
 ## 빌드
 ```bash
-python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py           # 전체
-python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py --no-run  # 실행 생략, 레이아웃만 빠르게
+python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
 ```
 `textbook/`은 매번 지우고 새로 만든다. **결과물을 직접 고치지 않는다** — 고칠 곳은 항상 원고(`chapters/`), 코드(`src/`), 또는 이 스킬의 `assets/`다.
 
 ## 스크립트가 하는 일
 1. `chapters/{nn}-{slug}.html`의 `<!--meta title/subtitle/part-->`를 읽는다. `part`는 `생성 패턴`/`구조 패턴`/`행위 패턴` 중 하나이거나 비워 둔다(서론·종합).
-2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 파일명 캡션 + 복사 버튼이 붙은 코드 블록.
-3. `<pre data-run="경로"></pre>` → 실제로 실행한 stdout(캐시됨). 실패하면 stderr를 붙이고 PROBLEM으로 보고한다.
-4. 모든 `<svg>`에 UML 마커 정의(`#triangle` 상속, `#arrow` 연관/의존, `#diamond` 집약, `#diamond-fill` 합성)를 주입한다.
-5. `<section id><h2>`로 장 내부 목차(사이드바), 이전/다음 페이저, `index.html`(분류별 카드)을 만든다.
-6. `<dfn data-term="id">`에 앵커(`#term-id`)와 툴팁(terms.json의 `short`)을 붙이고, `chapters/terms.json`으로 `glossary.html`(용어집)을 만든다. 상단 바와 index에 용어집 링크가 있다. 등록되지 않은 `<dfn>`이나 정의 위치가 없는 등록 용어는 PROBLEM이다.
-7. 내부 링크·앵커를 검사한다. 문제가 있으면 종료 코드 1.
+2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 파일명 캡션 + 복사 버튼이 붙은 코드 블록. 실행 결과는 미리 싣지 않는다. 브라우저에서 코드 블록의 [▶ 실행]을 누르면 코드 아래에 출력이 나타난다(`textbook-code.js`, 일부 행만 보이는 블록은 파일 전체를 실행). 연습문제 시작 코드만 편집기(`PyRun.mountEditor`)이고, 고친 코드는 저장하지 않는다.
+3. 모든 `<svg>`에 UML 마커 정의(`#triangle` 상속, `#arrow` 연관/의존, `#diamond` 집약, `#diamond-fill` 합성)를 주입한다.
+4. `<section id><h2>`로 장 내부 목차(사이드바), 이전/다음 페이저, `index.html`(분류별 카드)을 만든다.
+5. `<dfn data-term="id">`에 앵커(`#term-id`)와 툴팁(terms.json의 `short`)을 붙이고, `chapters/terms.json`으로 `glossary.html`(용어집)을 만든다. 상단 바와 index에 용어집 링크가 있다. 등록되지 않은 `<dfn>`이나 정의 위치가 없는 등록 용어는 PROBLEM이다.
+6. 내부 링크·앵커를 검사한다. 문제가 있으면 종료 코드 1.
 
 ## 디자인 원칙
 - 색은 `style.css`의 `:root` 토큰으로만 정의하고, 다크 모드는 `prefers-color-scheme`와 수동 토글(`data-theme`) 두 경로에서 같은 토큰을 바꾼다. 원고나 SVG에 색을 하드코딩하면 이 체계가 깨진다.
