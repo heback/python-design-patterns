@@ -112,7 +112,8 @@ const PyRun = (function () {
     });
   }
   function flash(btn, text) { const old = btn.dataset.label || btn.textContent; btn.dataset.label = old; btn.textContent = text; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = old; }, 1300); }
-  function fit(t) { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight + 2, 560) + "px"; }
+  /* 높이를 내용에 맞춘다. 가로 스크롤바가 생기면 그만큼 더 키워야 세로 스크롤바가 덩달아 생기지 않는다. */
+  function fit(t) { t.style.height = "auto"; const bar = t.offsetHeight - t.clientHeight; t.style.height = Math.min(t.scrollHeight + bar + 2, 560) + "px"; }
 
   const NOTES = [
     [/\bthreading\b/, "ℹ️ 브라우저에서는 스레드를 만들 수 없어, 스레드를 차례대로 실행하는 방식으로 대신합니다. (경쟁 상태는 재현되지 않습니다)"],
@@ -177,8 +178,16 @@ const PyRun = (function () {
       }
       syncScroll();
     };
-    const syncScroll = () => { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; gutter.firstChild.scrollTop = ta.scrollTop; };
+    /* 클래식 스크롤바(가로·세로)가 있으면 textarea 의 보이는 영역이 그만큼 작아져 스크롤 범위가 줄어든다.
+       강조 층·행 번호 칸도 같은 크기로 줄여야 끝까지 스크롤했을 때 서로 어긋나지 않는다. */
+    let sbW = -1, sbH = -1;
+    const syncScroll = () => {
+      const w = ta.offsetWidth - ta.clientWidth, hh = ta.offsetHeight - ta.clientHeight;
+      if (w !== sbW || hh !== sbH) { sbW = w; sbH = hh; hl.style.right = w + "px"; hl.style.bottom = hh + "px"; gutter.firstChild.style.bottom = hh + "px"; }
+      hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; gutter.firstChild.scrollTop = ta.scrollTop;
+    };
     ta.addEventListener("scroll", syncScroll);
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(syncScroll).observe(ta);   // 크기 조절·높이 맞춤 뒤에도 다시 맞춘다
     const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), h("div", { class: "pr-edit" }, gutter, stack), outBox);
 
     ta.addEventListener("input", () => { fit(ta); paint(); opts.onChange && opts.onChange(ta.value); });
