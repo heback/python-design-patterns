@@ -158,6 +158,65 @@ part: 구조 패턴
 <p>02의 <code>LazyImageProxy</code>는 <code>SatelliteImage</code> 전용이다. 수아의 팀에는 지연 로딩이 필요한 대형 객체가 더 있다(<dfn data-term="digital-elevation-model">수치표고모델</dfn>(DEM: 지표면의 고도를 격자 값으로 나타낸 데이터), <dfn data-term="land-cover">토지피복</dfn>(지표가 농경지·산림·수계 등 무엇으로 덮여 있는지) 분류 래스터). 팀원 건우가 제안했다. "<code>__getattr__</code>으로 아무 객체나 감싸는 범용 지연 프록시를 만들면 클래스마다 프록시를 안 써도 되잖아."</p>
 <p class="lead-in">아래 파일은 (1) 그 범용 <code>LazyProxy</code>를 만들어 한계를 확인하고, (2) 프록시 없이 객체 내부에서 지연시키는 <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>(첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 이후에는 일반 속성처럼 읽히게 하는 도구), (3) 캐싱 프록시의 함수 버전인 <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>(함수 인자를 키로 결과를 기억하는 LRU 캐시), (4) 표준 라이브러리의 프록시인 <dfn data-term="weak-reference"><code>weakref</code></dfn><code>.proxy</code>를 차례로 본다. <code>weakref</code>는 약한 참조, 즉 대상 객체를 살려 두지 않는 참조를 만드는 모듈이다. 데모 [1]과 [4]에서 <code>len()</code>의 결과가 어떻게 다른지 비교하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn data-term="sentinel">센티널</dfn>: <code>None</code> 같은 정상 값과 구별되도록 <code>object()</code>로 만든 표시용 고유 객체. 코드의 <code>_UNSET</code>이 '아직 안 만듦'을 나타낸다. <dfn data-term="reference-counting">참조 카운트</dfn>: 객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식. <dfn data-term="garbage-collection">가비지 컬렉션</dfn>(GC): 더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. <code>gc.collect()</code>는 서로를 참조하는 고리까지 찾아 회수하도록 강제한다.</p></div>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 450" role="img" aria-label="03_pythonic.py의 구조: LazyProxy와 weakref.proxy가 같은 DemRaster를 바깥에서 감싸되 LazyProxy는 len·isinstance·==에서 새고, LandCoverScene의 cached_property와 fetch_tile의 lru_cache는 프록시 객체 없이 같은 효과를 낸다">
+    <text class="uml-note" x="20" y="24">바깥에서 감싸는 프록시 — 같은 DemRaster를 감싼다</text>
+    <g class="uml-class warn" transform="translate(20,36)">
+      <rect width="210" height="112"/>
+      <text class="uml-name" x="105" y="22">LazyProxy</text>
+      <line x1="0" y1="32" x2="210" y2="32"/>
+      <text class="uml-member" x="10" y="52">_factory · _obj</text>
+      <text class="uml-member" x="10" y="70">__getattr__ → _target()</text>
+      <line x1="0" y1="82" x2="210" y2="82"/>
+      <text class="uml-member" x="10" y="102">⚠ len · isinstance · ==</text>
+    </g>
+    <g class="uml-class" transform="translate(255,52)">
+      <rect width="130" height="80"/>
+      <text class="uml-name" x="65" y="22">DemRaster</text>
+      <line x1="0" y1="32" x2="130" y2="32"/>
+      <text class="uml-member" x="10" y="52">max_elevation()</text>
+      <text class="uml-member" x="10" y="70">__len__()</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(410,36)">
+      <rect width="210" height="112"/>
+      <text class="uml-name" x="105" y="24">weakref.proxy(real)</text>
+      <text class="uml-member" x="12" y="50">특수 메서드도 위임</text>
+      <text class="uml-member" x="12" y="70">원본을 살려 두지 않음</text>
+      <text class="uml-member" x="12" y="90">원본 소멸 → ReferenceError</text>
+    </g>
+    <path class="uml-dep" d="M230 92 H255" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M410 92 H385" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="200" y="170">len(): [1]은 TypeError, [4]는 정상</text>
+
+    <text class="uml-note" x="20" y="200">프록시 객체 없이 같은 효과</text>
+    <g class="uml-class highlight" transform="translate(20,212)">
+      <rect width="290" height="104"/>
+      <text class="uml-name" x="145" y="22">LandCoverScene</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">scene_id (가벼움)</text>
+      <text class="uml-member" x="10" y="70">@cached_property</text>
+      <text class="uml-member" x="10" y="88">raster: 첫 접근 때 한 번 로딩</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(330,212)">
+      <rect width="290" height="104"/>
+      <text class="uml-name" x="145" y="24">fetch_tile(tile_id)</text>
+      <text class="uml-member" x="12" y="48">@lru_cache(maxsize=2)</text>
+      <text class="uml-member" x="12" y="68">02의 CachingArchiveProxy</text>
+      <text class="uml-member" x="12" y="88">역할을 함수 하나로</text>
+    </g>
+    <text class="uml-label" x="20" y="340">LOADS 리스트: 무거운 로딩이 언제 일어났는지 기록한다. 모든 데모가 이것을 출력한다</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="212" r="9"/><text x="20" y="216">2</text></g>
+    <g class="uml-step"><circle cx="330" cy="212" r="9"/><text x="330" y="216">3</text></g>
+    <g class="uml-step"><circle cx="410" cy="36" r="9"/><text x="410" y="40">4</text></g>
+
+    <text class="uml-note" x="20" y="378"><tspan font-weight="700">읽는 순서</tspan> · 번호는 데모 번호와 같다. 주황은 구멍이 있는 곳</text>
+    <text class="uml-note" x="20" y="400">① LazyProxy: 위임되는 것과 새는 것 → ② cached_property → ③ lru_cache</text>
+    <text class="uml-note" x="20" y="422">→ ④ weakref.proxy: [1]과 len() 결과를 비교</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py. 점선 화살표는 "감싸서 위임한다". 위는 바깥 프록시 두 가지, 아래는 프록시가 필요 없는 두 가지다.</figcaption>
+</figure>
 <pre data-src="09_proxy/03_pythonic.py"></pre>
 <h3><code>__getattr__</code> 범용 프록시와 그 구멍</h3>
 <p>출력 [1]에서 <code>dem.max_elevation()</code>은 잘 위임되었고, 그 순간에야 로딩이 일어났다. 지연은 성공이다. 그러나 <code>len(dem)</code>은 <code>TypeError</code>, <code>isinstance(dem, DemRaster)</code>는 거짓이다. 6장에서 본 것과 같은 원인이다. 파이썬은 <code>__len__</code>, <code>__eq__</code>, <code>__iter__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 타입에서 직접 찾으므로 <code>__getattr__</code>을 거치지 않는다. 범용 프록시가 정말 투명하려면 특수 메서드를 하나하나 정의해야 하고, <code>isinstance</code>까지 속이려면 <dfn data-term="class"><code>__class__</code></dfn>(객체가 속한 클래스를 가리키는 속성)를 프로퍼티로 재정의하는 기교가 필요하다(표준 테스트 프레임워크 <dfn data-term="unittest"><code>unittest</code></dfn>에 딸린 <dfn data-term="unittest-mock"><code>unittest.mock</code></dfn>이 그렇게 한다. 어떤 속성 접근에도 응답하는 가짜 객체를 만드는 모듈이다). 프록시는 "실제 객체와 교환 가능"해야 하는데(LSP), 범용 프록시는 그 약속을 부분적으로만 지킨다. 그래서 교재의 권장은 이렇다. <strong>인터페이스가 명확하면 02처럼 Subject를 구현한 명시적 프록시를, 범용 프록시는 그 한계를 문서화한 경우에만.</strong></p>

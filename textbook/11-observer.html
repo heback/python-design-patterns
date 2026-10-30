@@ -46,6 +46,72 @@
 <section id="naive">
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 석 달 동안 자란 <code>PriceFeed</code>다. 생성자가 하위 기능을 직접 만든다는 점, <code>push_price()</code>가 "시세 수신 후 할 일 목록"을 하드코딩한다는 점에 주목하라. 데모는 화면 닫기와 푸시 서버 장애를 재현한다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 324" role="img" aria-label="01_naive.py의 구조: PriceFeed가 ChartView·TargetPriceAlert·Portfolio·TradeLogger를 직접 만들어 담고, push_price()가 네 기능을 정해진 순서로 직접 호출한다. 알림이 예외를 던지면 뒤의 두 호출이 빠지고, 닫힌 차트도 계속 갱신된다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">수신기 — 할 일 목록을 직접 쥐고 있다</text>
+    <g class="uml-class warn" transform="translate(20,36)">
+      <rect width="300" height="196"/>
+      <text class="uml-name" x="150" y="22">PriceFeed</text>
+      <line x1="0" y1="32" x2="300" y2="32"/>
+      <text class="uml-member" x="10" y="52">__init__: 넷을 직접 생성 ⚠</text>
+      <line x1="0" y1="62" x2="300" y2="62"/>
+      <text class="uml-member" x="10" y="82">push_price(symbol, price):</text>
+      <text class="uml-member" x="24" y="100">chart.redraw()  ⚠ 닫혀도 호출</text>
+      <text class="uml-member" x="24" y="118">alert.check()   ⚠ 예외면 중단</text>
+      <text class="uml-member" x="24" y="136">portfolio.revalue()</text>
+      <text class="uml-member" x="24" y="154">logger.log()</text>
+      <line x1="0" y1="164" x2="300" y2="164"/>
+      <text class="uml-member" x="10" y="184">if symbol == …가 호출마다 ⚠</text>
+    </g>
+
+    <text class="uml-note" x="390" y="24">하위 기능 — 각자는 단순하다</text>
+    <g class="uml-class warn" transform="translate(390,36)">
+      <rect width="230" height="50"/>
+      <text class="uml-name" x="115" y="20">ChartView</text>
+      <line x1="0" y1="28" x2="230" y2="28"/>
+      <text class="uml-member" x="10" y="44">closed · redraws_after_close</text>
+    </g>
+    <g class="uml-class warn" transform="translate(390,92)">
+      <rect width="230" height="50"/>
+      <text class="uml-name" x="115" y="20">TargetPriceAlert</text>
+      <line x1="0" y1="28" x2="230" y2="28"/>
+      <text class="uml-member" x="10" y="44">check() → ConnectionError</text>
+    </g>
+    <g class="uml-class" transform="translate(390,148)">
+      <rect width="230" height="50"/>
+      <text class="uml-name" x="115" y="20">Portfolio</text>
+      <line x1="0" y1="28" x2="230" y2="28"/>
+      <text class="uml-member" x="10" y="44">revalue(symbol, price)</text>
+    </g>
+    <g class="uml-class" transform="translate(390,204)">
+      <rect width="230" height="50"/>
+      <text class="uml-name" x="115" y="20">TradeLogger</text>
+      <line x1="0" y1="28" x2="230" y2="28"/>
+      <text class="uml-member" x="10" y="44">log(symbol, price)</text>
+    </g>
+    <path class="uml-compose" d="M340 61 H390"/>
+    <path class="marker-fill" d="M320 61 L330 55 L340 61 L330 67 Z"/>
+    <path class="uml-compose" d="M340 117 H390"/>
+    <path class="marker-fill" d="M320 117 L330 111 L340 117 L330 123 Z"/>
+    <path class="uml-compose" d="M340 173 H390"/>
+    <path class="marker-fill" d="M320 173 L330 167 L340 173 L330 179 Z"/>
+    <path class="uml-compose" d="M340 229 H390"/>
+    <path class="marker-fill" d="M320 229 L330 223 L340 229 L330 235 Z"/>
+
+    <g class="uml-step"><circle cx="390" cy="36" r="9"/><text x="390" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">2</text></g>
+
+    <text class="uml-note" x="20" y="272"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제 지점(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="294">① 하위 기능 넷(짧다) → ② PriceFeed: 생성자와 push_price()의 할 일 목록</text>
+    <text class="uml-note" x="20" y="316">데모 [1] 평소 · [2] 닫힌 차트도 갱신 · [3] 예외로 뒤 두 줄 누락 · [4] 헛된 갱신 수</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "직접 만들어 담고 있다". 수신기 안의 네 줄이 곧 호출 순서다.</figcaption>
+</figure>
 <figure class="code"><figcaption>src/11_observer/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 시세 수신기가 모든 하위 기능을 직접 호출한다.
 
 상황: 개인 투자자용 증권 앱 &#x27;틱톡증권&#x27;의 앱 개발자 하린은 시세 수신기(PriceFeed)가

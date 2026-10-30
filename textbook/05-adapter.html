@@ -46,6 +46,83 @@
 <h2>2. 순진한 설계와 그 한계</h2>
 <p>문제를 정확히 보기 위해 사고 직전의 코드를 재현한다. 파일 앞부분은 세 SDK를 흉내 낸 것이고(실제로는 우리가 고칠 수 없는 부분), 뒷부분의 <code>OrderService</code>가 예린의 코드다.</p>
 <p class="lead-in">세 SDK가 서로 어떻게 다른지(이름, 금액 타입, 실패 보고 방식)를 먼저 훑고(SDK 흉내 코드의 거래번호는 <dfn class="term" id="term-itertools" data-term="itertools" title="반복자를 조립하는 표준 라이브러리 모듈(cycle 무한 반복, islice 앞 n개 자르기, chain 이어 붙이기, repeat, tee 복제 등)."><code>itertools</code></dfn>의 <code>count()</code>로 매긴다. <code>itertools</code>는 연속 번호처럼 값을 차례로 내놓는 도구들을 모아 둔 표준 라이브러리 모듈이다), <code>OrderService.pay()</code>와 <code>refund()</code>에서 그 차이가 어떻게 '비즈니스 로직 한가운데'에 녹아드는지 보라. <code># ⚠ 문제:</code> 주석이 아픈 곳이다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 520" role="img" aria-label="01_naive.py의 문제 지점: 위쪽 세 SDK는 메서드 이름, 금액 단위, 실패 보고 방식이 서로 다르다. 아래 OrderService는 세 SDK를 직접 만들고, pay()의 PG 이름 분기 안에서 단위 변환과 오류 해석을 하며, refund()는 그 분기를 복제하다 PG C의 ×100 변환을 빠뜨린다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">외부 SDK 흉내 — 우리가 고칠 수 없다</text>
+    <g class="uml-group" transform="translate(20,32)"><rect width="600" height="122"/></g>
+    <g class="uml-class" transform="translate(36,46)">
+      <rect width="180" height="92"/>
+      <text class="uml-name" x="90" y="22">PgAClient</text>
+      <line x1="0" y1="32" x2="180" y2="32"/>
+      <text class="uml-member" x="10" y="50">charge() · cancel()</text>
+      <text class="uml-member" x="10" y="66">금액: int 원</text>
+      <text class="uml-member" x="10" y="82">실패: PgAError</text>
+    </g>
+    <g class="uml-class" transform="translate(230,46)">
+      <rect width="180" height="92"/>
+      <text class="uml-name" x="90" y="22">PgBClient</text>
+      <line x1="0" y1="32" x2="180" y2="32"/>
+      <text class="uml-member" x="10" y="50">create_payment()</text>
+      <text class="uml-member" x="10" y="66">금액: Decimal</text>
+      <text class="uml-member" x="10" y="82">실패: status_code</text>
+    </g>
+    <g class="uml-class" transform="translate(424,46)">
+      <rect width="180" height="92"/>
+      <text class="uml-name" x="90" y="22">PgCClient</text>
+      <line x1="0" y1="32" x2="180" y2="32"/>
+      <text class="uml-member" x="10" y="50">submit() · reverse()</text>
+      <text class="uml-member" x="10" y="66">금액: minor (×100)</text>
+      <text class="uml-member" x="10" y="82">결과: 콜백</text>
+    </g>
+
+    <text class="uml-note" x="150" y="184">OrderService — 주문 서비스가 SDK 셋을 직접 안다</text>
+    <g class="uml-group" transform="translate(20,192)"><rect width="600" height="210"/></g>
+    <g class="uml-func warn" transform="translate(36,206)">
+      <rect width="180" height="52"/>
+      <text class="uml-name" x="90" y="22">__init__()</text>
+      <text class="uml-member" x="10" y="42">⚠ SDK 셋을 직접 생성</text>
+    </g>
+    <path class="uml-dep" d="M126 206 V138" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(236,206)">
+      <rect width="290" height="52"/>
+      <text class="uml-member" x="10" y="22">[2] 한도 초과 카드</text>
+      <text class="uml-member" x="10" y="42">실패 메시지가 PG마다 제각각</text>
+    </g>
+    <g class="uml-func warn" transform="translate(36,280)">
+      <rect width="280" height="108"/>
+      <text class="uml-name" x="140" y="22">pay(pg, …)</text>
+      <text class="uml-member" x="10" y="44">if pg == "A": PgAError 해석</text>
+      <text class="uml-member" x="10" y="62">elif "B": Decimal · status_code</text>
+      <text class="uml-member" x="10" y="80">elif "C": ×100 · 콜백 상자</text>
+      <text class="uml-member" x="10" y="98">⚠ 번역이 로직 한가운데</text>
+    </g>
+    <path class="uml-dep" d="M280 280 V258" marker-end="url(#arrow)"/>
+    <g class="uml-func warn" transform="translate(330,280)">
+      <rect width="210" height="108"/>
+      <text class="uml-name" x="105" y="22">refund(pg, …)</text>
+      <text class="uml-member" x="10" y="44">같은 분기를 다시 씀</text>
+      <text class="uml-member" x="10" y="62">⚠ "C": ×100을 빠뜨림</text>
+    </g>
+    <path class="uml-dep" d="M560 334 H580 V138" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M540 334 H560"/>
+    <text class="uml-label" x="490" y="176">15000 그대로</text>
+    <text class="uml-note" x="330" y="422">[3] 15,000원이 150원으로 환불된다</text>
+
+    <g class="uml-step"><circle cx="36" cy="46" r="9"/><text x="36" y="50">1</text></g>
+    <g class="uml-step"><circle cx="36" cy="280" r="9"/><text x="36" y="284">2</text></g>
+    <g class="uml-step"><circle cx="330" cy="280" r="9"/><text x="330" y="284">3</text></g>
+
+    <text class="uml-note" x="20" y="458"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="480">① 세 SDK의 차이: 이름 · 금액 단위 · 실패 방식 → ② pay(): PG 이름 분기 안에 번역이 섞인다</text>
+    <text class="uml-note" x="20" y="502">③ refund(): 분기를 복제하다 C의 단위 변환을 놓쳤다 · 데모 [1] 세 PG 결제는 성공</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "만든다/넘긴다". SDK마다 다른 세 가지(이름, 단위, 실패 방식)를 번역하는 지식이 주문 서비스의 두 메서드에 흩어져 있다.</figcaption>
+</figure>
 <figure class="code"><figcaption>src/05_adapter/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 순진한 설계: 주문 서비스가 세 PG사 SDK를 직접 부른다.
 
 상황: 중소 쇼핑몰의 백엔드 개발자 예린은 PG사 A의 SDK로 결제를 붙였다. 이후
@@ -653,6 +730,96 @@ class PaymentGateway(ABC):
 <p><code>PaymentResult</code>를 <code>frozen=True</code> 데이터클래스로 둔 것도 Target 설계의 일부다. SDK마다 다른 결과 모양(dict, 응답 객체, 콜백 인자)이 우리 쪽에서는 하나의 불변 값으로 수렴한다.</p>
 <p class="lead-in">이제 세 어댑터다. 각 어댑터의 docstring 첫 줄에 "번역할 것" 목록을 적어 두었다. A는 예외만, B는 단위와 상태 코드, C는 단위와 호출 모델까지 번역한다. 어댑터의 두께가 '차이의 양'에 비례한다는 점에 주목하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-exception-translation" data-term="exception-translation" title="외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것; 호출자가 남의 예외 어휘를 몰라도 되게 한다.">예외 변환</dfn>: 외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것. 호출자가 남의 예외 이름을 몰라도 되게 한다. <dfn class="term" id="term-staticmethod" data-term="staticmethod" title="self나 cls를 받지 않는, 클래스 이름공간에 둔 보통 함수를 만드는 데코레이터."><code>@staticmethod</code></dfn>: 메서드 정의 위에 붙이면 그 메서드가 <code>self</code>를 받지 않는 보통 함수처럼 동작한다(<code>@staticmethod</code> 같은 표기 자체는 6장에서 다룬다). <code>PgBAdapter._check</code>처럼 인스턴스 상태를 쓰지 않는 도우미에 쓴다. <dfn class="term" id="term-future" data-term="future" title="아직 끝나지 않은 작업의 결과를 담을 자리; 다른 스레드가 `set_result()`로 채우면 `result(timeout=…)`로 기다려 꺼낸다."><code>concurrent.futures.Future</code></dfn>: 아직 끝나지 않은 작업의 결과를 담을 자리. 다른 스레드가 <code>set_result()</code>로 채우면 <code>result(timeout=…)</code>로 기다렸다가 꺼낸다.</p></div>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 450" role="img" aria-label="02_adapter.py 어댑터 부분의 구조: PgAAdapter는 결과 형태와 예외만, PgBAdapter는 Decimal 변환과 상태 코드를 _check()로, PgCAdapter는 MINOR_PER_KRW 단위 변환과 콜백을 _await()로 번역한다. 왼쪽에서 오른쪽으로 갈수록 어댑터가 두꺼워진다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">셋 다 PaymentGateway를 상속하고 SDK 클라이언트를 _client로 받는다(그림 5-1)</text>
+    <text class="uml-note" x="20" y="50">번역: 결과 · 예외</text>
+    <g class="uml-class" transform="translate(20,60)">
+      <rect width="190" height="70"/>
+      <text class="uml-name" x="95" y="22">PgAAdapter</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="50">_client: PgAClient</text>
+      <text class="uml-member" x="10" y="64"></text>
+    </g>
+    <text class="uml-note" x="225" y="50">번역: 단위 · 상태 코드</text>
+    <g class="uml-class" transform="translate(225,60)">
+      <rect width="190" height="70"/>
+      <text class="uml-name" x="95" y="22">PgBAdapter</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="50">_client: PgBClient</text>
+      <text class="uml-member" x="10" y="64"></text>
+    </g>
+    <text class="uml-note" x="430" y="50">번역: 단위 · 콜백</text>
+    <g class="uml-class" transform="translate(430,60)">
+      <rect width="190" height="70"/>
+      <text class="uml-name" x="95" y="22">PgCAdapter</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="50">MINOR_PER_KRW = 100</text>
+      <text class="uml-member" x="10" y="64">TIMEOUT_SEC = 5.0</text>
+    </g>
+    <g class="uml-func" transform="translate(20,146)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">pay(): charge()</text>
+      <text class="uml-member" x="10" y="40">PgAError → 우리 예외</text>
+    </g>
+    <g class="uml-func" transform="translate(20,212)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">refund(): cancel()</text>
+      <text class="uml-member" x="10" y="40">이름만 바꾼다</text>
+    </g>
+    <g class="uml-func" transform="translate(225,146)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">pay(): Decimal 요청</text>
+      <text class="uml-member" x="10" y="40">결과는 _check()로</text>
+    </g>
+    <g class="uml-func" transform="translate(225,212)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">refund(): Decimal</text>
+      <text class="uml-member" x="10" y="40">결과는 _check()로</text>
+    </g>
+    <g class="uml-func" transform="translate(225,292)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">_check(res, action)</text>
+      <text class="uml-member" x="10" y="40">status_code ≠ 0 → 예외</text>
+    </g>
+    <g class="uml-func" transform="translate(430,146)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">pay(): submit()</text>
+      <text class="uml-member" x="10" y="40">×MINOR_PER_KRW · _await</text>
+    </g>
+    <g class="uml-func" transform="translate(430,212)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">refund(): reverse()</text>
+      <text class="uml-member" x="10" y="40">×MINOR_PER_KRW · _await</text>
+    </g>
+    <g class="uml-func" transform="translate(430,292)">
+      <rect width="190" height="52"/>
+      <text class="uml-member" x="10" y="21">_await(start)</text>
+      <text class="uml-member" x="10" y="40">콜백 → Future · 시간 제한</text>
+    </g>
+    <path class="uml-dep" d="M320 264 V292" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="328" y="282">둘 다 사용</text>
+    <path class="uml-dep" d="M525 264 V292" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="533" y="282">둘 다 사용</text>
+    <text class="uml-note" x="20" y="300">가장 얇다:</text>
+    <text class="uml-note" x="20" y="318">raise … from e 뿐</text>
+
+    <g class="uml-step"><circle cx="20" cy="60" r="9"/><text x="20" y="64">1</text></g>
+    <g class="uml-step"><circle cx="225" cy="292" r="9"/><text x="225" y="296">2</text></g>
+    <g class="uml-step"><circle cx="430" cy="60" r="9"/><text x="430" y="64">3</text></g>
+    <g class="uml-step"><circle cx="430" cy="292" r="9"/><text x="430" y="296">4</text></g>
+
+    <text class="uml-note" x="20" y="384"><tspan font-weight="700">읽는 순서</tspan> · 어댑터의 두께가 SDK와의 차이의 양에 비례한다(오른쪽일수록 두껍다)</text>
+    <text class="uml-note" x="20" y="406">파란 테두리: 01에서 pay()와 refund()에 복제되던 번역 규칙이 모인 한 곳</text>
+    <text class="uml-note" x="20" y="428">① PgAAdapter의 예외 변환 → ② _check() → ③ MINOR_PER_KRW → ④ _await()의 Future와 timeout</text>
+  </svg>
+  <figcaption>코드 지도 · 02_adapter.py의 어댑터 부분. 열 하나가 어댑터 하나, 행이 같은 메서드다. 점선 화살표는 "호출한다".</figcaption>
+</figure>
 <figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
 
 상황: 예린은 주문 서비스에서 PG별 분기를 걷어내기로 한다. 먼저 &quot;우리 쪽이 원하는
@@ -1406,6 +1573,90 @@ if __name__ == &quot;__main__&quot;:
 <h2>5. 파이썬다운 변형</h2>
 <p>팀 리드 도윤은 코드 리뷰에서 세 가지를 물었다. 어댑터가 꼭 Target을 상속해야 하는가? 함수 하나만 필요한 곳에도 클래스를 만들어야 하는가? 부가 메서드가 스무 개인 SDK라면 <code>__getattr__</code> 한 줄로 위임하면 되지 않는가? 셋 다 파이썬이라서 나오는 질문이다.</p>
 <p class="lead-in">아래 파일은 세 질문에 차례로 답한다. (1) <code>Protocol</code> Target과 상속하지 않는 <code>PgBAdapter</code>(Target에 붙은 <dfn class="term" id="term-typing-runtime-checkable" data-term="typing-runtime-checkable" title="Protocol에 붙여 `isinstance` 검사를 가능하게 하는 데코레이터; 메서드 이름의 존재만 보고 시그니처는 보지 않는다."><code>runtime_checkable</code></dfn>을 Protocol 정의 위에 붙이면 <code>isinstance</code> 검사를 할 수 있게 되는데, 메서드 이름이 있는지만 보고 시그니처는 보지 않는다), (2) <code>functools.partial</code>과 클로저로 만든 함수 어댑터, (3) 일부러 나쁘게 만든 <code>LeakyPgBAdapter</code>, (4) <code>raise ... from</code>의 의미 순서로 읽어라.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 530" role="img" aria-label="03_pythonic.py의 네 구획: PgBAdapter는 상속 없이 Protocol인 PaymentGateway의 모양을 맞추고, LeakyPgBAdapter는 __getattr__로 PgBClient의 모든 이름을 넘겨 경계를 무너뜨린다. a_charger()는 partial과 내부 함수로 PgAClient를 Charger 함수 모양으로 바꿔 settle_batch()에 넘기고, translate_errors()는 통신 예외를 raise from으로 PaymentDeclined로 바꾼다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">(1) Protocol Target [1]</text>
+    <text class="uml-note" x="346" y="24">(3) __getattr__ 위임 [3]</text>
+    <g class="uml-group" transform="translate(20,32)"><rect width="600" height="186"/></g>
+    <g class="uml-class highlight" transform="translate(36,46)">
+      <rect width="258" height="60"/>
+      <text class="uml-name" x="129" y="22">PaymentGateway</text>
+      <text class="uml-stereo" x="129" y="38">Protocol</text>
+      <text class="uml-member" x="10" y="54">pay() · refund()</text>
+    </g>
+    <g class="uml-class" transform="translate(36,134)">
+      <rect width="258" height="70"/>
+      <text class="uml-name" x="129" y="22">PgBAdapter</text>
+      <line x1="0" y1="32" x2="258" y2="32"/>
+      <text class="uml-member" x="10" y="50">_client: PgBClient</text>
+      <text class="uml-member" x="10" y="64">+ receipt_url(): 골라서 노출</text>
+    </g>
+    <path class="uml-impl" d="M165 134 V106" marker-end="url(#triangle)"/>
+    <text class="uml-label" x="173" y="124">상속 없이 모양만</text>
+    <g class="uml-class" transform="translate(346,46)">
+      <rect width="258" height="60"/>
+      <text class="uml-name" x="129" y="22">PgBClient</text>
+      <text class="uml-member" x="10" y="44">create_payment() 등 SDK 원본</text>
+    </g>
+    <g class="uml-class warn" transform="translate(346,134)">
+      <rect width="258" height="70"/>
+      <text class="uml-name" x="129" y="22">LeakyPgBAdapter</text>
+      <line x1="0" y1="32" x2="258" y2="32"/>
+      <text class="uml-member" x="10" y="50">__getattr__ → _client</text>
+      <text class="uml-member" x="10" y="64">원본 메서드가 번역 없이 샌다</text>
+    </g>
+    <path class="uml-inherit" d="M346 170 H294" marker-end="url(#triangle)"/>
+    <path class="uml-dep" d="M475 134 V106" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="483" y="124">못 찾은 이름 전부</text>
+
+    <text class="uml-note" x="20" y="242">(2) 함수 어댑터 [2]</text>
+    <g class="uml-group" transform="translate(20,250)"><rect width="290" height="180"/></g>
+    <g class="uml-func" transform="translate(36,266)">
+      <rect width="258" height="52"/>
+      <text class="uml-name" x="129" y="22">settle_batch</text>
+      <text class="uml-member" x="10" y="42">charge: Charger 하나만 받음</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(36,346)">
+      <rect width="258" height="68"/>
+      <text class="uml-name" x="129" y="22">a_charger</text>
+      <text class="uml-member" x="10" y="42">partial(client.charge, …)</text>
+      <text class="uml-member" x="10" y="58">+ 내부 함수: dict → str</text>
+    </g>
+    <path class="uml-dep" d="M165 346 V318" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="173" y="337">Charger를 돌려줌</text>
+
+    <text class="uml-note" x="330" y="242">(4) 예외 변환 [4]</text>
+    <g class="uml-group" transform="translate(330,250)"><rect width="290" height="180"/></g>
+    <g class="uml-func" transform="translate(346,266)">
+      <rect width="258" height="52"/>
+      <text class="uml-name" x="129" y="22">translate_errors</text>
+      <text class="uml-member" x="10" y="42">ConnectionError · TimeoutError</text>
+    </g>
+    <g class="uml-class" transform="translate(346,346)">
+      <rect width="258" height="68"/>
+      <text class="uml-name" x="129" y="22">PaymentDeclined</text>
+      <text class="uml-member" x="10" y="42">raise … from e</text>
+      <text class="uml-member" x="10" y="58">원인은 __cause__에 남는다</text>
+    </g>
+    <path class="uml-dep" d="M475 318 V346" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="483" y="337">바꿔 던짐</text>
+
+    <g class="uml-step"><circle cx="36" cy="46" r="9"/><text x="36" y="50">1</text></g>
+    <g class="uml-step"><circle cx="36" cy="266" r="9"/><text x="36" y="270">2</text></g>
+    <g class="uml-step"><circle cx="346" cy="134" r="9"/><text x="346" y="138">3</text></g>
+    <g class="uml-step"><circle cx="346" cy="266" r="9"/><text x="346" y="270">4</text></g>
+
+    <text class="uml-note" x="20" y="464"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02의 클래스 어댑터를 대신하는 파이썬 도구</text>
+    <text class="uml-note" x="20" y="486">① Protocol과 상속 없는 PgBAdapter → ② partial과 내부 함수로 만든 a_charger</text>
+    <text class="uml-note" x="20" y="508">③ 주황: 일부러 나쁘게 만든 LeakyPgBAdapter → ④ raise … from</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py. 점선 테두리 하나가 파일의 구획 하나다. 빈 삼각형 점선은 "모양을 맞춘다", 빈 삼각형 실선은 "상속한다", 점선 화살표는 "넘긴다/돌려준다".</figcaption>
+</figure>
 <figure class="code"><figcaption>src/05_adapter/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 파이썬다운 변형: Protocol target, 함수 어댑터, __getattr__ 위임의 함정.
 
 상황: 02_adapter.py의 구조는 잘 돌아가지만, 예린의 팀 리드 도윤은 세 가지를 묻는다.

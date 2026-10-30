@@ -26,7 +26,68 @@ part: 행위 패턴
   <div class="callout"><span class="label">용어</span>
     <p>이 코드는 <dfn data-term="online-judge">온라인 저지</dfn>, 곧 제출된 프로그램을 테스트 입력으로 자동 실행해 판정하는 채점 시스템의 일부다. 판정 문자열은 업계 관례를 따른다. <dfn data-term="accepted">AC</dfn>(Accepted, 모든 테스트 통과), <dfn data-term="wrong-answer">WA</dfn>(Wrong Answer, 출력이 기대값과 다름), <dfn data-term="time-limit-exceeded">TLE</dfn>(Time Limit Exceeded, 시간 제한 초과), <dfn data-term="runtime-error">RE</dfn>(Runtime Error, 실행 중 예외로 비정상 종료), <dfn data-term="compile-error">CE</dfn>(Compile Error, 컴파일 또는 사전 검증 실패)다. 컴파일 흉내 주석의 <dfn data-term="linking">링크</dfn>는 컴파일된 조각과 라이브러리를 이어 실행 파일을 만드는 단계다. 표준 라이브러리로는 임시 디렉터리를 안전하게 만드는 <dfn data-term="tempfile"><code>tempfile</code></dfn>, 파일 경로를 객체로 다루는 <dfn data-term="pathlib-path"><code>pathlib</code></dfn>(<code>/</code> 연산자로 경로를 잇는다), 짧은 구간의 경과 시간을 재는 고해상도 시계 <dfn data-term="time-perf-counter"><code>time.perf_counter</code></dfn>를 쓴다.</p>
   </div>
-  <pre data-src="14_template_method/01_naive.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 452" role="img" aria-label="01_naive.py의 구조: PythonJudge·CppJudge·JavaJudge가 각자 judge() 하나에 같은 채점 절차를 복제했다. C++과 Java는 시간 검사와 출력 비교 순서가 뒤바뀌었고 float_tol을 무시하며, Java는 예외 처리와 샌드박스 정리가 빠졌다">
+    <text class="uml-note" x="20" y="24">입력</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="250" height="58"/>
+      <text class="uml-name" x="125" y="22">Submission</text>
+      <line x1="0" y1="32" x2="250" y2="32"/>
+      <text class="uml-member" x="10" y="50">language · source · solve</text>
+    </g>
+    <text class="uml-label" x="290" y="60">Tests = list[(입력, 기대 출력)]</text>
+    <text class="uml-label" x="290" y="80">TIME_LIMIT = 0.05초</text>
+    <text class="uml-note" x="20" y="128">세 judge()를 단계별로 나란히 — 클래스마다 절차 전체가 한 벌씩</text>
+    <text class="uml-name" x="237" y="156">PythonJudge</text>
+    <text class="uml-name" x="390" y="156">CppJudge</text>
+    <text class="uml-name" x="543" y="156">JavaJudge</text>
+    <path class="uml-assoc" d="M20 166 H620"/>
+    <path class="uml-assoc" d="M160 140 V340"/>
+    <text class="uml-member" x="26" y="184">샌드박스 생성</text>
+    <text class="uml-member" x="237" y="184" text-anchor="middle">mkdtemp</text>
+    <text class="uml-member" x="390" y="184" text-anchor="middle">mkdtemp</text>
+    <text class="uml-member" x="543" y="184" text-anchor="middle">mkdtemp</text>
+    <text class="uml-member" x="26" y="208">소스 저장</text>
+    <text class="uml-member" x="237" y="208" text-anchor="middle">main.py</text>
+    <text class="uml-member" x="390" y="208" text-anchor="middle">main.cpp</text>
+    <text class="uml-member" x="543" y="208" text-anchor="middle">Main.java</text>
+    <text class="uml-member" x="26" y="232">컴파일 흉내</text>
+    <text class="uml-member" x="237" y="232" text-anchor="middle">–</text>
+    <text class="uml-member" x="390" y="232" text-anchor="middle">main 없으면 CE</text>
+    <text class="uml-member" x="543" y="232" text-anchor="middle">클래스명·main 검사</text>
+    <text class="uml-member" x="26" y="256">판정 순서</text>
+    <text class="uml-member" x="237" y="256" text-anchor="middle">시간 → 출력</text>
+    <g class="uml-class warn"><rect x="320" y="240" width="140" height="22"/></g>
+    <text class="uml-member" x="390" y="256" text-anchor="middle">⚠ 출력 → 시간</text>
+    <g class="uml-class warn"><rect x="473" y="240" width="140" height="22"/></g>
+    <text class="uml-member" x="543" y="256" text-anchor="middle">⚠ 출력 → 시간</text>
+    <text class="uml-member" x="26" y="280">float_tol</text>
+    <text class="uml-member" x="237" y="280" text-anchor="middle">오차 허용</text>
+    <g class="uml-class warn"><rect x="320" y="264" width="140" height="22"/></g>
+    <text class="uml-member" x="390" y="280" text-anchor="middle">⚠ 받고 무시</text>
+    <g class="uml-class warn"><rect x="473" y="264" width="140" height="22"/></g>
+    <text class="uml-member" x="543" y="280" text-anchor="middle">⚠ 받고 무시</text>
+    <text class="uml-member" x="26" y="304">예외 → RE</text>
+    <text class="uml-member" x="237" y="304" text-anchor="middle">try/except</text>
+    <text class="uml-member" x="390" y="304" text-anchor="middle">try/except</text>
+    <g class="uml-class warn"><rect x="473" y="288" width="140" height="22"/></g>
+    <text class="uml-member" x="543" y="304" text-anchor="middle">⚠ 없음</text>
+    <text class="uml-member" x="26" y="328">정리 rmtree</text>
+    <text class="uml-member" x="237" y="328" text-anchor="middle">finally</text>
+    <text class="uml-member" x="390" y="328" text-anchor="middle">finally</text>
+    <g class="uml-class warn"><rect x="473" y="312" width="140" height="22"/></g>
+    <text class="uml-member" x="543" y="328" text-anchor="middle">⚠ 없음</text>
+    <text class="uml-label" x="20" y="364">주황 칸 = 복사본끼리 어긋난 곳(⚠는 코드의 ⚠ 문제 주석). 나머지 칸도 세 벌로 복제되어 있다</text>
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="14" cy="249" r="9"/><text x="14" y="253">2</text></g>
+    <g class="uml-step"><circle cx="14" cy="321" r="9"/><text x="14" y="325">3</text></g>
+    <text class="uml-note" x="20" y="398"><tspan font-weight="700">읽는 순서</tspan> · 열 하나가 클래스 하나의 judge()다</text>
+    <text class="uml-note" x="20" y="420">① Submission → ② 판정 순서와 float_tol이 갈라진 행 → ③ Java에서 빠진 예외·정리</text>
+    <text class="uml-note" x="20" y="442">데모 [1] 정답은 모두 AC · [2] 느린 오답의 판정이 언어마다 다름 · [3] 오차 허용 · [4] 샌드박스 누수</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 표의 각 칸은 그 클래스의 judge()가 그 단계에서 하는 일이다.</figcaption>
+</figure>
+<pre data-src="14_template_method/01_naive.py"></pre>
   <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
   <ul>
     <li><strong>절차(순서)와 단계(내용)가 한 덩어리로 복제되었다.</strong> 세 메서드에서 정말로 다른 부분은 파일 이름, 컴파일, 클래스명 검사 정도로 20%가 안 된다. 그런데 나머지 80%까지 함께 복사되었다.</li>
@@ -84,7 +145,93 @@ part: 행위 패턴
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
   <p class="lead-in">먼저 골격을 보자. <code>judge()</code>가 단계를 부르는 순서, 그리고 <code>try/finally</code>가 정리를 보장하는 방식에 주목하라. 01의 세 사본이 각자 들고 있던 책임이 이제 이 메서드 하나에 모인다. 추상 단계와 훅이 시각적으로도 분리되어 있다는 점도 보라. 전체 파일은 <code>src/14_template_method/02_template_method.py</code>이며, 여기서는 두 부분으로 나눠 싣는다. 골격 메서드에 붙은 <dfn data-term="final"><code>@final</code></dfn>(<code>typing.final</code>)은 "재정의하지 말라"고 타입 검사기에 알리는 데코레이터다. <code>run()</code>의 docstring에 나오는 <dfn data-term="interpreter">인터프리터</dfn>는 소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램이다(파이썬이 그렇다).</p>
-  <pre data-src="14_template_method/02_template_method.py" data-lines="1-122"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 570" role="img" aria-label="02_template_method.py 첫 조각의 흐름: Judge.judge()가 샌드박스 생성, 소스 쓰기, validate·compile 훅, _run_tests의 반복(run, 시간 검사, outputs_match)을 try 안에서 차례로 부르고, CompileError는 CE로, 그 밖의 예외는 RE로 번역하며, finally에서 샌드박스를 지운 뒤 판정을 기록한다">
+    <text class="uml-note" x="40" y="24">Judge.judge() @final — 순서는 여기서만 정한다</text>
+    <g class="uml-func" transform="translate(40,36)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">샌드박스 생성 (이름에 language())</text>
+    </g>
+    <path class="uml-assoc" d="M190 70 V94" marker-end="url(#arrow)"/>
+
+    <g class="uml-group"><rect x="28" y="84" width="324" height="290"/></g>
+    <text class="uml-label" x="312" y="100">try</text>
+    <g class="uml-class highlight" transform="translate(40,104)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">source_filename()에 소스 쓰기</text>
+    </g>
+    <path class="uml-assoc" d="M190 138 V150" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(40,150)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">validate(sub)  기본: 통과</text>
+    </g>
+    <path class="uml-assoc" d="M190 184 V196" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(40,196)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">compile(src, sub)  기본: 없음</text>
+    </g>
+    <path class="uml-assoc" d="M190 230 V242" marker-end="url(#arrow)"/>
+    <g class="uml-group"><rect x="40" y="242" width="300" height="122"/></g>
+    <text class="uml-label" x="52" y="258">_run_tests() @final — 테스트마다 반복</text>
+    <g class="uml-class highlight" transform="translate(56,266)">
+      <rect width="252" height="26"/>
+      <text class="uml-member" x="126" y="18" text-anchor="middle">run(src, sub, stdin)</text>
+    </g>
+    <path class="uml-assoc" d="M182 292 V300" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(56,300)">
+      <rect width="252" height="26"/>
+      <text class="uml-member" x="126" y="18" text-anchor="middle">TIME_LIMIT 초과 → TLE</text>
+    </g>
+    <path class="uml-assoc" d="M182 326 V334" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(56,334)">
+      <rect width="252" height="26"/>
+      <text class="uml-member" x="126" y="18" text-anchor="middle">outputs_match() 거짓 → WA</text>
+    </g>
+    <path class="uml-assoc" d="M308 347 H324 V279 H310" marker-end="url(#arrow)"/>
+
+    <path class="uml-assoc" d="M190 364 V398" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(40,398)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">finally: rmtree(sandbox)</text>
+    </g>
+    <path class="uml-assoc" d="M190 432 V444" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(40,444)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">records에 판정 기록 → 반환</text>
+    </g>
+
+    <text class="uml-note" x="398" y="24">상자 종류</text>
+    <g class="uml-func"><rect x="390" y="36" width="28" height="16"/></g>
+    <text class="uml-label" x="428" y="48">고정 단계 — 골격이 직접 한다</text>
+    <g class="uml-class highlight"><rect x="390" y="62" width="28" height="16"/></g>
+    <text class="uml-label" x="428" y="74">추상 단계 — 반드시 채운다</text>
+    <g class="uml-class"><rect x="390" y="88" width="28" height="16"/></g>
+    <text class="uml-label" x="428" y="100">훅 — 기본이 있고 필요하면 재정의</text>
+    <text class="uml-label" x="390" y="128">language()도 추상 단계다</text>
+
+    <path class="uml-dep" d="M352 210 H390" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="356" y="202">예외</text>
+    <g class="uml-func" transform="translate(390,182)">
+      <rect width="230" height="56"/>
+      <text class="uml-member" x="12" y="23">except CompileError → CE</text>
+      <text class="uml-member" x="12" y="41">except Exception → RE</text>
+    </g>
+    <text class="uml-label" x="390" y="258">훅은 CompileError를 던지기만 하고,</text>
+    <text class="uml-label" x="390" y="276">번역은 골격이 한다</text>
+    <path class="uml-dep" d="M610 238 V415 H342" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="602" y="356" text-anchor="end">어느 경로든 finally로</text>
+
+    <g class="uml-step"><circle cx="384" cy="20" r="9"/><text x="384" y="24">1</text></g>
+    <g class="uml-step"><circle cx="40" cy="104" r="9"/><text x="40" y="108">2</text></g>
+    <g class="uml-step"><circle cx="390" cy="182" r="9"/><text x="390" y="186">3</text></g>
+
+    <text class="uml-note" x="20" y="514"><tspan font-weight="700">읽는 순서</tspan> · judge() 본문을 위에서 아래로 — 하위 클래스는 이 순서를 바꿀 수 없다</text>
+    <text class="uml-note" x="20" y="536">① 상자 종류 → ② try 안의 단계(시간 검사가 비교보다 먼저) → ③ except와 finally</text>
+    <text class="uml-note" x="20" y="558">구체 채점기와 데모 [1]~[6]은 다음 조각에 있다</text>
+  </svg>
+  <figcaption>코드 지도 · 02_template_method.py(첫 조각). 실선 화살표는 실행 순서, 점선 화살표는 예외와 정리의 경로다. 클래스 구조는 그림 14-1에 있다.</figcaption>
+</figure>
+<pre data-src="14_template_method/02_template_method.py" data-lines="1-122"></pre>
   <p>세 가지를 짚어 두자. 첫째, 시간 검사와 출력 비교의 순서가 <code>_run_tests()</code>에 고정되었다. 이제 하위 클래스는 단계의 <em>내용</em>만 바꿀 수 있고 <em>순서</em>는 바꿀 수 없다. 둘째, 정리 단계는 <code>finally</code>에 있으므로 하위 클래스가 빠뜨릴 방법이 없다. 셋째, 컴파일 오류와 런타임 예외를 판정 문자열로 바꾸는 일도 골격이 맡는다. 덕분에 하위 클래스의 훅은 <code>CompileError</code>를 던지기만 하면 된다.</p>
   <p><code>@final</code>은 의도를 표시할 뿐, 런타임에는 아무것도 막지 않는다. mypy나 pyright가 오버라이드를 오류로 보고해 줄 뿐이다. 런타임에서도 막아야 한다면 5절의 <code>__init_subclass__</code>를 쓴다.</p>
 
@@ -99,7 +246,66 @@ part: 행위 패턴
   <div class="callout"><span class="label">용어</span>
     <p><code>Toolchain</code>(툴체인)은 한 언어의 소스를 검증·컴파일·실행하는 도구 묶음을 뜻한다. <code>Checker</code>(체커)는 실제 출력과 기대 출력을 받아 일치 여부를 판정하는 함수다.</p>
   </div>
-  <pre data-src="14_template_method/03_strategy_version.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 566" role="img" aria-label="03_strategy_version.py의 구조: 하위 클래스가 없는 Judge가 toolchain과 checker 두 슬롯을 가진다. Toolchain은 언어 축의 frozen dataclass로 PYTHON·CPP·JAVA 상수가 있고, Checker는 비교 축의 함수 타입으로 exact·within·any_order가 있다. 02의 추상 메서드는 기본값 없는 필드, 훅은 None을 허용한 필드, outputs_match 훅은 checker 함수에 대응한다">
+    <text class="uml-note" x="180" y="24">[Context] 하위 클래스가 없는 구체 클래스</text>
+    <g class="uml-class highlight" transform="translate(180,36)">
+      <rect width="280" height="112"/>
+      <text class="uml-name" x="140" y="22">Judge</text>
+      <line x1="0" y1="32" x2="280" y2="32"/>
+      <text class="uml-member" x="10" y="52">toolchain: Toolchain</text>
+      <text class="uml-member" x="10" y="70">checker: Checker = exact</text>
+      <line x1="0" y1="80" x2="280" y2="80"/>
+      <text class="uml-member" x="10" y="100">judge(): 02와 같은 순서</text>
+    </g>
+    <path class="uml-assoc" d="M250 148 V200" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="256" y="180">toolchain</text>
+    <path class="uml-assoc" d="M390 148 V200" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="396" y="180">checker</text>
+
+    <g class="uml-class" transform="translate(20,200)">
+      <rect width="290" height="140"/>
+      <text class="uml-stereo" x="145" y="16">[Strategy: 언어 축] frozen dataclass</text>
+      <text class="uml-name" x="145" y="34">Toolchain</text>
+      <line x1="0" y1="42" x2="290" y2="42"/>
+      <text class="uml-member" x="10" y="62">name · filename · run</text>
+      <text class="uml-member" x="10" y="80">validate · compile = None</text>
+      <line x1="0" y1="90" x2="290" y2="90"/>
+      <text class="uml-member" x="10" y="110">상수 PYTHON · CPP · JAVA</text>
+      <text class="uml-member" x="10" y="128">검사 함수는 _need()가 만든다</text>
+    </g>
+    <g class="uml-class" transform="translate(330,200)">
+      <rect width="290" height="140"/>
+      <text class="uml-stereo" x="145" y="16">[Strategy: 비교 축] 함수</text>
+      <text class="uml-name" x="145" y="34">Checker</text>
+      <line x1="0" y1="42" x2="290" y2="42"/>
+      <text class="uml-member" x="10" y="62">Callable[[str, str], bool]</text>
+      <line x1="0" y1="72" x2="290" y2="72"/>
+      <text class="uml-member" x="10" y="92">exact — 기본</text>
+      <text class="uml-member" x="10" y="110">within + partial(tol=…)</text>
+      <text class="uml-member" x="10" y="128">any_order — 특수 저지</text>
+    </g>
+
+    <text class="uml-note" x="20" y="374">02와의 대응</text>
+    <text class="uml-member" x="20" y="398">02 추상 메서드(run 등)</text>
+    <text class="uml-member" x="250" y="398">↔ 기본값 없는 필드, 빠뜨리면 TypeError</text>
+    <text class="uml-member" x="20" y="420">02 훅(validate·compile)</text>
+    <text class="uml-member" x="250" y="420">↔ None을 허용한 필드</text>
+    <text class="uml-member" x="20" y="442">02 outputs_match 훅</text>
+    <text class="uml-member" x="250" y="442">↔ checker 함수 주입</text>
+    <text class="uml-label" x="20" y="470">언어 3 × 비교 3 = 채점기 9가지, 추가 클래스 0개 (02라면 FloatTolerant…Judge처럼 곱해진다)</text>
+
+    <g class="uml-step"><circle cx="180" cy="36" r="9"/><text x="180" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="200" r="9"/><text x="20" y="204">2</text></g>
+    <g class="uml-step"><circle cx="330" cy="200" r="9"/><text x="330" y="204">3</text></g>
+
+    <text class="uml-note" x="20" y="506"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 골격. 가변 단계는 상속이 아니라 두 슬롯으로 들어온다</text>
+    <text class="uml-note" x="20" y="528">① Judge의 두 슬롯 → ② Toolchain과 세 상수 → ③ 체커 함수 → judge() 본문을 02와 비교</text>
+    <text class="uml-note" x="20" y="550">데모 [1] 두 축 조합 · [2] 설정값으로 체커 만들기 · [3] 검사가 어디까지 되는가 (a)(b)(c)</text>
+  </svg>
+  <figcaption>코드 지도 · 03_strategy_version.py. 실선 화살표는 "슬롯이 가리킨다". 아래 표는 02의 상속 버전과 무엇이 짝을 이루는지 보여 준다.</figcaption>
+</figure>
+<pre data-src="14_template_method/03_strategy_version.py"></pre>
   <p>두 축을 독립적으로 조합할 수 있게 되었다. [1]처럼 추가 클래스 없이 네 가지 채점기가 만들어지고, [2]처럼 문제 설정에 따라 실행 중에 체커를 고를 수도 있다. 검사 범위는 생각만큼 달라지지 않는다([3]). 필수 단계를 빠뜨리면 dataclass가 생성 시점에 <code>TypeError</code>를 낸다. 이는 02의 <code>abstractmethod</code>(02 데모 [7])와 같은 효과다. 시그니처가 틀린 단계는 양쪽 모두 생성을 통과하고, 채점 도중 학생의 RE로 오판된다. 실행 전에 이를 잡는 것은 타입 검사기뿐이다. 시그니처는 맞지만 의미가 틀린 콜러블(<code>compile=print</code>)은 타입 검사기도 런타임도 잡지 못하고 AC를 낸다. 이런 결함은 테스트로만 잡힌다. 합성 쪽에만 있는 위험도 하나 있다. <code>None</code>을 허용한 훅은 '빠뜨림'이 조용히 '기본값'이 된다. 컴파일 언어의 <code>compile</code>을 깜빡해도 아무도 알려 주지 않는다. 단계 사이의 공유 상태(예: 컴파일 결과물 경로)를 넘기는 일도 상속에서는 <code>self</code>로 자연스러웠지만, 합성에서는 인자로 명시해야 한다.</p>
   <table>
     <thead><tr><th>관점</th><th>템플릿 메서드(상속, 02)</th><th>단계 주입(합성, 03)</th></tr></thead>
@@ -121,7 +327,93 @@ part: 행위 패턴
   <h2>5. 파이썬다운 변형</h2>
   <p>채점기가 자리를 잡은 뒤, 동료 하은이 도윤에게 말했다. "준비-본문-정리 골격은 우리 코드 곳곳에 이미 있어요. 파이썬이 문법으로 제공하는 것도 있고요." 템플릿 메서드는 언어와 표준 라이브러리 안에 흔히 녹아 있다. 아래 파일은 그 세 가지 모습을 보여 준다.</p>
   <p class="lead-in">A 부분에서는 <code>@contextmanager</code> 제너레이터의 <code>yield</code> 앞뒤가 골격의 고정 단계이고, <code>with</code> 블록 본문이 가변 단계라는 점을 보라. B 부분에서는 <code>__init_subclass__</code>가 <em>클래스를 정의하는 순간</em> 규칙 위반을 거부하는 모습을, C 부분에서는 <code>unittest</code>가 우리 메서드를 부르는 순서를 출력으로 확인하라.</p>
-  <pre data-src="14_template_method/04_pythonic.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 586" role="img" aria-label="04_pythonic.py의 구조: A의 sandbox()는 contextmanager로 준비, with 블록 본문, 정리를 묶는다. B의 Judge는 __init_subclass__로 골격 재정의와 필수 클래스 속성 누락을 정의 시점에 TypeError로 거부하고, judge()가 A의 sandbox를 재사용한다. C의 unittest TestCase.run()은 setUp, 테스트 메서드, tearDown을 부른다">
+    <text class="uml-note" x="34" y="24">A. sandbox() — @contextmanager 제너레이터 하나가 골격</text>
+    <g class="uml-group"><rect x="20" y="36" width="600" height="96"/></g>
+    <g class="uml-func" transform="translate(36,52)">
+      <rect width="150" height="40"/>
+      <text class="uml-member" x="75" y="25" text-anchor="middle">준비: mkdtemp</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(216,52)">
+      <rect width="200" height="40"/>
+      <text class="uml-member" x="100" y="25" text-anchor="middle">yield → with 블록 본문</text>
+    </g>
+    <g class="uml-func" transform="translate(446,52)">
+      <rect width="158" height="40"/>
+      <text class="uml-member" x="79" y="25" text-anchor="middle">정리: rmtree</text>
+    </g>
+    <path class="uml-assoc" d="M186 72 H216" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M416 72 H446" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="36" y="118">yield 앞이 준비, 뒤가 정리. 정리는 finally라서 본문이 예외로 끝나도 실행된다 [A]</text>
+
+    <path class="uml-dep" d="M120 196 V134" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="128" y="158">judge()가 A의 sandbox를 재사용</text>
+    <text class="uml-note" x="300" y="178">B. Judge — 하위 클래스를 "정의하는 순간" 검사</text>
+    <g class="uml-group"><rect x="20" y="186" width="600" height="166"/></g>
+    <g class="uml-class" transform="translate(36,196)">
+      <rect width="230" height="146"/>
+      <text class="uml-name" x="115" y="22">Judge</text>
+      <line x1="0" y1="32" x2="230" y2="32"/>
+      <text class="uml-member" x="10" y="52">language · filename</text>
+      <text class="uml-member" x="10" y="70">_FINAL = ("judge",)</text>
+      <line x1="0" y1="80" x2="230" y2="80"/>
+      <text class="uml-member" x="10" y="100">__init_subclass__(cls)</text>
+      <text class="uml-member" x="10" y="118">judge(): with sandbox(…)</text>
+      <text class="uml-member" x="10" y="136">compile() 훅</text>
+    </g>
+    <path class="uml-assoc" d="M266 292 H300"/>
+    <path class="uml-assoc" d="M300 218 V310"/>
+    <path class="uml-assoc" d="M300 218 H330" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M300 264 H330" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M300 310 H330" marker-end="url(#arrow)"/>
+    <g class="uml-func warn" transform="translate(330,200)">
+      <rect width="274" height="36"/>
+      <text class="uml-member" x="137" y="23" text-anchor="middle">judge 재정의 → TypeError [B-2]</text>
+    </g>
+    <g class="uml-func warn" transform="translate(330,246)">
+      <rect width="274" height="36"/>
+      <text class="uml-member" x="137" y="23" text-anchor="middle">filename 등 누락 → TypeError [B-3]</text>
+    </g>
+    <g class="uml-class" transform="translate(330,292)">
+      <rect width="274" height="36"/>
+      <text class="uml-member" x="137" y="23" text-anchor="middle">통과 → PythonJudge [B-1]</text>
+    </g>
+
+    <text class="uml-note" x="34" y="382">C. unittest.TestCase.run() — 프레임워크가 우리 메서드를 부른다</text>
+    <g class="uml-group"><rect x="20" y="394" width="600" height="96"/></g>
+    <g class="uml-func" transform="translate(36,410)">
+      <rect width="140" height="40"/>
+      <text class="uml-member" x="70" y="25" text-anchor="middle">러너가 run()</text>
+    </g>
+    <g class="uml-class" transform="translate(196,410)">
+      <rect width="110" height="40"/>
+      <text class="uml-member" x="55" y="25" text-anchor="middle">setUp()</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(326,410)">
+      <rect width="120" height="40"/>
+      <text class="uml-member" x="60" y="25" text-anchor="middle">test_*()</text>
+    </g>
+    <g class="uml-class" transform="translate(466,410)">
+      <rect width="138" height="40"/>
+      <text class="uml-member" x="69" y="25" text-anchor="middle">tearDown()</text>
+    </g>
+    <path class="uml-assoc" d="M176 430 H196" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M306 430 H326" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M446 430 H466" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="36" y="476">SandboxTest가 세 칸을 채운다. test_fails가 실패해도 tearDown이 불린다 [C]</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="186" r="9"/><text x="20" y="190">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="394" r="9"/><text x="20" y="398">3</text></g>
+
+    <text class="uml-note" x="20" y="522"><tspan font-weight="700">상자 종류</tspan> · 둥근 = 고정 단계 · 파랑 = 호출자가 채우는 가변 단계 · 흰 사각 = 훅 · 주황 = 거부</text>
+    <text class="uml-note" x="20" y="544">① A: 골격이 제너레이터 → ② B: 규칙 위반을 import 시점에 → ③ C: 매일 쓰는 템플릿 메서드</text>
+    <text class="uml-note" x="20" y="566">세 경우 모두 골격이 가변 단계를 부른다. 가변 단계가 골격을 부르지 않는다</text>
+  </svg>
+  <figcaption>코드 지도 · 04_pythonic.py. 실선 화살표는 실행 순서, 점선 화살표는 "재사용한다".</figcaption>
+</figure>
+<pre data-src="14_template_method/04_pythonic.py"></pre>
   <ul>
     <li><strong>컨텍스트 관리자(A)</strong>는 "가운데 단계 하나만 다른" 템플릿 메서드를 상속 없이 표현한다. 가변 단계가 호출자의 코드 블록이므로 하위 클래스가 필요 없다. 정리를 보장하는 일이 골격의 핵심 책임인 경우(파일, 락, 트랜잭션, 샌드박스)라면 파이썬에서는 이것이 첫 번째 선택지다.</li>
     <li><strong><code>__init_subclass__</code>(B)</strong>는 <code>abstractmethod</code>(인스턴스화 시점)보다 이른, 런타임에서 가장 이른 시점인 import 시에 실패한다. 실행 전에 검사하는 <code>typing.final</code>보다는 늦지만, 타입 검사기를 돌리지 않는 환경에서도 동작한다. 다른 팀이 플러그인처럼 하위 클래스를 작성하는 상황에서 특히 유용하다. 다만 이 장치 자체가 상속 계층을 전제로 한다는 점을 기억하라. 계층이 없다면(03) 지킬 대상도 없다.</li>

@@ -26,6 +26,70 @@ part: 구조 패턴
 <p>준호가 거친 두 시도를 함께 재현한다. (A)는 기능 조합을 상속 계층으로, (B)는 플래그로 표현한다. 둘은 정반대 방향의 실패다. (A)는 클래스가 너무 많고, (B)는 한 클래스가 너무 많이 안다.</p>
 <div class="callout"><span class="label">용어</span><p>아래 코드가 쓰는 도구들이다. <dfn data-term="zlib"><code>zlib</code></dfn>: DEFLATE 알고리즘으로 데이터를 압축·해제하는 파이썬 표준 모듈. <dfn data-term="json-dumps"><code>json.dumps</code></dfn>: 파이썬 객체를 JSON 문자열로 바꾸는 함수. <dfn data-term="stream-cipher">스트림 암호</dfn>: 키로부터 만든 무작위처럼 보이는 바이트열(키스트림)을 평문과 XOR해 암호화하는 방식으로, 출력이 무작위처럼 보여 압축되지 않는다. 이 장의 <code>toy_encrypt</code>는 교육용이며, 실제 제품에서는 <dfn data-term="aes-gcm">AES-GCM</dfn>(AES 암호를 GCM 모드로 써서 암호화와 변조 검증을 함께 제공하는 표준 방식. 메시지마다 nonce라는 일회용 값과 인증 태그가 붙는다) 같은 검증된 방식을 쓴다.</p></div>
 <p class="lead-in"><code>CompressedEncryptedMqttChannel</code>에서 순서를 맞추느라 부모를 건너뛰고 압축 로직을 복제하는 부분, 그리고 <code>FlagMqttChannel.send()</code>에서 순서 규칙이 '줄 순서'에만 숨어 있는 부분에 주목하라.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 480" role="img" aria-label="01_naive.py의 문제 지점: (A) 상속 방식에서 CompressedEncryptedMqttChannel은 순서를 맞추려고 부모를 건너뛰어 MqttChannel.send를 직접 부르며 압축을 복제하고, 기능 조합마다 클래스가 필요하다. (B) 플래그 방식의 FlagMqttChannel.send()는 배치·압축·암호화·로그를 한 메서드에서 처리해 압축이 암호화보다 먼저라는 규칙이 줄 순서에만 숨어 있다">
+    <text class="uml-note" x="20" y="24">(A) 상속으로 조합</text>
+    <g class="uml-group" transform="translate(20,32)"><rect width="310" height="338"/></g>
+    <g class="uml-class" transform="translate(28,46)">
+      <rect width="284" height="52"/>
+      <text class="uml-name" x="142" y="22">MqttChannel</text>
+      <text class="uml-member" x="10" y="42">send(): sent_sizes 기록</text>
+    </g>
+    <g class="uml-class" transform="translate(28,122)">
+      <rect width="284" height="52"/>
+      <text class="uml-name" x="142" y="22">CompressedMqttChannel</text>
+      <text class="uml-member" x="10" y="42">send(): 압축 → super()</text>
+    </g>
+    <g class="uml-class warn" transform="translate(28,198)">
+      <rect width="284" height="68"/>
+      <text class="uml-name" x="142" y="22">CompressedEncryptedMqttChannel</text>
+      <text class="uml-member" x="10" y="42">⚠ 부모를 건너뛴다</text>
+      <text class="uml-member" x="10" y="58">압축 로직을 복제</text>
+    </g>
+    <path class="uml-inherit" d="M120 122 V98" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M120 198 V174" marker-end="url(#triangle)"/>
+    <path class="uml-dep" d="M312 232 H322 V72 H312" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="132" y="190">MqttChannel.send 직접 →</text>
+    <g class="uml-func warn" transform="translate(28,290)">
+      <rect width="284" height="64"/>
+      <text class="uml-member" x="10" y="22">⚠ Encrypted… · Batched… · Logged…</text>
+      <text class="uml-member" x="10" y="40">기능 부분집합마다 클래스 하나</text>
+      <text class="uml-member" x="10" y="56">기능 4개 → 16개 [1]</text>
+    </g>
+
+    <text class="uml-note" x="346" y="24">(B) 플래그로 조합</text>
+    <g class="uml-group" transform="translate(346,32)"><rect width="274" height="338"/></g>
+    <g class="uml-class warn" transform="translate(356,46)">
+      <rect width="254" height="70"/>
+      <text class="uml-name" x="127" y="22">FlagMqttChannel</text>
+      <line x1="0" y1="32" x2="254" y2="32"/>
+      <text class="uml-member" x="10" y="50">compress · encrypt</text>
+      <text class="uml-member" x="10" y="64">batch_size · log</text>
+    </g>
+    <text class="uml-note" x="372" y="131">send() 한 메서드 안의 줄 순서</text>
+    <g class="uml-func" transform="translate(356,142)"><rect width="254" height="28"/><text class="uml-member" x="12" y="19">batch_size > 1: 모으기</text></g>
+    <g class="uml-func warn" transform="translate(356,180)"><rect width="254" height="28"/><text class="uml-member" x="12" y="19">compress: zlib.compress</text></g>
+    <g class="uml-func warn" transform="translate(356,218)"><rect width="254" height="28"/><text class="uml-member" x="12" y="19">encrypt: toy_encrypt</text></g>
+    <g class="uml-func" transform="translate(356,256)"><rect width="254" height="28"/><text class="uml-member" x="12" y="19">log: 크기 출력</text></g>
+    <g class="uml-func" transform="translate(356,294)"><rect width="254" height="28"/><text class="uml-member" x="12" y="19">sent_sizes 기록</text></g>
+    <path class="uml-dep" d="M483 170 V180" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M483 208 V218" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M483 246 V256" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M483 284 V294" marker-end="url(#arrow)"/>
+    <text class="uml-note" x="356" y="340">⚠ 압축이 암호화보다 먼저라는 규칙이</text>
+    <text class="uml-note" x="356" y="358">if 두 개의 줄 순서에만 있다</text>
+
+    <g class="uml-step"><circle cx="28" cy="198" r="9"/><text x="28" y="202">1</text></g>
+    <g class="uml-step"><circle cx="28" cy="290" r="9"/><text x="28" y="294">2</text></g>
+    <g class="uml-step"><circle cx="356" cy="142" r="9"/><text x="356" y="146">3</text></g>
+
+    <text class="uml-note" x="20" y="404"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="426">① 순서를 맞추려 부모를 건너뛰는 상속 → ② 조합마다 늘어나는 클래스</text>
+    <text class="uml-note" x="20" y="448">③ 플래그 방식의 send(): 새 기능은 이 메서드 수정, 로그 위치는 바꿀 수 없다</text>
+    <text class="uml-note" x="20" y="470">데모 [1] 클래스 수 · [2] 상속 방식 전송 · [3] 플래그 방식 전송(동작은 한다)</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 빈 삼각형은 "상속한다", 점선 화살표는 "부른다/다음 줄로". (A)는 클래스가 너무 많고, (B)는 한 메서드가 너무 많이 안다.</figcaption>
+</figure>
 <pre data-src="06_decorator/01_naive.py"></pre>
 <p>두 방식의 결함은 이렇게 정리된다.</p>
 <ul>

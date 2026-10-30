@@ -28,6 +28,69 @@ part: 생성 패턴
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">GCP 전환을 반쯤 끝낸 시점의 코드다. 벤더 <dfn data-term="wrapper">래퍼</dfn>(다른 객체를 감싸 호출을 받아 전달하는 객체)는 실제 SDK 대신 메모리로 흉내 냈다. 코드 주석의 <code><dfn data-term="environment-variable">os.environ</dfn></code>은 프로세스 바깥에서 주어지는 <code>이름=값</code> 설정인 환경 변수를 읽는 통로이고, Pub/Sub 래퍼 docstring의 <dfn data-term="publish-subscribe">토픽</dfn>은 발행-구독 방식의 수신 주소다. 발행자가 토픽에 메시지를 내보내면 그 토픽을 구독한 쪽들이 받아 가고, 발행자는 누가 받는지 모른다. <code>UploadService.__init__</code>의 세 줄이 "같은 환경이어야 한다"는 규칙을 어떻게 암묵적으로 지키는지, 그리고 <code>ThumbnailWorker.__init__</code>에서 무엇이 빠졌는지 보라. 데모 [2]에서는 실패가 <em>언제</em> 드러나는지가 핵심이다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 520" role="img" aria-label="01_naive.py의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다">
+      <g class="uml-func" transform="translate(20,36)">
+        <rect width="180" height="48"/>
+        <text class="uml-name" x="90" y="22">CLOUD = "aws"</text>
+        <text class="uml-member" x="10" y="40">전역 · 환경 변수 흉내</text>
+      </g>
+      <path class="uml-dep" d="M110 84 V130" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="118" y="112">생성 지점마다 읽음</text>
+      <text class="uml-note" x="290" y="60">데모 [2] CLOUD = "gcp"일 때 실제로 만들어지는 것</text>
+      <text class="uml-note" x="290" y="120">GCP 제품군</text>
+      <text class="uml-note" x="464" y="120">AWS 제품군</text>
+      <g class="uml-class" transform="translate(290,130)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">GcsStorage</text></g>
+      <g class="uml-class" transform="translate(290,176)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">GcpSecretManagerVault</text></g>
+      <g class="uml-class" transform="translate(290,222)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">PubSubQueue</text></g>
+      <g class="uml-class" transform="translate(464,130)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">S3Storage</text></g>
+      <g class="uml-class" transform="translate(464,176)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SecretsManagerVault</text></g>
+      <g class="uml-class" transform="translate(464,222)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SqsQueue</text></g>
+      <g class="uml-class warn" transform="translate(20,130)">
+        <rect width="220" height="124"/>
+        <text class="uml-name" x="110" y="22">UploadService</text>
+        <line x1="0" y1="32" x2="220" y2="32"/>
+        <text class="uml-member" x="10" y="52">storage · queue · vault</text>
+        <text class="uml-member" x="10" y="70">⚠ 세 줄이 각자 분기</text>
+        <text class="uml-member" x="10" y="88">⚠ 같은 환경은 기억에만</text>
+        <line x1="0" y1="100" x2="220" y2="100"/>
+        <text class="uml-member" x="10" y="118">+ upload(key, data)</text>
+      </g>
+      <path class="uml-dep" d="M240 146 H290" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M240 192 H290" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M240 238 H290" marker-end="url(#arrow)"/>
+
+      <g class="uml-class warn" transform="translate(20,300)">
+        <rect width="220" height="108"/>
+        <text class="uml-name" x="110" y="22">ThumbnailWorker</text>
+        <line x1="0" y1="32" x2="220" y2="32"/>
+        <text class="uml-member" x="10" y="52">queue: 분기 있음</text>
+        <text class="uml-member" x="10" y="70">⚠ storage = S3Storage()</text>
+        <line x1="0" y1="80" x2="220" y2="80"/>
+        <text class="uml-member" x="10" y="98">+ process_one()</text>
+      </g>
+      <path class="uml-dep" d="M240 330 H370 V254" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M240 370 H457 V146 H464" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="268" y="362">분기 없이 하드코딩</text>
+
+      <g class="uml-func warn" transform="translate(464,290)">
+        <rect width="160" height="56"/>
+        <text class="uml-name" x="80" y="22">첫 메시지에서</text>
+        <text class="uml-member" x="10" y="42">gs:// URL을 못 읽음</text>
+      </g>
+      <text class="uml-note" x="464" y="366">시작 시점엔 오류 없음</text>
+
+      <g class="uml-step"><circle cx="20" cy="130" r="9"/><text x="20" y="134">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="300" r="9"/><text x="20" y="304">2</text></g>
+      <g class="uml-step"><circle cx="464" cy="290" r="9"/><text x="464" y="294">3</text></g>
+
+      <text class="uml-note" x="20" y="444"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+      <text class="uml-note" x="20" y="466">① UploadService: 생성 지점마다 같은 분기 → ② ThumbnailWorker: 한 줄을 빠뜨렸다</text>
+      <text class="uml-note" x="20" y="488">③ 데모 [2]: 업로드는 gs://로 저장, 워커의 S3Storage가 그 URL을 거부</text>
+      <text class="uml-note" x="20" y="510">데모 [1] AWS는 우연히 일치 · [3] 새 환경은 환경 수 × 생성 지점 수만큼 수정</text>
+    </svg>
+    <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "직접 만든다". 두 열의 래퍼는 멀쩡하고, 어느 열에서 고를지가 생성 지점마다 따로 정해진다.</figcaption>
+  </figure>
   <pre data-src="02_abstract_factory/01_naive.py"></pre>
   <p>[2]의 "서비스 시작 OK" 줄이 이 설계의 가장 위험한 성질을 보여준다. <code>GcsStorage</code>와 <code>S3Storage</code>는 둘 다 <code>put</code>/<code>get</code>을 가진 멀쩡한 객체라서, 덕 타이핑에서도 정적 타입 검사에서도 "틀린 조합"이 아니다. 조합의 오류는 두 객체가 서로의 결과물(URL)을 주고받는 순간, 즉 런타임 한참 뒤에야 드러난다.</p>
   <p>문제를 둘로 나눌 수 있다. 첫째는 <strong>분산</strong>이다. 환경 수 × 생성 지점 수만큼 수정해야 하고(OCP 위반), 서비스 클래스들이 벤더 구체 클래스를 직접 안다(DIP 위반). 이것만이라면 1장의 팩토리 메서드나 단순 팩토리로도 해결된다. 둘째가 이 장의 고유한 문제인 <strong>일관성</strong>이다. 생성 함수를 저장소용·큐용·시크릿용으로 따로 만들면 분산은 해결되지만, 여전히 호출자가 <code>make_storage("gcp")</code>와 <code>make_queue("aws")</code>를 섞어 부를 수 있다. 필요한 것은 "어느 제품군인가"라는 결정을 <em>단 한 번만</em> 내리게 하는 구조다.</p>
@@ -130,6 +193,78 @@ part: 생성 패턴
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
   <p class="lead-in">이제 제품군을 <code>CloudFactory</code> 계층으로 묶는다. 파일이 길므로 다음 순서로 읽기를 권한다. (1) 맨 위의 <code>CloudAccount</code>: 제품군이 일관되어야 하는 실제 이유인 "<dfn data-term="shared-context">공유 컨텍스트</dfn>"다. 한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정과 상태를 말하며, 구체 팩토리가 소유해 모든 제품에 나눠 준다. 주석의 <code><dfn data-term="boto3">boto3</dfn></code>는 AWS의 공식 파이썬 SDK이고, <dfn data-term="bucket">버킷</dfn>은 객체 저장소에서 객체들을 담는 최상위 그릇이다. (2) <code>CloudFactory</code>와 세 구체 팩토리: 각 팩토리가 계정 컨텍스트를 한 번 만들어 모든 제품에 나눠 주는 방식. (3) 클라이언트인 <code>UploadService</code>, <code>ThumbnailWorker</code>: 구체 클래스 이름이 하나라도 남아 있는지. (4) <code>make_cloud_factory()</code>: 분기가 남아 있는 유일한 곳.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 590" role="img" aria-label="02_abstract_factory.py의 배치: 위 표의 각 행이 한 제품군이고 구체 팩토리가 그 행의 저장소·큐·시크릿을 만든다. 각 팩토리는 CloudAccount를 한 번 만들어 _AccountStorage·_AccountQueue 계열 제품에 나눠 준다. 아래에서 make_cloud_factory()가 팩토리 하나를 골라 UploadService와 ThumbnailWorker에 함께 넘긴다">
+      <text class="uml-note" x="20" y="24">Abstract Factory · Abstract Product</text>
+      <g class="uml-class" transform="translate(20,40)"><rect width="144" height="32"/><text class="uml-member uml-abstract" x="72" y="21" text-anchor="middle">CloudFactory</text></g>
+      <g class="uml-class" transform="translate(178,40)"><rect width="130" height="32"/><text class="uml-member uml-abstract" x="65" y="21" text-anchor="middle">BlobStorage</text></g>
+      <g class="uml-class" transform="translate(322,40)"><rect width="120" height="32"/><text class="uml-member uml-abstract" x="60" y="21" text-anchor="middle">MessageQueue</text></g>
+      <g class="uml-class" transform="translate(456,40)"><rect width="164" height="32"/><text class="uml-member uml-abstract" x="82" y="21" text-anchor="middle">SecretVault</text></g>
+      <text class="uml-note" x="178" y="90">한 행 = 한 제품군 · 각 열은 위 칸의 추상 타입을 따른다</text>
+      <g class="uml-class highlight" transform="translate(20,100)"><rect width="144" height="32"/><text class="uml-member" x="72" y="21" text-anchor="middle">AwsFactory</text></g>
+      <g class="uml-class" transform="translate(178,100)"><rect width="130" height="32"/><text class="uml-member" x="65" y="21" text-anchor="middle">S3Storage</text></g>
+      <g class="uml-class" transform="translate(322,100)"><rect width="120" height="32"/><text class="uml-member" x="60" y="21" text-anchor="middle">SqsQueue</text></g>
+      <g class="uml-class" transform="translate(456,100)"><rect width="164" height="32"/><text class="uml-member" x="82" y="21" text-anchor="middle">SecretsManagerVault</text></g>
+      <g class="uml-class highlight" transform="translate(20,146)"><rect width="144" height="32"/><text class="uml-member" x="72" y="21" text-anchor="middle">GcpFactory</text></g>
+      <g class="uml-class" transform="translate(178,146)"><rect width="130" height="32"/><text class="uml-member" x="65" y="21" text-anchor="middle">GcsStorage</text></g>
+      <g class="uml-class" transform="translate(322,146)"><rect width="120" height="32"/><text class="uml-member" x="60" y="21" text-anchor="middle">PubSubQueue</text></g>
+      <g class="uml-class" transform="translate(456,146)"><rect width="164" height="32"/><text class="uml-member" x="82" y="21" text-anchor="middle">GcpSecretManagerVault</text></g>
+      <g class="uml-class highlight" transform="translate(20,192)"><rect width="144" height="32"/><text class="uml-member" x="72" y="21" text-anchor="middle">LocalFactory</text></g>
+      <g class="uml-class" transform="translate(178,192)"><rect width="130" height="32"/><text class="uml-member" x="65" y="21" text-anchor="middle">LocalFileStorage</text></g>
+      <g class="uml-class" transform="translate(322,192)"><rect width="120" height="32"/><text class="uml-member" x="60" y="21" text-anchor="middle">InMemoryQueue</text></g>
+      <g class="uml-class" transform="translate(456,192)"><rect width="164" height="32"/><text class="uml-member" x="82" y="21" text-anchor="middle">DotEnvVault</text></g>
+      <g class="uml-class" transform="translate(178,250)"><rect width="130" height="32"/><text class="uml-member" x="65" y="21" text-anchor="middle">_AccountStorage</text></g>
+      <g class="uml-class" transform="translate(322,250)"><rect width="120" height="32"/><text class="uml-member" x="60" y="21" text-anchor="middle">_AccountQueue</text></g>
+      <path class="uml-inherit" d="M92 100 V72" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M538 100 V72" marker-end="url(#triangle)"/>
+          <text class="uml-note" x="456" y="250">계정 대신 각자</text>
+      <text class="uml-note" x="456" y="268">region · project · values</text>
+      <text class="uml-note" x="178" y="242">저장소·큐 행의 공통 부모: 계정을 받는다</text>
+
+      <g class="uml-class" transform="translate(178,318)">
+        <rect width="264" height="56"/>
+        <text class="uml-name" x="132" y="22">CloudAccount</text>
+        <text class="uml-member" x="10" y="44">name · url_scheme · bucket · queue</text>
+      </g>
+      <path class="uml-dep" d="M243 282 V318" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M382 282 V318" marker-end="url(#arrow)"/>
+      <path class="marker-fill" d="M92 224 L99 234 L92 244 L85 234 Z"/>
+      <path class="uml-compose" d="M92 244 V346 H178"/>
+      <text class="uml-label" x="100" y="266">각 팩토리가</text>
+      <text class="uml-label" x="100" y="282">_account를</text>
+      <text class="uml-label" x="100" y="298">한 번 만든다</text>
+
+      <text class="uml-note" x="20" y="410">Composition root · Client</text>
+      <g class="uml-func" transform="translate(20,420)">
+        <rect width="220" height="60"/>
+        <text class="uml-name" x="110" y="22">make_cloud_factory(env)</text>
+        <text class="uml-member" x="10" y="44">aws · gcp · local 분기</text>
+      </g>
+      <g class="uml-class" transform="translate(300,420)">
+        <rect width="150" height="60"/>
+        <text class="uml-name" x="75" y="22">UploadService</text>
+        <text class="uml-member" x="10" y="44">create_* 세 번</text>
+      </g>
+      <g class="uml-class" transform="translate(470,420)">
+        <rect width="150" height="60"/>
+        <text class="uml-name" x="75" y="22">ThumbnailWorker</text>
+        <text class="uml-member" x="10" y="44">queue · storage</text>
+      </g>
+      <path class="uml-dep" d="M240 440 H300" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M270 440 V496 H545 V480" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="280" y="510">같은 팩토리 하나를 함께 받는다</text>
+
+      <g class="uml-step"><circle cx="178" cy="318" r="9"/><text x="178" y="322">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">2</text></g>
+      <g class="uml-step"><circle cx="300" cy="420" r="9"/><text x="300" y="424">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="420" r="9"/><text x="20" y="424">4</text></g>
+
+      <text class="uml-note" x="20" y="536"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 구체 팩토리, 한 행이 그 팩토리가 만드는 제품군</text>
+      <text class="uml-note" x="20" y="556">① CloudAccount → ② CloudFactory와 세 구체 팩토리 → ③ 클라이언트 → ④ make_cloud_factory()</text>
+      <text class="uml-note" x="20" y="576">데모 [1] 세 환경 · [2] 섞인 조합이 생길 수 있는 곳 · [3] 팩토리가 둘이면 로컬 큐가 갈라진다</text>
+    </svg>
+    <figcaption>코드 지도 · 02_abstract_factory.py. 그림 2-1이 생략한 제품군 전체와 공유 컨텍스트를 한 장에 모았다. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다/넘긴다".</figcaption>
+  </figure>
   <pre data-src="02_abstract_factory/02_abstract_factory.py"></pre>
   <p>[1]에서 같은 클라이언트 코드가 세 환경에서 그대로 돈다. naive 버전에서 장애를 냈던 <code>ThumbnailWorker</code>는 이제 저장소와 큐를 같은 팩토리에서 받으므로, 다른 제품군의 저장소를 가질 길이 없다. 섞인 조합을 만들려면 <code>GcpFactory.create_storage()</code>가 <code>S3Storage</code>를 반환하도록 <em>제품군 정의 자체</em>를 틀리게 써야 하는데, 그것은 코드 리뷰에서 한 곳만 보면 잡힌다. 일관성 규칙이 "모든 생성 지점에서 지켜야 할 약속"에서 "한 클래스의 정의"로 좁혀진 것이다. 다만 <code>UploadService</code>와 <code>ThumbnailWorker</code>에 <em>서로 다른</em> 팩토리를 넘기면 클라이언트 사이의 불일치는 여전히 가능하다. 그것을 막는 것이 아래에서 말할 composition root다.</p>
   <p><code>UploadService</code>가 제품 세 개를 따로 주입받지 않고 팩토리를 받는다는 점도 의도적이다. 제품을 개별 인자로 받으면 의존성 주입으로서는 더 순수하지만, 호출자가 다시 GCS와 SQS를 섞어 넘길 수 있다. 추상 팩토리는 "결정을 한 번만 내리게 한다"는 제약 자체를 인터페이스로 만든 것이다.</p>
@@ -144,6 +279,90 @@ part: 생성 패턴
   <h2>5. 파이썬다운 변형</h2>
   <p>02의 클래스 수를 세어 보면 추상 4개, 구체 팩토리 3개, 구체 제품 9개다. 파이썬에는 이 무게를 줄일 도구가 둘 있다. 제품 인터페이스를 <code>typing.Protocol</code>로 정의하면 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 된다. 그리고 팩토리를 "생성 함수 몇 개의 묶음"으로 보면 클래스 계층 대신 불변 값 하나로 표현할 수 있다. 같은 이름의 함수(<code>create_storage</code>, <code>create_queue</code>)를 가진 모듈 <code>aws.py</code>, <code>gcp.py</code>를 두고 모듈 객체 자체를 팩토리로 넘기는 방법도 같은 발상이다.</p>
   <p class="lead-in">아래 코드는 팩토리를 <code>@dataclass(frozen=True)</code> 번들 <code>CloudKit</code>으로, 구체 팩토리를 그 번들을 만드는 함수 <code>aws_kit()</code> 등으로 바꾼다. 환경 변수를 읽는 <code>composition_root()</code>가 하나뿐이라는 점과, 무엇보다 <code><dfn data-term="post-init">__post_init__</dfn></code>이 왜 필요한지에 주목하라. 데모 [2]와 [3]이 그 답이다. <code>__post_init__</code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검증을 넣는 자리다. 데모 [3]의 <code><dfn data-term="dataclasses-replace">dataclasses.replace</dfn></code>는 기존 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수인데, 내부적으로 생성자를 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 560" role="img" aria-label="03_pythonic.py의 구조: composition_root()가 KITS 표에서 aws_kit 같은 함수를 골라 CloudKit 번들을 얻고, upload_and_process()는 그 번들만 받는다. CloudKit의 storage·queue 생성 함수는 SchemeStorage와 ListQueue를 돌려주며 이들은 Protocol을 상속 없이 만족한다. 섞인 번들은 __post_init__이 ValueError로 막는다">
+      <g class="uml-func" transform="translate(20,40)">
+        <rect width="200" height="56"/>
+        <text class="uml-name" x="100" y="22">composition_root()</text>
+        <text class="uml-member" x="10" y="44">os.environ["CLOUD_ENV"]</text>
+      </g>
+      <g class="uml-func" transform="translate(250,40)">
+        <rect width="150" height="56"/>
+        <text class="uml-name" x="75" y="22">KITS</text>
+        <text class="uml-member" x="10" y="44">env → 키트 함수</text>
+      </g>
+      <path class="uml-dep" d="M220 68 H250" marker-end="url(#arrow)"/>
+      <g class="uml-group" transform="translate(436,30)"><rect width="184" height="114"/></g>
+      <g class="uml-func" transform="translate(444,40)"><rect width="168" height="28"/><text class="uml-member" x="84" y="19" text-anchor="middle">aws_kit()</text></g>
+      <g class="uml-func" transform="translate(444,74)"><rect width="168" height="28"/><text class="uml-member" x="84" y="19" text-anchor="middle">gcp_kit()</text></g>
+      <g class="uml-func" transform="translate(444,108)"><rect width="168" height="28"/><text class="uml-member" x="84" y="19" text-anchor="middle">local_kit()</text></g>
+      <path class="uml-dep" d="M400 68 H436" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="250" y="124">02의 AwsFactory 등을</text>
+      <text class="uml-note" x="250" y="140">대신하는 함수 →</text>
+      <path class="uml-dep" d="M528 144 V170 H355 V190" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="364" y="164">번들 하나를 돌려준다</text>
+
+      <g class="uml-func" transform="translate(20,212)">
+        <rect width="170" height="60"/>
+        <text class="uml-name" x="85" y="22">upload_and_process</text>
+        <text class="uml-member" x="10" y="44">(kit, key) · Client</text>
+      </g>
+      <path class="uml-dep" d="M190 242 H230" marker-end="url(#arrow)"/>
+      <g class="uml-class highlight" transform="translate(230,190)">
+        <rect width="250" height="136"/>
+        <text class="uml-name" x="125" y="22">CloudKit</text>
+        <text class="uml-stereo" x="125" y="38">frozen dataclass</text>
+        <line x1="0" y1="46" x2="250" y2="46"/>
+        <text class="uml-member" x="10" y="64">provider: str</text>
+        <text class="uml-member" x="10" y="82">storage: Callable[[], …]</text>
+        <text class="uml-member" x="10" y="100">queue: Callable[[], …]</text>
+        <line x1="0" y1="110" x2="250" y2="110"/>
+        <text class="uml-member" x="10" y="128">__post_init__(): 소속 검사</text>
+      </g>
+      <g class="uml-func warn" transform="translate(500,250)">
+        <rect width="120" height="76"/>
+        <text class="uml-name" x="60" y="22">섞인 번들</text>
+        <text class="uml-member" x="10" y="42">[2] 직접 섞기</text>
+        <text class="uml-member" x="10" y="58">[3] replace()</text>
+      </g>
+      <path class="uml-dep" d="M500 308 H480" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="500" y="344">→ ValueError</text>
+
+      <g class="uml-class" transform="translate(20,370)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">SchemeStorage</text>
+        <text class="uml-member" x="10" y="44">provider · scheme</text>
+      </g>
+      <g class="uml-class" transform="translate(230,370)">
+        <rect width="160" height="60"/>
+        <text class="uml-name" x="80" y="22">ListQueue</text>
+        <text class="uml-member" x="10" y="44">provider</text>
+      </g>
+      <g class="uml-class" transform="translate(430,370)">
+        <rect width="190" height="76"/>
+        <text class="uml-stereo" x="95" y="18">Protocol</text>
+        <text class="uml-member" x="10" y="38">BlobStorage</text>
+        <text class="uml-member" x="10" y="54">MessageQueue</text>
+        <text class="uml-member" x="10" y="70">provider 속성 필수</text>
+      </g>
+      <path class="uml-dep" d="M290 326 V346 H115 V370" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M310 326 V370" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="122" y="340">lambda가 같은 인스턴스를 내준다</text>
+      <path class="uml-impl" d="M390 400 H430" marker-end="url(#triangle)"/>
+      <path class="uml-impl" d="M115 430 V456 H525 V446" marker-end="url(#triangle)"/>
+      <text class="uml-label" x="240" y="472">상속 없이 모양만 맞춘다</text>
+
+      <g class="uml-step"><circle cx="230" cy="190" r="9"/><text x="230" y="194">1</text></g>
+      <g class="uml-step"><circle cx="436" cy="30" r="9"/><text x="436" y="34">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="212" r="9"/><text x="20" y="216">4</text></g>
+
+      <text class="uml-note" x="20" y="504"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02의 CloudFactory 계층을 대신하는 값</text>
+      <text class="uml-note" x="20" y="526">① CloudKit과 __post_init__ → ② aws_kit() 등 → ③ composition_root() → ④ upload_and_process()</text>
+      <text class="uml-note" x="20" y="548">데모 [1] 세 환경 · [2] 섞인 번들 · [3] replace()도 같은 검사를 거친다</text>
+    </svg>
+    <figcaption>코드 지도 · 03_pythonic.py. 둥근 상자는 함수·값, 점선 화살표는 "넘긴다/만든다", 빈 삼각형 점선은 "모양을 맞춘다".</figcaption>
+  </figure>
   <pre data-src="02_abstract_factory/03_pythonic.py"></pre>
   <p>[1]은 가벼워진 대가로 잃은 것이 없어 보인다. 그러나 [2]가 중요하다. 번들은 <em>데이터</em>이므로 <code>CloudKit("gcp", storage=gcp.storage, queue=aws.queue)</code>처럼 누구나 필드를 섞어 새 번들을 만들 수 있다. 클래스 계층에서는 <code>GcpFactory</code>라는 <em>타입</em>이 제품군 정의를 독점했기 때문에 이런 일이 구조적으로 불가능했다. 번들 방식은 그 보장을 <code>__post_init__</code>의 실행 시 검사로 되찾아야 하고, 그 검사도 제품이 정직하게 <code>provider</code>를 밝힌다는 약속에 기댄다. 검사를 위해 생성 함수를 미리 호출해야 하므로 생성이 비싼 제품에는 적용하기 어렵다는 한계도 있다.</p>
   <p>그렇다면 클래스 계층은 언제 여전히 필요한가? (1) 구체 팩토리가 리전·자격 증명·<dfn data-term="connection-pool">연결 풀</dfn>(비싼 네트워크 연결을 미리 만들어 두고 재사용하는 연결 묶음) 같은 <strong>공유 상태를 소유</strong>해야 할 때(02의 <code>CloudAccount</code>), (2) 제품군 정의를 여러 팀이 독립적으로 추가하며 <strong>타입으로 일관성을 강제</strong>하고 싶을 때, (3) 제품 생성에 제품군 공통 로직(<dfn data-term="retry-policy">재시도 정책</dfn>(실패한 요청을 언제, 몇 번 다시 시도할지 정한 규칙), <dfn data-term="instrumentation">계측</dfn> 래핑(실행 시간·호출 수 같은 지표를 모으는 측정 코드를 덧씌우는 것))이 붙을 때다. 반대로 제품군이 두세 개이고 composition root에서만 조립된다면, 번들이나 모듈 방식이 읽기 쉽고 충분하다.</p>

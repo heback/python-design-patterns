@@ -45,6 +45,58 @@
 <section id="naive">
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 은우의 편집기다. 이동 코드가 툴바와 단축키에 복제된 모습, 핸들러마다 <code>last_action</code>을 다른 모양으로 채우는 모습, 그리고 <code>on_undo()</code>가 모든 동작의 종류를 알아야 하는 구조에 주목하라. 코드 주석에 나오는 <dfn class="term" id="term-inverse-operation" data-term="inverse-operation" title="어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(예: +1 ↔ −1). 연산이 정보를 잃으면(자르기·삭제·반올림) 존재하지 않는다.">역연산</dfn>은 어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(+30 이동 ↔ −30 이동)이다. 연산이 정보를 잃으면(경계에서 자르기, 삭제, 반올림) 올바른 역연산은 존재하지 않는다 — 이 점이 첫 번째 버그의 원인이다. 데모는 베타 사용자의 버그 보고 네 건을 그대로 재현한다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 392" role="img" aria-label="01_naive.py의 구조: Editor 한 클래스가 도형 저장소이자 UI 핸들러 모음이다. 핸들러마다 last_action 한 칸을 다른 모양으로 채우거나 잊고, on_undo()가 동작 종류별로 분기해 역연산으로 되돌린다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">도형</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="150" height="76"/>
+      <text class="uml-name" x="75" y="22">Shape</text>
+      <line x1="0" y1="32" x2="150" y2="32"/>
+      <text class="uml-member" x="10" y="52">id · x · y</text>
+      <text class="uml-member" x="10" y="70">color</text>
+    </g>
+    <path class="uml-compose" d="M170 74 H180"/>
+    <path class="marker-fill" d="M200 74 L190 68 L180 74 L190 80 Z"/>
+
+    <text class="uml-note" x="200" y="24">저장소 + 핸들러 모음 — 책임이 섞였다</text>
+    <g class="uml-class warn" transform="translate(200,36)">
+      <rect width="420" height="210"/>
+      <text class="uml-name" x="210" y="22">Editor</text>
+      <line x1="0" y1="32" x2="420" y2="32"/>
+      <text class="uml-member" x="10" y="52">shapes: dict[str, Shape]</text>
+      <text class="uml-member" x="10" y="72">last_action: tuple | None  ⚠ 한 칸뿐</text>
+      <line x1="0" y1="84" x2="420" y2="84"/>
+      <text class="uml-member" x="10" y="106">on_toolbar_move()</text>
+      <text class="uml-member" x="176" y="106">→ ("move", id, dx, dy)</text>
+      <text class="uml-member" x="10" y="128">on_toolbar_color()</text>
+      <text class="uml-member" x="176" y="128">→ ("color", id, 이전 색)</text>
+      <text class="uml-member" x="10" y="150">on_shortcut_move()</text>
+      <text class="uml-member" x="176" y="150">⚠ 복사본, 0 자르기 빠짐</text>
+      <text class="uml-member" x="10" y="172">on_context_delete()</text>
+      <text class="uml-member" x="176" y="172">⚠ 기록을 잊음</text>
+      <line x1="0" y1="182" x2="420" y2="182"/>
+      <text class="uml-member" x="10" y="200">on_undo()</text>
+      <text class="uml-member" x="176" y="200">⚠ kind별 분기 · 역연산</text>
+    </g>
+
+    <text class="uml-label" x="200" y="272">위 네 핸들러가 last_action을 각자 다른 모양으로 쓰거나 잊고,</text>
+    <text class="uml-label" x="200" y="292">on_undo()는 그 모양을 kind로 갈라 읽는다. 읽은 뒤에는 None으로 비운다</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="200" cy="36" r="9"/><text x="200" y="40">2</text></g>
+    <g class="uml-step"><circle cx="200" cy="218" r="9"/><text x="200" y="222">3</text></g>
+
+    <text class="uml-note" x="20" y="330"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제 지점(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="352">① Shape → ② 핸들러 넷: 무엇을 last_action에 남기는가 → ③ on_undo()의 분기</text>
+    <text class="uml-note" x="20" y="374">데모 [1] 잘린 이동의 undo · [2] 단축키는 캔버스 밖으로 · [3] 한 단계뿐 · [4] 삭제는 영영</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "담고 있다". 오른쪽 열은 각 핸들러가 last_action에 남기는 것이다.</figcaption>
+</figure>
 <figure class="code"><figcaption>src/12_command/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 도형 편집 동작이 UI 핸들러 안에 직접 박혀 있다.
 
 상황: 웹 기반 다이어그램 도구 &#x27;스케치보드&#x27;의 개발자 은우는 툴바 버튼 핸들러 안에서
@@ -600,6 +652,86 @@ if __name__ == &quot;__main__&quot;:
 <p>수신자는 undo를 모르지만, undo가 <em>가능하도록</em> 필요한 정보를 내준다. 그래서 명령은 도형 객체의 필드를 직접 만지지 않고 언제나 수신자 API를 거친다 — 수신자의 규칙(경계 자르기 같은 불변식)을 명령이 우회하지 못하게 하기 위해서다. <code>remove()</code>가 z-순서 인덱스를 돌려주지 않았다면 삭제 취소는 도형을 맨 위에 다시 그리게 되어 미묘하게 틀린 결과를 낸다.</p>
 
 <p class="lead-in">다음은 명령 계약과 구체 명령 셋이다. 각 명령이 되돌리기 정보를 <em>언제</em> 기록하는지(생성 시점이 아니라 <code>execute()</code> 시점), 그리고 세 명령이 각각 무엇을 <dfn class="term" id="term-snapshot" data-term="snapshot" title="어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것. 커맨드의 undo에서 실행 직전 값을 기억해 두었다가 그대로 되돌리는 데 쓴다.">스냅샷</dfn>으로 남기는지 docstring에서 확인하라. 스냅샷은 어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것으로, 여기서는 실행 직전 값을 기억했다가 undo 때 그대로 되돌리는 데 쓴다. <code>MoveShape</code>가 왜 역연산이 아니라 스냅샷을 쓰는지도 주목하라.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 520" role="img" aria-label="02_command.py 둘째 조각의 구조: 추상 클래스 Command를 MoveShape·ChangeColor·DeleteShape가 구현하고, 각 명령은 execute() 때 _before·_prev·_removed 스냅샷을 남긴 뒤 Canvas의 API만 호출한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="60">스냅샷은 생성자가 아니라</text>
+    <text class="uml-note" x="20" y="80">execute() 때 기록한다</text>
+
+    <text class="uml-note" x="190" y="24">[Command] ABC</text>
+    <g class="uml-class highlight" transform="translate(190,36)">
+      <rect width="260" height="86"/>
+      <text class="uml-name uml-abstract" x="130" y="22">Command</text>
+      <line x1="0" y1="32" x2="260" y2="32"/>
+      <text class="uml-member" x="10" y="52">execute() · undo()  ← 추상</text>
+      <text class="uml-member" x="10" y="72">label (property)</text>
+    </g>
+
+    <text class="uml-label" x="470" y="60">다음 조각:</text>
+    <text class="uml-label" x="470" y="80">MacroCommand</text>
+    <text class="uml-label" x="470" y="100">CommandHistory · 데모</text>
+
+    <path class="uml-inherit" d="M320 170 V124" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M115 170 V146 H525 V170"/>
+    <g class="uml-class" transform="translate(20,170)">
+      <rect width="190" height="142"/>
+      <text class="uml-name" x="95" y="22">MoveShape</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">shape_id · dx · dy</text>
+      <line x1="0" y1="62" x2="190" y2="62"/>
+      <text class="uml-member" x="10" y="82">_before: (x, y)</text>
+      <line x1="0" y1="92" x2="190" y2="92"/>
+      <text class="uml-member" x="10" y="112">execute: 좌표 기억→이동</text>
+      <text class="uml-member" x="10" y="130">undo: 기억한 좌표로</text>
+    </g>
+    <g class="uml-class" transform="translate(225,170)">
+      <rect width="190" height="142"/>
+      <text class="uml-name" x="95" y="22">ChangeColor</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">shape_id · color</text>
+      <line x1="0" y1="62" x2="190" y2="62"/>
+      <text class="uml-member" x="10" y="82">_prev: str</text>
+      <line x1="0" y1="92" x2="190" y2="92"/>
+      <text class="uml-member" x="10" y="112">execute: 이전 색 받아 둠</text>
+      <text class="uml-member" x="10" y="130">undo: 이전 색으로</text>
+    </g>
+    <g class="uml-class" transform="translate(430,170)">
+      <rect width="190" height="142"/>
+      <text class="uml-name" x="95" y="22">DeleteShape</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">shape_id</text>
+      <line x1="0" y1="62" x2="190" y2="62"/>
+      <text class="uml-member" x="10" y="82">_removed: (Shape, idx)</text>
+      <line x1="0" y1="92" x2="190" y2="92"/>
+      <text class="uml-member" x="10" y="112">execute: 도형·위치 보관</text>
+      <text class="uml-member" x="10" y="130">undo: 같은 위치에 add</text>
+    </g>
+
+    <path class="uml-dep" d="M115 312 V360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M320 312 V360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M525 312 V360" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="330" y="342">수신자 API만 호출</text>
+    <g class="uml-class" transform="translate(20,360)">
+      <rect width="600" height="82"/>
+      <text class="uml-name" x="300" y="22">Canvas (앞 조각)</text>
+      <line x1="0" y1="32" x2="600" y2="32"/>
+      <text class="uml-member" x="10" y="52">move_to(id, x, y) · add(shape, index)</text>
+      <text class="uml-member" x="10" y="70">set_color() → 이전 색 · remove() → (Shape, 위치)</text>
+    </g>
+
+    <g class="uml-step"><circle cx="190" cy="36" r="9"/><text x="190" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="170" r="9"/><text x="20" y="174">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="360" r="9"/><text x="20" y="364">3</text></g>
+
+    <text class="uml-note" x="20" y="478"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 조각의 계약</text>
+    <text class="uml-note" x="20" y="500">① Command → ② 명령마다 무엇을 스냅샷으로 남기는가(가운데 칸) → ③ 모두 Canvas API를 거친다</text>
+  </svg>
+  <figcaption>코드 지도 · 02_command.py(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "호출한다". 각 명령의 가운데 칸이 undo를 위한 스냅샷이다.</figcaption>
+</figure>
 <figure class="code" data-full="&quot;&quot;&quot;커맨드 패턴 적용: 편집 동작을 &#x27;실행·취소할 수 있는 객체&#x27;로 만든다.
 
 상황: 01_naive.py에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
@@ -1747,6 +1879,106 @@ def partial_command_demo(canvas: Canvas) -&gt; None:
 <p><code>partial</code>에는 이전 좌표를 담을 자리가 없고, 바인딩된 <code>canvas.move_to</code>(바운드 메서드) 때문에 JSON으로 보낼 수도 없다. 직렬화를 막는 근본 원인은 <em>수신자가 명령 안에 들어 있다</em>는 점이다. 수신자는 메모리 속 객체이고, 다른 사용자의 브라우저에는 다른 캔버스 객체가 있다.</p>
 
 <p class="lead-in">그래서 은우는 설계를 하나 바꾼다. 명령이 수신자를 필드로 들지 않고 <code>execute(canvas)</code>의 인자로 받게 한다. 그러면 명령은 순수한 데이터가 되고, <code>dataclass</code>가 직렬화를 거의 공짜로 해 준다. 요청 매개변수(<code>init=True</code>)와 undo 정보(<code><dfn class="term" id="term-field-init-false" data-term="field-init-false" title="생성자 인자로 받지 않는 dataclass 필드. 12장에서는 execute() 때 채워지는 undo 정보를 담는다.">init=False</dfn></code>)를 필드 수준에서 나눈 방법에 주목하라. <code>field(init=False)</code>로 선언한 필드는 생성자 인자로 받지 않는 필드로, 여기서는 <code>execute()</code> 때 채워지는 undo 정보를 담는다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 606" role="img" aria-label="03_pythonic.py 둘째 조각의 구조: dataclass 기반 EditCommand가 __init_subclass__로 하위 클래스를 COMMAND_TYPES에 등록하고 from_dict()가 그것으로 클래스를 찾는다. Move·Recolor는 init=False 필드에 undo 정보를 두고, Macro는 EditCommand 목록을 담는다. Session이 실행·이력·JSON 로그를 맡고, Canvas는 execute의 인자로 전달된다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="62">등록부</text>
+    <g class="uml-func" transform="translate(20,70)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">COMMAND_TYPES</text>
+      <text class="uml-member" x="90" y="45" text-anchor="middle">kind → 클래스</text>
+    </g>
+
+    <text class="uml-note" x="240" y="24">[Command] 기반 dataclass</text>
+    <g class="uml-class highlight" transform="translate(240,36)">
+      <rect width="340" height="166"/>
+      <text class="uml-name" x="170" y="22">EditCommand</text>
+      <line x1="0" y1="32" x2="340" y2="32"/>
+      <text class="uml-member" x="10" y="52">kind: ClassVar[str]</text>
+      <text class="uml-member" x="10" y="70">__init_subclass__ → 등록</text>
+      <text class="uml-member" x="10" y="88">execute(canvas) · undo(canvas)</text>
+      <line x1="0" y1="98" x2="340" y2="98"/>
+      <text class="uml-member" x="10" y="118">to_dict(): init=True 필드만</text>
+      <text class="uml-member" x="10" y="136">from_dict(d) → from_payload()</text>
+      <text class="uml-member" x="10" y="154">retarget(shape_id) → 새 인스턴스</text>
+    </g>
+    <path class="uml-dep" d="M240 106 H200" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="206" y="98">등록</text>
+    <path class="uml-dep" d="M240 172 H110 V130" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="118" y="160">type으로 찾기</text>
+
+    <path class="uml-inherit" d="M410 226 V204" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M110 250 V226 H505 V250"/>
+    <path class="uml-inherit" d="M305 250 V226"/>
+    <g class="uml-class" transform="translate(20,250)">
+      <rect width="180" height="108"/>
+      <text class="uml-name" x="90" y="22">Move</text>
+      <line x1="0" y1="32" x2="180" y2="32"/>
+      <text class="uml-member" x="10" y="52">kind = "move"</text>
+      <text class="uml-member" x="10" y="70">shape_id · dx · dy</text>
+      <line x1="0" y1="80" x2="180" y2="80"/>
+      <text class="uml-member" x="10" y="98">_before (init=False)</text>
+    </g>
+    <g class="uml-class" transform="translate(215,250)">
+      <rect width="180" height="108"/>
+      <text class="uml-name" x="90" y="22">Recolor</text>
+      <line x1="0" y1="32" x2="180" y2="32"/>
+      <text class="uml-member" x="10" y="52">kind = "recolor"</text>
+      <text class="uml-member" x="10" y="70">shape_id · color</text>
+      <line x1="0" y1="80" x2="180" y2="80"/>
+      <text class="uml-member" x="10" y="98">_prev (init=False)</text>
+    </g>
+    <g class="uml-class" transform="translate(410,250)">
+      <rect width="190" height="130"/>
+      <text class="uml-name" x="95" y="22">Macro</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">kind = "macro"</text>
+      <text class="uml-member" x="10" y="70">name · steps</text>
+      <line x1="0" y1="80" x2="190" y2="80"/>
+      <text class="uml-member" x="10" y="100">재정의: to_dict</text>
+      <text class="uml-member" x="8" y="118">from_payload · retarget</text>
+    </g>
+    <path class="marker-fill" d="M610 250 L604 240 L610 230 L616 240 Z"/>
+    <path class="uml-compose" d="M610 230 V160 H582" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="602" y="216" text-anchor="end">steps</text>
+
+    <path class="uml-dep" d="M305 358 V392 H520 V420" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="297" y="380" text-anchor="end">execute(canvas)의 인자</text>
+
+    <text class="uml-note" x="20" y="404">[Invoker]</text>
+    <g class="uml-class" transform="translate(20,412)">
+      <rect width="290" height="108"/>
+      <text class="uml-name" x="145" y="22">Session</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">canvas · history · outbox</text>
+      <line x1="0" y1="62" x2="290" y2="62"/>
+      <text class="uml-member" x="10" y="82">run(cmd): execute → history</text>
+      <text class="uml-member" x="10" y="98">→ outbox에 JSON 한 줄</text>
+    </g>
+    <g class="uml-class" transform="translate(430,420)">
+      <rect width="190" height="60"/>
+      <text class="uml-name" x="95" y="22">Canvas</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="50">[Receiver] 앞 조각</text>
+    </g>
+    <path class="uml-assoc" d="M310 450 H430" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="330" y="442">canvas</text>
+
+    <g class="uml-step"><circle cx="240" cy="36" r="9"/><text x="240" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="250" r="9"/><text x="20" y="254">2</text></g>
+    <g class="uml-step"><circle cx="410" cy="250" r="9"/><text x="410" y="254">3</text></g>
+    <g class="uml-step"><circle cx="20" cy="412" r="9"/><text x="20" y="416">4</text></g>
+
+    <text class="uml-note" x="20" y="548"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 중심. 02와 달리 Canvas는 필드가 아니라 인자다</text>
+    <text class="uml-note" x="20" y="570">① EditCommand: 등록·직렬화 계약 → ② Move·Recolor: init=False 칸 → ③ Macro → ④ Session</text>
+    <text class="uml-note" x="20" y="592">데모(다음 조각): outbox의 JSON → from_dict()로 다른 캔버스에 재생</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "등록한다/찾는다/인자로 받는다", 속이 찬 마름모는 "담고 있다".</figcaption>
+</figure>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: partial 커맨드의 한계, dataclass 커맨드와 직렬화, 매크로 녹화.
 
 상황: 02_command.py로 undo/redo는 해결됐다. 남은 요구는 둘이다.

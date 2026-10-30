@@ -45,7 +45,69 @@
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">아래는 세 요구를 모두 <code>Player</code> 한 클래스에 밀어 넣은 코드다. 재생기가 들고 있는 상태가 무엇인지(커서, 모드, 셔플 순서, 셔플 위치) 세어 보라. <code>from_api()</code>가 첫 곡 전에 무엇을 하는지, <code>UpNextPreview.<dfn class="term" id="term-peek" data-term="peek" title="다음 값을 소비하지 않고 미리 보기만 하는 연산.">peek</dfn>()</code>가 왜 <code>next_track()</code>을 부를 수밖에 없는지도 살펴라. peek은 다음 값을 소비하지 않고 미리 보기만 하는 연산을 가리키는 관용적 이름인데, 이 코드에는 소비 없이 볼 방법이 없다.</p>
-  <figure class="code"><figcaption>src/15_iterator/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 순진한 설계] 플레이어가 인덱스·셔플 순서·페이지 토큰을 모두 직접 관리한다.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 440" role="img" aria-label="01_naive.py의 구조: Player가 Track 리스트와 커서 index, 모드, 셔플 순서를 모두 들고, from_api()가 FakeLikedSongsAPI의 모든 페이지를 먼저 받으며, next_track()이 모드별로 분기한다. UpNextPreview.peek()는 next_track()을 불러 같은 커서를 움직인다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">데이터</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="170" height="58"/>
+      <text class="uml-name" x="85" y="22">Track</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="50">title (frozen)</text>
+    </g>
+    <g class="uml-class" transform="translate(20,120)">
+      <rect width="230" height="94"/>
+      <text class="uml-name" x="115" y="22">FakeLikedSongsAPI</text>
+      <line x1="0" y1="32" x2="230" y2="32"/>
+      <text class="uml-member" x="10" y="52">PAGE_SIZE = 50 · requests</text>
+      <line x1="0" y1="62" x2="230" y2="62"/>
+      <text class="uml-member" x="10" y="82">fetch_page(token)</text>
+    </g>
+    <text class="uml-label" x="20" y="236">2만 곡이면 400번 요청</text>
+
+    <text class="uml-note" x="290" y="24">재생기 — 재생·순서 정책·데이터 출처를 다 안다</text>
+    <g class="uml-class warn" transform="translate(290,36)">
+      <rect width="330" height="184"/>
+      <text class="uml-name" x="165" y="22">Player</text>
+      <line x1="0" y1="32" x2="330" y2="32"/>
+      <text class="uml-member" x="10" y="52">tracks: list[Track]  ⚠</text>
+      <text class="uml-member" x="10" y="70">index ← 공개된 커서 하나</text>
+      <text class="uml-member" x="10" y="88">mode · shuffle_order · shuffle_pos  ⚠</text>
+      <line x1="0" y1="98" x2="330" y2="98"/>
+      <text class="uml-member" x="10" y="118">from_api(): 페이지 전부 받기  ⚠</text>
+      <text class="uml-member" x="10" y="136">set_mode(): 셔플 순서 생성</text>
+      <text class="uml-member" x="10" y="154">next_track(): 모드별 if 분기  ⚠</text>
+      <text class="uml-member" x="10" y="172">current()</text>
+    </g>
+    <path class="uml-compose" d="M190 65 H270"/>
+    <path class="marker-fill" d="M290 65 L280 59 L270 65 L280 71 Z"/>
+    <path class="uml-dep" d="M290 150 H250" marker-end="url(#arrow)"/>
+
+    <g class="uml-class warn" transform="translate(290,270)">
+      <rect width="330" height="76"/>
+      <text class="uml-name" x="165" y="22">UpNextPreview</text>
+      <line x1="0" y1="32" x2="330" y2="32"/>
+      <text class="uml-member" x="10" y="52">player: Player</text>
+      <text class="uml-member" x="10" y="70">peek(n): next_track()를 n번  ⚠</text>
+    </g>
+    <path class="uml-dep" d="M455 270 V220" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="461" y="250">같은 index를 움직인다</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="290" cy="36" r="9"/><text x="290" y="40">2</text></g>
+    <g class="uml-step"><circle cx="290" cy="270" r="9"/><text x="290" y="274">3</text></g>
+
+    <text class="uml-note" x="20" y="382"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제 지점(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="404">① Track·FakeLikedSongsAPI → ② Player: 커서·모드 상태와 from_api() → ③ peek()</text>
+    <text class="uml-note" x="20" y="426">데모 [1] 모드 전환은 동작 · [2] 첫 곡 전 요청 수 · [3] 미리보기가 재생 위치를 밀어냄</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "담고 있다", 점선 화살표는 "호출한다". 순회 상태(커서)가 Player 한 곳에만 있어 두 화면이 나눠 쓴다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/15_iterator/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 순진한 설계] 플레이어가 인덱스·셔플 순서·페이지 토큰을 모두 직접 관리한다.
 
 상황: 음악 스트리밍 앱 &#x27;멜로디&#x27;의 클라이언트 개발자 지안은 처음에 플레이리스트를 `list[Track]`으로
 받아 `for i in range(len(tracks))`로 재생했다. 이후 셔플·한 곡 반복·전체 반복 모드가 생겼고
@@ -260,7 +322,95 @@ if __name__ == &quot;__main__&quot;:
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
   <p class="lead-in">먼저 반복자를 클래스로 직접 쓴 교과서 버전이다. 세 가지에 주목하라. ① 반복자마다 커서(<code>index</code>, <code>_next</code>, <code>_order</code>)를 따로 가진다. ② <code>Playlist.__iter__()</code>는 호출될 때마다 <em>새</em> 반복자를 만든다. ③ <code>Player.set_mode()</code>는 반복자를 갈아 끼우되, 현재 위치를 새 반복자에 넘긴다. <code>ShuffleIterator</code>의 docstring에 나오는 <dfn class="term" id="term-big-o-notation" data-term="big-o-notation" title="입력 크기에 따라 비용이 늘어나는 정도를 나타내는 표기.">O(n)</dfn>은 빅오 표기로, 입력 크기 n에 따라 비용이 늘어나는 정도를 나타낸다(여기서는 곡 수에 비례).</p>
-  <figure class="code"><figcaption>src/15_iterator/02_iterator.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 패턴 적용] 순회 정책을 반복자 객체로 분리한다 — GoF 구조를 파이썬 프로토콜 위에.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 600" role="img" aria-label="02_iterator.py의 구조: Playlist가 __iter__와 iterator(mode)로 반복자를 새로 만들고, 추상 PlaylistIterator를 SequentialIterator·RepeatAllIterator·RepeatOneIterator·ShuffleIterator가 상속하며 각자 커서를 가진다. Player는 playlist와 현재 반복자 _it를 들고, set_mode()에서 index를 새 반복자에 넘긴다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">[Aggregate]</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="250" height="148"/>
+      <text class="uml-name" x="125" y="22">Playlist</text>
+      <line x1="0" y1="32" x2="250" y2="32"/>
+      <text class="uml-member" x="10" y="52">_tracks: tuple</text>
+      <text class="uml-member" x="10" y="70">__len__ · __getitem__</text>
+      <line x1="0" y1="80" x2="250" y2="80"/>
+      <text class="uml-member" x="10" y="100">__iter__() → 새 반복자</text>
+      <text class="uml-member" x="10" y="118">iterator(mode, start, seed)</text>
+      <text class="uml-member" x="10" y="136">MODES: 이름 → 반복자 클래스</text>
+    </g>
+    <text class="uml-note" x="370" y="24">[Client]</text>
+    <g class="uml-class" transform="translate(370,36)">
+      <rect width="250" height="112"/>
+      <text class="uml-name" x="125" y="22">Player</text>
+      <line x1="0" y1="32" x2="250" y2="32"/>
+      <text class="uml-member" x="10" y="52">playlist · _it · current</text>
+      <line x1="0" y1="62" x2="250" y2="62"/>
+      <text class="uml-member" x="10" y="82">set_mode(): index를 넘겨</text>
+      <text class="uml-member" x="24" y="100">새 반복자로 교체</text>
+    </g>
+    <path class="uml-assoc" d="M370 80 H270" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="290" y="72">playlist</text>
+
+    <path class="uml-dep" d="M120 184 V250 H170" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="114" y="214" text-anchor="end">만들기만 한다</text>
+    <path class="uml-assoc" d="M495 148 V250 H470" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="501" y="206">_it</text>
+
+    <text class="uml-note" x="300" y="202">[Iterator]</text>
+    <g class="uml-class highlight" transform="translate(170,210)">
+      <rect width="300" height="130"/>
+      <text class="uml-name uml-abstract" x="150" y="22">PlaylistIterator</text>
+      <line x1="0" y1="32" x2="300" y2="32"/>
+      <text class="uml-member" x="10" y="52">index ← 모드 전환 때 넘긴다</text>
+      <text class="uml-member" x="10" y="70">_playlist</text>
+      <line x1="0" y1="80" x2="300" y2="80"/>
+      <text class="uml-member" x="10" y="100">__iter__() → self</text>
+      <text class="uml-member" x="10" y="118">__next__()  끝나면 StopIteration</text>
+    </g>
+
+    <path class="uml-inherit" d="M320 479 V342" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M310 409 H330"/>
+    <path class="uml-inherit" d="M310 479 H330"/>
+    <g class="uml-class" transform="translate(20,380)">
+      <rect width="290" height="58"/>
+      <text class="uml-name" x="145" y="22">SequentialIterator</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="50">커서: _next</text>
+    </g>
+    <g class="uml-class" transform="translate(330,380)">
+      <rect width="290" height="58"/>
+      <text class="uml-name" x="145" y="22">RepeatAllIterator</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="50">커서: _next (길이로 나눈 나머지)</text>
+    </g>
+    <g class="uml-class" transform="translate(20,450)">
+      <rect width="290" height="58"/>
+      <text class="uml-name" x="145" y="22">RepeatOneIterator</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="50">커서: index 그대로</text>
+    </g>
+    <g class="uml-class" transform="translate(330,450)">
+      <rect width="290" height="58"/>
+      <text class="uml-name" x="145" y="22">ShuffleIterator</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="50">커서: _order · _pos (seed)</text>
+    </g>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="170" cy="210" r="9"/><text x="170" y="214">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="380" r="9"/><text x="20" y="384">3</text></g>
+    <g class="uml-step"><circle cx="370" cy="36" r="9"/><text x="370" y="40">4</text></g>
+
+    <text class="uml-note" x="20" y="544"><tspan font-weight="700">읽는 순서</tspan> · 커서가 반복자마다 따로 있다는 것이 01과의 차이다</text>
+    <text class="uml-note" x="20" y="566">① Playlist: 반복자를 만들기만 → ② 프로토콜 규칙 → ③ 반복자마다 다른 커서 → ④ set_mode()</text>
+    <text class="uml-note" x="20" y="588">데모 [1] 두 번 돌려도 처음부터 · [2] 독립 순회 · [3] 모드 전환에도 지금 곡 유지 · [4] 종료</text>
+  </svg>
+  <figcaption>코드 지도 · 02_iterator.py. 빈 삼각형은 상속, 실선 화살표는 "필드가 가리킨다", 점선 화살표는 "만든다". 참여자 개요는 그림 15-1에 있다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/15_iterator/02_iterator.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 패턴 적용] 순회 정책을 반복자 객체로 분리한다 — GoF 구조를 파이썬 프로토콜 위에.
 
 상황: 01_naive.py에서 지안의 `Player`는 인덱스·셔플 순서·반복 모드를 모두 직접 관리했고,
 미리보기 화면이 같은 커서를 움직여 재생 위치가 밀렸다. 이 파일은 GoF 반복자 패턴으로 다시 짠다.
@@ -480,7 +630,95 @@ if __name__ == &quot;__main__&quot;:
   <div class="callout"><span class="label">용어</span>
     <p><code>Sequence</code>는 표준 모듈 <code>collections.abc</code>에 있는 컨테이너 추상 기반 클래스 가운데 하나다. 이 모듈의 클래스들은 필수 메서드 몇 개만 구현하면 나머지 메서드를 공짜로 채워 준다. 이렇게 단독으로 쓰기보다 상속해서 메서드 묶음을 얻으려고 만든 클래스를 <dfn class="term" id="term-mixin" data-term="mixin" title="단독으로 쓰기보다 상속해서 메서드 묶음을 얻기 위해 만든 클래스(예: collections.abc.Sequence가 __iter__·__contains__ 등을 제공).">믹스인</dfn>(mixin)이라 한다. 코드 주석의 <dfn class="term" id="term-lazy-evaluation" data-term="lazy-evaluation" title="값이 실제로 요구될 때까지 계산(또는 요청)을 미루는 평가 방식. 제너레이터는 소비자가 next()를 부를 때만 다음 값까지 진행한다.">지연 평가</dfn>(지연성)는 값이 실제로 요구될 때까지 계산을 미루는 평가 방식이다. 제너레이터는 소비자가 <code>next()</code>를 부를 때만 다음 <code>yield</code>까지 진행하므로, 아무도 묻지 않은 값은 계산하지 않는다(5.2절에서 이것이 요청 수를 줄인다).</p>
   </div>
-  <figure class="code"><figcaption>src/15_iterator/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 파이썬다운 변형] 제너레이터와 itertools가 반복자 클래스를 흡수한다.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 540" role="img" aria-label="03_pythonic.py의 구조: 02의 반복자 클래스 넷이 제너레이터 함수 sequential·repeat_all·repeat_one·shuffled로 바뀌고, Playlist는 Sequence 믹스인을 상속해 __iter__를 직접 쓰지 않으며, Player는 제너레이터를 들고 up_next()에서 chain과 islice로 미리 본다. 새로 생긴 Folder는 yield from으로 재귀 순회한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">02 — 반복자 클래스</text>
+    <text class="uml-note" x="270" y="24">03 — 함수 · itertools · 믹스인</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="18">Playlist</text>
+      <text class="uml-member" x="100" y="36" text-anchor="middle">__iter__를 직접 씀</text>
+    </g>
+    <path class="uml-assoc" d="M220 58 H270" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(270,36)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">Playlist(Sequence[Track])</text>
+      <text class="uml-member" x="12" y="36">__getitem__·__len__만 쓰고 나머지는 믹스인</text>
+    </g>
+    <g class="uml-class" transform="translate(20,92)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="27">SequentialIterator</text>
+    </g>
+    <path class="uml-assoc" d="M220 114 H270" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(270,92)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">sequential(pl, start)</text>
+      <text class="uml-member" x="12" y="36">for range + yield — 클래스 전체가 두 줄</text>
+    </g>
+    <g class="uml-class" transform="translate(20,148)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="27">RepeatAllIterator</text>
+    </g>
+    <path class="uml-assoc" d="M220 170 H270" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(270,148)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">repeat_all(pl, start)</text>
+      <text class="uml-member" x="12" y="36">islice(cycle(enumerate(pl)), start, None)</text>
+    </g>
+    <g class="uml-class" transform="translate(20,204)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="27">RepeatOneIterator</text>
+    </g>
+    <path class="uml-assoc" d="M220 226 H270" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(270,204)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">repeat_one(pl, start)</text>
+      <text class="uml-member" x="12" y="36">itertools.repeat((start, pl[start]))</text>
+    </g>
+    <g class="uml-class" transform="translate(20,260)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="27">ShuffleIterator</text>
+    </g>
+    <path class="uml-assoc" d="M220 282 H270" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(270,260)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">shuffled(pl, start, seed)</text>
+      <text class="uml-member" x="12" y="36">지금 곡을 yield → 나머지를 섞어 yield</text>
+    </g>
+    <g class="uml-class" transform="translate(20,316)">
+      <rect width="200" height="44"/>
+      <text class="uml-name" x="100" y="18">Player</text>
+      <text class="uml-member" x="100" y="36" text-anchor="middle">_it = 반복자 객체</text>
+    </g>
+    <path class="uml-assoc" d="M220 338 H270" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(270,316)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">Player</text>
+      <text class="uml-member" x="12" y="36">_it = 제너레이터 · up_next(): chain + islice</text>
+    </g>
+    <text class="uml-label" x="120" y="398" text-anchor="middle">(02에는 없음)</text>
+    <g class="uml-class highlight" transform="translate(270,372)">
+      <rect width="350" height="44"/>
+      <text class="uml-name" x="175" y="18">Folder [Composite]</text>
+      <text class="uml-member" x="12" y="36">__iter__: for child → yield from child</text>
+    </g>
+    <text class="uml-label" x="20" y="440">모드 표 MODES도 클래스 대신 함수를 담는다. 함수를 부르면 제너레이터(= 반복자)가 나온다</text>
+    <g class="uml-step"><circle cx="270" cy="36" r="9"/><text x="270" y="40">1</text></g>
+    <g class="uml-step"><circle cx="270" cy="92" r="9"/><text x="270" y="96">2</text></g>
+    <g class="uml-step"><circle cx="270" cy="316" r="9"/><text x="270" y="320">3</text></g>
+    <g class="uml-step"><circle cx="270" cy="372" r="9"/><text x="270" y="376">4</text></g>
+    <text class="uml-note" x="20" y="476"><tspan font-weight="700">읽는 순서</tspan> · 왼쪽 클래스 하나가 오른쪽 한 줄로 바뀐다</text>
+    <text class="uml-note" x="20" y="498">① Playlist 믹스인 → ② 제너레이터 넷 → ③ Player.up_next() → ④ Folder</text>
+    <text class="uml-note" x="20" y="520">데모 [1] 믹스인 · [2] 02와 같은 시나리오 · [3] 미리보기 · [4] yield from · [5] 한 번 쓰면 끝</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py. 화살표는 "02의 이것이 03의 이것으로 바뀌었다". 둥근 상자는 함수, 사각 상자는 클래스다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/15_iterator/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 파이썬다운 변형] 제너레이터와 itertools가 반복자 클래스를 흡수한다.
 
 상황: 02_iterator.py의 반복자 클래스 네 개는 각자 커서 필드, `__iter__`, `__next__`,
 `StopIteration`을 손으로 관리했다. 리뷰어 태오가 지안에게 말한다. &quot;그거 전부 제너레이터
@@ -659,7 +897,83 @@ if __name__ == &quot;__main__&quot;:
 
   <h3>5.2 지연 평가: 페이지 API를 그냥 이터러블로</h3>
   <p class="lead-in">이제 2만 곡짜리 '좋아요' 목록이다. <code>pages()</code> 제너레이터가 01의 <code>from_api()</code>와 거의 같은 while 루프라는 점에 주목하라. 차이는 <code>extend</code>가 <code>yield from</code>으로 바뀐 한 단어뿐이다. 후반 데모 [5]와 [6]은 <dfn class="term" id="term-exhaustion" data-term="exhaustion" title="이터레이터(제너레이터 객체)를 끝까지 소비해 더 이상 값이 나오지 않는 상태. 두 번째 순회는 예외 없이 빈 결과가 된다.">고갈</dfn> 버그와 <code>in</code> 연산자의 함정을 재현한다. 고갈이란 이터레이터를 끝까지 소비해 더 이상 값이 나오지 않는 상태다. 고갈된 이터레이터를 다시 순회하면 예외 없이 빈 결과가 나온다.</p>
-  <figure class="code"><figcaption>src/15_iterator/04_lazy_pagination.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 지연 평가] 서버의 페이지 API를 &#x27;그냥 이터러블&#x27;로 보이게 한다.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 590" role="img" aria-label="04_lazy_pagination.py의 구조: 소비자 play_first()는 Iterable만 알고, LikedSongs.__iter__()가 매번 새 pages() 제너레이터를 만들며, pages()는 필요할 때만 FakeLikedSongsAPI.fetch_page()를 호출한다. 제너레이터 객체를 변수에 담아 두 번 쓰면 고갈되고, in 검사도 값을 소비한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">소비자 — 위에서 아래로 당긴다</text>
+    <g class="uml-func" transform="translate(20,36)">
+      <rect width="290" height="54"/>
+      <text class="uml-name" x="145" y="22">play_first(tracks, n)</text>
+      <text class="uml-member" x="12" y="42">tracks: Iterable · islice로 n개</text>
+    </g>
+    <g class="uml-class" transform="translate(370,36)">
+      <rect width="250" height="54"/>
+      <text class="uml-name" x="125" y="22">list[Track]</text>
+      <text class="uml-member" x="10" y="44">같은 함수로 순회 [3]</text>
+    </g>
+    <path class="uml-dep" d="M310 63 H370" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M165 90 V150" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="171" y="124">for로 순회</text>
+
+    <g class="uml-class highlight" transform="translate(20,150)">
+      <rect width="290" height="94"/>
+      <text class="uml-name" x="145" y="22">LikedSongs</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">api — 곡은 보관하지 않는다</text>
+      <line x1="0" y1="62" x2="290" y2="62"/>
+      <text class="uml-member" x="10" y="82">__iter__() → 새 pages(api)</text>
+    </g>
+    <path class="uml-dep" d="M165 244 V280" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="171" y="266">호출마다 새로</text>
+
+    <g class="uml-func highlight" transform="translate(20,280)">
+      <rect width="290" height="76"/>
+      <text class="uml-name" x="145" y="22">pages(api)</text>
+      <text class="uml-member" x="12" y="44">while: fetch_page(token)</text>
+      <text class="uml-member" x="12" y="62">yield from items · 끝이면 return</text>
+    </g>
+    <path class="uml-dep" d="M165 356 V410" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="171" y="388">다음 페이지는 필요할 때만</text>
+
+    <g class="uml-class" transform="translate(20,410)">
+      <rect width="290" height="82"/>
+      <text class="uml-name" x="145" y="22">FakeLikedSongsAPI</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">PAGE_SIZE = 50 · requests</text>
+      <text class="uml-member" x="10" y="70">fetch_page(token) → (곡들, 토큰)</text>
+    </g>
+
+    <g class="uml-class warn" transform="translate(370,250)">
+      <rect width="250" height="100"/>
+      <text class="uml-name" x="125" y="22">gen = pages(api)</text>
+      <line x1="0" y1="32" x2="250" y2="32"/>
+      <text class="uml-member" x="10" y="52">제너레이터 객체 = 이터레이터</text>
+      <text class="uml-member" x="10" y="70">[5] 두 번째 순회는 빈 결과</text>
+      <text class="uml-member" x="10" y="88">[6] in 검사도 값을 소비</text>
+    </g>
+    <path class="uml-dep" d="M370 318 H312" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="320" y="310">직접 쥠</text>
+
+    <text class="uml-label" x="370" y="436">[1] 3곡 → 요청 1번 (01은 400번)</text>
+    <text class="uml-label" x="370" y="456">[2] 120곡 → 요청 3번</text>
+    <text class="uml-label" x="370" y="476">[4] LikedSongs는 두 번 돌려도 처음부터</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="150" r="9"/><text x="20" y="154">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="280" r="9"/><text x="20" y="284">3</text></g>
+    <g class="uml-step"><circle cx="370" cy="250" r="9"/><text x="370" y="254">4</text></g>
+
+    <text class="uml-note" x="20" y="530"><tspan font-weight="700">읽는 순서</tspan> · 위가 소비자, 아래가 생산자. 소비자가 멈추면 요청도 멈춘다</text>
+    <text class="uml-note" x="20" y="552">① play_first: Iterable만 안다 → ② LikedSongs: 매번 새 순회 → ③ pages(): 01의 while과 비교</text>
+    <text class="uml-note" x="20" y="574">→ ④ 제너레이터 객체를 직접 쥘 때의 함정</text>
+  </svg>
+  <figcaption>코드 지도 · 04_lazy_pagination.py. 점선 화살표는 "순회한다/만든다/요청한다". 파란 테두리가 지연 순회의 중심이다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/15_iterator/04_lazy_pagination.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 지연 평가] 서버의 페이지 API를 &#x27;그냥 이터러블&#x27;로 보이게 한다.
 
 상황: &#x27;좋아요 표시한 곡&#x27;은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 01에서는
 첫 곡을 틀기 전에 400번 요청해 2만 곡을 메모리에 올렸다. 사용자는 대개 앞의 몇 곡만 듣는다.

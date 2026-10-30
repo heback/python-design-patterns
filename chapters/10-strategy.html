@@ -25,6 +25,91 @@ part: 행위 패턴
 <section id="naive">
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래는 민재의 <code>Order.delivery_fee()</code>가 반년 동안 자란 모습이다. 지역 분기 안에 할증 분기가 중첩되어 있다는 점, 그리고 B안 블록이 A안 블록의 복사본이라는 점에 주목하라. <code># ⚠ 문제:</code> 주석이 각 고통 지점을 가리킨다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 556" role="img" aria-label="01_naive.py의 구조: Order가 Customer와 Store를 담고, delivery_fee() 하나가 구독 무료, 지역별 A안·B안·그 밖 분기, 할증, 가게 할인을 모두 품는다. B안의 할증은 A안을 복사해 심야 기준이 어긋났다">
+    <text class="uml-note" x="20" y="24">도메인 객체 — 배달비에 쓰이는 것은 일부 필드뿐</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="170" height="58"/>
+      <text class="uml-name" x="85" y="22">Customer</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="50">is_subscriber</text>
+    </g>
+    <g class="uml-class" transform="translate(20,110)">
+      <rect width="170" height="58"/>
+      <text class="uml-name" x="85" y="22">Store</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="50">promo_discount</text>
+    </g>
+    <g class="uml-class warn" transform="translate(250,36)">
+      <rect width="370" height="132"/>
+      <text class="uml-name" x="185" y="22">Order</text>
+      <line x1="0" y1="32" x2="370" y2="32"/>
+      <text class="uml-member" x="10" y="52">customer · store · items</text>
+      <text class="uml-member" x="10" y="70">distance_km · region · hour</text>
+      <text class="uml-member" x="10" y="88">is_raining</text>
+      <line x1="0" y1="100" x2="370" y2="100"/>
+      <text class="uml-member" x="10" y="120">delivery_fee() ⚠ 모든 요금 정책이 여기에</text>
+    </g>
+    <path class="uml-compose" d="M190 65 H230"/>
+    <path class="marker-fill" d="M250 65 L240 59 L230 65 L240 71 Z"/>
+    <path class="uml-compose" d="M190 139 H230"/>
+    <path class="marker-fill" d="M250 139 L240 133 L230 139 L240 145 Z"/>
+
+    <text class="uml-note" x="20" y="202">delivery_fee() 안의 분기</text>
+    <g class="uml-func warn" transform="translate(180,212)">
+      <rect width="280" height="36"/>
+      <text class="uml-member" x="140" y="23" text-anchor="middle">is_subscriber면 즉시 0 ⚠</text>
+    </g>
+    <path class="uml-assoc" d="M320 248 V268"/>
+    <path class="uml-assoc" d="M105 268 H535"/>
+    <path class="uml-assoc" d="M105 268 V290" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M335 268 V290" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M535 268 V290" marker-end="url(#arrow)"/>
+
+    <g class="uml-class" transform="translate(20,290)">
+      <rect width="170" height="96"/>
+      <text class="uml-name" x="85" y="22">A안 강남·마포</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">3000 + km×500</text>
+      <text class="uml-member" x="10" y="70">비 +1000</text>
+      <text class="uml-member" x="10" y="88">심야 22~6시 +1500</text>
+    </g>
+    <g class="uml-class warn" transform="translate(250,290)">
+      <rect width="170" height="96"/>
+      <text class="uml-name" x="85" y="22">B안 해운대</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">구간 2500/4000/6000</text>
+      <text class="uml-member" x="10" y="70">비 +500</text>
+      <text class="uml-member" x="10" y="88">심야 22~5시 +1500 ⚠</text>
+    </g>
+    <g class="uml-class warn" transform="translate(450,290)">
+      <rect width="170" height="96"/>
+      <text class="uml-name" x="85" y="22">그 밖(제주 등)</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">fee = 3000</text>
+      <text class="uml-member" x="10" y="70">새 정책 = elif 추가</text>
+      <text class="uml-member" x="10" y="88">+ 재배포 ⚠</text>
+    </g>
+    <path class="uml-dep" d="M190 350 H250" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="205" y="342">복사</text>
+
+    <path class="uml-assoc" d="M105 386 V406 H535 V386"/>
+    <path class="uml-assoc" d="M335 386 V406"/>
+    <path class="uml-assoc" d="M320 406 V426" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(180,426)">
+      <rect width="280" height="36"/>
+      <text class="uml-member" x="140" y="23" text-anchor="middle">− promo_discount (공통 규칙)</text>
+    </g>
+
+    <g class="uml-step"><circle cx="250" cy="36" r="9"/><text x="250" y="40">1</text></g>
+    <g class="uml-step"><circle cx="180" cy="212" r="9"/><text x="180" y="216">2</text></g>
+
+    <text class="uml-note" x="20" y="496"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제 지점(⚠는 코드의 ⚠ 문제 주석)</text>
+    <text class="uml-note" x="20" y="518">① Order: 엔티티가 요금 정책까지 품는다 → ② delivery_fee()의 분기 트리</text>
+    <text class="uml-note" x="20" y="540">데모 [1] A안 · [2] B안 · [3] 새벽 5시에 두 지역이 갈린다 · [4] 제주 정액은 재배포</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 실선 화살표는 분기 흐름, 점선은 "복사해 왔다", 속이 찬 마름모는 "담고 있다".</figcaption>
+</figure>
 <pre data-src="10_strategy/01_naive.py"></pre>
 <p>출력의 [3]이 CS 문의의 재현이다. 같은 '심야 할증'인데 서울(<code>hour &lt; 6</code>)과 부산(<code>hour &lt; 5</code>)의 기준이 다르다. 이것이 의도된 정책 차이인지 복사 실수인지는 코드만 봐서는 알 수 없다 — 할증 판정이라는 <em>공통 규칙</em>과 요금표라는 <em>가변 규칙</em>이 같은 블록에 섞여 있기 때문이다.</p>
 <p>이 코드가 위반하는 원칙은 서론(00장)의 세 원칙 그대로다.</p>
@@ -125,6 +210,88 @@ part: 행위 패턴
 <h2>4. 패턴 적용</h2>
 <p>민재가 먼저 한 일은 코드가 아니라 분류였다. <code>delivery_fee()</code>의 각 줄을 "운영팀이 실험하고 싶어 하는가?"로 나눴다. 요금표와 할증 금액은 실험 대상이므로 <em>변하는 것</em>이다. 구독 무료는 회원 약관이고 가게 할인은 가게와의 계약이므로, 어떤 요금표를 쓰든 똑같이 적용되는 <em>변하지 않는 것</em>이다. 이 판단이 곧 전략과 컨텍스트의 경계가 된다.</p>
 <p class="lead-in">첫 부분은 전략이 받는 입력과 전략 클래스들이다. <code>FeeInput</code>이 <code>Order</code>가 아니라는 점, 그리고 심야 판정이 <code>is_night()</code> 하나로 모여 복제가 사라졌다는 점을 확인하라. 전체 파일은 <code>02_strategy.py</code>이고, 여기서는 세 부분으로 나눠 본다.</p>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 616" role="img" aria-label="02_strategy.py 첫 조각의 구조: FeePolicy가 FeeInput만 받고, DistancePolicy·TieredPolicy·FlatPolicy가 이를 상속하며, 앞의 두 정책이 심야 판정 is_night()를 함께 쓴다. Order·DeliveryFeeService·build_policy는 다음 조각에 있다">
+    <text class="uml-note" x="20" y="24">정책이 받는 입력</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="200" height="98"/>
+      <text class="uml-name" x="100" y="22">FeeInput</text>
+      <line x1="0" y1="32" x2="200" y2="32"/>
+      <text class="uml-member" x="10" y="52">distance_km</text>
+      <text class="uml-member" x="10" y="70">hour · is_raining</text>
+      <text class="uml-stereo" x="100" y="88">frozen dataclass</text>
+    </g>
+
+    <text class="uml-note" x="400" y="24">다음 두 조각(이 블록 밖)</text>
+    <g class="uml-group"><rect x="400" y="36" width="220" height="110"/></g>
+    <text class="uml-member" x="410" y="62">Order.fee_input() → FeeInput</text>
+    <text class="uml-member" x="410" y="86">DeliveryFeeService [Context]</text>
+    <text class="uml-member" x="410" y="110">build_policy() [선택 로직]</text>
+    <text class="uml-label" x="410" y="134">데모도 세 번째 조각에 있다</text>
+
+    <text class="uml-note" x="200" y="162">[Strategy] ABC</text>
+    <g class="uml-class highlight" transform="translate(190,170)">
+      <rect width="260" height="100"/>
+      <text class="uml-name uml-abstract" x="130" y="22">FeePolicy</text>
+      <line x1="0" y1="32" x2="260" y2="32"/>
+      <text class="uml-member" x="10" y="52">name: str</text>
+      <text class="uml-member" x="10" y="70">calculate(q: FeeInput) → int</text>
+      <text class="uml-member" x="10" y="88">describe() → str</text>
+    </g>
+    <path class="uml-dep" d="M190 240 H120 V134" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="128" y="196">좁은 입력</text>
+    <path class="uml-dep" d="M510 146 V220 H450" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="516" y="196">보유·위임</text>
+
+    <path class="uml-inherit" d="M335 330 V272" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M105 330 V300 H335"/>
+    <path class="uml-inherit" d="M535 330 V300 H335"/>
+    <g class="uml-class" transform="translate(20,330)">
+      <rect width="170" height="100"/>
+      <text class="uml-name" x="85" y="22">DistancePolicy</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">base · per_km</text>
+      <text class="uml-member" x="10" y="70">rain · night</text>
+      <text class="uml-member" x="10" y="88">night_start/end</text>
+    </g>
+    <g class="uml-class" transform="translate(250,330)">
+      <rect width="170" height="100"/>
+      <text class="uml-name" x="85" y="22">TieredPolicy</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">tiers · over_fee</text>
+      <text class="uml-member" x="10" y="70">rain · night</text>
+      <text class="uml-member" x="10" y="88">심야는 22~6 고정</text>
+    </g>
+    <g class="uml-class" transform="translate(450,330)">
+      <rect width="170" height="100"/>
+      <text class="uml-name" x="85" y="22">FlatPolicy</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="52">fee</text>
+      <text class="uml-member" x="10" y="70">할증 없음</text>
+      <text class="uml-member" x="10" y="88">q를 쓰지 않음</text>
+    </g>
+
+    <path class="uml-dep" d="M150 430 V470" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="156" y="454">시작·끝 시각을 넘김</text>
+    <path class="uml-dep" d="M320 430 V470" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="326" y="454">(hour, 22, 6)</text>
+    <g class="uml-func" transform="translate(110,470)">
+      <rect width="320" height="50"/>
+      <text class="uml-name" x="160" y="22">is_night(hour, start, end)</text>
+      <text class="uml-member" x="160" y="41" text-anchor="middle">자정을 넘는 심야 판정을 한 곳에</text>
+    </g>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="190" cy="170" r="9"/><text x="190" y="174">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="330" r="9"/><text x="20" y="334">3</text></g>
+    <g class="uml-step"><circle cx="110" cy="470" r="9"/><text x="110" y="474">4</text></g>
+
+    <text class="uml-note" x="20" y="558"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 조각의 중심</text>
+    <text class="uml-note" x="20" y="580">① FeeInput: Order가 아닌 좁은 입력 → ② FeePolicy → ③ 구체 전략 셋</text>
+    <text class="uml-note" x="20" y="602">④ is_night(): 01에서 복제되던 심야 판정이 한 곳으로 모였다</text>
+  </svg>
+  <figcaption>코드 지도 · 02_strategy.py(첫 조각). 빈 삼각형은 상속, 점선 화살표는 "받는다/호출한다/보유한다". 오른쪽 위 묶음은 다음 조각에서 읽는다.</figcaption>
+</figure>
 <pre data-src="10_strategy/02_strategy.py" data-lines="23-154"></pre>
 <p><code>FeeInput</code>을 따로 둔 것이 이 설계에서 가장 중요한 결정이다. 전략에게 <code>Order</code>를 통째로 넘기면 편하지만, 그 순간 전략은 <code>order.customer.is_subscriber</code> 같은 내부 구조에 결합되고 테스트에도 <code>Order</code> 전체가 필요해진다. 좁은 입력은 전략 인터페이스의 일부다. <code>calculate()</code>의 시그니처만이 아니라 <em>인자의 폭</em>까지가 계약이다.</p>
 <p><code>FlatPolicy</code>의 docstring도 눈여겨보자. 전략 인터페이스를 넓게(예: <code>base_fee()</code>, <code>rain_surcharge()</code>, <code>night_surcharge()</code> 세 메서드) 잡았다면 정액제는 할증 메서드를 "0을 돌려주도록" 억지로 구현해야 했다. 인터페이스는 컨텍스트가 실제로 필요로 하는 것만큼만 좁게 둔다.</p>

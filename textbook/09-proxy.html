@@ -1351,6 +1351,70 @@ if __name__ == &quot;__main__&quot;:
 <p>02의 <code>LazyImageProxy</code>는 <code>SatelliteImage</code> 전용이다. 수아의 팀에는 지연 로딩이 필요한 대형 객체가 더 있다(<dfn class="term" id="term-digital-elevation-model" data-term="digital-elevation-model" title="지표면의 고도를 격자 값으로 나타낸 수치표고모델.">수치표고모델</dfn>(DEM: 지표면의 고도를 격자 값으로 나타낸 데이터), <dfn class="term" id="term-land-cover" data-term="land-cover" title="지표가 농경지·산림·수계 등 무엇으로 덮여 있는지 분류한 정보.">토지피복</dfn>(지표가 농경지·산림·수계 등 무엇으로 덮여 있는지) 분류 래스터). 팀원 건우가 제안했다. "<code>__getattr__</code>으로 아무 객체나 감싸는 범용 지연 프록시를 만들면 클래스마다 프록시를 안 써도 되잖아."</p>
 <p class="lead-in">아래 파일은 (1) 그 범용 <code>LazyProxy</code>를 만들어 한계를 확인하고, (2) 프록시 없이 객체 내부에서 지연시키는 <dfn class="term" id="term-functools-cached-property" data-term="functools-cached-property" title="첫 접근 때 한 번 계산한 값을 인스턴스 __dict__에 저장해, 이후에는 일반 속성처럼 읽히게 하는 데코레이터."><code>cached_property</code></dfn>(첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 이후에는 일반 속성처럼 읽히게 하는 도구), (3) 캐싱 프록시의 함수 버전인 <dfn class="term" id="term-functools-lru-cache" data-term="functools-lru-cache" title="함수 인자를 키로 결과를 기억하고, 용량을 넘으면 가장 오래 안 쓴 항목부터 버리는 캐시 데코레이터."><code>lru_cache</code></dfn>(함수 인자를 키로 결과를 기억하는 LRU 캐시), (4) 표준 라이브러리의 프록시인 <dfn class="term" id="term-weak-reference" data-term="weak-reference" title="대상 객체를 살려 두지 않는 참조. 다른 참조가 모두 사라지면 대상은 회수되고, 약한 참조는 죽은 참조가 된다."><code>weakref</code></dfn><code>.proxy</code>를 차례로 본다. <code>weakref</code>는 약한 참조, 즉 대상 객체를 살려 두지 않는 참조를 만드는 모듈이다. 데모 [1]과 [4]에서 <code>len()</code>의 결과가 어떻게 다른지 비교하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-sentinel" data-term="sentinel" title="None 같은 정상 값과 구별되도록 만든 &#x27;표시용&#x27; 고유 객체(object()). &#x27;아직 없음&#x27;을 None과 헷갈리지 않게 표현한다.">센티널</dfn>: <code>None</code> 같은 정상 값과 구별되도록 <code>object()</code>로 만든 표시용 고유 객체. 코드의 <code>_UNSET</code>이 '아직 안 만듦'을 나타낸다. <dfn class="term" id="term-reference-counting" data-term="reference-counting" title="객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식.">참조 카운트</dfn>: 객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식. <dfn class="term" id="term-garbage-collection" data-term="garbage-collection" title="더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. gc.collect()는 순환 참조까지 찾아 회수하도록 강제한다.">가비지 컬렉션</dfn>(GC): 더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. <code>gc.collect()</code>는 서로를 참조하는 고리까지 찾아 회수하도록 강제한다.</p></div>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 450" role="img" aria-label="03_pythonic.py의 구조: LazyProxy와 weakref.proxy가 같은 DemRaster를 바깥에서 감싸되 LazyProxy는 len·isinstance·==에서 새고, LandCoverScene의 cached_property와 fetch_tile의 lru_cache는 프록시 객체 없이 같은 효과를 낸다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">바깥에서 감싸는 프록시 — 같은 DemRaster를 감싼다</text>
+    <g class="uml-class warn" transform="translate(20,36)">
+      <rect width="210" height="112"/>
+      <text class="uml-name" x="105" y="22">LazyProxy</text>
+      <line x1="0" y1="32" x2="210" y2="32"/>
+      <text class="uml-member" x="10" y="52">_factory · _obj</text>
+      <text class="uml-member" x="10" y="70">__getattr__ → _target()</text>
+      <line x1="0" y1="82" x2="210" y2="82"/>
+      <text class="uml-member" x="10" y="102">⚠ len · isinstance · ==</text>
+    </g>
+    <g class="uml-class" transform="translate(255,52)">
+      <rect width="130" height="80"/>
+      <text class="uml-name" x="65" y="22">DemRaster</text>
+      <line x1="0" y1="32" x2="130" y2="32"/>
+      <text class="uml-member" x="10" y="52">max_elevation()</text>
+      <text class="uml-member" x="10" y="70">__len__()</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(410,36)">
+      <rect width="210" height="112"/>
+      <text class="uml-name" x="105" y="24">weakref.proxy(real)</text>
+      <text class="uml-member" x="12" y="50">특수 메서드도 위임</text>
+      <text class="uml-member" x="12" y="70">원본을 살려 두지 않음</text>
+      <text class="uml-member" x="12" y="90">원본 소멸 → ReferenceError</text>
+    </g>
+    <path class="uml-dep" d="M230 92 H255" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M410 92 H385" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="200" y="170">len(): [1]은 TypeError, [4]는 정상</text>
+
+    <text class="uml-note" x="20" y="200">프록시 객체 없이 같은 효과</text>
+    <g class="uml-class highlight" transform="translate(20,212)">
+      <rect width="290" height="104"/>
+      <text class="uml-name" x="145" y="22">LandCoverScene</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">scene_id (가벼움)</text>
+      <text class="uml-member" x="10" y="70">@cached_property</text>
+      <text class="uml-member" x="10" y="88">raster: 첫 접근 때 한 번 로딩</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(330,212)">
+      <rect width="290" height="104"/>
+      <text class="uml-name" x="145" y="24">fetch_tile(tile_id)</text>
+      <text class="uml-member" x="12" y="48">@lru_cache(maxsize=2)</text>
+      <text class="uml-member" x="12" y="68">02의 CachingArchiveProxy</text>
+      <text class="uml-member" x="12" y="88">역할을 함수 하나로</text>
+    </g>
+    <text class="uml-label" x="20" y="340">LOADS 리스트: 무거운 로딩이 언제 일어났는지 기록한다. 모든 데모가 이것을 출력한다</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="212" r="9"/><text x="20" y="216">2</text></g>
+    <g class="uml-step"><circle cx="330" cy="212" r="9"/><text x="330" y="216">3</text></g>
+    <g class="uml-step"><circle cx="410" cy="36" r="9"/><text x="410" y="40">4</text></g>
+
+    <text class="uml-note" x="20" y="378"><tspan font-weight="700">읽는 순서</tspan> · 번호는 데모 번호와 같다. 주황은 구멍이 있는 곳</text>
+    <text class="uml-note" x="20" y="400">① LazyProxy: 위임되는 것과 새는 것 → ② cached_property → ③ lru_cache</text>
+    <text class="uml-note" x="20" y="422">→ ④ weakref.proxy: [1]과 len() 결과를 비교</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py. 점선 화살표는 "감싸서 위임한다". 위는 바깥 프록시 두 가지, 아래는 프록시가 필요 없는 두 가지다.</figcaption>
+</figure>
 <figure class="code"><figcaption>src/09_proxy/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;09 프록시 — 파이썬다운 변형: __getattr__ 범용 지연 프록시, cached_property, lru_cache, weakref.proxy.
 
 상황: 02_proxy.py의 LazyImageProxy는 SatelliteImage 전용이다. 수아의 팀에는 지연 로딩이

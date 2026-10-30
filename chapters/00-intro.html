@@ -37,6 +37,80 @@ part:
     <li><strong>그것들을 상속으로 엮을 것인가, 합성으로 조립할 것인가?</strong> 지점의 차이는 행동이 아니라 조합이다. 지점마다 하위 클래스를 만들면 <dfn data-term="combinatorial-explosion">조합의 수만큼 클래스가 생긴다</dfn>. 독립적인 선택지가 늘 때마다 클래스 수가 곱으로 불어나는 이 현상을 조합 폭발이라 부른다. 규칙 객체의 목록으로 조립하면 지점 정책은 데이터가 된다.</li>
   </ol>
   <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 01의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn data-term="refactoring">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn data-term="typing-protocol">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn data-term="dataclasses-field">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 490" role="img" aria-label="02_refactored.py의 구조: FeePolicy가 Adjustment 목록을 담아 순서대로 적용하고, ChildDiscount·ExamWaiver·Cap이 Adjustment를 상속하며, BRANCH_POLICIES가 지점마다 FeePolicy를 조립한다">
+      <text class="uml-note" x="20" y="22">[변하지 않는 절차]</text>
+      <g class="uml-class highlight" transform="translate(20,40)">
+        <rect width="260" height="110"/>
+        <text class="uml-name" x="130" y="22">FeePolicy</text>
+        <line x1="0" y1="32" x2="260" y2="32"/>
+        <text class="uml-member" x="10" y="52">rates: dict[str, int]</text>
+        <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
+        <line x1="0" y1="80" x2="260" y2="80"/>
+        <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
+      </g>
+      <text class="uml-note" x="390" y="22">[변하는 것] 조정 규칙의 계약 · ABC</text>
+      <g class="uml-class" transform="translate(390,40)">
+        <rect width="230" height="70"/>
+        <text class="uml-name uml-abstract" x="115" y="22">Adjustment</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="54">+ apply(loan, fee) → int</text>
+      </g>
+      <g class="uml-class" transform="translate(440,140)">
+        <rect width="180" height="76"/>
+        <text class="uml-name" x="90" y="22">ChildDiscount</text>
+        <line x1="0" y1="32" x2="180" y2="32"/>
+        <text class="uml-member" x="10" y="52">설정 없음</text>
+        <text class="uml-member" x="10" y="68">아동이면 fee // 2</text>
+      </g>
+      <g class="uml-class" transform="translate(440,232)">
+        <rect width="180" height="76"/>
+        <text class="uml-name" x="90" y="22">ExamWaiver</text>
+        <line x1="0" y1="32" x2="180" y2="32"/>
+        <text class="uml-member" x="10" y="52">start · end</text>
+        <text class="uml-member" x="10" y="68">기간 안 대학생 → 0</text>
+      </g>
+      <g class="uml-class" transform="translate(440,324)">
+        <rect width="180" height="76"/>
+        <text class="uml-name" x="90" y="22">Cap</text>
+        <line x1="0" y1="32" x2="180" y2="32"/>
+        <text class="uml-member" x="10" y="52">limit</text>
+        <text class="uml-member" x="10" y="68">min(fee, limit)</text>
+      </g>
+      <g class="uml-func" transform="translate(20,196)">
+        <rect width="260" height="74"/>
+        <text class="uml-name" x="130" y="22">BRANCH_POLICIES</text>
+        <text class="uml-member" x="10" y="44">새솔 · 하늘 · 바다 →</text>
+        <text class="uml-member" x="10" y="62">FeePolicy(요율표, 규칙 목록)</text>
+      </g>
+      <g class="uml-class" transform="translate(20,324)">
+        <rect width="260" height="76"/>
+        <text class="uml-name" x="130" y="22">Loan</text>
+        <line x1="0" y1="32" x2="260" y2="32"/>
+        <text class="uml-member" x="10" y="52">material · member · due</text>
+        <text class="uml-member" x="10" y="68">returned · branch</text>
+      </g>
+      <text class="uml-note" x="290" y="366">← 모든 규칙의 입력</text>
+
+      <path class="marker-fill" d="M280 75 L290 68 L300 75 L290 82 Z"/>
+      <path class="uml-compose" d="M300 75 H390"/>
+      <text class="uml-label" x="306" y="96">순서대로 적용</text>
+      <path class="uml-inherit" d="M440 178 H420"/>
+      <path class="uml-inherit" d="M440 270 H420"/>
+      <path class="uml-inherit" d="M440 362 H420 V110" marker-end="url(#triangle)"/>
+      <path class="uml-dep" d="M150 196 V150" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="158" y="180">지점마다 조립</text>
+
+      <g class="uml-step"><circle cx="390" cy="40" r="9"/><text x="390" y="44">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="196" r="9"/><text x="20" y="200">3</text></g>
+
+      <text class="uml-note" x="20" y="434"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 코드의 중심 클래스</text>
+      <text class="uml-note" x="20" y="456">① Adjustment와 세 규칙: 서로를 모른다 → ② FeePolicy.late_fee(): 목록 순서대로 적용</text>
+      <text class="uml-note" x="20" y="478">③ BRANCH_POLICIES: 지점 = 요율표 + 규칙 목록 → ④ 데모 [1] 동작 보존 · [2] 상한 추가 · [3] 순서</text>
+    </svg>
+    <figcaption>코드 지도 · 02_refactored.py. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다".</figcaption>
+  </figure>
   <pre data-src="00_intro/02_refactored.py"></pre>
   <p>[1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
   <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn data-term="chain-of-responsibility">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
@@ -70,6 +144,71 @@ part:
     <li><strong><dfn data-term="dunder-special-method">던더</dfn>(dunder) 프로토콜.</strong> 던더는 double underscore의 줄임말로, 이름 앞뒤에 밑줄 두 개가 붙은 특수 메서드를 가리킨다. 이 메서드들은 언어가 미리 정해 둔 인터페이스(프로토콜)에 참여하는 방법이며, 파이썬은 이를 인스턴스가 아니라 타입에서 찾는다. <code>__iter__</code>/<code><dfn data-term="iterator-protocol">__next__</dfn></code>(반복자 프로토콜: 순회할 반복자를 내주고 다음 값을 꺼내며, 끝나면 <code>StopIteration</code>을 던진다. <code>for</code> 문이 이것을 부른다), <code><dfn data-term="call">__call__</dfn></code>(객체를 함수처럼 <code>()</code>로 부를 수 있게 한다), <code><dfn data-term="getattr">__getattr__</dfn></code>(일반 속성 조회가 실패했을 때만 불린다), <code><dfn data-term="context-manager">__enter__</dfn></code>/<code>__exit__</code>(컨텍스트 매니저: <code>with</code> 블록에 들어갈 때 준비하고, 빠져나올 때 예외가 나도 정리를 보장한다)가 대표적이다. 반복자 패턴은 언어 자체가 되었고(<dfn data-term="generator">제너레이터</dfn>: <code>yield</code>가 든 함수를 부르면 나오는 반복자로, 값을 하나 내고 멈췄다가 다음 요청에서 이어 간다), 프록시와 어댑터는 <code>__getattr__</code> 위임으로 짧아진다.</li>
   </ul>
   <p class="lead-in">2절의 리팩터링을 이 렌즈로 다시 쓰면 어떻게 되는가. 아래 코드는 상태 없는 규칙을 함수로, 설정 있는 규칙을 클로저와 <code>__call__</code> 클래스로 바꾸고, 계약을 <code>Protocol</code>로 표현한다. 세 종류의 규칙이 한 목록 안에서 똑같이 호출된다는 점, 그리고 데모 [2]가 "클래스가 필요한 순간"에 대해 무엇을 말하는지 주목하라. docstring이 말하는 "<dfn data-term="callable">호출 가능한</dfn> 것"(callable)은 <code>()</code>로 부를 수 있는 모든 것, 곧 함수·클래스·람다·<code>__call__</code>을 가진 객체이며, 타입 힌트로는 <code>Callable[[인자...], 반환]</code>으로 적는다. <dfn data-term="serialization">직렬화</dfn>는 객체를 저장하거나 전송할 수 있는 문자열·바이트 형식으로 바꾸는 것이다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 440" role="img" aria-label="03_pythonic.py의 구조: FeePolicy가 Adjustment 프로토콜 목록을 호출하고, 함수 child_discount, 클로저를 돌려주는 cap, __call__을 가진 ExamWaiver가 상속 없이 그 모양을 맞춘다">
+      <text class="uml-note" x="20" y="22">[변하지 않는 절차] 02와 같다</text>
+      <g class="uml-class" transform="translate(20,40)">
+        <rect width="260" height="110"/>
+        <text class="uml-name" x="130" y="22">FeePolicy</text>
+        <line x1="0" y1="32" x2="260" y2="32"/>
+        <text class="uml-member" x="10" y="52">rates: dict[str, int]</text>
+        <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
+        <line x1="0" y1="80" x2="260" y2="80"/>
+        <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
+      </g>
+      <text class="uml-note" x="390" y="22">[변하는 것] ABC 대신 Protocol</text>
+      <g class="uml-class highlight" transform="translate(390,40)">
+        <rect width="230" height="76"/>
+        <text class="uml-name" x="115" y="22">Adjustment</text>
+        <text class="uml-stereo" x="115" y="38">Protocol</text>
+        <line x1="0" y1="46" x2="230" y2="46"/>
+        <text class="uml-member" x="10" y="66">__call__(loan, fee) → int</text>
+      </g>
+      <g class="uml-func" transform="translate(20,200)">
+        <rect width="190" height="92"/>
+        <text class="uml-name" x="95" y="22">child_discount</text>
+        <text class="uml-stereo" x="95" y="40">함수</text>
+        <text class="uml-member" x="10" y="68">아동이면 fee // 2</text>
+      </g>
+      <g class="uml-func" transform="translate(225,200)">
+        <rect width="190" height="92"/>
+        <text class="uml-name" x="95" y="22">cap(limit)</text>
+        <text class="uml-stereo" x="95" y="40">클로저를 돌려주는 함수</text>
+        <text class="uml-member" x="10" y="68">→ apply(loan, fee)</text>
+        <text class="uml-member" x="10" y="84">  limit을 기억한다</text>
+      </g>
+      <g class="uml-class" transform="translate(430,200)">
+        <rect width="190" height="92"/>
+        <text class="uml-name" x="95" y="22">ExamWaiver</text>
+        <text class="uml-stereo" x="95" y="40">frozen dataclass</text>
+        <line x1="0" y1="50" x2="190" y2="50"/>
+        <text class="uml-member" x="10" y="68">+ __call__(loan, fee)</text>
+        <text class="uml-member" x="10" y="84">+ describe() → str</text>
+      </g>
+      <text class="uml-note" x="20" y="312">← 02의 ChildDiscount 클래스</text>
+      <text class="uml-note" x="225" y="312">← 02의 Cap 클래스</text>
+      <text class="uml-note" x="430" y="312">← 02에서 ABC를 상속하던 것</text>
+
+      <path class="marker-fill" d="M280 75 L290 68 L300 75 L290 82 Z"/>
+      <path class="uml-compose" d="M300 75 H390"/>
+      <text class="uml-label" x="306" y="96">순서대로 호출</text>
+      <path class="uml-impl" d="M115 200 V175 H505"/>
+      <path class="uml-impl" d="M320 200 V175"/>
+      <path class="uml-impl" d="M525 200 V175 H505"/>
+      <path class="uml-impl" d="M505 175 V116" marker-end="url(#triangle)"/>
+      <text class="uml-label" x="128" y="168">상속 없이 모양만 맞춘다</text>
+
+      <g class="uml-step"><circle cx="390" cy="40" r="9"/><text x="390" y="44">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="200" r="9"/><text x="20" y="204">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">3</text></g>
+
+      <text class="uml-note" x="20" y="362"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02에서 바뀐 중심</text>
+      <text class="uml-note" x="20" y="384">① Adjustment(Protocol): 상속 대신 호출 모양 → ② 세 규칙: 함수 · 클로저 · __call__ 클래스</text>
+      <text class="uml-note" x="20" y="406">③ FeePolicy: 함수든 객체든 똑같이 호출 → ④ 데모 [1] 섞어 쓰기 · [2] 클래스만 자기를 설명</text>
+      <text class="uml-note" x="20" y="428">· [3] 람다 한 줄짜리 테스트 대역</text>
+    </svg>
+    <figcaption>코드 지도 · 03_pythonic.py. 둥근 상자는 함수, 빈 삼각형 점선은 "모양을 맞춘다", 속이 찬 마름모는 "담고 있다".</figcaption>
+  </figure>
   <pre data-src="00_intro/03_pythonic.py"></pre>
   <p>[1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
   <p>그렇다고 클래스가 사라지지는 않는다. [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>

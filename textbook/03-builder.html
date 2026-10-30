@@ -45,6 +45,59 @@
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">하은의 <code>SalesQuery</code>다. 생성자 docstring이 말하는 <dfn class="term" id="term-telescoping-constructor" data-term="telescoping-constructor" title="선택 인자가 늘 때마다 생성자 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록(None 행렬)을 쓰게 되는 안티패턴.">점층적 생성자</dfn>(telescoping constructor)는 선택 인자가 늘 때마다 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록을 쓰게 되는 모양을 말한다. 생성자 시그니처와 데모 [1]의 호출부를 먼저 비교해 보라. 그다음 <code>to_sql()</code>이 <code>WHERE</code>와 <code>AND</code>를 붙이는 방식, 그리고 <code>to_summary()</code>가 <code>to_sql()</code>의 분기를 어떻게 따라 하다 하나를 놓쳤는지에 주목하라.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 470" role="img" aria-label="01_naive.py의 문제 지점: SalesQuery의 생성자는 선택 인자가 늘어나는 점층적 생성자이고, to_sql()은 WHERE와 AND 처리, GROUP BY 없는 HAVING, 값 끼워 넣기 문제를 품으며, to_summary()는 to_sql()의 분기를 복제하다 등급 조건을 놓친다. 각 문제는 데모 [1]부터 [5]에서 드러난다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">SalesQuery — 모든 선택 사항이 생성자 인자</text>
+      <g class="uml-group" transform="translate(20,34)"><rect width="312" height="346"/></g>
+      <g class="uml-func warn" transform="translate(36,50)">
+        <rect width="280" height="74"/>
+        <text class="uml-name" x="140" y="22">__init__(table, columns, …)</text>
+        <text class="uml-member" x="10" y="44">선택 인자 9개 · 모두 None 기본값</text>
+        <text class="uml-member" x="10" y="62">⚠ 점층적 생성자</text>
+      </g>
+      <g class="uml-func warn" transform="translate(36,146)">
+        <rect width="280" height="110"/>
+        <text class="uml-name" x="140" y="22">to_sql()</text>
+        <text class="uml-member" x="10" y="46">⚠ 첫 조건만 AND 없다고 가정</text>
+        <text class="uml-member" x="10" y="66">⚠ GROUP BY 없는 HAVING 허용</text>
+        <text class="uml-member" x="10" y="86">⚠ 값을 문자열에 끼워 넣음</text>
+      </g>
+      <g class="uml-func warn" transform="translate(36,290)">
+        <rect width="280" height="74"/>
+        <text class="uml-name" x="140" y="22">to_summary()</text>
+        <text class="uml-member" x="10" y="44">⚠ to_sql()의 분기를 복제</text>
+        <text class="uml-member" x="10" y="62">grade 요약을 깜빡했다</text>
+      </g>
+      <path class="uml-dep" d="M176 290 V256" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="184" y="278">같은 분기를 다시 씀</text>
+
+      <text class="uml-note" x="400" y="22">데모에서 드러나는 모습</text>
+      <g class="uml-func" transform="translate(400,58)"><rect width="220" height="32"/><text class="uml-member" x="12" y="21">[1] None 행렬 호출부</text></g>
+      <g class="uml-func" transform="translate(400,146)"><rect width="220" height="32"/><text class="uml-member" x="12" y="21">[2] "WHERE AND" 문법 오류</text></g>
+      <g class="uml-func" transform="translate(400,192)"><rect width="220" height="32"/><text class="uml-member" x="12" y="21">[3] HAVING만 → DB가 거부</text></g>
+      <g class="uml-func" transform="translate(400,238)"><rect width="220" height="32"/><text class="uml-member" x="12" y="21">[4] ' OR '1'='1 주입</text></g>
+      <g class="uml-func" transform="translate(400,311)"><rect width="220" height="32"/><text class="uml-member" x="12" y="21">[5] 요약에서 등급이 사라짐</text></g>
+      <path class="uml-dep" d="M316 74 H400" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M316 188 H350 V162 H400" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M316 208 H400" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M316 228 H350 V254 H400" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M316 327 H400" marker-end="url(#arrow)"/>
+
+      <g class="uml-step"><circle cx="36" cy="50" r="9"/><text x="36" y="54">1</text></g>
+      <g class="uml-step"><circle cx="36" cy="146" r="9"/><text x="36" y="150">2</text></g>
+      <g class="uml-step"><circle cx="36" cy="290" r="9"/><text x="36" y="294">3</text></g>
+
+      <text class="uml-note" x="20" y="414"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+      <text class="uml-note" x="20" y="436">① 생성자 시그니처와 데모 [1]의 호출부 → ② to_sql(): 문자열 이어 붙이기의 세 문제</text>
+      <text class="uml-note" x="20" y="458">③ to_summary(): 같은 분기를 복제하다 하나를 놓쳤다</text>
+    </svg>
+    <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "이 문제가 저 데모에서 드러난다". 클래스는 하나뿐이고, 문제는 그 안의 세 메서드에 몰려 있다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/03_builder/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 매개변수 11개짜리 생성자와 문자열 이어 붙이기로 SQL을 만든다.
 
 상황: 이커머스 회사 &#x27;장바구니랩&#x27;의 데이터 분석가 하은은 사내 BI 대시보드의 &quot;기간별 매출&quot;
@@ -265,6 +318,71 @@ if __name__ == &quot;__main__&quot;:
     <span class="label">용어</span>
     코드에 처음 나오는 말들이다. <dfn class="term" id="term-method-chaining" data-term="method-chaining" title="메서드가 객체 자신을 돌려주게 하여 여러 호출을 점(.)으로 이어 붙이는 기법.">체이닝</dfn>(메서드 체이닝)은 메서드가 객체 자신을 돌려주게 해 여러 호출을 점으로 이어 붙이는 기법이다. <dfn class="term" id="term-parameter-binding" data-term="parameter-binding" title="SQL 텍스트에는 `%s` 같은 자리표시자만 두고 값은 별도로 넘겨 DB 드라이버가 안전하게 결합하게 하는 방식; 식별자는 바인딩할 수 없다.">매개변수 바인딩</dfn>은 SQL 텍스트에는 <code>%s</code> 같은 자리표시자만 두고 값은 따로 넘겨, 데이터베이스와 통신하는 라이브러리인 <dfn class="term" id="term-database-driver" data-term="database-driver" title="애플리케이션과 특정 데이터베이스 사이의 통신을 맡는 라이브러리(`cursor.execute(sql, params)` 등을 제공).">DB 드라이버</dfn>가 안전하게 결합하게 하는 방식이다(테이블·열 이름 같은 식별자는 바인딩할 수 없다). 그래서 식별자는 <dfn class="term" id="term-allowlist" data-term="allowlist" title="허용할 값·패턴을 명시해 그 밖의 것은 모두 거부하는 검사 방식.">화이트리스트</dfn>, 곧 허용할 패턴을 명시하고 그 밖은 모두 거부하는 검사로 막는다. <code><dfn class="term" id="term-frozenset" data-term="frozenset" title="생성 후 바꿀 수 없는 집합 타입(해시 가능).">frozenset</dfn></code>은 생성 후 바꿀 수 없는 집합이다. docstring의 "<dfn class="term" id="term-hashable" data-term="hashable" title="수명 동안 해시값이 변하지 않아 dict 키·set 원소가 될 수 있는 성질. frozen dataclass는 해시 가능하다.">해시</dfn> 가능"은 수명 동안 해시값이 변하지 않아 딕셔너리 키나 집합 원소가 될 수 있다는 뜻이다. 줄 끝의 <code><dfn class="term" id="term-type-ignore-comment" data-term="type-ignore-comment" title="그 줄에 대해 정적 타입 검사기의 경고를 끄는 주석 지시문(대괄호 안에 무시할 오류 코드를 적을 수 있다)."># type: ignore</dfn>[arg-type]</code>는 그 줄에 대해 정적 타입 검사기의 특정 경고(대괄호 안의 오류 코드)를 끄는 주석 지시문이다.
   </div>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 420" role="img" aria-label="02_builder.py의 구조: QueryBuilder가 Query를 만들고, Query는 Condition을 담으며, 모든 단계가 _check_expr를 호출한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">[Builder] 가변 — 조립 중 상태</text>
+      <g class="uml-class highlight" transform="translate(20,40)">
+        <rect width="250" height="190"/>
+        <text class="uml-name" x="125" y="22">QueryBuilder</text>
+        <line x1="0" y1="32" x2="250" y2="32"/>
+        <text class="uml-member" x="10" y="52">+ select(*exprs) → Self</text>
+        <text class="uml-member" x="10" y="70">+ where(expr, op, value) → Self</text>
+        <text class="uml-member" x="10" y="88">+ group_by(*exprs) → Self</text>
+        <text class="uml-member" x="10" y="106">+ having(expr, op, value) → Self</text>
+        <text class="uml-member" x="10" y="124">+ order_by(expr, desc) → Self</text>
+        <text class="uml-member" x="10" y="142">+ limit(n) → Self</text>
+        <line x1="0" y1="156" x2="250" y2="156"/>
+        <text class="uml-member" x="10" y="178">+ build() → Query</text>
+      </g>
+      <text class="uml-note" x="390" y="22">[Product] 불변 — 완성된 값</text>
+      <g class="uml-class" transform="translate(390,40)">
+        <rect width="230" height="76"/>
+        <text class="uml-name" x="115" y="22">Condition</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="52">expr · op · value</text>
+        <text class="uml-stereo" x="115" y="68">frozen dataclass</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(390,160)">
+        <rect width="230" height="130"/>
+        <text class="uml-name" x="115" y="22">Query</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="52">table · select</text>
+        <text class="uml-member" x="10" y="70">where · having</text>
+        <text class="uml-member" x="10" y="88">group_by · order_by · limit</text>
+        <line x1="0" y1="98" x2="230" y2="98"/>
+        <text class="uml-member" x="10" y="118">+ to_sql() → (str, list)</text>
+      </g>
+      <g class="uml-func" transform="translate(20,280)">
+        <rect width="250" height="52"/>
+        <text class="uml-name" x="125" y="22">_check_expr(expr)</text>
+        <text class="uml-member" x="10" y="42">_IDENT · _AGG · _OPS</text>
+      </g>
+
+      <path class="uml-dep" d="M270 100 H390" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="304" y="92">조건 생성</text>
+      <path class="uml-dep" d="M270 214 H390" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="285" y="206">build()가 생성</text>
+      <path class="uml-compose" d="M505 116 V140"/>
+      <path class="marker-fill" d="M505 160 L498 150 L505 140 L512 150 Z"/>
+      <text class="uml-label" x="514" y="144">조건의 원소</text>
+      <path class="uml-dep" d="M145 230 V280" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="153" y="260">모든 단계가 호출</text>
+
+      <g class="uml-step"><circle cx="390" cy="40" r="9"/><text x="390" y="44">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">2</text></g>
+      <g class="uml-step"><circle cx="252" cy="214" r="9"/><text x="252" y="218">3</text></g>
+
+      <text class="uml-note" x="20" y="366"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 코드의 중심 클래스</text>
+      <text class="uml-note" x="20" y="388">① Condition·Query: 불변 정의 → ② QueryBuilder 단계: 값마다 즉시 검사</text>
+      <text class="uml-note" x="20" y="408">③ build(): 교차 검증 후 Query 생성 → ④ 데모 [1]~[6]</text>
+    </svg>
+    <figcaption>코드 지도 · 02_builder.py. 점선 화살표는 "만든다/호출한다", 속이 찬 마름모는 "담고 있다".</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/03_builder/02_builder.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;유창한(fluent) 빌더: 단계적으로 조립하고, build()에서 한 번에 검증해 불변 Query를 낸다.
 
 상황: 01_naive.py의 SalesQuery는 (1) None 투성이 점층적 생성자, (2) &quot;WHERE AND&quot; 같은
@@ -507,6 +625,70 @@ if __name__ == &quot;__main__&quot;:
 
   <h3>4.2 GoF 빌더: 같은 절차, 다른 표현</h3>
   <p class="lead-in">이제 [5]의 문제, 즉 SQL과 요약이 조립 절차를 복제하다 어긋난 문제를 원전의 빌더로 푼다. <code>QueryDirector.construct()</code>가 절차의 유일한 소유자라는 점, 두 렌더러는 단계 하나하나를 자기 방식으로 표현만 한다는 점, 그리고 <code>QueryRenderer</code>에 <code>result()</code>가 없는 이유에 주목하라. docstring이 예로 드는 <dfn class="term" id="term-pandas" data-term="pandas" title="표 형태 데이터(데이터프레임)를 다루는 파이썬 데이터 분석 라이브러리.">데이터프레임</dfn> 코드 생성기의 데이터프레임은 표 형태 데이터를 다루는 파이썬 분석 라이브러리 pandas의 핵심 자료형이다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 556" role="img" aria-label="03_director.py의 흐름: QueryDirector.construct()가 Query를 받아 add_source, add_filters, add_grouping, add_limit 단계를 조건에 따라 차례로 부르고, PostgresRenderer와 SummaryRenderer는 같은 단계를 각각 SQL 조각과 한국어 요약으로 표현한다. 결과는 각 렌더러의 result()에서 꺼낸다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <g class="uml-class" transform="translate(20,40)">
+        <rect width="200" height="72"/>
+        <text class="uml-name" x="100" y="22">Query</text>
+        <line x1="0" y1="32" x2="200" y2="32"/>
+        <text class="uml-member" x="10" y="50">table · select · where</text>
+        <text class="uml-member" x="10" y="66">group_by · having · limit</text>
+      </g>
+      <text class="uml-note" x="236" y="64">입력: 02의 Query를 간추려 다시 정의</text>
+      <text class="uml-note" x="236" y="84">(조건 하나는 Condition: expr · op · value)</text>
+      <path class="uml-dep" d="M120 112 V140" marker-end="url(#arrow)"/>
+
+      <text class="uml-note" x="236" y="128">[Concrete Builder] 둘 다 QueryRenderer(ABC)를 상속</text>
+      <g class="uml-class highlight" transform="translate(20,140)">
+        <rect width="200" height="52"/>
+        <text class="uml-name" x="100" y="22">QueryDirector</text>
+        <text class="uml-member" x="10" y="42">construct(query, …)</text>
+      </g>
+      <g class="uml-class" transform="translate(236,140)">
+        <rect width="184" height="52"/>
+        <text class="uml-name" x="92" y="22">PostgresRenderer</text>
+        <text class="uml-member" x="10" y="42">_clauses · _params</text>
+      </g>
+      <g class="uml-class" transform="translate(436,140)">
+        <rect width="184" height="52"/>
+        <text class="uml-name" x="92" y="22">SummaryRenderer</text>
+        <text class="uml-member" x="10" y="42">_parts</text>
+      </g>
+      <text class="uml-note" x="20" y="216">construct()가 부르는 단계</text>
+      <text class="uml-note" x="236" y="216">SQL 조각</text>
+      <text class="uml-note" x="436" y="216">한국어 요약 조각</text>
+      <g class="uml-func highlight" transform="translate(20,226)"><rect width="200" height="40"/><text class="uml-label" x="12" y="15">항상</text><text class="uml-member" x="12" y="32">add_source()</text></g>
+      <g class="uml-class" transform="translate(236,226)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">SELECT … FROM …</text></g>
+      <g class="uml-class" transform="translate(436,226)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">[table] select</text></g>
+      <g class="uml-func highlight" transform="translate(20,274)"><rect width="200" height="40"/><text class="uml-label" x="12" y="15">where가 있으면</text><text class="uml-member" x="12" y="32">add_filters()</text></g>
+      <g class="uml-class" transform="translate(236,274)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">WHERE … %s → params</text></g>
+      <g class="uml-class" transform="translate(436,274)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">조건: …</text></g>
+      <g class="uml-func highlight" transform="translate(20,322)"><rect width="200" height="40"/><text class="uml-label" x="12" y="15">group_by가 있으면</text><text class="uml-member" x="12" y="32">add_grouping()</text></g>
+      <g class="uml-class" transform="translate(236,322)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">GROUP BY … HAVING …</text></g>
+      <g class="uml-class" transform="translate(436,322)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">…별 집계</text></g>
+      <g class="uml-func highlight" transform="translate(20,370)"><rect width="200" height="40"/><text class="uml-label" x="12" y="15">limit이 있으면</text><text class="uml-member" x="12" y="32">add_limit()</text></g>
+      <g class="uml-class" transform="translate(236,370)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">LIMIT n</text></g>
+      <g class="uml-class" transform="translate(436,370)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">상위 n개</text></g>
+      <g class="uml-class" transform="translate(236,428)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">result() → SqlStatement</text></g>
+      <g class="uml-class" transform="translate(436,428)"><rect width="184" height="40"/><text class="uml-member" x="92" y="25" text-anchor="middle">result() → str</text></g>
+      <text class="uml-note" x="20" y="444">result()는 인터페이스 밖:</text>
+      <text class="uml-note" x="20" y="462">제품 타입이 서로 다르다</text>
+
+      <g class="uml-step"><circle cx="20" cy="140" r="9"/><text x="20" y="144">1</text></g>
+      <g class="uml-step"><circle cx="236" cy="140" r="9"/><text x="236" y="144">2</text></g>
+      <g class="uml-step"><circle cx="236" cy="428" r="9"/><text x="236" y="432">3</text></g>
+
+      <text class="uml-note" x="20" y="500"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 절차를 소유하는 Director, 한 행이 한 단계</text>
+      <text class="uml-note" x="20" y="520">① construct(): 순서와 생략 규칙 → ② 두 렌더러: 같은 단계를 각자 표현 → ③ result()</text>
+      <text class="uml-note" x="20" y="540">데모 [1] SQL · [2] 요약(등급 조건이 빠지지 않는다) · [3] 생략 규칙도 두 표현에 똑같이</text>
+    </svg>
+    <figcaption>코드 지도 · 03_director.py. 그림 3-1의 참여자가 실제로 주고받는 단계를 표로 펼쳤다. 왼쪽 열이 부르면 같은 행의 두 렌더러가 각자 조각을 쌓는다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/03_builder/03_director.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;GoF 빌더: 같은 조립 절차(Director)로 서로 다른 표현(SQL, 사람이 읽는 요약)을 만든다.
 
 상황: 02_builder.py로 쿼리 정의(Query)는 안전해졌다. 그런데 분석 팀이 &quot;대시보드마다

@@ -23,7 +23,97 @@ part: 행위 패턴
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">아래는 사고가 난 시점의 <code>Scooter</code>다. 메서드마다 상태 목록이 되풀이되는 모양, 그리고 <code>unlock()</code>의 <code>else</code>가 무엇을 삼키는지에 주목하라. <code># ⚠ 문제:</code> 주석이 결함 지점이다. 데모 [3]과 [4]가 실제 버그를 재현한다. 맨 위 상수 이름에 든 <dfn data-term="time-to-live">TTL</dfn>(Time To Live)은 예약처럼 유효 기간이 있는 것의 유지 시간으로, 지나면 만료된다. 코드 주석에 나오는 <dfn data-term="illegal-transition">불법 전이</dfn>는 현재 상태에서 허용되지 않는 동작이 받아들여져, 일어나서는 안 되는 상태 변화가 생기는 것을 말한다. 정비 중인 기기의 주행 시작이 바로 그런 예이고, 이 장의 모든 설계는 이것을 어떻게 막느냐로 수렴한다.</p>
-  <pre data-src="13_state/01_naive.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 478" role="img" aria-label="01_naive.py의 구조: Scooter 한 클래스의 메서드 여덟 개가 각자 여섯 상태를 분기한다. unlock()의 else는 배터리 부족·정비 중·분실 신고 상태에서도 주행을 허용하고, report_lost()는 주행 중에도 분실로 바꾼다">
+    <g class="uml-class warn" transform="translate(20,36)">
+      <rect width="600" height="76"/>
+      <text class="uml-name" x="300" y="22">Scooter</text>
+      <line x1="0" y1="32" x2="600" y2="32"/>
+      <text class="uml-member" x="10" y="52">status: str  ⚠ 오타에 취약한 문자열</text>
+      <text class="uml-member" x="10" y="70">reserved_by · reserved_at · rider · ride_started_at  ⚠ 상태별 데이터가 늘 존재</text>
+    </g>
+    <text class="uml-note" x="20" y="24">상태·데이터·전이 규칙·요금이 한 클래스에</text>
+    <text class="uml-note" x="20" y="142">메서드 × 상태 — 각 칸이 if 분기 하나</text>
+    <text class="uml-label" x="221" y="166" text-anchor="middle">대여 가능</text>
+    <text class="uml-label" x="294" y="166" text-anchor="middle">예약됨</text>
+    <text class="uml-label" x="366" y="166" text-anchor="middle">주행 중</text>
+    <text class="uml-label" x="439" y="166" text-anchor="middle">배터리 부족</text>
+    <text class="uml-label" x="511" y="166" text-anchor="middle">정비 중</text>
+    <text class="uml-label" x="584" y="166" text-anchor="middle">분실 신고</text>
+    <path class="uml-assoc" d="M20 174 H620"/>
+    <path class="uml-assoc" d="M185 154 V352"/>
+    <text class="uml-member" x="26" y="190">reserve()</text>
+    <text class="uml-member" x="221" y="190" text-anchor="middle">✓</text>
+    <text class="uml-member" x="294" y="190" text-anchor="middle">✗</text>
+    <text class="uml-member" x="366" y="190" text-anchor="middle">✗</text>
+    <text class="uml-member" x="439" y="190" text-anchor="middle">✗</text>
+    <text class="uml-member" x="511" y="190" text-anchor="middle">✗</text>
+    <text class="uml-member" x="584" y="190" text-anchor="middle">✗</text>
+    <text class="uml-member" x="26" y="212">unlock()</text>
+    <text class="uml-member" x="221" y="212" text-anchor="middle">✓</text>
+    <text class="uml-member" x="294" y="212" text-anchor="middle">✓ 본인만</text>
+    <text class="uml-member" x="366" y="212" text-anchor="middle">✗</text>
+    <g class="uml-class warn"><rect x="407" y="197" width="64" height="21"/></g>
+    <text class="uml-member" x="439" y="212" text-anchor="middle">✓ ⚠</text>
+    <g class="uml-class warn"><rect x="479" y="197" width="64" height="21"/></g>
+    <text class="uml-member" x="511" y="212" text-anchor="middle">✓ ⚠</text>
+    <g class="uml-class warn"><rect x="552" y="197" width="64" height="21"/></g>
+    <text class="uml-member" x="584" y="212" text-anchor="middle">✓ ⚠</text>
+    <text class="uml-member" x="26" y="234">end_ride()</text>
+    <text class="uml-member" x="221" y="234" text-anchor="middle">✗</text>
+    <text class="uml-member" x="294" y="234" text-anchor="middle">✗</text>
+    <text class="uml-member" x="366" y="234" text-anchor="middle">✓</text>
+    <text class="uml-member" x="439" y="234" text-anchor="middle">✗</text>
+    <text class="uml-member" x="511" y="234" text-anchor="middle">✗</text>
+    <text class="uml-member" x="584" y="234" text-anchor="middle">✗</text>
+    <text class="uml-member" x="26" y="256">tick()</text>
+    <text class="uml-member" x="221" y="256" text-anchor="middle">–</text>
+    <text class="uml-member" x="294" y="256" text-anchor="middle">✓</text>
+    <text class="uml-member" x="366" y="256" text-anchor="middle">–</text>
+    <text class="uml-member" x="439" y="256" text-anchor="middle">–</text>
+    <text class="uml-member" x="511" y="256" text-anchor="middle">–</text>
+    <text class="uml-member" x="584" y="256" text-anchor="middle">–</text>
+    <text class="uml-member" x="26" y="278">update_battery()</text>
+    <text class="uml-member" x="221" y="278" text-anchor="middle">✓</text>
+    <text class="uml-member" x="294" y="278" text-anchor="middle">–</text>
+    <text class="uml-member" x="366" y="278" text-anchor="middle">–</text>
+    <text class="uml-member" x="439" y="278" text-anchor="middle">✓</text>
+    <text class="uml-member" x="511" y="278" text-anchor="middle">–</text>
+    <text class="uml-member" x="584" y="278" text-anchor="middle">–</text>
+    <text class="uml-member" x="26" y="300">send_to_maintenance()</text>
+    <text class="uml-member" x="221" y="300" text-anchor="middle">✓</text>
+    <text class="uml-member" x="294" y="300" text-anchor="middle">✗</text>
+    <text class="uml-member" x="366" y="300" text-anchor="middle">✗</text>
+    <text class="uml-member" x="439" y="300" text-anchor="middle">✓</text>
+    <text class="uml-member" x="511" y="300" text-anchor="middle">✓</text>
+    <text class="uml-member" x="584" y="300" text-anchor="middle">✓</text>
+    <text class="uml-member" x="26" y="322">finish_maintenance()</text>
+    <text class="uml-member" x="221" y="322" text-anchor="middle">✗</text>
+    <text class="uml-member" x="294" y="322" text-anchor="middle">✗</text>
+    <text class="uml-member" x="366" y="322" text-anchor="middle">✗</text>
+    <text class="uml-member" x="439" y="322" text-anchor="middle">✗</text>
+    <text class="uml-member" x="511" y="322" text-anchor="middle">✓</text>
+    <text class="uml-member" x="584" y="322" text-anchor="middle">✗</text>
+    <text class="uml-member" x="26" y="344">report_lost()</text>
+    <text class="uml-member" x="221" y="344" text-anchor="middle">✓</text>
+    <text class="uml-member" x="294" y="344" text-anchor="middle">✓</text>
+    <g class="uml-class warn"><rect x="334" y="329" width="64" height="21"/></g>
+    <text class="uml-member" x="366" y="344" text-anchor="middle">✓ ⚠</text>
+    <text class="uml-member" x="439" y="344" text-anchor="middle">✓</text>
+    <text class="uml-member" x="511" y="344" text-anchor="middle">✓</text>
+    <text class="uml-member" x="584" y="344" text-anchor="middle">✓</text>
+    <text class="uml-label" x="20" y="378">✓ 전이함 · ✗ 예외로 거부 · – 아무 일 없음 · 주황 칸 = 막혀야 하는데 허용됨</text>
+    <text class="uml-label" x="20" y="396">label()도 여섯 상태를 dict로 한 번 더 나열한다</text>
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="14" cy="207" r="9"/><text x="14" y="211">2</text></g>
+    <g class="uml-step"><circle cx="14" cy="339" r="9"/><text x="14" y="343">3</text></g>
+    <text class="uml-note" x="20" y="428"><tspan font-weight="700">읽는 순서</tspan> · 행 하나가 메서드 하나다. 상태가 하나 늘면 열이 하나 늘고, 여덟 행을 모두 고쳐야 한다</text>
+    <text class="uml-note" x="20" y="450">① Scooter 필드 → ② unlock()의 else(주황 셋) → ③ report_lost()(주황 하나)</text>
+    <text class="uml-note" x="20" y="472">데모 [1] 정상 흐름 · [2] 예약 만료 · [3] 정비 중 잠금 해제 · [4] 주행 중 분실 신고</text>
+  </svg>
+  <figcaption>코드 지도 · 01_naive.py. 표는 각 메서드가 각 상태에서 하는 일이다(조건이 붙은 전이도 ✓로 표시). ⚠는 코드의 ⚠ 문제 주석과 대응한다.</figcaption>
+</figure>
+<pre data-src="13_state/01_naive.py"></pre>
   <p>출력 [3]이 사고를 그대로 재현한다. 정비 중인 킥보드인데도 <code>unlock()</code>이 예외 없이 지나가 주행 중이 된다. [4]는 덜 눈에 띄는 버그다. <code>report_lost()</code>가 아무 상태에서나 분실로 바꾸기 때문에, 주행 중이던 손님의 요금이 정산 기록에 남지 않는다. 두 버그는 원인이 같다.</p>
   <ul>
     <li><strong>규칙이 상태가 아니라 메서드 기준으로 흩어져 있다.</strong> "정비 중이면 무엇이 되고 무엇이 안 되는가"를 알려면 <code>label()</code>까지 메서드 아홉 개를 모두 읽어야 한다. 상태 하나의 규칙을 한곳에서 볼 수 없다.</li>
@@ -96,7 +186,78 @@ part: 행위 패턴
   <p>동작 메서드를 모두 <code>@abstractmethod</code>로 만들면 더 엄격해 보인다. 하지만 그러면 상태마다 거부용 메서드 대여섯 개를 복사해 붙여야 하고, 그 복붙 속에서 다시 실수가 난다. 무엇이든 반드시 달라야 하는 <code>label()</code>만 추상으로 남긴 이유다.</p>
 
   <p class="lead-in">다음은 구체 상태 여섯 개다. 각 클래스가 <em>"이 상태에서 무엇이 허용되는가"</em>와 <em>"그다음은 어디인가"</em>만 말한다는 점을 보라. <code>Maintenance</code>가 <code>unlock()</code>을 아예 재정의하지 않는다는 사실이 바로 사고에 대한 해답이다. <code>Reserved.unlock()</code>의 <dfn data-term="guard-condition">가드(guard)</dfn> 조건도 보라. 가드는 전이가 일어나려면 사건 외에 추가로 만족해야 하는 조건이다(여기서는 "예약자 본인일 것"). 같은 사건이라도 가드가 거짓이면 전이는 거부된다.</p>
-  <pre data-src="13_state/02_state.py" data-lines="96-224"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 570" role="img" aria-label="02_state.py 둘째 조각의 구조: 구체 상태 여섯 클래스가 각각 허용하는 동작과 다음 상태만 재정의한다. Reserved와 Riding은 그 상태만의 데이터를 가지며, Maintenance는 unlock을 재정의하지 않아 잠금 해제가 기본 구현에서 거부된다">
+    <text class="uml-note" x="20" y="24">구체 상태 여섯 — 각 줄은 "허용하는 동작 → 다음 상태"</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="290" height="136"/>
+      <text class="uml-name" x="145" y="22">Available</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">reserve → Reserved(user, now)</text>
+      <text class="uml-member" x="10" y="70">unlock → Riding(user, now)</text>
+      <text class="uml-member" x="10" y="88">send_to_maintenance → Maintenance</text>
+      <text class="uml-member" x="10" y="106">report_lost → Lost</text>
+      <text class="uml-member" x="10" y="124">on_battery_changed [&lt;15] → LowBattery</text>
+    </g>
+    <g class="uml-class" transform="translate(330,36)">
+      <rect width="290" height="112"/>
+      <text class="uml-name" x="145" y="22">Reserved</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">user · reserved_at</text>
+      <line x1="0" y1="62" x2="290" y2="62"/>
+      <text class="uml-member" x="10" y="82">unlock [예약자 본인] → Riding</text>
+      <text class="uml-member" x="10" y="100">tick [10분 경과] → Available</text>
+    </g>
+    <g class="uml-class" transform="translate(20,190)">
+      <rect width="290" height="130"/>
+      <text class="uml-name" x="145" y="22">Riding</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">rider · started_at</text>
+      <line x1="0" y1="62" x2="290" y2="62"/>
+      <text class="uml-member" x="10" y="82">end_ride → 요금 정산 후</text>
+      <text class="uml-member" x="24" y="100">Available</text>
+      <text class="uml-member" x="24" y="118">또는 LowBattery [&lt;15]</text>
+    </g>
+    <g class="uml-class" transform="translate(330,190)">
+      <rect width="290" height="100"/>
+      <text class="uml-name" x="145" y="22">LowBattery</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">on_battery_changed [≥15] → Available</text>
+      <text class="uml-member" x="10" y="70">send_to_maintenance → Maintenance</text>
+      <text class="uml-member" x="10" y="88">report_lost → Lost</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(20,340)">
+      <rect width="290" height="112"/>
+      <text class="uml-name" x="145" y="22">Maintenance</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="52">finish_maintenance → Available</text>
+      <text class="uml-member" x="24" y="70">또는 LowBattery [&lt;15]</text>
+      <line x1="0" y1="80" x2="290" y2="80"/>
+      <text class="uml-member" x="10" y="100">unlock 재정의 없음 → 거부</text>
+    </g>
+    <g class="uml-class" transform="translate(330,340)">
+      <rect width="290" height="60"/>
+      <text class="uml-name" x="145" y="22">Lost</text>
+      <line x1="0" y1="32" x2="290" y2="32"/>
+      <text class="uml-member" x="10" y="50">send_to_maintenance → Maintenance</text>
+    </g>
+    <g class="uml-func" transform="translate(330,412)">
+      <rect width="290" height="40"/>
+      <text class="uml-member" x="145" y="25" text-anchor="middle">그 밖 전부: ScooterState 기본</text>
+    </g>
+    <text class="uml-label" x="20" y="476">목록에 없는 동작은 앞 조각의 기본 구현으로 간다 — 명령은 IllegalTransition, 이벤트는 무시</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="330" cy="36" r="9"/><text x="330" y="40">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="340" r="9"/><text x="20" y="344">3</text></g>
+
+    <text class="uml-note" x="20" y="510"><tspan font-weight="700">읽는 순서</tspan> · 01 지도의 "행"이 메서드였다면, 여기서는 상태다</text>
+    <text class="uml-note" x="20" y="532">① Available: 출구가 가장 많다 → ② Reserved·Riding: 상태 데이터와 가드 → ③ Maintenance</text>
+    <text class="uml-note" x="20" y="554">[...] 안은 가드 조건이다. 모든 화살표는 scooter.change_state(다음 상태)로 실행된다</text>
+  </svg>
+  <figcaption>코드 지도 · 02_state.py(둘째 조각). 파란 테두리는 순진한 코드에서 사고가 났던 상태다. 클래스 구조는 그림 13-1에 있다.</figcaption>
+</figure>
+<pre data-src="13_state/02_state.py" data-lines="96-224"></pre>
   <p><code>Reserved</code>와 <code>Riding</code>은 생성자에서 그 상태만의 데이터를 받는다. 예약이 끝나 <code>Reserved</code> 객체가 버려지면 예약자 정보도 함께 사라진다. 순진한 코드의 찌꺼기 문제가 데이터의 수명을 상태의 수명에 묶는 방식으로 풀렸다. 가드 조건(예약자 본인만 잠금 해제 가능)과 시간 기반 전이(예약 만료)도 그 상태 안에 들어 있다.</p>
 
   <p class="lead-in">마지막으로 컨텍스트다. 공개 메서드가 모두 한 줄짜리 위임이라는 점, 그리고 모든 전이가 <code>change_state()</code> 한곳을 지나간다는 점에 주목하라. docstring이 말하는 <dfn data-term="metrics-collection">지표 수집</dfn>은 전이 횟수·지연 같은 동작 수치를 모아 모니터링하는 일이다.</p>
@@ -109,7 +270,110 @@ part: 행위 패턴
   <h3>전략 패턴과 무엇이 다른가 — 전이 책임의 위치</h3>
   <p>그림 13-1을 10장의 전략 그림 옆에 놓으면 거의 구별되지 않는다. 컨텍스트가 추상 타입 필드를 들고 위임하고, 구체 클래스 여럿이 그 타입을 구현한다. GoF가 두 패턴을 따로 둔 이유는 구조가 아니라 <strong>누가, 언제, 왜 교체하는가</strong>에 있다. 10장은 이 비교를 이 장으로 미뤘다. 이제 두 패턴을 한 클래스에 나란히 놓아 보자.</p>
   <p class="lead-in">킥고 운영팀은 시간대마다 요금 정책을 바꾼다. 아래 <code>Scooter</code>는 요금 정책 슬롯(전략)과 대여 생명주기 슬롯(상태)을 함께 가진다. 두 슬롯의 <em>교체 경로</em>를 비교하라. <code>set_pricing()</code>은 바깥에서 부르고, <code>change_state()</code>는 상태 객체만 부른다. 맨 아래의 <code>app_server_end_ride()</code>는 전이 책임을 바깥으로 옮겼을 때 무슨 일이 생기는지 보여 주는 반례다. 모듈 docstring의 <dfn data-term="state-machine">상태 기계</dfn>(유한 상태 기계)는 유한한 상태 집합과 "(현재 상태, 사건) → 다음 상태"라는 전이 규칙으로 객체의 동작을 기술하는 모델이다. 상태 패턴은 상태 기계를 객체로 구현하는 한 방법이고, 5.1절은 같은 기계를 표로 구현한다.</p>
-  <pre data-src="13_state/03_state_vs_strategy.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 616" role="img" aria-label="03_state_vs_strategy.py의 구조: Scooter는 pricing 슬롯과 _state 슬롯을 가진다. pricing은 바깥(운영 콘솔)이 set_pricing()으로 바꾸고, _state는 상태 객체만 change_state()로 바꾼다. Riding은 출발 시점의 요금 정책을 붙잡아 두고, 반례 app_server_end_ride()는 바깥에서 isinstance로 분기해 전이를 고른다">
+    <text class="uml-note" x="210" y="24">[Context] 슬롯이 둘</text>
+    <g class="uml-class highlight" transform="translate(210,36)">
+      <rect width="220" height="148"/>
+      <text class="uml-name" x="110" y="22">Scooter</text>
+      <line x1="0" y1="32" x2="220" y2="32"/>
+      <text class="uml-member" x="10" y="52">pricing: PricingPolicy</text>
+      <text class="uml-member" x="10" y="70">_state: RentalState</text>
+      <line x1="0" y1="80" x2="220" y2="80"/>
+      <text class="uml-member" x="10" y="100">set_pricing(policy, by)</text>
+      <text class="uml-member" x="10" y="118">change_state(new_state)</text>
+      <text class="uml-member" x="10" y="136">unlock · end_ride → 위임</text>
+    </g>
+
+    <g class="uml-func" transform="translate(20,108)">
+      <rect width="150" height="48"/>
+      <text class="uml-member" x="75" y="20" text-anchor="middle">운영 콘솔,</text>
+      <text class="uml-member" x="75" y="38" text-anchor="middle">A/B 테스트 배정기</text>
+    </g>
+    <path class="uml-dep" d="M170 132 H210" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="20" y="176">바깥이 아무 때나 교체</text>
+
+    <path class="uml-assoc" d="M240 184 V210 H105 V236" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="150" y="204">pricing</text>
+    <path class="uml-assoc" d="M400 184 V210 H535 V236" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="440" y="204">_state</text>
+    <path class="uml-dep" d="M590 236 V150 H430" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="584" y="176" text-anchor="end">상태 객체만 호출</text>
+
+    <text class="uml-note" x="34" y="228">[Strategy]</text>
+    <g class="uml-class" transform="translate(20,236)">
+      <rect width="170" height="58"/>
+      <text class="uml-name uml-abstract" x="85" y="22">PricingPolicy</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="50">fare(minutes)</text>
+    </g>
+    <text class="uml-note" x="464" y="228">[State]</text>
+    <g class="uml-class" transform="translate(450,236)">
+      <rect width="170" height="58"/>
+      <text class="uml-name uml-abstract" x="85" y="22">RentalState</text>
+      <line x1="0" y1="32" x2="170" y2="32"/>
+      <text class="uml-member" x="10" y="50">기본: 거부</text>
+    </g>
+
+    <path class="uml-inherit" d="M105 316 V296" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M90 340 V316 H240 V340"/>
+    <path class="uml-inherit" d="M535 316 V296" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M375 340 V316 H575 V340"/>
+    <path class="uml-inherit" d="M475 340 V316"/>
+    <g class="uml-class" transform="translate(20,340)">
+      <rect width="140" height="56"/>
+      <text class="uml-name" x="70" y="20">StandardPricing</text>
+      <line x1="0" y1="28" x2="140" y2="28"/>
+      <text class="uml-member" x="8" y="46">frozen</text>
+    </g>
+    <g class="uml-class" transform="translate(170,340)">
+      <rect width="140" height="56"/>
+      <text class="uml-name" x="70" y="20">NightPricing</text>
+      <line x1="0" y1="28" x2="140" y2="28"/>
+      <text class="uml-member" x="8" y="46">base를 합성</text>
+    </g>
+    <g class="uml-class" transform="translate(330,340)">
+      <rect width="90" height="56"/>
+      <text class="uml-name" x="45" y="20">Available</text>
+      <line x1="0" y1="28" x2="90" y2="28"/>
+      <text class="uml-member" x="8" y="46">가드</text>
+    </g>
+    <g class="uml-class" transform="translate(430,340)">
+      <rect width="90" height="56"/>
+      <text class="uml-name" x="45" y="20">Riding</text>
+      <line x1="0" y1="28" x2="90" y2="28"/>
+      <text class="uml-member" x="8" y="46">pricing</text>
+    </g>
+    <g class="uml-class" transform="translate(530,340)">
+      <rect width="90" height="56"/>
+      <text class="uml-name" x="45" y="20">LowBattery</text>
+      <line x1="0" y1="28" x2="90" y2="28"/>
+      <text class="uml-member" x="8" y="46">기본만</text>
+    </g>
+
+    <path class="uml-dep" d="M455 396 V420 H320 V265 H192" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="330" y="438">출발 시점의 정책을 붙잡는다</text>
+
+    <g class="uml-func warn" transform="translate(20,470)">
+      <rect width="400" height="50"/>
+      <text class="uml-member" x="14" y="21">app_server_end_ride()  ⚠ 반례</text>
+      <text class="uml-member" x="14" y="39">바깥이 isinstance로 분기하고 change_state()를 부른다</text>
+    </g>
+    <path class="uml-dep" d="M420 495 H500 V396" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="506" y="450">isinstance ⚠</text>
+
+    <g class="uml-step"><circle cx="210" cy="36" r="9"/><text x="210" y="40">1</text></g>
+    <g class="uml-step"><circle cx="20" cy="236" r="9"/><text x="20" y="240">2</text></g>
+    <g class="uml-step"><circle cx="450" cy="236" r="9"/><text x="450" y="240">3</text></g>
+    <g class="uml-step"><circle cx="20" cy="470" r="9"/><text x="20" y="474">4</text></g>
+
+    <text class="uml-note" x="20" y="556"><tspan font-weight="700">읽는 순서</tspan> · 같은 모양의 두 슬롯을 "누가 바꾸는가"로 비교하라</text>
+    <text class="uml-note" x="20" y="578">① Scooter의 두 교체 창구 → ② 전략 계열 → ③ 상태 계열(Riding이 정책을 붙잡음) → ④ 반례</text>
+    <text class="uml-note" x="20" y="600">데모 [1] 교체 경로 둘 · [2] 전략은 아무 때나 · [3] 가드는 상태 안에 · [4] 반례</text>
+  </svg>
+  <figcaption>코드 지도 · 03_state_vs_strategy.py. 빈 삼각형은 상속, 실선 화살표는 "슬롯이 가리킨다", 점선 화살표는 "호출한다/붙잡는다".</figcaption>
+</figure>
+<pre data-src="13_state/03_state_vs_strategy.py"></pre>
   <p>출력 [1]의 로그를 보면 교체가 두 갈래로 일어난다. 전략 교체는 운영 콘솔이라는 <em>바깥의 결정</em>이고, 상태 전이는 잠금 해제나 반납 같은 <em>사건에 대한 객체 자신의 반응</em>이다. 두 패턴이 협력하는 지점도 보인다. <code>Riding</code>은 출발하는 순간의 요금 정책을 붙잡아 두기 때문에, 주행 도중 운영팀이 정책을 바꿔도 이미 출발한 손님에게는 소급되지 않는다. 상태 데이터가 업무 규칙("계약은 시작 시점에 확정된다")을 표현한다.</p>
   <table>
     <thead><tr><th>관점</th><th>전략 (요금 정책)</th><th>상태 (대여 생명주기)</th></tr></thead>
@@ -136,14 +400,168 @@ part: 행위 패턴
   <div class="callout"><span class="label">용어</span>
     <p><code>match</code> 문은 값의 구조를 여러 패턴과 차례로 대조해 분기하는 문법이다(파이썬 3.10+). <code>|</code>로 여러 패턴을 묶고, <code>case</code> 뒤의 <code>if</code>로 조건을 덧붙인다. 마지막의 <code>case _</code>는 어떤 값과도 맞는 <dfn data-term="wildcard-pattern">와일드카드</dfn> 패턴으로, 전이표의 "키 없음"에 해당한다. <code>_enter()</code>가 하는 <dfn data-term="entry-action">진입 동작</dfn>(entry action)은 어떤 상태로 들어갈 때마다 실행되는 동작으로, 여기서는 그 상태에 필요 없는 데이터를 지운다. 정적 검증에 쓰는 <dfn data-term="collections-deque"><code>deque</code></dfn>는 양쪽 끝에서 빠르게 넣고 뺄 수 있는 큐이고, <code>reachable_from()</code>은 이를 써서 <dfn data-term="breadth-first-search">BFS</dfn>(너비 우선 탐색: 가까운 노드부터 차례로 방문)로 도달 가능한 상태를 찾는다.</p>
   </div>
-  <pre data-src="13_state/04_pythonic_fsm.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 626" role="img" aria-label="04_pythonic_fsm.py의 구조: Status와 Event 열거형이 전이표 TRANSITIONS의 키와 값이 되고, next_status()가 표를 조회하며 next_status_match()는 같은 규칙을 match 문으로 쓴다. reachable_from()은 표를 순회해 검증한다. Scooter는 _fire()로 모든 전이를 처리하고, 표에 못 넣은 가드는 Scooter의 if로 남는다">
+    <text class="uml-note" x="20" y="24">상태와 사건의 이름</text>
+    <g class="uml-class" transform="translate(20,36)">
+      <rect width="190" height="76"/>
+      <text class="uml-name" x="95" y="22">Status (Enum)</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">AVAILABLE … LOST</text>
+      <text class="uml-member" x="10" y="70">값 = 표시 문구</text>
+    </g>
+    <g class="uml-class" transform="translate(20,128)">
+      <rect width="190" height="76"/>
+      <text class="uml-name" x="95" y="22">Event (Enum)</text>
+      <line x1="0" y1="32" x2="190" y2="32"/>
+      <text class="uml-member" x="10" y="52">RESERVE … LOSE</text>
+      <text class="uml-member" x="10" y="70">값은 auto()</text>
+    </g>
+    <path class="uml-dep" d="M210 74 H240" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M210 166 H240" marker-end="url(#arrow)"/>
+
+    <text class="uml-note" x="240" y="24">전이 규칙 전체 = 데이터 한 장</text>
+    <g class="uml-class highlight" transform="translate(240,36)">
+      <rect width="380" height="168"/>
+      <text class="uml-name" x="190" y="22">TRANSITIONS</text>
+      <line x1="0" y1="32" x2="380" y2="32"/>
+      <text class="uml-member" x="10" y="52">dict[(Status, Event), Status]</text>
+      <text class="uml-member" x="10" y="70">13개 항목, 예:</text>
+      <text class="uml-member" x="24" y="88">(AVAILABLE, RESERVE): RESERVED</text>
+      <text class="uml-member" x="24" y="106">(RESERVED, UNLOCK): RIDING</text>
+      <text class="uml-member" x="24" y="124">(MAINTENANCE, REPAIRED): AVAILABLE</text>
+      <line x1="0" y1="136" x2="380" y2="136"/>
+      <text class="uml-member" x="10" y="156">키가 없는 조합 = 불법 전이</text>
+    </g>
+
+    <path class="uml-dep" d="M115 250 V228 H280 V204" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="125" y="244">조회</text>
+    <path class="uml-dep" d="M525 250 V204" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="533" y="232">순회</text>
+    <g class="uml-func highlight" transform="translate(20,250)">
+      <rect width="190" height="72"/>
+      <text class="uml-name" x="95" y="22">next_status()</text>
+      <text class="uml-member" x="12" y="44">표 조회 한 줄</text>
+      <text class="uml-member" x="12" y="62">없으면 IllegalTransition</text>
+    </g>
+    <g class="uml-func" transform="translate(225,250)">
+      <rect width="190" height="72"/>
+      <text class="uml-name" x="95" y="22">next_status_match()</text>
+      <text class="uml-member" x="12" y="44">같은 규칙을 match로</text>
+      <text class="uml-member" x="12" y="62">case _ = 키 없음</text>
+    </g>
+    <g class="uml-func" transform="translate(430,250)">
+      <rect width="190" height="72"/>
+      <text class="uml-name" x="95" y="22">reachable_from()</text>
+      <text class="uml-member" x="12" y="44">표를 간선 목록으로</text>
+      <text class="uml-member" x="12" y="62">순회 → 도달 불가 찾기</text>
+    </g>
+    <path class="uml-dep" d="M225 300 H212" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="236" y="342">[3] 모든 조합에서 결과를 대조</text>
+
+    <text class="uml-note" x="200" y="384">[Context + 전이 책임자]</text>
+    <g class="uml-class" transform="translate(20,392)">
+      <rect width="600" height="160"/>
+      <text class="uml-name" x="300" y="22">Scooter</text>
+      <line x1="0" y1="32" x2="600" y2="32"/>
+      <text class="uml-member" x="10" y="52">status: Status · battery · reserved_by · reserved_at · rider ← 다시 Context에</text>
+      <line x1="0" y1="62" x2="600" y2="62"/>
+      <text class="uml-member" x="10" y="82">_fire(event): next_status → history 기록 → _enter(new)</text>
+      <text class="uml-member" x="10" y="100">_enter(new): 들어가는 상태에 필요 없는 필드를 지운다</text>
+      <line x1="0" y1="110" x2="600" y2="110"/>
+      <text class="uml-member" x="10" y="130">reserve · unlock · end_ride · tick · send_to_maintenance → 사건으로 번역</text>
+      <text class="uml-member" x="10" y="148">unlock의 예약자 if · end_ride의 배터리 if = 표에 못 넣은 가드</text>
+    </g>
+    <path class="uml-dep" d="M115 392 V322" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="123" y="362">_fire()</text>
+
+    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
+    <g class="uml-step"><circle cx="240" cy="36" r="9"/><text x="240" y="40">2</text></g>
+    <g class="uml-step"><circle cx="20" cy="250" r="9"/><text x="20" y="254">3</text></g>
+    <g class="uml-step"><circle cx="20" cy="392" r="9"/><text x="20" y="396">4</text></g>
+
+    <text class="uml-note" x="20" y="584"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 규칙(데이터)과 그 조회 함수</text>
+    <text class="uml-note" x="20" y="604">① Status·Event → ② TRANSITIONS → ③ 표 조회와 match 버전 → ④ Scooter: 표 밖에 남은 if</text>
+    <text class="uml-note" x="20" y="622">데모 [1] 표 출력 · [2] 도달 불가·출구 없음 검증 · [3] 두 버전 대조 · [4] 시나리오와 전이 로그</text>
+  </svg>
+  <figcaption>코드 지도 · 04_pythonic_fsm.py. 점선 화살표는 "키·값으로 쓴다/조회한다/호출한다". 02에서 상태 클래스에 흩어져 있던 전이가 TRANSITIONS 한 곳에 모였다.</figcaption>
+</figure>
+<pre data-src="13_state/04_pythonic_fsm.py"></pre>
   <p>출력 [1]과 [2]는 표 방식만의 장점이다. 전이 규칙이 데이터이기 때문에 출력하고, 도달할 수 없는 상태나 출구 없는 상태를 프로그램으로 검증할 수 있다. 상태 클래스 방식에서는 이 검증이 어렵다. 전이가 메서드 본문 속 코드로 흩어져 있어, 연습문제 1 해설처럼 바이트코드를 분석해 간선을 근사할 수는 있지만 조건부 전이(어느 분기에서 어느 상태로 가는가)는 놓친다. <code>match</code> 버전([3])은 <code>|</code> 패턴으로 규칙을 압축할 수 있지만 그 역시 코드라서 같은 한계를 가진다.</p>
   <p>대가도 분명하다. 예약자와 탑승자는 다시 <code>Scooter</code> 필드가 되었다. <code>_enter()</code>로 정리 규칙을 한곳에 모아 찌꺼기 문제를 줄였지만 근본 해결은 아니다. 반납 후 배터리에 따라 갈라지는 조건부 전이는 사건 두 개로 쪼개야 했다. 그 결과 방전 반납은 잠깐 <code>AVAILABLE</code>을 거친다(출력 [4]의 전이 로그). 전이 관문에 옵저버를 붙여 앱에 푸시한다면 지도에 '대여 가능'이 순간적으로 떴다 사라진다. 중간 상태가 바깥에 보이는 비용이다. 상태마다 <em>행동</em>이 크게 다를수록 표 방식은 불리해지고, <em>전이 구조</em>가 핵심일수록 유리해진다.</p>
 
   <h3>5.2 무상태 상태 객체의 공유, 그리고 <code>__class__</code> 교체</h3>
   <p>킥보드가 3만 대로 늘자 서진은 전이마다 새 상태 객체를 만드는 일이 마음에 걸렸다. GoF는 "상태 객체는 흔히 싱글턴"이라고 쓴다. 파이썬에서는 4장의 싱글턴 클래스 기법이 필요 없다. 모듈 수준 상수 하나면 충분하다. 파이썬에는 더 과격한 선택지도 있다. 객체의 <code>__class__</code>를 바꿔 GoF 의도의 문구 그대로 "클래스가 바뀐 것처럼" 만드는 방법이다.</p>
   <p class="lead-in">A 부분에서는 <dfn data-term="slots"><code>__slots__</code></dfn> <code>= ()</code>가 공유 상태 객체를 어떻게 보호하는지 보라. <code>__slots__</code>는 인스턴스가 가질 속성 이름을 클래스에서 고정해 인스턴스별 <code>__dict__</code>를 없애는 클래스 속성이다. 메모리를 아끼고, 목록에 없는 속성의 추가를 막는다(빈 튜플이면 어떤 속성도 추가할 수 없다). B 부분에서는 <code>__class__</code> 교체가 실제로 동작한다는 사실과, 그 뒤에 따라오는 세 가지 문제를 데모 출력으로 확인하라.</p>
-  <pre data-src="13_state/05_pythonic_variants.py"></pre>
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 540" role="img" aria-label="05_pythonic_variants.py의 구조: A 부분에서는 __slots__가 빈 SharedState의 하위 클래스를 모듈 상수 AVAILABLE과 RIDING으로 하나씩만 만들고 FleetScooter가 이를 공유한다. B 부분에서는 ClassSwapScooter와 RidingScooter가 __class__ 교체로 서로 바뀌며, 상속 때문에 RidingScooter가 unlock을 물려받는다">
+    <text class="uml-note" x="20" y="26">A. 공유되는 무상태 상태 객체</text>
+    <g class="uml-group"><rect x="20" y="36" width="600" height="216"/></g>
+    <g class="uml-class" transform="translate(40,56)">
+      <rect width="200" height="76"/>
+      <text class="uml-name uml-abstract" x="100" y="22">SharedState</text>
+      <line x1="0" y1="32" x2="200" y2="32"/>
+      <text class="uml-member" x="10" y="52">__slots__ = ()</text>
+      <text class="uml-member" x="10" y="70">unlock · end_ride → 거부</text>
+    </g>
+    <path class="uml-inherit" d="M140 152 V134" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M87 172 V152 H192 V172"/>
+    <g class="uml-class" transform="translate(40,172)"><rect width="95" height="40"/><text class="uml-name" x="47" y="25">_Available</text></g>
+    <g class="uml-class" transform="translate(145,172)"><rect width="95" height="40"/><text class="uml-name" x="47" y="25">_Riding</text></g>
+    <g class="uml-func" transform="translate(270,164)">
+      <rect width="200" height="56"/>
+      <text class="uml-member" x="12" y="23">AVAILABLE = _Available()</text>
+      <text class="uml-member" x="12" y="41">RIDING = _Riding()</text>
+    </g>
+    <path class="uml-dep" d="M270 192 H242" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="270" y="154">모듈 상수 = 인스턴스 하나씩</text>
+    <g class="uml-class highlight" transform="translate(480,56)">
+      <rect width="120" height="76"/>
+      <text class="uml-name" x="60" y="22">FleetScooter</text>
+      <line x1="0" y1="32" x2="120" y2="32"/>
+      <text class="uml-member" x="10" y="52">state</text>
+      <text class="uml-member" x="10" y="70">rider</text>
+    </g>
+    <path class="uml-assoc" d="M540 132 V192 H472" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="548" y="164">state</text>
+    <text class="uml-label" x="40" y="240">[A-1] 3만 대가 상태 객체 둘을 공유 · [A-2] 공유 객체에 속성 추가 → AttributeError</text>
+
+    <text class="uml-note" x="20" y="284">B. __class__ 교체 — 동작하지만 권하지 않는다</text>
+    <g class="uml-group"><rect x="20" y="294" width="600" height="178"/></g>
+    <g class="uml-class" transform="translate(40,312)">
+      <rect width="250" height="100"/>
+      <text class="uml-name" x="125" y="22">ClassSwapScooter</text>
+      <line x1="0" y1="32" x2="250" y2="32"/>
+      <text class="uml-member" x="10" y="52">scooter_id</text>
+      <text class="uml-member" x="10" y="70">unlock(): rider 기록 후</text>
+      <text class="uml-member" x="24" y="88">__class__ = RidingScooter</text>
+    </g>
+    <g class="uml-class warn" transform="translate(360,312)">
+      <rect width="245" height="100"/>
+      <text class="uml-name" x="122" y="22">RidingScooter</text>
+      <line x1="0" y1="32" x2="245" y2="32"/>
+      <text class="uml-member" x="10" y="52">end_ride():</text>
+      <text class="uml-member" x="24" y="70">__class__ = ClassSwapScooter</text>
+      <text class="uml-member" x="10" y="88">⚠ unlock을 물려받는다</text>
+    </g>
+    <path class="uml-dep" d="M290 332 H360" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="300" y="326">unlock</text>
+    <path class="uml-dep" d="M360 352 H290" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="296" y="368">end_ride</text>
+    <path class="uml-inherit" d="M360 396 H292" marker-end="url(#triangle)"/>
+    <text class="uml-label" x="40" y="436">[B-2] 수명 중에 type(k)이 바뀐다 · [B-3] 반납 후에도 rider가 남는다</text>
+    <text class="uml-label" x="40" y="456">[B-4] 상속 때문에 주행 중 unlock이 예외 없이 통과한다</text>
+
+    <g class="uml-step"><circle cx="40" cy="56" r="9"/><text x="40" y="60">1</text></g>
+    <g class="uml-step"><circle cx="480" cy="56" r="9"/><text x="480" y="60">2</text></g>
+    <g class="uml-step"><circle cx="40" cy="312" r="9"/><text x="40" y="316">3</text></g>
+
+    <text class="uml-note" x="20" y="506"><tspan font-weight="700">읽는 순서</tspan> · A는 상태 객체를 공유하고, B는 객체의 클래스 자체를 바꾼다</text>
+    <text class="uml-note" x="20" y="528">① SharedState와 두 상수 → ② FleetScooter: 데이터는 Context에 → ③ B와 그 문제 셋</text>
+  </svg>
+  <figcaption>코드 지도 · 05_pythonic_variants.py. 빈 삼각형은 상속, 점선 화살표는 "인스턴스다/클래스를 바꾼다", 실선 화살표는 "슬롯이 가리킨다".</figcaption>
+</figure>
+<pre data-src="13_state/05_pythonic_variants.py"></pre>
   <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 02의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
   <p><code>__class__</code> 교체(B)는 짧고 영리하다. 그러나 [B-2]에서 보듯 객체의 타입이 수명 중에 바뀌어 타입을 키로 쓰는 코드가 깨진다. [B-3]처럼 이전 상태의 속성이 남고, [B-4]처럼 상태 클래스끼리의 상속 때문에 금지해야 할 동작을 물려받는다. 타입 검사기와 디버거도 따라오지 못한다. 동작한다는 것과 유지보수할 수 있다는 것은 다른 문제다. 이 트릭은 언어의 유연성을 보여 주는 예로 알아 두기만 하라.</p>
 </section>

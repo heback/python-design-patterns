@@ -121,6 +121,77 @@ part: 구조 패턴
 <p>02의 설계는 연산을 하나 추가할 때마다 <code>BomItem</code>, <code>Part</code>, <code>Assembly</code> 세 곳을 연다. 구매팀이 "경운기 10대에 볼트가 몇 개 필요한가"(<dfn data-term="bom-explosion">소요량 전개</dfn>: BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것)를, 환경팀이 "탄소 배출량"을 요구하자 소연은 다른 방향을 생각했다. 연산을 클래스 안에 넣지 말고, <strong>순회는 한 번만 쓰고 연산은 순회 결과 위에서</strong> 하면 어떨까?</p>
 <p class="lead-in">아래 파일은 세 도구를 쓴다. (1) <code>Part</code>와 <code>Assembly</code>가 모두 구현하는 다형적 <code>walk()</code>(<dfn data-term="yield-from"><code>yield from</code></dfn> 재귀 제너레이터. <code>yield from</code>은 하위 제너레이터가 내는 값을 하나씩 그대로 흘려보내는 문법이다)가 트리를 (항목, 누적 수량)의 평평한 스트림으로 바꾸고, (2) <code>__iter__</code>·<code>__len__</code>·<dfn data-term="container-protocol"><code>__contains__</code></dfn>가 조립품을 파이썬 컨테이너처럼 만들며(이 특수 메서드 묶음을 컨테이너 프로토콜이라 한다. 구현하면 객체가 <code>for</code>, <code>len()</code>, <code>in</code>과 어울린다), (3) <dfn data-term="functools-singledispatch"><code>singledispatch</code></dfn>가 새 연산을 클래스 밖의 함수로 추가한다(첫 인자의 타입에 따라 등록된 구현을 골라 호출하는 함수를 만드는 표준 라이브러리 도구다). <code>explode()</code>에 재귀가 한 줄도 없다는 점을 확인하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn data-term="iterator"><code>Iterator</code></dfn>(이터레이터): <code>next()</code>를 부를 때마다 다음 값을 주고 끝나면 멈추는 객체. 한 번 끝까지 돌면 닳아서 다시 쓸 수 없다. 타입 힌트 <code>Iterator[...]</code>는 이런 값의 흐름을 돌려준다는 뜻이다. <dfn data-term="counter"><code>collections.Counter</code></dfn>: 키별 개수를 세는 딕셔너리. <code>+=</code>로 누적하고 <code>most_common()</code>으로 많은 순서대로 꺼낸다. <dfn data-term="visitor">방문자 패턴</dfn>: 객체 구조의 클래스를 고치지 않고 새 연산을 추가하려고, 연산을 별도의 방문자 객체에 모으는 GoF 행위 패턴(이 책의 범위 밖).</p></div>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 452" role="img" aria-label="03_pythonic.py의 구조: BomItem은 own_cost와 walk() 두 연산만 두고, Part와 Assembly가 이를 구현한다. Assembly.walk()는 yield from으로 트리를 항목과 누적 수량의 스트림으로 바꾸고 컨테이너 프로토콜도 제공한다. 클래스 밖의 total_cost()와 explode()는 그 스트림만 쓰고, co2_g는 singledispatch로 Part와 Assembly에 구현을 등록한다">
+    <text class="uml-note" x="100" y="24">[Component] 연산을 둘로 줄였다</text>
+    <g class="uml-class" transform="translate(100,40)">
+      <rect width="260" height="76"/>
+      <text class="uml-name uml-abstract" x="130" y="22">BomItem</text>
+      <line x1="0" y1="32" x2="260" y2="32"/>
+      <text class="uml-member" x="10" y="52">own_cost  (property)</text>
+      <text class="uml-member" x="10" y="68">walk(multiplier) → Iterator</text>
+    </g>
+    <g class="uml-class" transform="translate(20,170)">
+      <rect width="160" height="92"/>
+      <text class="uml-name" x="80" y="22">Part</text>
+      <text class="uml-stereo" x="80" y="38">frozen · eq=False</text>
+      <line x1="0" y1="46" x2="160" y2="46"/>
+      <text class="uml-member" x="10" y="64">unit_cost · co2_g</text>
+      <text class="uml-member" x="10" y="82">walk(): 자기 하나</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(200,170)">
+      <rect width="220" height="140"/>
+      <text class="uml-name" x="110" y="22">Assembly</text>
+      <line x1="0" y1="32" x2="220" y2="32"/>
+      <text class="uml-member" x="10" y="50">children: [(BomItem, qty)]</text>
+      <text class="uml-member" x="10" y="66">+ add(item, qty)</text>
+      <line x1="0" y1="76" x2="220" y2="76"/>
+      <text class="uml-member" x="10" y="94">walk(): yield from 자식</text>
+      <text class="uml-member" x="10" y="112">__iter__ · __len__</text>
+      <text class="uml-member" x="10" y="130">__contains__</text>
+    </g>
+    <path class="uml-inherit" d="M100 170 V145 H230"/>
+    <path class="uml-inherit" d="M310 170 V145 H230 V116" marker-end="url(#triangle)"/>
+    <text class="uml-label" x="22" y="162">[Leaf]</text>
+    <text class="uml-label" x="322" y="160">[Composite]</text>
+
+    <text class="uml-note" x="460" y="24">클래스 밖 함수</text>
+    <g class="uml-func" transform="translate(460,40)">
+      <rect width="160" height="52"/>
+      <text class="uml-name" x="80" y="22">total_cost</text>
+      <text class="uml-member" x="10" y="42">Σ own_cost × qty</text>
+    </g>
+    <g class="uml-func" transform="translate(460,108)">
+      <rect width="160" height="52"/>
+      <text class="uml-name" x="80" y="22">explode</text>
+      <text class="uml-member" x="10" y="42">Part만 Counter로</text>
+    </g>
+    <g class="uml-func highlight" transform="translate(460,196)">
+      <rect width="160" height="84"/>
+      <text class="uml-name" x="80" y="22">co2_g</text>
+      <text class="uml-member" x="10" y="42">@singledispatch</text>
+      <text class="uml-member" x="10" y="60">Part · Assembly</text>
+      <text class="uml-member" x="10" y="78">구현을 등록</text>
+    </g>
+    <path class="uml-dep" d="M460 66 H360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M460 134 H400 V100 H360" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="378" y="58">walk()</text>
+    <path class="uml-dep" d="M460 234 H420" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="430" y="300">register</text>
+    <text class="uml-note" x="200" y="336">walk()가 트리를 (항목, 누적 수량)의 평평한 스트림으로 바꾼다</text>
+    <text class="uml-note" x="200" y="354">→ total_cost()·explode()에는 재귀가 한 줄도 없다</text>
+
+    <g class="uml-step"><circle cx="100" cy="40" r="9"/><text x="100" y="44">1</text></g>
+    <g class="uml-step"><circle cx="200" cy="170" r="9"/><text x="200" y="174">2</text></g>
+    <g class="uml-step"><circle cx="460" cy="40" r="9"/><text x="460" y="44">3</text></g>
+    <g class="uml-step"><circle cx="460" cy="196" r="9"/><text x="460" y="200">4</text></g>
+
+    <text class="uml-note" x="20" y="396"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02와 달라진 핵심(다형적 walk()와 클래스 밖 새 연산)</text>
+    <text class="uml-note" x="20" y="418">① BomItem → ② Assembly.walk()와 컨테이너 프로토콜 → ③ total_cost()·explode() → ④ co2_g</text>
+    <text class="uml-note" x="20" y="440">데모 [1] 원가 · [2] 소요량 전개 · [3] len · in · for · [4] singledispatch</text>
+  </svg>
+  <figcaption>코드 지도 · 03_pythonic.py. 빈 삼각형은 "상속한다", 점선 화살표는 "부른다/등록한다". 02에서 클래스마다 있던 연산들이 오른쪽 함수로 나갔다.</figcaption>
+</figure>
 <pre data-src="07_composite/03_pythonic.py"></pre>
 <h3>순회와 연산의 분리: <code>yield from</code></h3>
 <p>02와 달리 <code>BomItem</code>에는 연산마다 추상 메서드를 두지 않고, 두 가지만 남겼다. 항목 자체의 몫인 <code>own_cost</code>(단품은 단가, 조립품은 공임)와 순회 <code>walk()</code>다. 둘 다 다형적이므로 <code>Assembly.walk()</code>는 자식이 단품인지 묻지 않고 <code>yield from child.walk(...)</code> 한 줄로 내려가고, <code>total_cost()</code>는 <code>sum(item.own_cost * qty ...)</code>로 끝난다. 2절에서 없애려 한 타입 분기는 여기서도 다시 나타나지 않는다. <code>walk()</code>는 재귀를 한 곳에 가둔다. 결과는 평평한 이터레이터이므로 원가는 <code>sum</code>, 소요량 전개는 <code>Counter</code>, 필터링은 컴프리헨션으로 표현된다. 출력 [2]에서 볼트 400개는 엔진 16 + 프레임 24 = 40개 × 10대로, 공유 부품이 자동으로 합산되었다. <code>explode()</code>에 남은 <code>isinstance(item, Part)</code>는 성격이 다르다. 타입마다 같은 계산을 다르게 하는 분기가 아니라, "단품만 골라 달라"는 <em>필터</em>다. 질문 자체가 단품 목록이므로 타입이 곧 조건이다. (03의 BOM은 02보다 작다. 실린더 블록과 링 세트가 없으므로 원가 300,400원을 02의 482,000원과 비교하지 말 것.) 이 방식은 '자식 결과를 합산하는' 연산에 특히 잘 맞는다. 반면 리드타임처럼 <em>트리의 모양</em>(형제 중 최댓값, 그 위에 부모의 몫을 더함)을 써야 하는 연산은 평평한 스트림으로는 표현하기 어렵다. 그런 연산은 여전히 재귀 메서드가 자연스럽다. 순회 추상화는 반복자 패턴(15장)에서 본격적으로 다룬다.</p>
