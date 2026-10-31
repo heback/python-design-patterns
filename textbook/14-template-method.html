@@ -225,6 +225,8 @@ class JavaJudge:
             start = time.perf_counter()
             out = sub.solve(inp)
             elapsed = time.perf_counter() - start
+            # ⚠ 문제: float_tol을 받기만 하고 쓰지 않는다. CppJudge와 같은 복사 실수다
+            #   (Java 제출물에는 부동소수 오차 허용이 조용히 꺼져 있다).
             if out.strip() != expected.strip():
                 return f&quot;WA (#{i})&quot;
             if elapsed &gt; TIME_LIMIT:
@@ -261,11 +263,12 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;    Python:&quot;, PythonJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, slow_wrong), tests))
     print(&quot;    C++   :&quot;, CppJudge().judge(Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, slow_wrong), tests))
 
-    print(&quot;[3] 부동소수 문제(1/3): Python만 오차 허용, C++은 인자를 무시한다&quot;)
+    print(&quot;[3] 부동소수 문제(1/3): Python만 오차 허용, C++과 Java는 인자를 무시한다&quot;)
     third = lambda s: &quot;0.3333333&quot;
     ftests: Tests = [(&quot;1 3&quot;, &quot;0.333333333&quot;)]
     print(&quot;    Python:&quot;, PythonJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, third), ftests, float_tol=1e-6))
     print(&quot;    C++   :&quot;, CppJudge().judge(Submission(&quot;cpp&quot;, &quot;int main(){}&quot;, third), ftests, float_tol=1e-6))
+    print(&quot;    Java  :&quot;, JavaJudge().judge(Submission(&quot;java&quot;, java_src, third), ftests, float_tol=1e-6))
 
     print(&quot;[4] 샌드박스 정리 누락: 채점 후 남은 임시 디렉터리 수&quot;)
     # 이전 실행의 잔여물과 섞이지 않도록 &#x27;증가분&#x27;만 센다.
@@ -277,7 +280,7 @@ if __name__ == &quot;__main__&quot;:
     # 데모가 실제 디스크를 더럽히지 않도록 뒷정리한다(교재 독자의 /tmp를 위해).
     for d in Path(tempfile.gettempdir()).glob(&quot;judge-java-*&quot;):
         shutil.rmtree(d, ignore_errors=True)</code></pre></figure>
-  <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
+  <p>출력이 세 가지 증상을 보여 준다. [2]에서는 같은 제출물이 언어에 따라 TLE와 WA로 갈린다. [3]에서는 C++ 채점기와 Java 채점기가 <code>float_tol</code> 인자를 받기만 하고 쓰지 않는다. [4]에서는 Java 채점기가 실행될 때마다 임시 디렉터리가 하나씩 남는다. 원인은 모두 같다.</p>
   <ul>
     <li><strong>절차(순서)와 단계(내용)가 한 덩어리로 복제되었다.</strong> 세 메서드에서 정말로 다른 부분은 파일 이름, 컴파일, 클래스명 검사 정도로 20%가 안 된다. 그런데 나머지 80%까지 함께 복사되었다.</li>
     <li><strong>공통 요구사항이 N번의 수정이 된다.</strong> "모든 언어에 정리 단계 추가"는 업무 관점에서는 변경 하나다. 하지만 코드에서는 세 군데를 고쳐야 하고, 한 군데라도 빠뜨리지 않는다는 보장이 어디에도 없다.</li>

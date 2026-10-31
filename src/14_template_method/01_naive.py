@@ -109,6 +109,8 @@ class JavaJudge:
             start = time.perf_counter()
             out = sub.solve(inp)
             elapsed = time.perf_counter() - start
+            # ⚠ 문제: float_tol을 받기만 하고 쓰지 않는다. CppJudge와 같은 복사 실수다
+            #   (Java 제출물에는 부동소수 오차 허용이 조용히 꺼져 있다).
             if out.strip() != expected.strip():
                 return f"WA (#{i})"
             if elapsed > TIME_LIMIT:
@@ -145,11 +147,12 @@ if __name__ == "__main__":
     print("    Python:", PythonJudge().judge(Submission("py", "...", slow_wrong), tests))
     print("    C++   :", CppJudge().judge(Submission("cpp", "int main(){}", slow_wrong), tests))
 
-    print("[3] 부동소수 문제(1/3): Python만 오차 허용, C++은 인자를 무시한다")
+    print("[3] 부동소수 문제(1/3): Python만 오차 허용, C++과 Java는 인자를 무시한다")
     third = lambda s: "0.3333333"
     ftests: Tests = [("1 3", "0.333333333")]
     print("    Python:", PythonJudge().judge(Submission("py", "...", third), ftests, float_tol=1e-6))
     print("    C++   :", CppJudge().judge(Submission("cpp", "int main(){}", third), ftests, float_tol=1e-6))
+    print("    Java  :", JavaJudge().judge(Submission("java", java_src, third), ftests, float_tol=1e-6))
 
     print("[4] 샌드박스 정리 누락: 채점 후 남은 임시 디렉터리 수")
     # 이전 실행의 잔여물과 섞이지 않도록 '증가분'만 센다.
