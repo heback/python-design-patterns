@@ -155,8 +155,8 @@ part: 구조 패턴
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
 <p>지호는 퍼사드를 설계하며 한 가지 원칙을 세웠다. <strong>퍼사드의 책임은 '조율'뿐이다.</strong> 좌석을 어떻게 고르는지, 수하물 요금을 어떻게 계산하는지는 여전히 각 서비스의 일이다. 퍼사드가 아는 것은 "누구를, 어떤 순서로, 어떤 조건에서 부르는가"다.</p>
-<p class="lead-in">서브시스템 부분은 01과 거의 같고, 좌석 서비스만 v2(<code>allocate</code>, 그리고 직원 전용 <code>override</code>)로 바뀌었다(전체 파일 앞부분). 여기서는 퍼사드 부분을 보자. <code>check_in()</code>의 주석이 '규칙 1', '규칙 2'로 표시한 곳이 01에서 UI 세 곳에 흩어져 있던 지식이다. docstring이 경계하는 두 개념도 미리 밝혀 둔다. <dfn data-term="business-logic">업무 로직</dfn>은 요금 계산·좌석 배정처럼 도메인 규칙 자체를 구현한 코드로, 화면 표시·통신·조율 같은 기술적 코드와 구별된다. <dfn data-term="god-object">신 객체(God object)</dfn>는 너무 많은 책임과 지식을 떠안아 시스템 대부분이 의존하게 된 거대한 클래스다. 코드의 <code>SeatPref</code>는 <code><dfn data-term="typing-literal">Literal</dfn></code>로 허용 값을 <code>"window"</code>와 <code>"aisle"</code> 둘로 못박은 타입 힌트다. <code>"windwo"</code> 같은 오타가 에러 없이 통로석 배정으로 이어지는 것을 타입 검사기가 막는다(실행할 때 막지는 않는다).</p>
-<pre data-src="08_facade/02_facade.py" data-lines="84-143"></pre>
+<p class="lead-in">서브시스템 부분은 01과 거의 같고, 좌석 서비스만 v2(<code>allocate</code>, 그리고 직원 전용 <code>override</code>)로 바뀌었다(전체 파일 앞부분). 여기서는 퍼사드 부분을 보자. <code>check_in()</code>의 주석이 '규칙 1', '규칙 2'로 표시한 곳이 01에서 UI 세 곳에 흩어져 있던 지식이다. docstring이 경계하는 두 개념도 미리 밝혀 둔다. <dfn data-term="business-logic">업무 로직</dfn>은 요금 계산·좌석 배정처럼 도메인 규칙 자체를 구현한 코드로, 화면 표시·통신·조율 같은 기술적 코드와 구별된다. <dfn data-term="god-object">신 객체(God object)</dfn>는 너무 많은 책임과 지식을 떠안아 시스템 대부분이 의존하게 된 거대한 클래스다. 코드의 <code>SeatPref</code>는 서론에서 본 <code>StrEnum</code>이다. 좌석 선호를 문자열로 받으면 <code>"windwo"</code> 같은 오타가 에러 없이 통로석 배정으로 이어지지만, 멤버로 받으면 <code>SeatPref.WINDWO</code>가 곧바로 <code>AttributeError</code>다.</p>
+<pre data-src="08_facade/02_facade.py" data-lines="84-146"></pre>
 <p>세 가지 설계 결정을 짚는다.</p>
 <ul>
   <li><strong>반환은 <code>CheckInResult</code>, 실패는 <code>CheckInError</code>.</strong> <code>Booking</code> 객체를 그대로 돌려주면 클라이언트가 다시 <code>booking.destination</code> 같은 내부를 들여다보게 된다. 클라이언트에 필요한 것만 담은 결과 값을 정의해 디미터 법칙을 지킨다.</li>
@@ -164,7 +164,7 @@ part: 구조 패턴
   <li><strong>좌석 API v2 변경은 두 줄로 흡수.</strong> <code>seat_pref</code> → <code>zone</code> 변환과 <code>allocate()</code> 호출만 바뀌었다. 클라이언트 쪽 인터페이스(<code>seat_pref="window"</code>)는 그대로다.</li>
 </ul>
 <p class="lead-in">이제 클라이언트와 데모다. 두 클라이언트의 생성자 인자가 퍼사드 하나뿐이라는 점, 그리고 [3]에서 카운터 웹이 퍼사드와 서브시스템을 함께 쓰는 장면에 주목하라.</p>
-<pre data-src="08_facade/02_facade.py" data-lines="144-197"></pre>
+<pre data-src="08_facade/02_facade.py" data-lines="147-200"></pre>
 <p>출력 [1]에서 키오스크와 모바일 모두 APIS를 전송했다. 모바일 팀이 APIS를 '기억해서'가 아니라, 기억할 필요가 없어졌기 때문이다. [2]에서 여권 불일치는 두 클라이언트 모두 좌석 배정 전에 멈췄고, 각자 자기 형식(화면 문구, JSON)으로 보여 준다. 공통 흐름은 공유하고 표현은 각자 한다. [3]의 직원 수동 변경은 퍼사드를 거치지 않았다. 이것이 학습 목표 1의 "직접 접근을 막지 않는다"이다.</p>
 <p>학습 목표 3의 측정을 해 보자. 클라이언트가 직접 의존하는 서브시스템 모듈 수다.</p>
 <table>

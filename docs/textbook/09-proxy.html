@@ -1652,10 +1652,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal
+from enum import StrEnum
 
-# 역할은 세 값뿐이다. guest는 정책 표에 한 줄도 없는 역할이라 기본 거부를 시험하는 데 쓴다.
-Role = Literal[&quot;admin&quot;, &quot;staff&quot;, &quot;guest&quot;]
+
+class Role(StrEnum):
+    &quot;&quot;&quot;역할. GUEST는 정책 표에 한 줄도 없는 역할이라 기본 거부를 시험하는 데 쓴다.&quot;&quot;&quot;
+
+    ADMIN = &quot;admin&quot;
+    STAFF = &quot;staff&quot;
+    GUEST = &quot;guest&quot;
 
 
 @dataclass(frozen=True)
@@ -1711,9 +1716,9 @@ class ProtectedDocumentService(DocumentService):
     &quot;&quot;&quot;
 
     POLICY: dict[str, set[Role]] = {
-        &quot;read&quot;: {&quot;admin&quot;, &quot;staff&quot;},
-        &quot;update&quot;: {&quot;admin&quot;},
-        &quot;export&quot;: {&quot;admin&quot;},
+        &quot;read&quot;: {Role.ADMIN, Role.STAFF},
+        &quot;update&quot;: {Role.ADMIN},
+        &quot;export&quot;: {Role.ADMIN},
     }
 
     def __init__(self, real: DocumentService) -&gt; None:
@@ -1757,7 +1762,7 @@ def check_policy_complete() -&gt; None:
 if __name__ == &quot;__main__&quot;:
     check_policy_complete()
     svc: DocumentService = ProtectedDocumentService(RealDocumentService())
-    admin, staff = User(&quot;수아&quot;, &quot;admin&quot;), User(&quot;민호&quot;, &quot;staff&quot;)
+    admin, staff = User(&quot;수아&quot;, Role.ADMIN), User(&quot;민호&quot;, Role.STAFF)
     print(&quot;[1] staff 열람:&quot;, svc.read(staff, &quot;R-17&quot;))
     for label, call in [(&quot;staff 반출&quot;, lambda: svc.export(staff, &quot;R-17&quot;)),
                         (&quot;admin 반출&quot;, lambda: svc.export(admin, &quot;R-17&quot;))]:
@@ -1767,7 +1772,7 @@ if __name__ == &quot;__main__&quot;:
             print(f&quot;[2] {label}: 거부 — {e}&quot;)
 
     print(&quot;[3] 권한 없는 사용자로 각 메서드 호출 — 하나라도 통과하면 _check 누락이다&quot;)
-    guest = User(&quot;방문자&quot;, &quot;guest&quot;)
+    guest = User(&quot;방문자&quot;, Role.GUEST)
     calls = {&quot;update&quot;: lambda: svc.update(staff, &quot;R-17&quot;, &quot;x&quot;), &quot;export&quot;: lambda: svc.export(staff, &quot;R-17&quot;),
              &quot;read(guest)&quot;: lambda: svc.read(guest, &quot;R-17&quot;)}
     for name, call in calls.items():

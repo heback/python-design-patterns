@@ -10,10 +10,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Literal
+from enum import StrEnum
 
-# 역할은 세 값뿐이다. guest는 정책 표에 한 줄도 없는 역할이라 기본 거부를 시험하는 데 쓴다.
-Role = Literal["admin", "staff", "guest"]
+
+class Role(StrEnum):
+    """역할. GUEST는 정책 표에 한 줄도 없는 역할이라 기본 거부를 시험하는 데 쓴다."""
+
+    ADMIN = "admin"
+    STAFF = "staff"
+    GUEST = "guest"
 
 
 @dataclass(frozen=True)
@@ -69,9 +74,9 @@ class ProtectedDocumentService(DocumentService):
     """
 
     POLICY: dict[str, set[Role]] = {
-        "read": {"admin", "staff"},
-        "update": {"admin"},
-        "export": {"admin"},
+        "read": {Role.ADMIN, Role.STAFF},
+        "update": {Role.ADMIN},
+        "export": {Role.ADMIN},
     }
 
     def __init__(self, real: DocumentService) -> None:
@@ -115,7 +120,7 @@ def check_policy_complete() -> None:
 if __name__ == "__main__":
     check_policy_complete()
     svc: DocumentService = ProtectedDocumentService(RealDocumentService())
-    admin, staff = User("수아", "admin"), User("민호", "staff")
+    admin, staff = User("수아", Role.ADMIN), User("민호", Role.STAFF)
     print("[1] staff 열람:", svc.read(staff, "R-17"))
     for label, call in [("staff 반출", lambda: svc.export(staff, "R-17")),
                         ("admin 반출", lambda: svc.export(admin, "R-17"))]:
@@ -125,7 +130,7 @@ if __name__ == "__main__":
             print(f"[2] {label}: 거부 — {e}")
 
     print("[3] 권한 없는 사용자로 각 메서드 호출 — 하나라도 통과하면 _check 누락이다")
-    guest = User("방문자", "guest")
+    guest = User("방문자", Role.GUEST)
     calls = {"update": lambda: svc.update(staff, "R-17", "x"), "export": lambda: svc.export(staff, "R-17"),
              "read(guest)": lambda: svc.read(guest, "R-17")}
     for name, call in calls.items():

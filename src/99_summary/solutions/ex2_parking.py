@@ -10,21 +10,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Protocol
+from enum import StrEnum
+from typing import Callable, Protocol
 
 # ---------------------------------------------------------------------------
 # 축 1: 요금 규칙 — 전략이지만 파이썬에서는 그냥 함수
 # ---------------------------------------------------------------------------
 
-# 차종은 두 값뿐이다. "compct" 같은 오타가 에러 없이 경차 할인 누락으로 이어지지 않게 타입으로 적는다.
-CarType = Literal["compact", "sedan"]
+
+class CarType(StrEnum):
+    """차종. "compct" 같은 오타가 에러 없이 경차 할인 누락으로 이어지지 않게 멤버로 받는다."""
+
+    COMPACT = "compact"
+    SEDAN = "sedan"
+
+
 FeeRule = Callable[[CarType, int], int]  # (차종, 주차 분) → 요금(원)
 
 
 def standard(car: CarType, minutes: int) -> int:
     """기본: 30분 1,000원, 경차 50% 할인. 할인은 규칙 내부 사정이라 여기에 둔다."""
     fee = -(-minutes // 30) * 1000  # 올림 나눗셈: 31분은 2구간
-    return fee // 2 if car == "compact" else fee
+    return fee // 2 if car is CarType.COMPACT else fee
 
 
 def staff_free(car: CarType, minutes: int) -> int:
@@ -118,15 +125,15 @@ if __name__ == "__main__":
                      [lambda p, f: log.append(f"전광판: {p} {f}원"),
                       lambda p, f: log.append(f"문자: {p}님 {f}원 결제")])
     print("[1] 일반 주차장, 구형 차단기")
-    print("  ", lot.leave("12가3456", "compact", 45), log)
+    print("  ", lot.leave("12가3456", CarType.COMPACT, 45), log)
 
     print("\n[2] 직원 주차장으로 바꾸고 신형 차단기 설치 — ParkingLot 코드 수정 0줄")
     log.clear()
     lot.fee_rule, lot.gate = FEE_RULES["staff"], BarrierXAdapter(BarrierXSDK(), "BX-7")
-    print("  ", lot.leave("34나5678", "sedan", 600), log)
+    print("  ", lot.leave("34나5678", CarType.SEDAN, 600), log)
 
     print("\n[3] 정산 시스템이 알림을 받고 싶다 — 구독 한 줄")
     lot.listeners.append(lambda p, f: log.append(f"정산: {p} {f}"))
     log.clear()
-    lot.leave("56다7890", "sedan", 30)
+    lot.leave("56다7890", CarType.SEDAN, 30)
     print("  ", log)

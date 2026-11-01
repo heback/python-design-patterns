@@ -10,7 +10,7 @@ SeatServiceV2에 직접 접근한다(데모 [3]). 퍼사드는 '쉬운 길'을 �
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from enum import StrEnum
 
 # ===========================================================================
 # 서브시스템 (01_naive.py와 같되, 좌석 서비스가 v2로 바뀌었다)
@@ -85,8 +85,11 @@ class BoardingPassPrinter:
 # 퍼사드
 # ===========================================================================
 
-# 좌석 선호는 두 값뿐이다. 오타("windwo")가 에러 없이 통로석으로 배정되지 않도록 타입으로 적는다.
-SeatPref = Literal["window", "aisle"]
+class SeatPref(StrEnum):
+    """좌석 선호. 문자열로 받으면 오타("windwo")가 에러 없이 통로석 배정으로 이어지지만, 멤버로 받으면 곧바로 AttributeError다."""
+
+    WINDOW = "window"
+    AISLE = "aisle"
 
 
 class CheckInError(Exception):
@@ -119,7 +122,7 @@ class CheckInFacade:
         self._baggage, self._apis, self._printer = baggage, apis, printer
 
     def check_in(self, pnr: str, last_name: str, mrz: str,
-                 seat_pref: SeatPref = "window", bags: int = 1) -> CheckInResult:
+                 seat_pref: SeatPref = SeatPref.WINDOW, bags: int = 1) -> CheckInResult:
         """체크인 전체 흐름. 순서 규칙은 이 메서드의 '줄 순서'로 단 한 번 표현된다."""
         booking = self._res.find(pnr, last_name)
 
@@ -129,7 +132,7 @@ class CheckInFacade:
             raise CheckInError("여권 정보가 예약자와 일치하지 않습니다")
 
         # 좌석 서비스 v2 변경은 여기 두 줄만 바뀌었다. 세 클라이언트는 몰라도 된다.
-        zone = "W" if seat_pref == "window" else "A"
+        zone = "W" if seat_pref is SeatPref.WINDOW else "A"
         booking.seat = self._seats.allocate(booking.pnr, zone)
 
         fee = self._baggage.quote(booking, bags)
@@ -184,14 +187,14 @@ if __name__ == "__main__":
                            BaggageService(), ApisGateway(), BoardingPassPrinter())
 
     print("[1] 키오스크와 모바일 — 같은 미국행 승객, 같은 결과(APIS 포함)")
-    print("    " + KioskScreen(facade).on_check_in("US7Q2K", "Kim", "P<KORKIM<<JIHO", "window", 2))
-    print(f"    {MobileApp(facade).check_in('US7Q2K', 'Kim', 'P<KORKIM<<JIHO', 'window', 2)}")
+    print("    " + KioskScreen(facade).on_check_in("US7Q2K", "Kim", "P<KORKIM<<JIHO", SeatPref.WINDOW, 2))
+    print(f"    {MobileApp(facade).check_in('US7Q2K', 'Kim', 'P<KORKIM<<JIHO', SeatPref.WINDOW, 2)}")
 
     print("[2] 여권 불일치 — 어느 클라이언트든 좌석 배정 전에 멈춘다")
-    print("    " + KioskScreen(facade).on_check_in("NR11AB", "Lee", "P<KORPARK<<MINA", "aisle", 1))
-    print(f"    {MobileApp(facade).check_in('NR11AB', 'Lee', 'P<KORPARK<<MINA', 'aisle', 1)}")
+    print("    " + KioskScreen(facade).on_check_in("NR11AB", "Lee", "P<KORPARK<<MINA", SeatPref.AISLE, 1))
+    print(f"    {MobileApp(facade).check_in('NR11AB', 'Lee', 'P<KORPARK<<MINA', SeatPref.AISLE, 1)}")
 
     print("[3] 카운터 직원 웹 — 퍼사드로 체크인한 뒤, 서브시스템에 직접 접근해 좌석 수동 변경")
-    result = facade.check_in("NR55CD", "Choi", "P<KORCHOI<<YUNA", "aisle", 1)
+    result = facade.check_in("NR55CD", "Choi", "P<KORCHOI<<YUNA", SeatPref.AISLE, 1)
     print(f"    퍼사드 결과: {result.boarding_pass}")
     print(f"    직원 수동 변경: {seats.override('NR55CD', '12F')} (퍼사드는 이 길을 막지 않는다)")

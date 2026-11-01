@@ -1408,21 +1408,28 @@ if __name__ == &quot;__main__&quot;:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Protocol
+from enum import StrEnum
+from typing import Callable, Protocol
 
 # ---------------------------------------------------------------------------
 # 축 1: 요금 규칙 — 전략이지만 파이썬에서는 그냥 함수
 # ---------------------------------------------------------------------------
 
-# 차종은 두 값뿐이다. &quot;compct&quot; 같은 오타가 에러 없이 경차 할인 누락으로 이어지지 않게 타입으로 적는다.
-CarType = Literal[&quot;compact&quot;, &quot;sedan&quot;]
+
+class CarType(StrEnum):
+    &quot;&quot;&quot;차종. &quot;compct&quot; 같은 오타가 에러 없이 경차 할인 누락으로 이어지지 않게 멤버로 받는다.&quot;&quot;&quot;
+
+    COMPACT = &quot;compact&quot;
+    SEDAN = &quot;sedan&quot;
+
+
 FeeRule = Callable[[CarType, int], int]  # (차종, 주차 분) → 요금(원)
 
 
 def standard(car: CarType, minutes: int) -&gt; int:
     &quot;&quot;&quot;기본: 30분 1,000원, 경차 50% 할인. 할인은 규칙 내부 사정이라 여기에 둔다.&quot;&quot;&quot;
     fee = -(-minutes // 30) * 1000  # 올림 나눗셈: 31분은 2구간
-    return fee // 2 if car == &quot;compact&quot; else fee
+    return fee // 2 if car is CarType.COMPACT else fee
 
 
 def staff_free(car: CarType, minutes: int) -&gt; int:
@@ -1516,17 +1523,17 @@ if __name__ == &quot;__main__&quot;:
                      [lambda p, f: log.append(f&quot;전광판: {p} {f}원&quot;),
                       lambda p, f: log.append(f&quot;문자: {p}님 {f}원 결제&quot;)])
     print(&quot;[1] 일반 주차장, 구형 차단기&quot;)
-    print(&quot;  &quot;, lot.leave(&quot;12가3456&quot;, &quot;compact&quot;, 45), log)
+    print(&quot;  &quot;, lot.leave(&quot;12가3456&quot;, CarType.COMPACT, 45), log)
 
     print(&quot;\n[2] 직원 주차장으로 바꾸고 신형 차단기 설치 — ParkingLot 코드 수정 0줄&quot;)
     log.clear()
     lot.fee_rule, lot.gate = FEE_RULES[&quot;staff&quot;], BarrierXAdapter(BarrierXSDK(), &quot;BX-7&quot;)
-    print(&quot;  &quot;, lot.leave(&quot;34나5678&quot;, &quot;sedan&quot;, 600), log)
+    print(&quot;  &quot;, lot.leave(&quot;34나5678&quot;, CarType.SEDAN, 600), log)
 
     print(&quot;\n[3] 정산 시스템이 알림을 받고 싶다 — 구독 한 줄&quot;)
     lot.listeners.append(lambda p, f: log.append(f&quot;정산: {p} {f}&quot;))
     log.clear()
-    lot.leave(&quot;56다7890&quot;, &quot;sedan&quot;, 30)
+    lot.leave(&quot;56다7890&quot;, CarType.SEDAN, 30)
     print(&quot;  &quot;, log)</code></pre></figure>
     </details>
   </div>
