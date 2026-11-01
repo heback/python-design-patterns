@@ -13,15 +13,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from types import MappingProxyType
 from typing import Mapping, Self
+
+
+class Method(StrEnum):
+    """HTTP 메서드. build()가 '본문을 둘 수 없는 메서드'를 문자열 비교가 아니라 멤버로 판별한다."""
+
+    GET = "GET"
+    HEAD = "HEAD"
+    POST = "POST"
+    PUT = "PUT"
+    PATCH = "PATCH"
+    DELETE = "DELETE"
 
 
 @dataclass(frozen=True)
 class Request:
     """[Product] 완성된 HTTP 요청 정의. 매핑 필드는 읽기 전용 뷰로 감싸 불변을 끝까지 지킨다."""
 
-    method: str
+    method: Method
     url: str
     headers: Mapping[str, str]
     params: Mapping[str, str]
@@ -33,10 +45,10 @@ class Request:
 class RequestBuilder:
     """[Builder] Request를 단계적으로 조립한다."""
 
-    def __init__(self, method: str, url: str) -> None:
+    def __init__(self, method: Method | str, url: str) -> None:
         """필수 두 가지만 생성자로. 나머지는 이름 붙은 단계와 합리적 기본값."""
-        self._method, self._url = method.upper(), url
-        # 메서드를 대문자로 정규화해 두어야 build()의 "GET" 비교가 "get" 입력에도 동작한다.
+        self._method, self._url = Method(method.upper()), url
+        # 대문자로 정규화한 뒤 Method로 바꾼다. "get" 입력도 받고, 목록에 없는 메서드는 생성 즉시 ValueError다.
         # 아래 필드들은 조립 중 상태다. None은 '아직 지정하지 않음'을 뜻하며 build()에서 기본값으로 바뀐다.
         self._headers: dict[str, str] = {}
         self._params: dict[str, str] = {}
@@ -75,7 +87,7 @@ class RequestBuilder:
 
     def build(self) -> Request:
         """교차 검증 후 불변 Request를 만든다."""
-        if self._method in ("GET", "HEAD") and self._body is not None:
+        if self._method in (Method.GET, Method.HEAD) and self._body is not None:
             raise ValueError(f"{self._method} 요청에는 본문을 둘 수 없다 — 필터는 param()으로")
         if self._retries and self._timeout is None:
             # 타임아웃 없는 재시도는 '영원히 기다리기 × n'이 된다.

@@ -360,7 +360,7 @@ if __name__ == &quot;__main__&quot;:
       <g class="uml-func" transform="translate(20,280)">
         <rect width="250" height="52"/>
         <text class="uml-name" x="125" y="22">_check_expr(expr)</text>
-        <text class="uml-member" x="10" y="42">_IDENT · _AGG · _OPS</text>
+        <text class="uml-member" x="10" y="42">_IDENT · _AGG · Op</text>
       </g>
 
       <path class="uml-dep" d="M270 100 H390" marker-end="url(#arrow)"/>
@@ -404,12 +404,32 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Self
 
 # 식별자(테이블·열 이름)는 매개변수로 바인딩할 수 없으므로 화이트리스트 정규식으로 막는다.
 _IDENT = re.compile(r&quot;^[a-z_][a-z0-9_]*$&quot;)
 _AGG = re.compile(r&quot;^(SUM|COUNT|AVG|MIN|MAX)\(([a-z_][a-z0-9_]*|\*)\)$&quot;)
-_OPS = frozenset({&quot;=&quot;, &quot;&lt;&gt;&quot;, &quot;&lt;&quot;, &quot;&lt;=&quot;, &quot;&gt;&quot;, &quot;&gt;=&quot;, &quot;IN&quot;})
+
+
+class Op(StrEnum):
+    &quot;&quot;&quot;WHERE/HAVING에 허용하는 비교 연산자. 값이 곧 SQL 토큰이므로 이 목록이 연산자 자리의 화이트리스트다.&quot;&quot;&quot;
+
+    EQ = &quot;=&quot;
+    NE = &quot;&lt;&gt;&quot;
+    LT = &quot;&lt;&quot;
+    LE = &quot;&lt;=&quot;
+    GT = &quot;&gt;&quot;
+    GE = &quot;&gt;=&quot;
+    IN = &quot;IN&quot;
+
+
+def _parse_op(op: Op | str) -&gt; Op:
+    &quot;&quot;&quot;호출자가 넘긴 연산자를 Op로 바꾼다. 목록에 없으면(주입 시도 포함) 단계 호출 즉시 거부한다.&quot;&quot;&quot;
+    try:
+        return Op(op)
+    except ValueError:
+        raise ValueError(f&quot;허용되지 않는 연산자: {op!r}&quot;) from None
 
 
 def _check_expr(expr: str) -&gt; str:
@@ -424,7 +444,7 @@ class Condition:
     &quot;&quot;&quot;WHERE/HAVING 조건 하나. 값(value)은 SQL 텍스트가 아니라 바인딩될 데이터다.&quot;&quot;&quot;
 
     expr: str
-    op: str
+    op: Op
     value: object
 
 
@@ -456,7 +476,7 @@ class Query:
             &quot;&quot;&quot;조건들을 자리표시자(%s)로 렌더링하고 값은 params에 쌓는다.&quot;&quot;&quot;
             parts = []
             for c in conds:
-                if c.op == &quot;IN&quot;:
+                if c.op is Op.IN:
                     # IN은 값 개수만큼 자리표시자를 만든다. 리스트를 문자열로 펼쳐 넣으면 주입이 되살아난다.
                     parts.append(f&quot;{c.expr} IN ({&#x27;, &#x27;.join([&#x27;%s&#x27;] * len(c.value))})&quot;)  # type: ignore[arg-type]
                     params.extend(c.value)  # type: ignore[arg-type]
@@ -505,13 +525,12 @@ class QueryBuilder:
         self._select.extend(_check_expr(e) for e in exprs)
         return self
 
-    def where(self, expr: str, op: str, value: object) -&gt; Self:
-        &quot;&quot;&quot;WHERE 조건을 더한다. 연산자도 화이트리스트로 검사한다(연산자 자리 주입 방지).&quot;&quot;&quot;
-        if op not in _OPS:
-            raise ValueError(f&quot;허용되지 않는 연산자: {op!r}&quot;)
-        if op == &quot;IN&quot;:
+    def where(self, expr: str, op: Op | str, value: object) -&gt; Self:
+        &quot;&quot;&quot;WHERE 조건을 더한다. 연산자는 Op로 바꾸며 목록에 없으면 거부한다(연산자 자리 주입 방지).&quot;&quot;&quot;
+        parsed = _parse_op(op)
+        if parsed is Op.IN:
             value = tuple(value)  # type: ignore[arg-type]  # list는 해시 불가 → Query가 해시 가능하도록 tuple로
-        self._where.append(Condition(_check_expr(expr), op, value))
+        self._where.append(Condition(_check_expr(expr), parsed, value))
         return self
 
     def group_by(self, *exprs: str) -&gt; Self:
@@ -519,11 +538,9 @@ class QueryBuilder:
         self._group_by.extend(_check_expr(e) for e in exprs)
         return self
 
-    def having(self, expr: str, op: str, value: object) -&gt; Self:
+    def having(self, expr: str, op: Op | str, value: object) -&gt; Self:
         &quot;&quot;&quot;HAVING 조건을 더한다. GROUP BY와의 관계는 여기서 검사하지 않는다(아래 build() 참고).&quot;&quot;&quot;
-        if op not in _OPS:
-            raise ValueError(f&quot;허용되지 않는 연산자: {op!r}&quot;)
-        self._having.append(Condition(_check_expr(expr), op, value))
+        self._having.append(Condition(_check_expr(expr), _parse_op(op), value))
         return self
 
     def order_by(self, expr: str, *, desc: bool = False) -&gt; Self:
@@ -621,7 +638,7 @@ if __name__ == &quot;__main__&quot;:
         print(f&quot;  식별자 자리: ValueError — {e}&quot;)</code></pre></figure>
   <p>[1]의 호출부는 그 자체로 쿼리를 설명한다. 단계마다 이름이 있으니 None 행렬이 생길 수 없다. [2]에서 <code>WHERE AND</code>가 사라진 이유는 영리한 분기 때문이 아니라 조건을 리스트에 모은 뒤 <code>" AND ".join()</code>으로 <em>한 번에</em> 렌더링하기 때문이다. "첫 조건인가"라는 숨은 상태 자체가 없어졌다.</p>
   <p>[3]이 빌더가 정말 값을 하는 장면이다. UI 토글에 따라 단계를 붙이거나 건너뛰는 코드가 반복문과 조건문 사이에 자연스럽게 섞인다. 조립 순서는 자유롭다. <code>having()</code>을 <code>group_by()</code>보다 먼저 불러도 된다. 대신 완성 조건은 엄격하다. [4]처럼 <code>build()</code>가 교차 제약을 한 번에 검사하고, 통과하지 못하면 <code>Query</code>는 아예 존재하지 않는다. "조립 중에는 관대하게, 완성 시에는 엄격하게"가 빌더의 계약이다.</p>
-  <p>[5]는 <code>Query</code>가 <code>frozen=True</code>이고 컬렉션 필드가 전부 튜플이라 얻는 이득이다. 빌더를 계속 바꿔도 이미 만든 <code>Query</code>는 영향받지 않고, 해시 가능하므로 대시보드 결과 캐시의 키로 쓸 수 있다. [6]은 주입 방어가 두 겹이라는 것을 보여준다. 값은 <code>%s</code> 자리표시자와 <code>params</code>로 분리해 DB 드라이버가 바인딩하게 하고, 매개변수로 바인딩할 수 없는 식별자(테이블·열 이름)와 연산자는 화이트리스트로 검사한다.</p>
+  <p>[5]는 <code>Query</code>가 <code>frozen=True</code>이고 컬렉션 필드가 전부 튜플이라 얻는 이득이다. 빌더를 계속 바꿔도 이미 만든 <code>Query</code>는 영향받지 않고, 해시 가능하므로 대시보드 결과 캐시의 키로 쓸 수 있다. [6]은 주입 방어가 두 겹이라는 것을 보여준다. 값은 <code>%s</code> 자리표시자와 <code>params</code>로 분리해 DB 드라이버가 바인딩하게 하고, 매개변수로 바인딩할 수 없는 식별자(테이블·열 이름)는 정규식 화이트리스트로, 연산자는 <code>Op</code> 열거형(값이 곧 SQL 토큰이라 목록이 화이트리스트다)으로 검사한다.</p>
 
   <h3>4.2 GoF 빌더: 같은 절차, 다른 표현</h3>
   <p class="lead-in">이제 [5]의 문제, 즉 SQL과 요약이 조립 절차를 복제하다 어긋난 문제를 원전의 빌더로 푼다. <code>QueryDirector.construct()</code>가 절차의 유일한 소유자라는 점, 두 렌더러는 단계 하나하나를 자기 방식으로 표현만 한다는 점, 그리고 <code>QueryRenderer</code>에 <code>result()</code>가 없는 이유에 주목하라. docstring이 예로 드는 <dfn class="term" id="term-pandas" data-term="pandas" title="표 형태 데이터(데이터프레임)를 다루는 파이썬 데이터 분석 라이브러리.">데이터프레임</dfn> 코드 생성기의 데이터프레임은 표 형태 데이터를 다루는 파이썬 분석 라이브러리 pandas의 핵심 자료형이다.</p>
@@ -1109,15 +1126,27 @@ r3 = Request("POST", "https://ads.example.com/v2/jobs", body=b"{}", retries=5)</
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from types import MappingProxyType
 from typing import Mapping, Self
+
+
+class Method(StrEnum):
+    &quot;&quot;&quot;HTTP 메서드. build()가 &#x27;본문을 둘 수 없는 메서드&#x27;를 문자열 비교가 아니라 멤버로 판별한다.&quot;&quot;&quot;
+
+    GET = &quot;GET&quot;
+    HEAD = &quot;HEAD&quot;
+    POST = &quot;POST&quot;
+    PUT = &quot;PUT&quot;
+    PATCH = &quot;PATCH&quot;
+    DELETE = &quot;DELETE&quot;
 
 
 @dataclass(frozen=True)
 class Request:
     &quot;&quot;&quot;[Product] 완성된 HTTP 요청 정의. 매핑 필드는 읽기 전용 뷰로 감싸 불변을 끝까지 지킨다.&quot;&quot;&quot;
 
-    method: str
+    method: Method
     url: str
     headers: Mapping[str, str]
     params: Mapping[str, str]
@@ -1129,10 +1158,10 @@ class Request:
 class RequestBuilder:
     &quot;&quot;&quot;[Builder] Request를 단계적으로 조립한다.&quot;&quot;&quot;
 
-    def __init__(self, method: str, url: str) -&gt; None:
+    def __init__(self, method: Method | str, url: str) -&gt; None:
         &quot;&quot;&quot;필수 두 가지만 생성자로. 나머지는 이름 붙은 단계와 합리적 기본값.&quot;&quot;&quot;
-        self._method, self._url = method.upper(), url
-        # 메서드를 대문자로 정규화해 두어야 build()의 &quot;GET&quot; 비교가 &quot;get&quot; 입력에도 동작한다.
+        self._method, self._url = Method(method.upper()), url
+        # 대문자로 정규화한 뒤 Method로 바꾼다. &quot;get&quot; 입력도 받고, 목록에 없는 메서드는 생성 즉시 ValueError다.
         # 아래 필드들은 조립 중 상태다. None은 &#x27;아직 지정하지 않음&#x27;을 뜻하며 build()에서 기본값으로 바뀐다.
         self._headers: dict[str, str] = {}
         self._params: dict[str, str] = {}
@@ -1171,7 +1200,7 @@ class RequestBuilder:
 
     def build(self) -&gt; Request:
         &quot;&quot;&quot;교차 검증 후 불변 Request를 만든다.&quot;&quot;&quot;
-        if self._method in (&quot;GET&quot;, &quot;HEAD&quot;) and self._body is not None:
+        if self._method in (Method.GET, Method.HEAD) and self._body is not None:
             raise ValueError(f&quot;{self._method} 요청에는 본문을 둘 수 없다 — 필터는 param()으로&quot;)
         if self._retries and self._timeout is None:
             # 타임아웃 없는 재시도는 &#x27;영원히 기다리기 × n&#x27;이 된다.

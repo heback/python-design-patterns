@@ -19,12 +19,32 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Self
 
 # 식별자(테이블·열 이름)는 매개변수로 바인딩할 수 없으므로 화이트리스트 정규식으로 막는다.
 _IDENT = re.compile(r"^[a-z_][a-z0-9_]*$")
 _AGG = re.compile(r"^(SUM|COUNT|AVG|MIN|MAX)\(([a-z_][a-z0-9_]*|\*)\)$")
-_OPS = frozenset({"=", "<>", "<", "<=", ">", ">=", "IN"})
+
+
+class Op(StrEnum):
+    """WHERE/HAVING에 허용하는 비교 연산자. 값이 곧 SQL 토큰이므로 이 목록이 연산자 자리의 화이트리스트다."""
+
+    EQ = "="
+    NE = "<>"
+    LT = "<"
+    LE = "<="
+    GT = ">"
+    GE = ">="
+    IN = "IN"
+
+
+def _parse_op(op: Op | str) -> Op:
+    """호출자가 넘긴 연산자를 Op로 바꾼다. 목록에 없으면(주입 시도 포함) 단계 호출 즉시 거부한다."""
+    try:
+        return Op(op)
+    except ValueError:
+        raise ValueError(f"허용되지 않는 연산자: {op!r}") from None
 
 
 def _check_expr(expr: str) -> str:
@@ -39,7 +59,7 @@ class Condition:
     """WHERE/HAVING 조건 하나. 값(value)은 SQL 텍스트가 아니라 바인딩될 데이터다."""
 
     expr: str
-    op: str
+    op: Op
     value: object
 
 
@@ -71,7 +91,7 @@ class Query:
             """조건들을 자리표시자(%s)로 렌더링하고 값은 params에 쌓는다."""
             parts = []
             for c in conds:
-                if c.op == "IN":
+                if c.op is Op.IN:
                     # IN은 값 개수만큼 자리표시자를 만든다. 리스트를 문자열로 펼쳐 넣으면 주입이 되살아난다.
                     parts.append(f"{c.expr} IN ({', '.join(['%s'] * len(c.value))})")  # type: ignore[arg-type]
                     params.extend(c.value)  # type: ignore[arg-type]
@@ -120,13 +140,12 @@ class QueryBuilder:
         self._select.extend(_check_expr(e) for e in exprs)
         return self
 
-    def where(self, expr: str, op: str, value: object) -> Self:
-        """WHERE 조건을 더한다. 연산자도 화이트리스트로 검사한다(연산자 자리 주입 방지)."""
-        if op not in _OPS:
-            raise ValueError(f"허용되지 않는 연산자: {op!r}")
-        if op == "IN":
+    def where(self, expr: str, op: Op | str, value: object) -> Self:
+        """WHERE 조건을 더한다. 연산자는 Op로 바꾸며 목록에 없으면 거부한다(연산자 자리 주입 방지)."""
+        parsed = _parse_op(op)
+        if parsed is Op.IN:
             value = tuple(value)  # type: ignore[arg-type]  # list는 해시 불가 → Query가 해시 가능하도록 tuple로
-        self._where.append(Condition(_check_expr(expr), op, value))
+        self._where.append(Condition(_check_expr(expr), parsed, value))
         return self
 
     def group_by(self, *exprs: str) -> Self:
@@ -134,11 +153,9 @@ class QueryBuilder:
         self._group_by.extend(_check_expr(e) for e in exprs)
         return self
 
-    def having(self, expr: str, op: str, value: object) -> Self:
+    def having(self, expr: str, op: Op | str, value: object) -> Self:
         """HAVING 조건을 더한다. GROUP BY와의 관계는 여기서 검사하지 않는다(아래 build() 참고)."""
-        if op not in _OPS:
-            raise ValueError(f"허용되지 않는 연산자: {op!r}")
-        self._having.append(Condition(_check_expr(expr), op, value))
+        self._having.append(Condition(_check_expr(expr), _parse_op(op), value))
         return self
 
     def order_by(self, expr: str, *, desc: bool = False) -> Self:

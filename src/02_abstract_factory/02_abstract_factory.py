@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import StrEnum
 
 
 # ---------------------------------------------------------------------------
@@ -307,26 +308,35 @@ class ThumbnailWorker:
 # Composition root — 구체 팩토리를 고르는 곳은 프로그램 전체에서 여기 한 곳이다.
 # ---------------------------------------------------------------------------
 
-def make_cloud_factory(env: str) -> CloudFactory:
-    """배포 환경 이름으로 구체 팩토리를 고른다.
+class CloudEnv(StrEnum):
+    """배포 환경 이름. 환경 변수 CLOUD_ENV의 값과 같은 문자열이다."""
+
+    AWS = "aws"
+    GCP = "gcp"
+    LOCAL = "local"
+
+
+def make_cloud_factory(env: CloudEnv) -> CloudFactory:
+    """배포 환경으로 구체 팩토리를 고른다.
 
     여기에는 if/elif가 있어도 된다. 01_naive.py의 문제는 분기가 '있다'는 것이 아니라
     생성 지점마다 '복제'되었다는 것이었다. 분기가 한 곳에만 있으면 환경 추가 비용은 한 줄이다.
+    환경 변수에서 읽은 문자열은 CloudEnv(...)로 경계에서 한 번만 바꾼다. 오타는 그 자리에서 ValueError다.
     """
-    if env == "aws":
+    if env is CloudEnv.AWS:
         return AwsFactory(region="ap-northeast-2")
-    if env == "gcp":
+    if env is CloudEnv.GCP:
         return GcpFactory(project="gureumdari-prod")
-    if env == "local":
+    if env is CloudEnv.LOCAL:
         return LocalFactory(dotenv={"upload-api-key": "local-key"})
     raise ValueError(f"알 수 없는 환경: {env}")
 
 
 if __name__ == "__main__":
     print("[1] 같은 서비스 코드를 세 환경에서 실행한다 (환경 변수 CLOUD_ENV를 흉내 냄)")
-    for env in ("aws", "gcp", "local"):
+    for env in CloudEnv:
         os.environ["CLOUD_ENV"] = env
-        factory = make_cloud_factory(os.environ["CLOUD_ENV"])
+        factory = make_cloud_factory(CloudEnv(os.environ["CLOUD_ENV"]))
         service, worker = UploadService(factory), ThumbnailWorker(factory)
         url = service.upload("cat.png", b"\x89PNG....")
         print(f"  [{env:5}] {type(factory).__name__:12} 업로드 {url:22} → {worker.process_one()}")
@@ -341,8 +351,8 @@ if __name__ == "__main__":
     # 그러나 로컬 제품군의 큐는 프로세스 메모리이므로 팩토리 인스턴스마다 따로 생긴다.
     # (주의: 이 예제의 시뮬레이션에서는 AwsFactory/GcpFactory도 인스턴스마다 CloudAccount를 새로
     #  만들므로 같은 현상이 난다. 실제 클라우드에서는 계정이 외부 상태라 두 인스턴스가 공유한다.)
-    uploader = UploadService(make_cloud_factory("local"))
-    stranger = ThumbnailWorker(make_cloud_factory("local"))  # 같은 종류, 다른 인스턴스
+    uploader = UploadService(make_cloud_factory(CloudEnv.LOCAL))
+    stranger = ThumbnailWorker(make_cloud_factory(CloudEnv.LOCAL))  # 같은 종류, 다른 인스턴스
     uploader.upload("dog.png", b"woof")
     try:
         stranger.process_one()
