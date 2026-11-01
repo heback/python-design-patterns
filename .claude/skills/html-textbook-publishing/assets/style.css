@@ -231,3 +231,7 @@ table.glossary tr:target { background: var(--accent-soft); }
   .layout { display: block; } details.solution { display: block; } details.solution > * { display: block; }
   figure, .exercise { break-inside: avoid; }
 }
+
+/* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
+   font 단축 속성이 font-variant-ligatures를 초기화하므로 !important로 고정한다. */
+*, *::before, *::after { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }

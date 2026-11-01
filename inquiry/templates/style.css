@@ -228,3 +228,7 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .wk-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
 .wk-toggles label { display: flex; gap: 6px; align-items: center; }
 .status-open { color: var(--ok); font-weight: 700; } .status-closed { color: var(--bad); font-weight: 700; }
+
+/* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
+   font 단축 속성이 font-variant-ligatures를 초기화하므로 !important로 고정한다. */
+*, *::before, *::after { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
