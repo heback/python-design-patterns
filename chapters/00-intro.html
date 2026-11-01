@@ -139,7 +139,75 @@ part:
   <ul>
     <li><strong><dfn data-term="duck-typing">덕 타이핑</dfn>.</strong> 파이썬에서는 객체의 선언된 타입이 아니라 실제로 가진 메서드·속성이 협력 가능 여부를 정한다("오리처럼 걷고 오리처럼 울면 오리다"). 인터페이스를 선언하지 않아도 다형성이 성립하므로, "인터페이스에 프로그래밍하라"는 원칙의 비용이 거의 0이다.</li>
     <li><strong><code>abc.ABC</code>와 <code>typing.Protocol</code>.</strong> 그래도 계약을 명시하고 싶을 때 두 선택지가 있다. 이 교재는 다음 기준을 일관되게 쓰고, 이후 장에서 다시 설명하지 않는다. 우리가 정의하고 우리가 구현하는 <dfn data-term="extension-point">확장 지점</dfn>(기존 코드를 고치지 않고 새 동작을 끼워 넣도록 설계가 일부러 열어 둔 자리)이며 구현 누락을 실행 시점(인스턴스화)에 잡고 싶다면 <code>ABC</code>(<dfn data-term="nominal-typing">명목적 타이핑</dfn>: 명시적으로 상속해야 그 타입으로 인정한다). 외부 <dfn data-term="software-development-kit">SDK</dfn>(외부 서비스·장비를 쓰도록 제공되는, 대개 우리가 고칠 수 없는 라이브러리), 함수, <dfn data-term="test-double">테스트 대역</dfn>(테스트에서 실제 협력 객체 대신 끼워 넣는 가짜 객체)처럼 상속 없이 끼어들어야 하는 것이 구현체라면 <code>Protocol</code>(<dfn data-term="structural-typing">구조적 타이핑</dfn>: 상속 관계가 아니라 메서드 모양이 맞는지로 타입을 인정한다. 검사는 <dfn data-term="static-type-checker">mypy</dfn> 같은 정적 검사기, 곧 코드를 실행하지 않고 타입 힌트를 읽어 불일치를 찾는 도구가 한다).</li>
-    <li><strong>일급 함수와 <dfn data-term="closure">클로저</dfn>.</strong> 클로저는 바깥 함수의 지역 변수를 붙잡아 기억하는 안쪽 함수로, 바깥 함수가 끝난 뒤에도 그 값을 쓴다. 메서드 하나짜리 인터페이스는 대개 그냥 함수다. 전략, 커맨드, 팩토리 메서드의 생성 <dfn data-term="hook">훅</dfn>이 함수 하나로 줄어드는 경우가 많다. 훅(hook)이란 흐름을 소유한 쪽(상위 클래스, 우리 코드를 정해진 자리에서 불러 주는 라이브러리, 또는 파이썬 언어 자체)이 정해 둔 시점에 불러 주도록 비워 둔 확장 지점이다. 하위 클래스가 오버라이드하는 메서드, 인자로 넘겨받아 때가 되면 부르는 함수, 하위 클래스가 정의되는 순간 파이썬이 상위 클래스 쪽에서 불러 주는 <code><dfn data-term="init-subclass">__init_subclass__</dfn></code>(1장에서 쓴다) 같은 메서드가 모두 훅이다. 14장 템플릿 메서드는 GoF의 더 좁은 의미인 '훅 연산'(기본 구현이 있어 하위 클래스가 필요할 때만 재정의하는 단계로, 반드시 구현해야 하는 추상 단계와 대비된다)을 쓰므로 그곳에서 둘을 구별한다(<a href="14-template-method.html#structure">14장 3절</a>).</li>
+    <li><strong>일급 함수와 <dfn data-term="closure">클로저</dfn>.</strong> 클로저는 바깥 함수의 지역 변수를 붙잡아 기억하는 안쪽 함수로, 바깥 함수가 끝난 뒤에도 그 값을 쓴다. 메서드 하나짜리 인터페이스는 대개 그냥 함수다. 전략, 커맨드, 팩토리 메서드의 생성 <dfn data-term="hook">훅</dfn>이 함수 하나로 줄어드는 경우가 많다. 훅(hook)이란 흐름을 소유한 쪽(상위 클래스, 우리 코드를 정해진 자리에서 불러 주는 라이브러리, 또는 파이썬 언어 자체)이 정해 둔 시점에 불러 주도록 비워 둔 확장 지점이다. 하위 클래스가 오버라이드하는 메서드, 인자로 넘겨받아 때가 되면 부르는 함수, 하위 클래스가 정의되는 순간 파이썬이 상위 클래스 쪽에서 불러 주는 <code><dfn data-term="init-subclass">__init_subclass__</dfn></code>(1장에서 쓴다) 같은 메서드가 모두 훅이다. 14장 템플릿 메서드는 GoF의 더 좁은 의미인 '훅 연산'(기본 구현이 있어 하위 클래스가 필요할 때만 재정의하는 단계로, 반드시 구현해야 하는 추상 단계와 대비된다)을 쓰므로 그곳에서 둘을 구별한다(<a href="14-template-method.html#structure">14장 3절</a>).
+    <figure class="diagram">
+      <svg viewBox="0 0 640 386" role="img" aria-label="훅의 원리: 일반 호출에서는 내 코드가 라이브러리를 부르지만, 훅에서는 흐름을 소유한 쪽이 정해 둔 시점에 내가 채운 코드를 불러 준다. 훅 자리는 소유자의 흐름 속에 비워 둔 칸이다.">
+        <text class="uml-note" x="20" y="22">① 일반 호출: 내가 부른다</text>
+        <g class="uml-func" transform="translate(40,34)"><rect width="150" height="44"/><text class="uml-name" x="75" y="27">내 코드</text></g>
+        <g class="uml-func" transform="translate(440,34)"><rect width="160" height="44"/><text class="uml-name" x="80" y="27">라이브러리</text></g>
+        <path class="uml-assoc" d="M190 56 H440" marker-end="url(#arrow)"/>
+        <text class="uml-label" x="315" y="48" text-anchor="middle">sorted(rows) 호출</text>
+
+        <text class="uml-note" x="20" y="116">② 훅: 불러 준다</text>
+        <g class="uml-func highlight" transform="translate(40,128)"><rect width="150" height="44"/><text class="uml-name" x="75" y="27">내 코드(훅)</text></g>
+        <g class="uml-func" transform="translate(440,128)"><rect width="160" height="44"/><text class="uml-name" x="80" y="27">흐름 소유자</text></g>
+        <path class="uml-assoc" d="M440 150 H190" marker-end="url(#arrow)"/>
+        <text class="uml-label" x="315" y="142" text-anchor="middle">정해 둔 시점에 호출</text>
+
+        <text class="uml-note" x="20" y="214">③ 훅 자리: 흐름 속에 비워 둔 칸</text>
+        <g class="uml-group" transform="translate(20,224)"><rect width="600" height="84"/><text class="uml-label" x="10" y="16">흐름 소유자 (상위 클래스 · 라이브러리 · 파이썬)</text></g>
+        <g class="uml-func" transform="translate(40,246)"><rect width="100" height="40"/><text class="uml-name" x="50" y="25">① 준비</text></g>
+        <g class="uml-func" transform="translate(190,246)"><rect width="100" height="40"/><text class="uml-name" x="50" y="25">② 검증</text></g>
+        <g class="uml-func highlight" transform="translate(340,246)"><rect width="130" height="40"/><text class="uml-name" x="65" y="25">③ 훅 자리</text></g>
+        <g class="uml-func" transform="translate(520,246)"><rect width="80" height="40"/><text class="uml-name" x="40" y="25">④ 정리</text></g>
+        <path class="uml-assoc" d="M140 266 H190" marker-end="url(#arrow)"/>
+        <path class="uml-assoc" d="M290 266 H340" marker-end="url(#arrow)"/>
+        <path class="uml-assoc" d="M470 266 H520" marker-end="url(#arrow)"/>
+
+        <g class="uml-func highlight" transform="translate(340,330)"><rect width="130" height="40"/><text class="uml-name" x="65" y="25">내가 채운 코드</text></g>
+        <path class="uml-dep" d="M385 286 V330" marker-end="url(#arrow)"/>
+        <path class="uml-dep" d="M425 330 V286" marker-end="url(#arrow)"/>
+        <text class="uml-label" x="377" y="324" text-anchor="end">호출</text>
+        <text class="uml-label" x="433" y="324">복귀</text>
+        <text class="uml-note" x="20" y="354">순서와 시점은 소유자가, 칸의 내용은 내가</text>
+        <text class="uml-note" x="484" y="354">끝나면 흐름으로 복귀</text>
+      </svg>
+      <figcaption>개념도 · 훅. 일반 호출은 내가 라이브러리를 부르지만(①), 훅에서는 흐름을 가진 쪽이 정해 둔 시점에 내가 채운 코드를 부른다(②). 훅 자리는 그 흐름 속에 비워 둔 칸이다(③).</figcaption>
+    </figure>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 182" role="img" aria-label="훅의 세 형태: 오버라이드한 메서드(소유자는 상위 클래스), 넘겨받은 함수(소유자는 라이브러리), __init_subclass__(소유자는 파이썬 언어). 소유자와 불리는 시점만 다르다.">
+        <g class="uml-class" transform="translate(20,12)">
+          <rect width="190" height="130"/>
+          <text class="uml-name" x="95" y="22">오버라이드 메서드</text>
+          <line x1="0" y1="32" x2="190" y2="32"/>
+          <text class="uml-member" x="10" y="52">소유자: 상위 클래스</text>
+          <text class="uml-member" x="10" y="70">시점: 골격이 그 단계에</text>
+          <text class="uml-member" x="46" y="88">이르렀을 때</text>
+          <text class="uml-member" x="10" y="110">예: def compile(self)</text>
+        </g>
+        <g class="uml-class" transform="translate(225,12)">
+          <rect width="190" height="130"/>
+          <text class="uml-name" x="95" y="22">넘겨받은 함수</text>
+          <line x1="0" y1="32" x2="190" y2="32"/>
+          <text class="uml-member" x="10" y="52">소유자: 라이브러리</text>
+          <text class="uml-member" x="10" y="70">시점: 필요할 때마다</text>
+          <text class="uml-member" x="46" y="88">(예: 원소마다)</text>
+          <text class="uml-member" x="10" y="110">예: sorted(rows, key=f)</text>
+        </g>
+        <g class="uml-class" transform="translate(430,12)">
+          <rect width="190" height="130"/>
+          <text class="uml-name" x="95" y="22">__init_subclass__</text>
+          <line x1="0" y1="32" x2="190" y2="32"/>
+          <text class="uml-member" x="10" y="52">소유자: 파이썬 언어</text>
+          <text class="uml-member" x="10" y="70">시점: 하위 클래스가</text>
+          <text class="uml-member" x="46" y="88">정의되는 순간</text>
+          <text class="uml-member" x="10" y="110">예: class A(Base): ...</text>
+        </g>
+        <text class="uml-note" x="320" y="168" text-anchor="middle">세 형태 모두 "주인이 정한 시점에 불러 준다"는 점이 같다</text>
+      </svg>
+      <figcaption>개념도 · 훅의 세 형태. 달라지는 것은 흐름의 소유자와 불리는 시점뿐이다.</figcaption>
+    </figure>
+  </li>
     <li><strong>모듈.</strong> 모듈은 첫 import 때 한 번 실행되고 <dfn data-term="cache">캐시</dfn>되는(다시 실행하지 않도록 결과가 저장되는) <dfn data-term="namespace">이름공간</dfn>, 곧 이름과 객체의 대응을 담는 공간이다. 싱글턴과 퍼사드의 상당수는 모듈 하나로 충분하다.</li>
     <li><strong><dfn data-term="dunder-special-method">던더</dfn>(dunder) 프로토콜.</strong> 던더는 double underscore의 줄임말로, 이름 앞뒤에 밑줄 두 개가 붙은 특수 메서드를 가리킨다. 이 메서드들은 언어가 미리 정해 둔 인터페이스(프로토콜)에 참여하는 방법이며, 파이썬은 이를 인스턴스가 아니라 타입에서 찾는다. <code>__iter__</code>/<code><dfn data-term="iterator-protocol">__next__</dfn></code>(반복자 프로토콜: 순회할 반복자를 내주고 다음 값을 꺼내며, 끝나면 <code>StopIteration</code>을 던진다. <code>for</code> 문이 이것을 부른다), <code><dfn data-term="call">__call__</dfn></code>(객체를 함수처럼 <code>()</code>로 부를 수 있게 한다), <code><dfn data-term="getattr">__getattr__</dfn></code>(일반 속성 조회가 실패했을 때만 불린다), <code><dfn data-term="context-manager">__enter__</dfn></code>/<code>__exit__</code>(컨텍스트 매니저: <code>with</code> 블록에 들어갈 때 준비하고, 빠져나올 때 예외가 나도 정리를 보장한다)가 대표적이다. 반복자 패턴은 언어 자체가 되었고(<dfn data-term="generator">제너레이터</dfn>: <code>yield</code>가 든 함수를 부르면 나오는 반복자로, 값을 하나 내고 멈췄다가 다음 요청에서 이어 간다), 프록시와 어댑터는 <code>__getattr__</code> 위임으로 짧아진다.</li>
   </ul>
