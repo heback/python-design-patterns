@@ -25,11 +25,11 @@ Member = Literal["adult", "child", "university"]
 class Loan:
     """대출 한 건. 연체료 계산에 필요한 사실만 담는다."""
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
-    branch: str        # "새솔" | "하늘" | "바다"
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
+    branch: str          # 지점: "새솔" | "하늘" | "바다"
 
 
 EXAM_WEEKS = (date(2026, 6, 8), date(2026, 6, 21))  # 시험 기간(대학생 면제)

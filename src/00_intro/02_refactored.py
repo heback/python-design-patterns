@@ -28,11 +28,11 @@ Member = Literal["adult", "child", "university"]
 class Loan:
     """대출 한 건(순진한 코드 01_naive.py와 같다)."""
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
-    branch: str
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
+    branch: str          # 지점: "새솔" | "하늘" | "바다"
 
 
 class Adjustment(ABC):

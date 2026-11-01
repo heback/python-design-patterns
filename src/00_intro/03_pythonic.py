@@ -24,10 +24,10 @@ Member = Literal["adult", "child", "university"]
 class Loan:
     """대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
 
 
 class Adjustment(Protocol):

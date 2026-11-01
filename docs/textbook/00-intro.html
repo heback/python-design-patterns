@@ -77,11 +77,11 @@ Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 class Loan:
     &quot;&quot;&quot;대출 한 건. 연체료 계산에 필요한 사실만 담는다.&quot;&quot;&quot;
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
-    branch: str        # &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
+    branch: str          # 지점: &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
 
 
 EXAM_WEEKS = (date(2026, 6, 8), date(2026, 6, 21))  # 시험 기간(대학생 면제)
@@ -242,11 +242,11 @@ Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 class Loan:
     &quot;&quot;&quot;대출 한 건(순진한 코드 01_naive.py와 같다).&quot;&quot;&quot;
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
-    branch: str
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
+    branch: str          # 지점: &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
 
 
 class Adjustment(ABC):
@@ -476,10 +476,10 @@ Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 class Loan:
     &quot;&quot;&quot;대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
 
-    material: Material
-    member: Member
-    due: date
-    returned: date
+    material: Material   # 자료 유형
+    member: Member       # 회원 유형
+    due: date            # 반납 기한
+    returned: date       # 실제 반납일 (returned - due가 연체 일수)
 
 
 class Adjustment(Protocol):
