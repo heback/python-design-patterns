@@ -11,10 +11,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Literal
+from enum import StrEnum
+from typing import Callable
 
-# 허용 값을 타입으로 적어 둔다. "chlid" 같은 오타는 타입 검사기가 잡는다(문제 본문의 member: str은 그대로 두었다).
-Member = Literal["adult", "child"]
+
+class Member(StrEnum):
+    """회원 유형. 문제 본문의 member: str 대신 멤버로 쓰므로 오타(Member.CHLID)는 실행 즉시 AttributeError가 된다."""
+
+    ADULT = "adult"
+    CHILD = "child"
 
 
 @dataclass(frozen=True)
@@ -65,7 +70,7 @@ class ChildHalf(Rule):
 
     def apply(self, item: LostItem, amount: int) -> int:
         """아동이면 절반."""
-        return amount // 2 if item.member == "child" else amount
+        return amount // 2 if item.member is Member.CHILD else amount
 
 
 @dataclass(frozen=True)
@@ -106,7 +111,7 @@ def out_of_print(item: LostItem, amount: int) -> int:
 
 def child_half(item: LostItem, amount: int) -> int:
     """아동 감면."""
-    return amount // 2 if item.member == "child" else amount
+    return amount // 2 if item.member is Member.CHILD else amount
 
 
 def minimum(floor: int) -> RuleFn:
@@ -124,11 +129,11 @@ def compensation_fn(item: LostItem, rules: list[RuleFn]) -> int:
 
 if __name__ == "__main__":
     cases = [
-        LostItem(18000, donated=False, out_of_print=False, member="adult"),
-        LostItem(18000, donated=True, out_of_print=False, member="adult"),
-        LostItem(18000, donated=False, out_of_print=True, member="adult"),
-        LostItem(1500, donated=False, out_of_print=False, member="child"),
-        LostItem(18000, donated=True, out_of_print=True, member="adult"),  # 원래 코드에서 5,000원
+        LostItem(18000, donated=False, out_of_print=False, member=Member.ADULT),
+        LostItem(18000, donated=True, out_of_print=False, member=Member.ADULT),
+        LostItem(18000, donated=False, out_of_print=True, member=Member.ADULT),
+        LostItem(1500, donated=False, out_of_print=False, member=Member.CHILD),
+        LostItem(18000, donated=True, out_of_print=True, member=Member.ADULT),  # 원래 코드에서 5,000원
     ]
     abc_rules: list[Rule] = [DonatedFlat(), OutOfPrintSurcharge(), ChildHalf(), MinimumFee(1000)]
     fn_rules: list[RuleFn] = [donated_flat, out_of_print, child_half, minimum(1000)]

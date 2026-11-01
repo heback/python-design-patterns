@@ -13,11 +13,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Literal, Protocol
+from enum import StrEnum
+from typing import Protocol
 
-# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
-Material = Literal["book", "dvd"]
-Member = Literal["adult", "child", "university"]
+# 순진한 코드와 같은 정의다(파일 단독 실행을 위해 다시 둔다).
+
+class Material(StrEnum):
+    """자료 유형. 문자열 대신 멤버로 쓴다 — 오타(Material.DVDD)는 실행 즉시 AttributeError가 된다."""
+
+    BOOK = "book"
+    DVD = "dvd"
+
+
+class Member(StrEnum):
+    """회원 유형. StrEnum 멤버는 str이라 출력·f-string에는 값("child")이 그대로 찍힌다."""
+
+    ADULT = "adult"
+    CHILD = "child"
+    UNIVERSITY = "university"
 
 
 @dataclass(frozen=True)
@@ -47,7 +60,7 @@ class Adjustment(Protocol):
 
 def child_discount(loan: Loan, fee: int) -> int:
     """상태 없는 규칙은 함수 하나로 충분하다. 클래스 + 메서드 + 인스턴스화가 모두 사라졌다."""
-    return fee // 2 if loan.member == "child" else fee
+    return fee // 2 if loan.member is Member.CHILD else fee
 
 
 def cap(limit: int) -> Adjustment:
@@ -74,7 +87,7 @@ class ExamWaiver:
 
     def __call__(self, loan: Loan, fee: int) -> int:
         """__call__ 덕분에 이 객체는 Adjustment 프로토콜을 만족한다."""
-        if loan.member == "university" and self.start <= loan.returned <= self.end:
+        if loan.member is Member.UNIVERSITY and self.start <= loan.returned <= self.end:
             return 0
         return fee
 
@@ -105,9 +118,9 @@ class FeePolicy:
 # 모듈은 한 번만 import되므로 이 표는 프로세스에서 하나다(4장 싱글턴의 논점으로 이어진다).
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 BRANCH_POLICIES: dict[str, FeePolicy] = {
-    "새솔": FeePolicy({"book": 100, "dvd": 500}, [child_discount, EXAM]),
-    "하늘": FeePolicy({"book": 100, "dvd": 700}, [child_discount, cap(3000)]),
-    "바다": FeePolicy({"book": 100, "dvd": 500}, [EXAM]),
+    "새솔": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [child_discount, EXAM]),
+    "하늘": FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [child_discount, cap(3000)]),
+    "바다": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 
@@ -116,7 +129,7 @@ if __name__ == "__main__":
     print("[1] 함수·클로저·__call__ 객체가 한 목록 안에서 똑같이 쓰인다")
     for branch, policy in BRANCH_POLICIES.items():
         kinds = [type(r).__name__ for r in policy.adjustments]
-        fee = policy.late_fee(Loan("dvd", "child", due, back))
+        fee = policy.late_fee(Loan(Material.DVD, Member.CHILD, due, back))
         print(f"  {branch}: 규칙 종류 {kinds} → 아동 DVD 5일 연체 {fee}원")
 
     print("\n[2] 클래스로 둔 규칙만 자기 자신을 설명할 수 있다")
@@ -127,5 +140,5 @@ if __name__ == "__main__":
     print(f"  cap(3000) → <function {cap(3000).__qualname__}>  (설정값 3000이 공개 인터페이스로 드러나지 않는다)")
 
     print("\n[3] 테스트 대역도 상속 없이 람다 한 줄 — Protocol이라 가능하다")
-    always_100 = FeePolicy({"book": 100}, [lambda loan, fee: 100])
-    print(f"  {always_100.late_fee(Loan('book', 'adult', due, back))}원")
+    always_100 = FeePolicy({Material.BOOK: 100}, [lambda loan, fee: 100])
+    print(f"  {always_100.late_fee(Loan(Material.BOOK, Member.ADULT, due, back))}원")

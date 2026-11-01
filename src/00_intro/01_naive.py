@@ -14,11 +14,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Literal
+from enum import StrEnum
 
-# 허용 값을 타입으로 적어 둔다. 오타("univercity")는 실행 전에 편집기나 검사 도구가 표시한다(실행할 때 막지는 않는다).
-Material = Literal["book", "dvd"]
-Member = Literal["adult", "child", "university"]
+
+class Material(StrEnum):
+    """자료 유형. 문자열 대신 멤버로 쓴다 — 오타(Material.DVDD)는 실행 즉시 AttributeError가 된다."""
+
+    BOOK = "book"
+    DVD = "dvd"
+
+
+class Member(StrEnum):
+    """회원 유형. StrEnum 멤버는 str이라 출력·f-string에는 값("child")이 그대로 찍힌다."""
+
+    ADULT = "adult"
+    CHILD = "child"
+    UNIVERSITY = "university"
 
 
 @dataclass(frozen=True)
@@ -42,17 +53,17 @@ def late_fee(loan: Loan) -> int:
         return 0
     # ⚠ 문제: 자료 유형 요율이 지점 분기 '안'에 복제되어 있다. 하늘 지점만 DVD 요율이 다르다.
     if loan.branch == "하늘":
-        rate = 700 if loan.material == "dvd" else 100
+        rate = 700 if loan.material is Material.DVD else 100
     else:
-        rate = 500 if loan.material == "dvd" else 100
+        rate = 500 if loan.material is Material.DVD else 100
     fee = days * rate
     # ⚠ 문제: 감면·면제 규칙이 지점 조건과 뒤엉킨다. 바다 지점은 아동 감면이 없다는 요구를
     #   넣으면서 조건이 길어졌고, 다음 요구가 오면 이 줄을 또 고쳐야 한다.
-    if loan.member == "child" and loan.branch != "바다":
+    if loan.member is Member.CHILD and loan.branch != "바다":
         fee = fee // 2
     # ⚠ 문제: 적용 '순서'가 숨은 정책이다. 면제를 감면보다 먼저 두든 나중에 두든 결과가 같아
     #   보이지만, 다음에 '최대 3,000원 상한' 규칙이 들어오면 순서가 결과를 바꾼다.
-    if loan.member == "university" and EXAM_WEEKS[0] <= loan.returned <= EXAM_WEEKS[1]:
+    if loan.member is Member.UNIVERSITY and EXAM_WEEKS[0] <= loan.returned <= EXAM_WEEKS[1]:
         if loan.branch in ("새솔", "바다"):  # 하늘 지점은 시험 기간 면제를 하지 않는다
             fee = 0
     return fee
@@ -61,7 +72,8 @@ def late_fee(loan: Loan) -> int:
 if __name__ == "__main__":
     print("[1] 지점·회원·자료별 연체료 (모두 5일 연체)")
     due, back = date(2026, 6, 10), date(2026, 6, 15)
-    cases: list[tuple[Material, Member]] = [("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")]
+    cases = [(Material.BOOK, Member.ADULT), (Material.DVD, Member.ADULT),
+             (Material.BOOK, Member.CHILD), (Material.BOOK, Member.UNIVERSITY)]
     for branch in ("새솔", "하늘", "바다"):
         row = []
         for material, member in cases:

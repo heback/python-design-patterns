@@ -313,7 +313,7 @@ if __name__ == &quot;__main__&quot;:
     <li><strong>상태별 데이터가 객체 전체에 깔려 있다.</strong> <code>reserved_by</code>, <code>ride_started_at</code>은 특정 상태에서만 의미가 있는데도 언제나 존재한다. 그래서 지우는 일을 잊으면 이전 상태의 찌꺼기가 남는다.</li>
     <li><strong>시간 기반 전이가 정기 작업 안에 섞여 든다.</strong> <code>tick()</code>은 원래 상태와 상관없는 <dfn class="term" id="term-scheduler" data-term="scheduler" title="정해진 시각·주기에 작업을 실행해 주는 장치.">스케줄러</dfn>(정해진 시각·주기에 작업을 실행해 주는 장치) 훅인데, 그 안에도 상태 분기가 들어왔다.</li>
   </ul>
-  <p>문자열을 <dfn class="term" id="term-enum-enum" data-term="enum-enum" title="이름 붙은 상수들의 닫힌 집합을 만드는 클래스. 오타는 AttributeError로 즉시 드러나며 auto()로 값을 자동 부여한다."><code>Enum</code></dfn>으로 바꾸면 오타 문제 하나는 사라진다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름을 쓰면 곧바로 <code>AttributeError</code>가 나고 값은 <code>auto()</code>로 자동 부여할 수도 있다. 하지만 위의 네 가지는 그대로 남는다. 문제의 핵심은 상태의 <em>표현</em>이 아니라 상태별 행동이 <em>어디에 모여 있는가</em>다.</p>
+  <p>문자열을 <code>Enum</code>으로 바꾸면(서론에서 <code>Material</code>·<code>Member</code>에 쓴 방식이다) 오타 문제 하나는 사라진다. 없는 이름을 쓰면 곧바로 <code>AttributeError</code>가 나고, 값은 <code>auto()</code>로 자동 부여할 수도 있다. 하지만 위의 네 가지는 그대로 남는다. 문제의 핵심은 상태의 <em>표현</em>이 아니라 상태별 행동이 <em>어디에 모여 있는가</em>다.</p>
 </section>
 
 <section id="structure">

@@ -17,11 +17,23 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Literal
+from enum import StrEnum
 
-# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
-Material = Literal["book", "dvd"]
-Member = Literal["adult", "child", "university"]
+# 순진한 코드와 같은 정의다(파일 단독 실행을 위해 다시 둔다).
+
+class Material(StrEnum):
+    """자료 유형. 문자열 대신 멤버로 쓴다 — 오타(Material.DVDD)는 실행 즉시 AttributeError가 된다."""
+
+    BOOK = "book"
+    DVD = "dvd"
+
+
+class Member(StrEnum):
+    """회원 유형. StrEnum 멤버는 str이라 출력·f-string에는 값("child")이 그대로 찍힌다."""
+
+    ADULT = "adult"
+    CHILD = "child"
+    UNIVERSITY = "university"
 
 
 @dataclass(frozen=True)
@@ -52,7 +64,7 @@ class ChildDiscount(Adjustment):
 
     def apply(self, loan: Loan, fee: int) -> int:
         """아동이면 절반. 정수 나눗셈으로 원 단위를 유지한다."""
-        return fee // 2 if loan.member == "child" else fee
+        return fee // 2 if loan.member is Member.CHILD else fee
 
 
 @dataclass(frozen=True)
@@ -64,7 +76,7 @@ class ExamWaiver(Adjustment):
 
     def apply(self, loan: Loan, fee: int) -> int:
         """기간 안에 반납한 대학생이면 0원."""
-        if loan.member == "university" and self.start <= loan.returned <= self.end:
+        if loan.member is Member.UNIVERSITY and self.start <= loan.returned <= self.end:
             return 0
         return fee
 
@@ -107,16 +119,17 @@ EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 
 # 지점 정책은 '코드'가 아니라 '조립'이다. 순진한 코드의 if 사슬이 이 표 한 장으로 바뀌었다.
 BRANCH_POLICIES: dict[str, FeePolicy] = {
-    "새솔": FeePolicy({"book": 100, "dvd": 500}, [ChildDiscount(), EXAM]),
-    "하늘": FeePolicy({"book": 100, "dvd": 700}, [ChildDiscount()]),
-    "바다": FeePolicy({"book": 100, "dvd": 500}, [EXAM]),
+    "새솔": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [ChildDiscount(), EXAM]),
+    "하늘": FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [ChildDiscount()]),
+    "바다": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 
 if __name__ == "__main__":
     print("[1] 01_naive.py와 같은 입력, 같은 결과")
     due, back = date(2026, 6, 10), date(2026, 6, 15)
-    cases: list[tuple[Material, Member]] = [("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")]
+    cases = [(Material.BOOK, Member.ADULT), (Material.DVD, Member.ADULT),
+             (Material.BOOK, Member.CHILD), (Material.BOOK, Member.UNIVERSITY)]
     for branch, policy in BRANCH_POLICIES.items():
         row = []
         for material, member in cases:
@@ -126,11 +139,11 @@ if __name__ == "__main__":
     print("\n[2] 새 요구: 하늘 지점만 상한 3,000원 — 기존 클래스 수정 없이 조립만 바꾼다")
     haneul = BRANCH_POLICIES["하늘"]
     capped = FeePolicy(haneul.rates, [*haneul.adjustments, Cap(3000)])
-    dvd = Loan("dvd", "adult", due, back, "하늘")
+    dvd = Loan(Material.DVD, Member.ADULT, due, back, "하늘")
     print(f"  상한 전 {haneul.late_fee(dvd)}원 → 상한 후 {capped.late_fee(dvd)}원")
 
     print("\n[3] 순서가 결과를 바꾸는 경우, 그 순서는 이제 리스트에 '쓰여' 있다")
-    child_dvd = Loan("dvd", "child", due, back, "하늘")
+    child_dvd = Loan(Material.DVD, Member.CHILD, due, back, "하늘")
     a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
     b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
     print(f"  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)")
