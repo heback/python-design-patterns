@@ -13,15 +13,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Protocol
+from typing import Literal, Protocol
+
+# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
+Material = Literal["book", "dvd"]
+Member = Literal["adult", "child", "university"]
 
 
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
 
-    material: str
-    member: str
+    material: Material
+    member: Member
     due: date
     returned: date
 
@@ -83,7 +87,7 @@ class ExamWaiver:
 class FeePolicy:
     """리팩터링 코드와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다."""
 
-    rates: dict[str, int]
+    rates: dict[Material, int]
     adjustments: list[Adjustment] = field(default_factory=list)
 
     def late_fee(self, loan: Loan) -> int:

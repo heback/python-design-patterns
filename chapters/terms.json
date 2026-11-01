@@ -920,6 +920,16 @@
     "short": "타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다."
   },
   {
+    "id": "typing-literal",
+    "term": "Literal",
+    "en": "typing.Literal",
+    "level": "gloss",
+    "aliases": [
+      "Literal"
+    ],
+    "short": "타입 힌트에 허용되는 값을 `Literal[\"book\", \"dvd\"]`처럼 값 그대로 나열하는 도구. 목록에 없는 값(오타 포함)은 정적 타입 검사기가 오류로 표시하지만, 실행 시점에는 검사하지 않는다."
+  },
+  {
     "id": "callable",
     "term": "호출 가능 객체",
     "en": "callable",

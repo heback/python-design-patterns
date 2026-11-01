@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
+
+# 허용 값을 타입으로 적어 둔다. "chlid" 같은 오타는 타입 검사기가 잡는다(문제 본문의 member: str은 그대로 두었다).
+Member = Literal["adult", "child"]
 
 
 @dataclass(frozen=True)
@@ -21,7 +24,7 @@ class LostItem:
     price: int
     donated: bool
     out_of_print: bool
-    member: str
+    member: Member
 
 
 # ---------------------------------------------------------------------------

@@ -14,14 +14,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Literal
+
+# 허용 값을 타입으로 적어 둔다. 오타("univercity")는 실행 전에 편집기나 검사 도구가 표시한다(실행할 때 막지는 않는다).
+Material = Literal["book", "dvd"]
+Member = Literal["adult", "child", "university"]
 
 
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건. 연체료 계산에 필요한 사실만 담는다."""
 
-    material: str      # "book" | "dvd"
-    member: str        # "adult" | "child" | "university"
+    material: Material
+    member: Member
     due: date
     returned: date
     branch: str        # "새솔" | "하늘" | "바다"
@@ -56,9 +61,10 @@ def late_fee(loan: Loan) -> int:
 if __name__ == "__main__":
     print("[1] 지점·회원·자료별 연체료 (모두 5일 연체)")
     due, back = date(2026, 6, 10), date(2026, 6, 15)
+    cases: list[tuple[Material, Member]] = [("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")]
     for branch in ("새솔", "하늘", "바다"):
         row = []
-        for material, member in (("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")):
+        for material, member in cases:
             row.append(f"{material}/{member}={late_fee(Loan(material, member, due, back, branch)):>5}")
         print(f"  {branch}: " + "  ".join(row))
 

@@ -17,14 +17,19 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Literal
+
+# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
+Material = Literal["book", "dvd"]
+Member = Literal["adult", "child", "university"]
 
 
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건(순진한 코드 01_naive.py와 같다)."""
 
-    material: str
-    member: str
+    material: Material
+    member: Member
     due: date
     returned: date
     branch: str
@@ -84,7 +89,7 @@ class FeePolicy:
     하위 클래스로 표현하면 규칙 조합마다 클래스가 필요해 조합 폭발이 일어난다.
     """
 
-    rates: dict[str, int]
+    rates: dict[Material, int]
     adjustments: list[Adjustment] = field(default_factory=list)
 
     def late_fee(self, loan: Loan) -> int:
@@ -111,9 +116,10 @@ BRANCH_POLICIES: dict[str, FeePolicy] = {
 if __name__ == "__main__":
     print("[1] 01_naive.py와 같은 입력, 같은 결과")
     due, back = date(2026, 6, 10), date(2026, 6, 15)
+    cases: list[tuple[Material, Member]] = [("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")]
     for branch, policy in BRANCH_POLICIES.items():
         row = []
-        for material, member in (("book", "adult"), ("dvd", "adult"), ("book", "child"), ("book", "university")):
+        for material, member in cases:
             row.append(f"{material}/{member}={policy.late_fee(Loan(material, member, due, back, branch)):>5}")
         print(f"  {branch}: " + "  ".join(row))
 

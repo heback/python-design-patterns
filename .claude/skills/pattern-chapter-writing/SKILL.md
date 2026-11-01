@@ -96,6 +96,14 @@ part: 생성 패턴
 - `if __name__ == "__main__":` 데모는 단계마다 `print`로 무슨 일이 일어나는지 보여준다. 독자가 [▶ 실행]으로 보는 출력이 본문의 근거이므로 출력 자체가 읽히게 쓴다(예: `print("[1] 기본 옵션으로 주문 생성")`).
 - 타입 힌트를 쓴다(학생 수준에 맞음). `from __future__ import annotations` 허용.
 
+**다른 예제 파일을 가리킬 때는 번호만 쓰지 않는다.** `# 01과 같다`, `02의 build()`처럼 파일 번호만 쓰면 독자가 장 번호인지 파일 번호인지, 어느 파일인지 알 수 없다(교재에서는 파일이 한 번에 하나씩 보인다). 역할 이름과 파일명을 함께 쓴다.
+- **파일 안에서 처음 언급할 때** `역할 이름(파일명)`: `순진한 코드(01_naive.py)와 같다`. 이미 괄호 안이면 `(순진한 코드 01_naive.py와 같다)`처럼 괄호 없이 공백으로 잇는다.
+- **같은 파일의 이후 언급**은 역할 이름만: `순진한 코드의 if 사슬`.
+- 역할 이름은 기본으로 `01_naive` = 순진한 코드, `02_*` = 패턴 코드, `03_pythonic` = 파이썬다운 변형을 쓰고, 이름이 다른 파일(서론의 `리팩터링 코드`, 13장의 `FSM 코드` 등)은 그 파일이 하는 일로 이름을 붙인다.
+- 조사는 바꾼 말의 받침에 맞춘다(`01과` → `순진한 코드와`, `패턴 코드(02_x.py)와`).
+- 다른 장의 파일은 장 번호도 쓴다: `11장 파이썬다운 변형 03_pythonic.py`. 장 번호 자체(`01장 참고`)와 모듈 첫 줄의 `"""05 어댑터 — …` 머리말은 그대로 둔다.
+- 원고(`chapters/`)의 데모 출력 번호는 `데모 [1]`로 쓰고 맨 `[1]`만 쓰지 않는다. 코드 안에서 다른 파일의 데모를 가리킬 때도 같다(`패턴 코드의 데모 [7]`).
+
 주석 예시:
 ```python
 class DiscountPolicy(ABC):
@@ -174,4 +182,4 @@ class DiscountPolicy(ABC):
 해설은 정답만 주지 않고 **왜 그 답이며, 흔한 오답은 왜 틀렸는지**를 쓴다. 원고 안에 직접 쓴 짧은 문제 코드도 주석 규칙을 따른다.
 
 ## 완료 전 점검
-`python3 .claude/skills/code-verification/scripts/verify_chapter.py {nn}` 와 `python3 .claude/skills/code-verification/scripts/check_terms.py`(책 전체 용어 순서)가 통과해야 한다.
+`python3 .claude/skills/code-verification/scripts/verify_chapter.py {nn}` 와 `python3 .claude/skills/code-verification/scripts/check_terms.py`(책 전체 용어 순서)가 통과해야 한다. 또 `grep -rnE "(^|[^0-9A-Za-z_./:-])0[1-9]([^0-9_.A-Za-z:/장 -]|$)" src/{장 폴더}`로 파일 번호만 쓴 참조가 남지 않았는지 본다(장 번호·머리말은 예외).

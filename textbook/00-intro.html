@@ -49,7 +49,7 @@
 <section id="principles-revisited">
   <h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
   <p><dfn class="term" id="term-gang-of-four" data-term="gang-of-four" title="1994년 『Design Patterns』를 쓴 Gamma·Helm·Johnson·Vlissides 네 저자, 또는 그 책; 이 책이 다루는 23개 고전 패턴의 출처다.">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn class="term" id="term-program-to-an-interface" data-term="program-to-an-interface" title="구체 클래스가 아니라 추상 타입(인터페이스)에 의존하도록 코드를 쓰라는 GoF 원칙.">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
-  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn class="term" id="term-postponed-evaluation-of-annotations" data-term="postponed-evaluation-of-annotations" title="타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn class="term" id="term-dataclasses-dataclass" data-term="dataclasses-dataclass" title="필드 선언만으로 `__init__`·`__repr__`·`__eq__` 등을 자동 생성해 주는 클래스 데코레이터.">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn class="term" id="term-frozen-true" data-term="frozen-true" title="`@dataclass(frozen=True)`로 만든, 생성 후 필드에 대입할 수 없는 불변 데이터클래스; 같은 값이면 해시가 같아 딕셔너리 키로 쓸 수 있다.">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
+  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn class="term" id="term-postponed-evaluation-of-annotations" data-term="postponed-evaluation-of-annotations" title="타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn class="term" id="term-dataclasses-dataclass" data-term="dataclasses-dataclass" title="필드 선언만으로 `__init__`·`__repr__`·`__eq__` 등을 자동 생성해 주는 클래스 데코레이터.">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn class="term" id="term-frozen-true" data-term="frozen-true" title="`@dataclass(frozen=True)`로 만든, 생성 후 필드에 대입할 수 없는 불변 데이터클래스; 같은 값이면 해시가 같아 딕셔너리 키로 쓸 수 있다.">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>과 <code>member</code>의 타입으로 쓴 <code><dfn class="term" id="term-typing-literal" data-term="typing-literal" title="타입 힌트에 허용되는 값을 `Literal[&quot;book&quot;, &quot;dvd&quot;]`처럼 값 그대로 나열하는 도구. 목록에 없는 값(오타 포함)은 정적 타입 검사기가 오류로 표시하지만, 실행 시점에는 검사하지 않는다.">Literal</dfn></code>은 허용되는 값을 <code>Literal["book", "dvd"]</code>처럼 그대로 나열하는 타입 힌트다. 목록에 없는 값은 오타라도 실행하기 전에 편집기나 검사 도구가 알려 주지만, 실행할 때 막아 주지는 않는다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
   <figure class="code"><figcaption>src/00_intro/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 규칙이 늘 때마다 자라는 도서관 연체료 함수.
 
 상황: 구립 새솔도서관의 사서 지민은 반납일을 넘긴 도서의 연체료(일당 100원)를 계산하는
@@ -66,14 +66,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from typing import Literal
+
+# 허용 값을 타입으로 적어 둔다. 오타(&quot;univercity&quot;)는 실행 전에 편집기나 검사 도구가 표시한다(실행할 때 막지는 않는다).
+Material = Literal[&quot;book&quot;, &quot;dvd&quot;]
+Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 
 
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건. 연체료 계산에 필요한 사실만 담는다.&quot;&quot;&quot;
 
-    material: str      # &quot;book&quot; | &quot;dvd&quot;
-    member: str        # &quot;adult&quot; | &quot;child&quot; | &quot;university&quot;
+    material: Material
+    member: Member
     due: date
     returned: date
     branch: str        # &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
@@ -108,9 +113,10 @@ def late_fee(loan: Loan) -&gt; int:
 if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 지점·회원·자료별 연체료 (모두 5일 연체)&quot;)
     due, back = date(2026, 6, 10), date(2026, 6, 15)
+    cases: list[tuple[Material, Member]] = [(&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)]
     for branch in (&quot;새솔&quot;, &quot;하늘&quot;, &quot;바다&quot;):
         row = []
-        for material, member in ((&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)):
+        for material, member in cases:
             row.append(f&quot;{material}/{member}={late_fee(Loan(material, member, due, back, branch)):&gt;5}&quot;)
         print(f&quot;  {branch}: &quot; + &quot;  &quot;.join(row))
 
@@ -139,7 +145,7 @@ if __name__ == &quot;__main__&quot;:
         <rect width="260" height="110"/>
         <text class="uml-name" x="130" y="22">FeePolicy</text>
         <line x1="0" y1="32" x2="260" y2="32"/>
-        <text class="uml-member" x="10" y="52">rates: dict[str, int]</text>
+        <text class="uml-member" x="10" y="52">rates: dict[Material, int]</text>
         <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
         <line x1="0" y1="80" x2="260" y2="80"/>
         <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
@@ -225,14 +231,19 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Literal
+
+# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
+Material = Literal[&quot;book&quot;, &quot;dvd&quot;]
+Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 
 
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건(순진한 코드 01_naive.py와 같다).&quot;&quot;&quot;
 
-    material: str
-    member: str
+    material: Material
+    member: Member
     due: date
     returned: date
     branch: str
@@ -292,7 +303,7 @@ class FeePolicy:
     하위 클래스로 표현하면 규칙 조합마다 클래스가 필요해 조합 폭발이 일어난다.
     &quot;&quot;&quot;
 
-    rates: dict[str, int]
+    rates: dict[Material, int]
     adjustments: list[Adjustment] = field(default_factory=list)
 
     def late_fee(self, loan: Loan) -&gt; int:
@@ -319,9 +330,10 @@ BRANCH_POLICIES: dict[str, FeePolicy] = {
 if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 01_naive.py와 같은 입력, 같은 결과&quot;)
     due, back = date(2026, 6, 10), date(2026, 6, 15)
+    cases: list[tuple[Material, Member]] = [(&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)]
     for branch, policy in BRANCH_POLICIES.items():
         row = []
-        for material, member in ((&quot;book&quot;, &quot;adult&quot;), (&quot;dvd&quot;, &quot;adult&quot;), (&quot;book&quot;, &quot;child&quot;), (&quot;book&quot;, &quot;university&quot;)):
+        for material, member in cases:
             row.append(f&quot;{material}/{member}={policy.late_fee(Loan(material, member, due, back, branch)):&gt;5}&quot;)
         print(f&quot;  {branch}: &quot; + &quot;  &quot;.join(row))
 
@@ -380,7 +392,7 @@ if __name__ == &quot;__main__&quot;:
         <rect width="260" height="110"/>
         <text class="uml-name" x="130" y="22">FeePolicy</text>
         <line x1="0" y1="32" x2="260" y2="32"/>
-        <text class="uml-member" x="10" y="52">rates: dict[str, int]</text>
+        <text class="uml-member" x="10" y="52">rates: dict[Material, int]</text>
         <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
         <line x1="0" y1="80" x2="260" y2="80"/>
         <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
@@ -453,15 +465,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Protocol
+from typing import Literal, Protocol
+
+# 순진한 코드와 같은 별칭이다(파일 단독 실행을 위해 다시 둔다).
+Material = Literal[&quot;book&quot;, &quot;dvd&quot;]
+Member = Literal[&quot;adult&quot;, &quot;child&quot;, &quot;university&quot;]
 
 
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
 
-    material: str
-    member: str
+    material: Material
+    member: Member
     due: date
     returned: date
 
@@ -523,7 +539,7 @@ class ExamWaiver:
 class FeePolicy:
     &quot;&quot;&quot;리팩터링 코드와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다.&quot;&quot;&quot;
 
-    rates: dict[str, int]
+    rates: dict[Material, int]
     adjustments: list[Adjustment] = field(default_factory=list)
 
     def late_fee(self, loan: Loan) -&gt; int:
@@ -706,7 +722,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Literal
+
+# 허용 값을 타입으로 적어 둔다. &quot;chlid&quot; 같은 오타는 타입 검사기가 잡는다(문제 본문의 member: str은 그대로 두었다).
+Member = Literal[&quot;adult&quot;, &quot;child&quot;]
 
 
 @dataclass(frozen=True)
@@ -716,7 +735,7 @@ class LostItem:
     price: int
     donated: bool
     out_of_print: bool
-    member: str
+    member: Member
 
 
 # ---------------------------------------------------------------------------
