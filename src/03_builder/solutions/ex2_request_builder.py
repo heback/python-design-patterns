@@ -21,8 +21,10 @@ from typing import Mapping, Self
 class Method(StrEnum):
     """HTTP 메서드. build()가 '본문을 둘 수 없는 메서드'를 문자열 비교가 아니라 멤버로 판별한다."""
 
+    # 관례상 본문이 없는 메서드. 필터는 본문이 아니라 param()으로 보낸다(build()가 본문이 있으면 거부한다).
     GET = "GET"
     HEAD = "HEAD"
+    # 본문을 보내는 메서드. 목록에 없는 이름은 RequestBuilder 생성 때 ValueError가 된다.
     POST = "POST"
     PUT = "PUT"
     PATCH = "PATCH"
