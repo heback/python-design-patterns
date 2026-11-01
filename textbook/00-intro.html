@@ -49,7 +49,7 @@
 <section id="principles-revisited">
   <h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
   <p><dfn class="term" id="term-gang-of-four" data-term="gang-of-four" title="1994년 『Design Patterns』를 쓴 Gamma·Helm·Johnson·Vlissides 네 저자, 또는 그 책; 이 책이 다루는 23개 고전 패턴의 출처다.">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn class="term" id="term-program-to-an-interface" data-term="program-to-an-interface" title="구체 클래스가 아니라 추상 타입(인터페이스)에 의존하도록 코드를 쓰라는 GoF 원칙.">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
-  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn class="term" id="term-postponed-evaluation-of-annotations" data-term="postponed-evaluation-of-annotations" title="타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn class="term" id="term-dataclasses-dataclass" data-term="dataclasses-dataclass" title="필드 선언만으로 `__init__`·`__repr__`·`__eq__` 등을 자동 생성해 주는 클래스 데코레이터.">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn class="term" id="term-frozen-true" data-term="frozen-true" title="`@dataclass(frozen=True)`로 만든, 생성 후 필드에 대입할 수 없는 불변 데이터클래스; 같은 값이면 해시가 같아 딕셔너리 키로 쓸 수 있다.">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>과 <code>member</code>는 문자열이 아니라 <dfn class="term" id="term-enum-enum" data-term="enum-enum" title="이름 붙은 상수들의 닫힌 집합을 만드는 클래스(문자열처럼 쓰는 StrEnum 등). 오타는 AttributeError로 즉시 드러나며 auto()로 값을 자동 부여한다."><code>Enum</code></dfn>의 한 종류인 <code>StrEnum</code>으로 선언했다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름(<code>Member.UNIVERCITY</code>)을 쓰면 실행 즉시 <code>AttributeError</code>가 난다. <code>StrEnum</code> 멤버는 <code>str</code>이기도 해서 출력에는 값(<code>"child"</code>)이 그대로 찍힌다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
+  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn class="term" id="term-postponed-evaluation-of-annotations" data-term="postponed-evaluation-of-annotations" title="타입 힌트를 정의 시점에 평가하지 않고 문자열로 미뤄 두게 하는 선언. 아직 정의되지 않은 클래스 이름을 힌트에 쓸 수 있다.">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn class="term" id="term-dataclasses-dataclass" data-term="dataclasses-dataclass" title="필드 선언만으로 `__init__`·`__repr__`·`__eq__` 등을 자동 생성해 주는 클래스 데코레이터.">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn class="term" id="term-frozen-true" data-term="frozen-true" title="`@dataclass(frozen=True)`로 만든, 생성 후 필드에 대입할 수 없는 불변 데이터클래스; 같은 값이면 해시가 같아 딕셔너리 키로 쓸 수 있다.">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>·<code>member</code>·<code>branch</code>는 문자열이 아니라 <dfn class="term" id="term-enum-enum" data-term="enum-enum" title="이름 붙은 상수들의 닫힌 집합을 만드는 클래스(문자열처럼 쓰는 StrEnum 등). 오타는 AttributeError로 즉시 드러나며 auto()로 값을 자동 부여한다."><code>Enum</code></dfn>의 한 종류인 <code>StrEnum</code>으로 선언했다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름(<code>Member.UNIVERCITY</code>)을 쓰면 실행 즉시 <code>AttributeError</code>가 난다. <code>StrEnum</code> 멤버는 <code>str</code>이기도 해서 출력에는 값(<code>"child"</code>)이 그대로 찍힌다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
   <figure class="code"><figcaption>src/00_intro/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 규칙이 늘 때마다 자라는 도서관 연체료 함수.
 
 상황: 구립 새솔도서관의 사서 지민은 반납일을 넘긴 도서의 연체료(일당 100원)를 계산하는
@@ -84,6 +84,14 @@ class Member(StrEnum):
     UNIVERSITY = &quot;university&quot;
 
 
+class Branch(StrEnum):
+    &quot;&quot;&quot;도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다.&quot;&quot;&quot;
+
+    SAESOL = &quot;새솔&quot;
+    HANEUL = &quot;하늘&quot;
+    BADA = &quot;바다&quot;
+
+
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건. 연체료 계산에 필요한 사실만 담는다.&quot;&quot;&quot;
@@ -92,7 +100,7 @@ class Loan:
     member: Member       # 회원 유형
     due: date            # 반납 기한
     returned: date       # 실제 반납일 (returned - due가 연체 일수)
-    branch: str          # 지점: &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
+    branch: Branch       # 지점
 
 
 EXAM_WEEKS = (date(2026, 6, 8), date(2026, 6, 21))  # 시험 기간(대학생 면제)
@@ -104,19 +112,19 @@ def late_fee(loan: Loan) -&gt; int:
     if days &lt;= 0:
         return 0
     # ⚠ 문제: 자료 유형 요율이 지점 분기 &#x27;안&#x27;에 복제되어 있다. 하늘 지점만 DVD 요율이 다르다.
-    if loan.branch == &quot;하늘&quot;:
+    if loan.branch is Branch.HANEUL:
         rate = 700 if loan.material is Material.DVD else 100
     else:
         rate = 500 if loan.material is Material.DVD else 100
     fee = days * rate
     # ⚠ 문제: 감면·면제 규칙이 지점 조건과 뒤엉킨다. 바다 지점은 아동 감면이 없다는 요구를
     #   넣으면서 조건이 길어졌고, 다음 요구가 오면 이 줄을 또 고쳐야 한다.
-    if loan.member is Member.CHILD and loan.branch != &quot;바다&quot;:
+    if loan.member is Member.CHILD and loan.branch is not Branch.BADA:
         fee = fee // 2
     # ⚠ 문제: 적용 &#x27;순서&#x27;가 숨은 정책이다. 면제를 감면보다 먼저 두든 나중에 두든 결과가 같아
     #   보이지만, 다음에 &#x27;최대 3,000원 상한&#x27; 규칙이 들어오면 순서가 결과를 바꾼다.
     if loan.member is Member.UNIVERSITY and EXAM_WEEKS[0] &lt;= loan.returned &lt;= EXAM_WEEKS[1]:
-        if loan.branch in (&quot;새솔&quot;, &quot;바다&quot;):  # 하늘 지점은 시험 기간 면제를 하지 않는다
+        if loan.branch in (Branch.SAESOL, Branch.BADA):  # 하늘 지점은 시험 기간 면제를 하지 않는다
             fee = 0
     return fee
 
@@ -126,7 +134,7 @@ if __name__ == &quot;__main__&quot;:
     due, back = date(2026, 6, 10), date(2026, 6, 15)
     cases = [(Material.BOOK, Member.ADULT), (Material.DVD, Member.ADULT),
              (Material.BOOK, Member.CHILD), (Material.BOOK, Member.UNIVERSITY)]
-    for branch in (&quot;새솔&quot;, &quot;하늘&quot;, &quot;바다&quot;):
+    for branch in Branch:
         row = []
         for material, member in cases:
             row.append(f&quot;{material}/{member}={late_fee(Loan(material, member, due, back, branch)):&gt;5}&quot;)
@@ -262,6 +270,14 @@ class Member(StrEnum):
     UNIVERSITY = &quot;university&quot;
 
 
+class Branch(StrEnum):
+    &quot;&quot;&quot;도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다.&quot;&quot;&quot;
+
+    SAESOL = &quot;새솔&quot;
+    HANEUL = &quot;하늘&quot;
+    BADA = &quot;바다&quot;
+
+
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건(순진한 코드 01_naive.py와 같다).&quot;&quot;&quot;
@@ -270,7 +286,7 @@ class Loan:
     member: Member       # 회원 유형
     due: date            # 반납 기한
     returned: date       # 실제 반납일 (returned - due가 연체 일수)
-    branch: str          # 지점: &quot;새솔&quot; | &quot;하늘&quot; | &quot;바다&quot;
+    branch: Branch       # 지점
 
 
 class Adjustment(ABC):
@@ -344,10 +360,10 @@ class FeePolicy:
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 
 # 지점 정책은 &#x27;코드&#x27;가 아니라 &#x27;조립&#x27;이다. 순진한 코드의 if 사슬이 이 표 한 장으로 바뀌었다.
-BRANCH_POLICIES: dict[str, FeePolicy] = {
-    &quot;새솔&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [ChildDiscount(), EXAM]),
-    &quot;하늘&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [ChildDiscount()]),
-    &quot;바다&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
+BRANCH_POLICIES: dict[Branch, FeePolicy] = {
+    Branch.SAESOL: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [ChildDiscount(), EXAM]),
+    Branch.HANEUL: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [ChildDiscount()]),
+    Branch.BADA: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 
@@ -363,13 +379,13 @@ if __name__ == &quot;__main__&quot;:
         print(f&quot;  {branch}: &quot; + &quot;  &quot;.join(row))
 
     print(&quot;\n[2] 새 요구: 하늘 지점만 상한 3,000원 — 기존 클래스 수정 없이 조립만 바꾼다&quot;)
-    haneul = BRANCH_POLICIES[&quot;하늘&quot;]
+    haneul = BRANCH_POLICIES[Branch.HANEUL]
     capped = FeePolicy(haneul.rates, [*haneul.adjustments, Cap(3000)])
-    dvd = Loan(Material.DVD, Member.ADULT, due, back, &quot;하늘&quot;)
+    dvd = Loan(Material.DVD, Member.ADULT, due, back, Branch.HANEUL)
     print(f&quot;  상한 전 {haneul.late_fee(dvd)}원 → 상한 후 {capped.late_fee(dvd)}원&quot;)
 
     print(&quot;\n[3] 순서가 결과를 바꾸는 경우, 그 순서는 이제 리스트에 &#x27;쓰여&#x27; 있다&quot;)
-    child_dvd = Loan(Material.DVD, Member.CHILD, due, back, &quot;하늘&quot;)
+    child_dvd = Loan(Material.DVD, Member.CHILD, due, back, Branch.HANEUL)
     a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
     b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
     print(f&quot;  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)&quot;)</code></pre></figure>
@@ -510,6 +526,14 @@ class Member(StrEnum):
     UNIVERSITY = &quot;university&quot;
 
 
+class Branch(StrEnum):
+    &quot;&quot;&quot;도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다.&quot;&quot;&quot;
+
+    SAESOL = &quot;새솔&quot;
+    HANEUL = &quot;하늘&quot;
+    BADA = &quot;바다&quot;
+
+
 @dataclass(frozen=True)
 class Loan:
     &quot;&quot;&quot;대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
@@ -594,10 +618,10 @@ class FeePolicy:
 # 모듈 수준 상수: 파이썬에서 &#x27;지점 정책 표&#x27;는 클래스가 아니라 모듈에 둔 값이면 충분하다.
 # 모듈은 한 번만 import되므로 이 표는 프로세스에서 하나다(4장 싱글턴의 논점으로 이어진다).
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
-BRANCH_POLICIES: dict[str, FeePolicy] = {
-    &quot;새솔&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [child_discount, EXAM]),
-    &quot;하늘&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [child_discount, cap(3000)]),
-    &quot;바다&quot;: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
+BRANCH_POLICIES: dict[Branch, FeePolicy] = {
+    Branch.SAESOL: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [child_discount, EXAM]),
+    Branch.HANEUL: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [child_discount, cap(3000)]),
+    Branch.BADA: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 

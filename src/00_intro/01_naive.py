@@ -32,6 +32,14 @@ class Member(StrEnum):
     UNIVERSITY = "university"
 
 
+class Branch(StrEnum):
+    """도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다."""
+
+    SAESOL = "새솔"
+    HANEUL = "하늘"
+    BADA = "바다"
+
+
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건. 연체료 계산에 필요한 사실만 담는다."""
@@ -40,7 +48,7 @@ class Loan:
     member: Member       # 회원 유형
     due: date            # 반납 기한
     returned: date       # 실제 반납일 (returned - due가 연체 일수)
-    branch: str          # 지점: "새솔" | "하늘" | "바다"
+    branch: Branch       # 지점
 
 
 EXAM_WEEKS = (date(2026, 6, 8), date(2026, 6, 21))  # 시험 기간(대학생 면제)
@@ -52,19 +60,19 @@ def late_fee(loan: Loan) -> int:
     if days <= 0:
         return 0
     # ⚠ 문제: 자료 유형 요율이 지점 분기 '안'에 복제되어 있다. 하늘 지점만 DVD 요율이 다르다.
-    if loan.branch == "하늘":
+    if loan.branch is Branch.HANEUL:
         rate = 700 if loan.material is Material.DVD else 100
     else:
         rate = 500 if loan.material is Material.DVD else 100
     fee = days * rate
     # ⚠ 문제: 감면·면제 규칙이 지점 조건과 뒤엉킨다. 바다 지점은 아동 감면이 없다는 요구를
     #   넣으면서 조건이 길어졌고, 다음 요구가 오면 이 줄을 또 고쳐야 한다.
-    if loan.member is Member.CHILD and loan.branch != "바다":
+    if loan.member is Member.CHILD and loan.branch is not Branch.BADA:
         fee = fee // 2
     # ⚠ 문제: 적용 '순서'가 숨은 정책이다. 면제를 감면보다 먼저 두든 나중에 두든 결과가 같아
     #   보이지만, 다음에 '최대 3,000원 상한' 규칙이 들어오면 순서가 결과를 바꾼다.
     if loan.member is Member.UNIVERSITY and EXAM_WEEKS[0] <= loan.returned <= EXAM_WEEKS[1]:
-        if loan.branch in ("새솔", "바다"):  # 하늘 지점은 시험 기간 면제를 하지 않는다
+        if loan.branch in (Branch.SAESOL, Branch.BADA):  # 하늘 지점은 시험 기간 면제를 하지 않는다
             fee = 0
     return fee
 
@@ -74,7 +82,7 @@ if __name__ == "__main__":
     due, back = date(2026, 6, 10), date(2026, 6, 15)
     cases = [(Material.BOOK, Member.ADULT), (Material.DVD, Member.ADULT),
              (Material.BOOK, Member.CHILD), (Material.BOOK, Member.UNIVERSITY)]
-    for branch in ("새솔", "하늘", "바다"):
+    for branch in Branch:
         row = []
         for material, member in cases:
             row.append(f"{material}/{member}={late_fee(Loan(material, member, due, back, branch)):>5}")

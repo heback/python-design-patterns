@@ -36,6 +36,14 @@ class Member(StrEnum):
     UNIVERSITY = "university"
 
 
+class Branch(StrEnum):
+    """도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다."""
+
+    SAESOL = "새솔"
+    HANEUL = "하늘"
+    BADA = "바다"
+
+
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건(순진한 코드 01_naive.py와 같다)."""
@@ -44,7 +52,7 @@ class Loan:
     member: Member       # 회원 유형
     due: date            # 반납 기한
     returned: date       # 실제 반납일 (returned - due가 연체 일수)
-    branch: str          # 지점: "새솔" | "하늘" | "바다"
+    branch: Branch       # 지점
 
 
 class Adjustment(ABC):
@@ -118,10 +126,10 @@ class FeePolicy:
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 
 # 지점 정책은 '코드'가 아니라 '조립'이다. 순진한 코드의 if 사슬이 이 표 한 장으로 바뀌었다.
-BRANCH_POLICIES: dict[str, FeePolicy] = {
-    "새솔": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [ChildDiscount(), EXAM]),
-    "하늘": FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [ChildDiscount()]),
-    "바다": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
+BRANCH_POLICIES: dict[Branch, FeePolicy] = {
+    Branch.SAESOL: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [ChildDiscount(), EXAM]),
+    Branch.HANEUL: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [ChildDiscount()]),
+    Branch.BADA: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 
@@ -137,13 +145,13 @@ if __name__ == "__main__":
         print(f"  {branch}: " + "  ".join(row))
 
     print("\n[2] 새 요구: 하늘 지점만 상한 3,000원 — 기존 클래스 수정 없이 조립만 바꾼다")
-    haneul = BRANCH_POLICIES["하늘"]
+    haneul = BRANCH_POLICIES[Branch.HANEUL]
     capped = FeePolicy(haneul.rates, [*haneul.adjustments, Cap(3000)])
-    dvd = Loan(Material.DVD, Member.ADULT, due, back, "하늘")
+    dvd = Loan(Material.DVD, Member.ADULT, due, back, Branch.HANEUL)
     print(f"  상한 전 {haneul.late_fee(dvd)}원 → 상한 후 {capped.late_fee(dvd)}원")
 
     print("\n[3] 순서가 결과를 바꾸는 경우, 그 순서는 이제 리스트에 '쓰여' 있다")
-    child_dvd = Loan(Material.DVD, Member.CHILD, due, back, "하늘")
+    child_dvd = Loan(Material.DVD, Member.CHILD, due, back, Branch.HANEUL)
     a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
     b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
     print(f"  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)")

@@ -33,6 +33,14 @@ class Member(StrEnum):
     UNIVERSITY = "university"
 
 
+class Branch(StrEnum):
+    """도서관 지점. 정책이 지점마다 갈리므로 이름을 한 곳에 모아 둔다."""
+
+    SAESOL = "새솔"
+    HANEUL = "하늘"
+    BADA = "바다"
+
+
 @dataclass(frozen=True)
 class Loan:
     """대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
@@ -117,10 +125,10 @@ class FeePolicy:
 # 모듈 수준 상수: 파이썬에서 '지점 정책 표'는 클래스가 아니라 모듈에 둔 값이면 충분하다.
 # 모듈은 한 번만 import되므로 이 표는 프로세스에서 하나다(4장 싱글턴의 논점으로 이어진다).
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
-BRANCH_POLICIES: dict[str, FeePolicy] = {
-    "새솔": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [child_discount, EXAM]),
-    "하늘": FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [child_discount, cap(3000)]),
-    "바다": FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
+BRANCH_POLICIES: dict[Branch, FeePolicy] = {
+    Branch.SAESOL: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [child_discount, EXAM]),
+    Branch.HANEUL: FeePolicy({Material.BOOK: 100, Material.DVD: 700}, [child_discount, cap(3000)]),
+    Branch.BADA: FeePolicy({Material.BOOK: 100, Material.DVD: 500}, [EXAM]),
 }
 
 
