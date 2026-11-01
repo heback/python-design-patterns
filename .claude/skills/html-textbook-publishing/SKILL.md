@@ -13,10 +13,10 @@ python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
 
 ## 스크립트가 하는 일
 1. `chapters/{nn}-{slug}.html`의 `<!--meta title/subtitle/part-->`를 읽는다. `part`는 `생성 패턴`/`구조 패턴`/`행위 패턴` 중 하나이거나 비워 둔다(서론·종합).
-2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 파일명 캡션 + 복사 버튼이 붙은 코드 블록. 실행 결과는 미리 싣지 않는다. 브라우저에서 코드 블록의 [▶ 실행]을 누르면 코드 아래에 출력이 나타난다(`textbook-code.js`, 일부 행만 보이는 블록은 파일 전체를 실행). 연습문제 시작 코드만 편집기(`PyRun.mountEditor`)이고, 고친 코드는 저장하지 않는다.
+2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 제목 캡션(`data-title`, 경로·행 번호는 싣지 않음) + 복사 버튼이 붙은 코드 블록. 실행 결과는 미리 싣지 않는다. 브라우저에서 코드 블록의 [▶ 실행]을 누르면 코드 아래에 출력이 나타난다(`textbook-code.js`, 일부 행만 보이는 블록은 파일 전체를 실행). 연습문제 시작 코드만 편집기(`PyRun.mountEditor`)이고, 고친 코드는 저장하지 않는다.
 3. 모든 `<svg>`에 UML 마커 정의(`#triangle` 상속, `#arrow` 연관/의존, `#diamond` 집약, `#diamond-fill` 합성)를 주입한다.
-4. `<section id><h2>`로 장 내부 목차(사이드바), 이전/다음 페이저, `index.html`(분류별 카드)을 만든다.
-5. `<dfn data-term="id">`에 앵커(`#term-id`)와 툴팁(terms.json의 `short`)을 붙이고, `chapters/terms.json`으로 `glossary.html`(용어집)을 만든다. 상단 바와 index에 용어집 링크가 있다. 등록되지 않은 `<dfn>`이나 정의 위치가 없는 등록 용어는 PROBLEM이다.
+4. `<section id><h2>`로 장 내부 목차(사이드바), 이전/다음 페이저를 만든다. 목차 페이지(`textbook/index.html`)는 만들지 않고, 상단 바의 교재 이름 링크는 배포 첫 화면(`https://heback.github.io/python-design-patterns/`)으로 간다.
+5. `<dfn data-term="id">`에 앵커(`#term-id`)와 툴팁(terms.json의 `short`)을 붙이고, `chapters/terms.json`으로 `glossary.html`(용어집)을 만든다. 상단 바에 용어집 링크가 있다. 등록되지 않은 `<dfn>`이나 정의 위치가 없는 등록 용어는 PROBLEM이다.
 6. 내부 링크·앵커를 검사한다. 문제가 있으면 종료 코드 1.
 
 ## 디자인 원칙
@@ -37,4 +37,4 @@ python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
 
 ## 빌드 후 확인
 - PROBLEM 줄이 없어야 한다.
-- `open textbook/index.html`로 열어 목차 → 장 → 다음 장 흐름, 다크 모드 토글, 좁은 창(모바일 폭)에서 코드 가로 스크롤만 생기고 페이지 전체는 흔들리지 않는지 본다.
+- `open textbook/00-intro.html`로 열어 장 → 다음 장 흐름, 다크 모드 토글, 좁은 창(모바일 폭)에서 코드 가로 스크롤만 생기고 페이지 전체는 흔들리지 않는지 본다.

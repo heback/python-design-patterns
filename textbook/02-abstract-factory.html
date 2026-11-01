@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="생성 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">2장 · 추상 팩토리 (Abstract Factory)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -50,7 +50,7 @@
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">GCP 전환을 반쯤 끝낸 시점의 코드다. 벤더 <dfn class="term" id="term-wrapper" data-term="wrapper" title="다른 객체나 함수를 감싸 호출을 받아 전달하면서 인터페이스를 바꾸거나(어댑터) 책임을 덧붙이는(데코레이터) 객체·함수.">래퍼</dfn>(다른 객체를 감싸 호출을 받아 전달하는 객체)는 실제 SDK 대신 메모리로 흉내 냈다. 코드 주석의 <code><dfn class="term" id="term-environment-variable" data-term="environment-variable" title="프로세스 밖에서 주입되는 이름=값 설정(파이썬에서는 `os.environ`); 배포 환경 선택 등에 쓴다.">os.environ</dfn></code>은 프로세스 바깥에서 주어지는 <code>이름=값</code> 설정인 환경 변수를 읽는 통로이고, Pub/Sub 래퍼 docstring의 <dfn class="term" id="term-publish-subscribe" data-term="publish-subscribe" title="발행자는 메시지를 토픽에 발행하고, 그 토픽을 구독한 수신자(구독자)들이 받아 가는 메시징 모델; 발행자는 누가 받는지 모른다.">토픽</dfn>은 발행-구독 방식의 수신 주소다. 발행자가 토픽에 메시지를 내보내면 그 토픽을 구독한 쪽들이 받아 가고, 발행자는 누가 받는지 모른다. <code>UploadService.__init__</code>의 세 줄이 "같은 환경이어야 한다"는 규칙을 어떻게 암묵적으로 지키는지, 그리고 <code>ThumbnailWorker.__init__</code>에서 무엇이 빠졌는지 보라. 데모 [2]에서는 실패가 <em>언제</em> 드러나는지가 핵심이다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 520" role="img" aria-label="01_naive.py의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다"><defs>
+    <svg viewBox="0 0 640 520" role="img" aria-label="순진한 코드의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -115,9 +115,9 @@
       <text class="uml-note" x="20" y="488">③ 데모 [2]: 업로드는 gs://로 저장, 워커의 S3Storage가 그 URL을 거부</text>
       <text class="uml-note" x="20" y="510">데모 [1] AWS는 우연히 일치 · [3] 새 환경은 환경 수 × 생성 지점 수만큼 수정</text>
     </svg>
-    <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "직접 만든다". 두 열의 래퍼는 멀쩡하고, 어느 열에서 고를지가 생성 지점마다 따로 정해진다.</figcaption>
+    <figcaption>코드 지도 · 순진한 코드. 점선 화살표는 "직접 만든다". 두 열의 래퍼는 멀쩡하고, 어느 열에서 고를지가 생성 지점마다 따로 정해진다.</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/02_abstract_factory/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 서비스 코드 곳곳에서 클라우드 SDK 래퍼를 직접 생성한다.
+  <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 서비스 코드 곳곳에서 클라우드 SDK 래퍼를 직접 생성한다.
 
 상황: 스타트업 &#x27;구름다리&#x27;의 플랫폼 엔지니어 도현은 AWS 위에 파일 업로드 서비스를 만들었다.
 업로드 API(UploadService)는 파일을 S3에 올리고 SQS에 &quot;썸네일 만들어 줘&quot; 메시지를 넣는다.
@@ -387,9 +387,9 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">이제 제품군을 <code>CloudFactory</code> 계층으로 묶는다. 파일이 길므로 다음 순서로 읽기를 권한다. (1) 맨 위의 <code>CloudAccount</code>: 제품군이 일관되어야 하는 실제 이유인 "<dfn class="term" id="term-shared-context" data-term="shared-context" title="한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정·상태; 구체 팩토리가 소유해 모든 제품에 나눠 준다.">공유 컨텍스트</dfn>"다. 한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정과 상태를 말하며, 구체 팩토리가 소유해 모든 제품에 나눠 준다. 주석의 <code><dfn class="term" id="term-boto3" data-term="boto3" title="AWS 서비스를 파이썬에서 쓰기 위한 공식 SDK.">boto3</dfn></code>는 AWS의 공식 파이썬 SDK이고, <dfn class="term" id="term-bucket" data-term="bucket" title="객체 저장소에서 객체들을 담는 최상위 컨테이너.">버킷</dfn>은 객체 저장소에서 객체들을 담는 최상위 그릇이다. (2) <code>CloudFactory</code>와 세 구체 팩토리: 각 팩토리가 계정 컨텍스트를 한 번 만들어 모든 제품에 나눠 주는 방식. (3) 클라이언트인 <code>UploadService</code>, <code>ThumbnailWorker</code>: 구체 클래스 이름이 하나라도 남아 있는지. (4) <code>make_cloud_factory()</code>: 분기가 남아 있는 유일한 곳.</p>
+  <p class="lead-in">이제 제품군을 <code>CloudFactory</code> 계층으로 묶는다. 코드가 길므로 다음 순서로 읽기를 권한다. (1) 맨 위의 <code>CloudAccount</code>: 제품군이 일관되어야 하는 실제 이유인 "<dfn class="term" id="term-shared-context" data-term="shared-context" title="한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정·상태; 구체 팩토리가 소유해 모든 제품에 나눠 준다.">공유 컨텍스트</dfn>"다. 한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정과 상태를 말하며, 구체 팩토리가 소유해 모든 제품에 나눠 준다. 주석의 <code><dfn class="term" id="term-boto3" data-term="boto3" title="AWS 서비스를 파이썬에서 쓰기 위한 공식 SDK.">boto3</dfn></code>는 AWS의 공식 파이썬 SDK이고, <dfn class="term" id="term-bucket" data-term="bucket" title="객체 저장소에서 객체들을 담는 최상위 컨테이너.">버킷</dfn>은 객체 저장소에서 객체들을 담는 최상위 그릇이다. (2) <code>CloudFactory</code>와 세 구체 팩토리: 각 팩토리가 계정 컨텍스트를 한 번 만들어 모든 제품에 나눠 주는 방식. (3) 클라이언트인 <code>UploadService</code>, <code>ThumbnailWorker</code>: 구체 클래스 이름이 하나라도 남아 있는지. (4) <code>make_cloud_factory()</code>: 분기가 남아 있는 유일한 곳.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 590" role="img" aria-label="02_abstract_factory.py의 배치: 위 표의 각 행이 한 제품군이고 구체 팩토리가 그 행의 저장소·큐·시크릿을 만든다. 각 팩토리는 CloudAccount를 한 번 만들어 _AccountStorage·_AccountQueue 계열 제품에 나눠 준다. 아래에서 make_cloud_factory()가 팩토리 하나를 골라 UploadService와 ThumbnailWorker에 함께 넘긴다"><defs>
+    <svg viewBox="0 0 640 590" role="img" aria-label="패턴 코드의 배치: 위 표의 각 행이 한 제품군이고 구체 팩토리가 그 행의 저장소·큐·시크릿을 만든다. 각 팩토리는 CloudAccount를 한 번 만들어 _AccountStorage·_AccountQueue 계열 제품에 나눠 준다. 아래에서 make_cloud_factory()가 팩토리 하나를 골라 UploadService와 ThumbnailWorker에 함께 넘긴다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -463,11 +463,11 @@ if __name__ == &quot;__main__&quot;:
       <text class="uml-note" x="20" y="556">① CloudAccount → ② CloudFactory와 세 구체 팩토리 → ③ 클라이언트 → ④ make_cloud_factory()</text>
       <text class="uml-note" x="20" y="576">데모 [1] 세 환경 · [2] 섞인 조합이 생길 수 있는 곳 · [3] 팩토리가 둘이면 로컬 큐가 갈라진다</text>
     </svg>
-    <figcaption>코드 지도 · 02_abstract_factory.py. 그림 2-1이 생략한 제품군 전체와 공유 컨텍스트를 한 장에 모았다. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다/넘긴다".</figcaption>
+    <figcaption>코드 지도 · 패턴 코드. 그림 2-1이 생략한 제품군 전체와 공유 컨텍스트를 한 장에 모았다. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다/넘긴다".</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/02_abstract_factory/02_abstract_factory.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;추상 팩토리 적용: 팩토리 하나를 고르면 스토리지·큐·시크릿 제품군 전체가 정해진다.
+  <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;추상 팩토리 적용: 팩토리 하나를 고르면 스토리지·큐·시크릿 제품군 전체가 정해진다.
 
-상황: 01_naive.py에서는 생성 지점이 UploadService와 ThumbnailWorker에 흩어져 있었고,
+상황: 순진한 코드에서는 생성 지점이 UploadService와 ThumbnailWorker에 흩어져 있었고,
 GCP 전환 때 한 곳을 빠뜨리자 GCS 업로드 + S3 다운로드라는 &#x27;섞인 조합&#x27;이 만들어져
 첫 메시지 처리 때에야 실패했다. 여기서는 &quot;함께 쓰여야 하는 객체들의 생성&quot;을
 CloudFactory 하나에 묶는다. 서비스 코드는 팩토리만 받으므로 제품을 섞을 방법 자체가 없다.
@@ -561,7 +561,7 @@ class _AccountStorage(BlobStorage):
         return f&quot;{self.account.url_scheme}://uploads/{key}&quot;
 
     def get(self, url: str) -&gt; bytes:
-        &quot;&quot;&quot;자기 URL 형식이 아니면 거부한다 — 01_naive.py에서 터졌던 바로 그 검사.&quot;&quot;&quot;
+        &quot;&quot;&quot;자기 URL 형식이 아니면 거부한다 — 순진한 코드에서 터졌던 바로 그 검사.&quot;&quot;&quot;
         prefix = f&quot;{self.account.url_scheme}://uploads/&quot;
         if not url.startswith(prefix):
             raise ValueError(f&quot;{type(self).__name__}는 이 URL을 읽을 수 없음: {url}&quot;)
@@ -757,7 +757,7 @@ class UploadService:
 
 
 class ThumbnailWorker:
-    &quot;&quot;&quot;[Client] 썸네일 워커. 01_naive.py에서 S3Storage를 하드코딩했던 바로 그 클래스.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Client] 썸네일 워커. 순진한 코드에서 S3Storage를 하드코딩했던 바로 그 클래스.&quot;&quot;&quot;
 
     def __init__(self, cloud: CloudFactory) -&gt; None:
         &quot;&quot;&quot;같은 팩토리에서 받으므로 저장소와 큐가 반드시 같은 제품군이다.&quot;&quot;&quot;
@@ -786,7 +786,7 @@ class CloudEnv(StrEnum):
 def make_cloud_factory(env: CloudEnv) -&gt; CloudFactory:
     &quot;&quot;&quot;배포 환경으로 구체 팩토리를 고른다.
 
-    여기에는 if/elif가 있어도 된다. 01_naive.py의 문제는 분기가 &#x27;있다&#x27;는 것이 아니라
+    여기에는 if/elif가 있어도 된다. 순진한 코드의 문제는 분기가 &#x27;있다&#x27;는 것이 아니라
     생성 지점마다 &#x27;복제&#x27;되었다는 것이었다. 분기가 한 곳에만 있으면 환경 추가 비용은 한 줄이다.
     환경 변수에서 읽은 문자열은 CloudEnv(...)로 경계에서 한 번만 바꾼다. 오타는 그 자리에서 ValueError다.
     &quot;&quot;&quot;
@@ -837,10 +837,10 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
-  <p>02의 클래스 수를 세어 보면 추상 4개, 구체 팩토리 3개, 구체 제품 9개다. 파이썬에는 이 무게를 줄일 도구가 둘 있다. 제품 인터페이스를 <code>typing.Protocol</code>로 정의하면 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 된다. 그리고 팩토리를 "생성 함수 몇 개의 묶음"으로 보면 클래스 계층 대신 불변 값 하나로 표현할 수 있다. 같은 이름의 함수(<code>create_storage</code>, <code>create_queue</code>)를 가진 모듈 <code>aws.py</code>, <code>gcp.py</code>를 두고 모듈 객체 자체를 팩토리로 넘기는 방법도 같은 발상이다.</p>
+  <p>패턴 코드의 클래스 수를 세어 보면 추상 4개, 구체 팩토리 3개, 구체 제품 9개다. 파이썬에는 이 무게를 줄일 도구가 둘 있다. 제품 인터페이스를 <code>typing.Protocol</code>로 정의하면 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 된다. 그리고 팩토리를 "생성 함수 몇 개의 묶음"으로 보면 클래스 계층 대신 불변 값 하나로 표현할 수 있다. 같은 이름의 함수(<code>create_storage</code>, <code>create_queue</code>)를 가진 모듈 <code>aws.py</code>, <code>gcp.py</code>를 두고 모듈 객체 자체를 팩토리로 넘기는 방법도 같은 발상이다.</p>
   <p class="lead-in">아래 코드는 팩토리를 <code>@dataclass(frozen=True)</code> 번들 <code>CloudKit</code>으로, 구체 팩토리를 그 번들을 만드는 함수 <code>aws_kit()</code> 등으로 바꾼다. 환경 변수를 읽는 <code>composition_root()</code>가 하나뿐이라는 점과, 무엇보다 <code><dfn class="term" id="term-post-init" data-term="post-init" title="데이터클래스가 자동 생성한 `__init__`이 필드를 채운 직후 호출하는 훅; 교차 검증이나 파생 값 계산을 넣는다.">__post_init__</dfn></code>이 왜 필요한지에 주목하라. 데모 [2]와 [3]이 그 답이다. <code>__post_init__</code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검증을 넣는 자리다. 데모 [3]의 <code><dfn class="term" id="term-dataclasses-replace" data-term="dataclasses-replace" title="기존 데이터클래스 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수; 내부적으로 `__init__`을 다시 불러 `__post_init__` 검증도 다시 돈다.">dataclasses.replace</dfn></code>는 기존 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수인데, 내부적으로 생성자를 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 560" role="img" aria-label="03_pythonic.py의 구조: composition_root()가 KITS 표에서 aws_kit 같은 함수를 골라 CloudKit 번들을 얻고, upload_and_process()는 그 번들만 받는다. CloudKit의 storage·queue 생성 함수는 SchemeStorage와 ListQueue를 돌려주며 이들은 Protocol을 상속 없이 만족한다. 섞인 번들은 __post_init__이 ValueError로 막는다"><defs>
+    <svg viewBox="0 0 640 560" role="img" aria-label="파이썬다운 변형의 구조: composition_root()가 KITS 표에서 aws_kit 같은 함수를 골라 CloudKit 번들을 얻고, upload_and_process()는 그 번들만 받는다. CloudKit의 storage·queue 생성 함수는 SchemeStorage와 ListQueue를 돌려주며 이들은 Protocol을 상속 없이 만족한다. 섞인 번들은 __post_init__이 ValueError로 막는다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -862,7 +862,7 @@ if __name__ == &quot;__main__&quot;:
       <g class="uml-func" transform="translate(444,74)"><rect width="168" height="28"/><text class="uml-member" x="84" y="19" text-anchor="middle">gcp_kit()</text></g>
       <g class="uml-func" transform="translate(444,108)"><rect width="168" height="28"/><text class="uml-member" x="84" y="19" text-anchor="middle">local_kit()</text></g>
       <path class="uml-dep" d="M400 68 H436" marker-end="url(#arrow)"/>
-      <text class="uml-note" x="250" y="124">02의 AwsFactory 등을</text>
+      <text class="uml-note" x="250" y="124">패턴 코드의 AwsFactory 등을</text>
       <text class="uml-note" x="250" y="140">대신하는 함수 →</text>
       <path class="uml-dep" d="M528 144 V170 H355 V190" marker-end="url(#arrow)"/>
       <text class="uml-label" x="364" y="164">번들 하나를 돌려준다</text>
@@ -922,20 +922,20 @@ if __name__ == &quot;__main__&quot;:
       <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">3</text></g>
       <g class="uml-step"><circle cx="20" cy="212" r="9"/><text x="20" y="216">4</text></g>
 
-      <text class="uml-note" x="20" y="504"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02의 CloudFactory 계층을 대신하는 값</text>
+      <text class="uml-note" x="20" y="504"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 패턴 코드의 CloudFactory 계층을 대신하는 값</text>
       <text class="uml-note" x="20" y="526">① CloudKit과 __post_init__ → ② aws_kit() 등 → ③ composition_root() → ④ upload_and_process()</text>
       <text class="uml-note" x="20" y="548">데모 [1] 세 환경 · [2] 섞인 번들 · [3] replace()도 같은 검사를 거친다</text>
     </svg>
-    <figcaption>코드 지도 · 03_pythonic.py. 둥근 상자는 함수·값, 점선 화살표는 "넘긴다/만든다", 빈 삼각형 점선은 "모양을 맞춘다".</figcaption>
+    <figcaption>코드 지도 · 파이썬다운 변형. 둥근 상자는 함수·값, 점선 화살표는 "넘긴다/만든다", 빈 삼각형 점선은 "모양을 맞춘다".</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/02_abstract_factory/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형: Protocol 제품 + frozen dataclass &#x27;생성 함수 번들&#x27; + composition root.
+  <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형: Protocol 제품 + frozen dataclass &#x27;생성 함수 번들&#x27; + composition root.
 
-상황: 02_abstract_factory.py는 추상 팩토리 1개, 구체 팩토리 3개, 추상 제품 3개, 구체 제품 9개로
+상황: 패턴 코드는 추상 팩토리 1개, 구체 팩토리 3개, 추상 제품 3개, 구체 제품 9개로
 제품군을 표현했다. 도현의 팀은 &quot;클래스가 너무 많다&quot;고 느꼈다. 파이썬에서는
 (1) 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 되도록 제품 인터페이스를 Protocol로 두고,
 (2) 팩토리를 클래스 계층 대신 &#x27;생성 함수 세 개를 묶은 불변 값&#x27;으로 표현할 수 있다.
 
-이 파일이 함께 보여주는 비판적 지점: 번들은 &#x27;데이터&#x27;라서 누구나 필드를 섞어 새 번들을
+이 코드가 함께 보여주는 비판적 지점: 번들은 &#x27;데이터&#x27;라서 누구나 필드를 섞어 새 번들을
 만들 수 있다. 클래스 계층이 구조로 보장하던 제품군 일관성이 사라지므로, 그 보장을
 __post_init__ 검증으로 되찾아야 한다. 이 비용이 클래스 계층이 여전히 필요한 이유이기도 하다.
 &quot;&quot;&quot;
@@ -1052,7 +1052,7 @@ def aws_kit() -&gt; CloudKit:
     &quot;&quot;&quot;[Concrete Factory 역할] AWS 제품군. 클래스 대신 함수 하나가 번들을 만든다.
 
     저장소·큐 인스턴스를 클로저로 하나씩 공유해, 같은 키트에서 나온 제품들이 같은
-    &#x27;계정&#x27;을 보게 한다(패턴 코드 02_abstract_factory.py의 CloudAccount 공유와 같은 효과).
+    &#x27;계정&#x27;을 보게 한다(패턴 코드의 CloudAccount 공유와 같은 효과).
     &quot;&quot;&quot;
     storage, queue = SchemeStorage(&quot;aws&quot;, &quot;s3&quot;), ListQueue(&quot;aws&quot;)
     return CloudKit(&quot;aws&quot;, storage=lambda: storage, queue=lambda: queue)
@@ -1077,7 +1077,7 @@ KITS: dict[str, Callable[[], CloudKit]] = {&quot;aws&quot;: aws_kit, &quot;gcp&q
 def composition_root() -&gt; CloudKit:
     &quot;&quot;&quot;[Composition Root] 환경 변수를 읽는 곳은 프로그램 전체에서 여기 하나다.
 
-    서비스 코드가 os.environ을 직접 읽으면 01_naive.py의 &#x27;생성 지점마다 분기&#x27;가 되살아난다.
+    서비스 코드가 os.environ을 직접 읽으면 순진한 코드의 &#x27;생성 지점마다 분기&#x27;가 되살아난다.
     기본값을 local로 둔 이유: 설정을 빠뜨린 개발자가 실수로 운영 클라우드를 건드리지 않게.
     &quot;&quot;&quot;
     return KITS[os.environ.get(&quot;CLOUD_ENV&quot;, &quot;local&quot;)]()
@@ -1097,7 +1097,7 @@ if __name__ == &quot;__main__&quot;:
         kit = composition_root()
         print(f&quot;  CLOUD_ENV={env:5} → {kit.provider} 키트, {upload_and_process(kit, &#x27;cat.png&#x27;)}&quot;)
 
-    print(&quot;\n[2] 번들은 데이터라 누구나 섞을 수 있다 — 검증이 없었다면 01_naive.py로 돌아간다&quot;)
+    print(&quot;\n[2] 번들은 데이터라 누구나 섞을 수 있다 — 검증이 없었다면 순진한 코드로 돌아간다&quot;)
     aws, gcp = aws_kit(), gcp_kit()
     try:
         CloudKit(&quot;gcp&quot;, storage=gcp.storage, queue=aws.queue)  # GCP 저장소 + AWS 큐
@@ -1111,7 +1111,7 @@ if __name__ == &quot;__main__&quot;:
         print(f&quot;  replace도 막힘: {e}&quot;)
     print(&quot;  → 클래스 계층이 &#x27;구조&#x27;로 하던 보장을, 번들은 &#x27;실행 시 검사&#x27;로 흉내 낼 뿐이다&quot;)</code></pre></figure>
   <p>[1]은 가벼워진 대가로 잃은 것이 없어 보인다. 그러나 [2]가 중요하다. 번들은 <em>데이터</em>이므로 <code>CloudKit("gcp", storage=gcp.storage, queue=aws.queue)</code>처럼 누구나 필드를 섞어 새 번들을 만들 수 있다. 클래스 계층에서는 <code>GcpFactory</code>라는 <em>타입</em>이 제품군 정의를 독점했기 때문에 이런 일이 구조적으로 불가능했다. 번들 방식은 그 보장을 <code>__post_init__</code>의 실행 시 검사로 되찾아야 하고, 그 검사도 제품이 정직하게 <code>provider</code>를 밝힌다는 약속에 기댄다. 검사를 위해 생성 함수를 미리 호출해야 하므로 생성이 비싼 제품에는 적용하기 어렵다는 한계도 있다.</p>
-  <p>그렇다면 클래스 계층은 언제 여전히 필요한가? (1) 구체 팩토리가 리전·자격 증명·<dfn class="term" id="term-connection-pool" data-term="connection-pool" title="비싼 DB·네트워크 연결을 미리 만들어 두고 재사용하는 연결 묶음.">연결 풀</dfn>(비싼 네트워크 연결을 미리 만들어 두고 재사용하는 연결 묶음) 같은 <strong>공유 상태를 소유</strong>해야 할 때(02의 <code>CloudAccount</code>), (2) 제품군 정의를 여러 팀이 독립적으로 추가하며 <strong>타입으로 일관성을 강제</strong>하고 싶을 때, (3) 제품 생성에 제품군 공통 로직(<dfn class="term" id="term-retry-policy" data-term="retry-policy" title="실패한 요청을 언제, 몇 번, 어떤 간격으로 다시 시도할지 정한 규칙.">재시도 정책</dfn>(실패한 요청을 언제, 몇 번 다시 시도할지 정한 규칙), <dfn class="term" id="term-instrumentation" data-term="instrumentation" title="실행 시간·호출 수 같은 지표를 수집하도록 코드에 측정 장치를 붙이는 일.">계측</dfn> 래핑(실행 시간·호출 수 같은 지표를 모으는 측정 코드를 덧씌우는 것))이 붙을 때다. 반대로 제품군이 두세 개이고 composition root에서만 조립된다면, 번들이나 모듈 방식이 읽기 쉽고 충분하다.</p>
+  <p>그렇다면 클래스 계층은 언제 여전히 필요한가? (1) 구체 팩토리가 리전·자격 증명·<dfn class="term" id="term-connection-pool" data-term="connection-pool" title="비싼 DB·네트워크 연결을 미리 만들어 두고 재사용하는 연결 묶음.">연결 풀</dfn>(비싼 네트워크 연결을 미리 만들어 두고 재사용하는 연결 묶음) 같은 <strong>공유 상태를 소유</strong>해야 할 때(패턴 코드의 <code>CloudAccount</code>), (2) 제품군 정의를 여러 팀이 독립적으로 추가하며 <strong>타입으로 일관성을 강제</strong>하고 싶을 때, (3) 제품 생성에 제품군 공통 로직(<dfn class="term" id="term-retry-policy" data-term="retry-policy" title="실패한 요청을 언제, 몇 번, 어떤 간격으로 다시 시도할지 정한 규칙.">재시도 정책</dfn>(실패한 요청을 언제, 몇 번 다시 시도할지 정한 규칙), <dfn class="term" id="term-instrumentation" data-term="instrumentation" title="실행 시간·호출 수 같은 지표를 수집하도록 코드에 측정 장치를 붙이는 일.">계측</dfn> 래핑(실행 시간·호출 수 같은 지표를 모으는 측정 코드를 덧씌우는 것))이 붙을 때다. 반대로 제품군이 두세 개이고 composition root에서만 조립된다면, 번들이나 모듈 방식이 읽기 쉽고 충분하다.</p>
   <div class="callout">
     <span class="label">ABC냐 Protocol이냐</span>
     제품 인터페이스는 대개 <code>Protocol</code>이 맞다. 벤더 SDK나 테스트 가짜 객체는 우리 계층을 상속하지 않는 편이 자연스럽다. 팩토리 인터페이스는 반대로 <code>ABC</code>가 맞는 경우가 많다. 팩토리는 우리가 소유하는 확장 지점이고, 새 제품 종류를 추가했을 때 구현을 빠뜨린 구체 팩토리를 인스턴스화 시점에 잡아 주기 때문이다.
@@ -1145,7 +1145,7 @@ if __name__ == &quot;__main__&quot;:
 
   <div class="exercise" id="ex1">
     <h3><span class="ex-tag">개념</span> 문제 1. CDN을 추가하면</h3>
-    <p>본문 02의 설계에 제품 종류 "CDN"(<code>create_cdn()</code>, AWS는 CloudFront, GCP는 Cloud CDN, 로컬은 정적 파일 서버)을 추가하려 한다. (1) 새로 만들어야 하는 클래스와 수정해야 하는 기존 클래스를 각각 세라. (2) 비교를 위해 새 제품군 "Azure"를 추가할 때의 수를 같은 방식으로 세라. (3) 두 결과의 차이가 GoF가 말하는 이 패턴의 어떤 결과(consequence)인지 설명하라.</p>
+    <p>본문 패턴 코드의 설계에 제품 종류 "CDN"(<code>create_cdn()</code>, AWS는 CloudFront, GCP는 Cloud CDN, 로컬은 정적 파일 서버)을 추가하려 한다. (1) 새로 만들어야 하는 클래스와 수정해야 하는 기존 클래스를 각각 세라. (2) 비교를 위해 새 제품군 "Azure"를 추가할 때의 수를 같은 방식으로 세라. (3) 두 결과의 차이가 GoF가 말하는 이 패턴의 어떤 결과(consequence)인지 설명하라.</p>
     <details class="solution">
       <summary>해설 보기</summary>
       <p><strong>(1) CDN 추가</strong>: 새 클래스 4개(추상 제품 <code>Cdn</code> 1 + 구체 제품 <code>CloudFrontCdn</code>, <code>CloudCdn</code>, <code>LocalStaticCdn</code> 3). 수정할 기존 클래스 4개(<code>CloudFactory</code>에 추상 메서드 추가 + 구체 팩토리 3개 모두에 구현 추가). <strong>(2) Azure 추가</strong>: 새 클래스 4개(<code>AzureFactory</code> 1 + 구체 제품 3), 수정할 기존 클래스 0개. composition root의 분기 한 줄만 바뀐다.</p>
@@ -1181,7 +1181,7 @@ def confirm_rollback(theme: str, target: str) -> str:
       <summary>해설 보기</summary>
       <p>"함께 쓰여야 하는 제품"은 버튼과 대화상자다. 대화상자가 버튼을 <em>안에 담기</em> 때문에 두 테마가 섞이면 화면에서 바로 드러나는, 본문 클라우드 예제와 똑같은 일관성 제약이다. <code>WidgetFactory</code>(추상 팩토리)에 <code>create_button(label)</code>과 <code>create_dialog()</code>를 두고, <code>DarkWidgets</code>/<code>LightWidgets</code>가 각 제품군을 만든다. 책임 배분에 주의하라. 버튼의 <em>모양</em>(테마)은 팩토리가 정하고, 버튼의 <em>라벨</em>("확인", "되돌리기")은 클라이언트가 정해 <code>create_button()</code>에 넘긴다. 대화상자는 받은 버튼의 <code>render()</code>만 부른다. 두 클라이언트 <code>confirm_deploy()</code>와 <code>confirm_rollback()</code>은 테마 문자열 대신 팩토리 하나만 받는다. 그래서 원래 <code>confirm_rollback</code>에서 났던 "버튼만 라이트로 하드코딩" 버그는 다시 쓸 방법이 없다. 버튼을 얻는 유일한 경로가 대화상자와 같은 팩토리이기 때문이다. 실행 결과에서 두 테마 × 두 클라이언트의 네 화면 모두 대화상자와 버튼의 테마가 일치한다. 테마 판단은 시작 시 <code>THEMES</code> 표 조회 한 번뿐이다.</p>
       <p>흔한 오답 두 가지. 첫째, <code>Button</code>과 <code>Dialog</code>를 각각 클래스로 만들고 <code>make_button(theme)</code>, <code>make_dialog(theme)</code> 두 팩토리 함수를 두는 것. 분기는 모였지만 호출자가 여전히 두 함수에 서로 다른 테마를 넘길 수 있어 일관성 문제가 남는다. 둘째, <code>Dialog</code>가 버튼을 직접 만들거나 버튼 라벨을 정하게 하는 것. 이 예에서는 동작하는 것처럼 보이지만 대화상자가 버튼의 구체 클래스나 라벨을 알게 되어, "확인" 말고 "되돌리기" 버튼이 필요한 <code>confirm_rollback</code> 같은 클라이언트를 만들 수 없게 된다. 리팩터링하면서 기능이 사라지는 것이다.</p>
-      <figure class="code"><figcaption>src/02_abstract_factory/solutions/ex2_theme_widgets.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: if theme == &quot;dark&quot;로 위젯을 따로 만드는 CLI 코드를 추상 팩토리로.
+      <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: if theme == &quot;dark&quot;로 위젯을 따로 만드는 CLI 코드를 추상 팩토리로.
 
 상황: 사내 배포 도구의 CLI는 터미널 테마에 따라 Button과 Dialog를 다르게 그린다. 원래 코드는
 버튼을 만드는 곳과 대화상자를 만드는 곳이 각자 `if theme == &quot;dark&quot;`를 검사했다(문제 본문).
@@ -1322,14 +1322,14 @@ if __name__ == &quot;__main__&quot;:
 
 <!--
 설계서 대비 변경 사항:
-- 03_pythonic.py에서는 제품 종류를 저장소·큐 두 가지로 줄였다(시크릿까지 넣으면 번들 검증 논점이 반복될 뿐 길이만 늘어남).
-- "같은 이름의 함수를 가진 모듈" 변형은 파일 간 import 금지 규칙 때문에 코드 대신 본문 서술로 다뤘다.
+- 파이썬다운 변형에서는 제품 종류를 저장소·큐 두 가지로 줄였다(시크릿까지 넣으면 번들 검증 논점이 반복될 뿐 길이만 늘어남).
+- "같은 이름의 함수를 가진 모듈" 변형은 예제끼리 import하지 않는 규칙 때문에 코드 대신 본문 서술로 다뤘다.
 - 연습문제 1(개념)·3(판단)은 서술형이라 해설 코드를 두지 않았다.
 -->
     <nav class="pager"><a class="prev" href="01-factory-method.html"><small>← 이전 · 1장</small>팩토리 메서드 (Factory Method)</a><a class="next" href="03-builder.html"><small>다음 · 3장 →</small>빌더 (Builder)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>

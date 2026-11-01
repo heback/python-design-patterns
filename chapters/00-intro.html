@@ -28,17 +28,17 @@ part:
 <section id="principles-revisited">
   <h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
   <p><dfn data-term="gang-of-four">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn data-term="program-to-an-interface">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
-  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제 파일에 있다). <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>·<code>member</code>·<code>branch</code>는 문자열이 아니라 <dfn data-term="enum-enum"><code>Enum</code></dfn>의 한 종류인 <code>StrEnum</code>으로 선언했다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름(<code>Member.UNIVERCITY</code>)을 쓰면 실행 즉시 <code>AttributeError</code>가 난다. <code>StrEnum</code> 멤버는 <code>str</code>이기도 해서 출력에는 값(<code>"child"</code>)이 그대로 찍힌다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
-  <pre data-src="00_intro/01_naive.py"></pre>
+  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제에 있다). <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>·<code>member</code>·<code>branch</code>는 문자열이 아니라 <dfn data-term="enum-enum"><code>Enum</code></dfn>의 한 종류인 <code>StrEnum</code>으로 선언했다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름(<code>Member.UNIVERCITY</code>)을 쓰면 실행 즉시 <code>AttributeError</code>가 난다. <code>StrEnum</code> 멤버는 <code>str</code>이기도 해서 출력에는 값(<code>"child"</code>)이 그대로 찍힌다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
+  <pre data-src="00_intro/01_naive.py" data-title="순진한 코드"></pre>
   <p>데모 [1]의 표는 지금은 정확하다. 문제는 데모 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
   <ol>
     <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
     <li><strong>변하는 것을 어떤 인터페이스 뒤에 숨길 것인가?</strong> "대출과 현재 금액을 받아 조정된 금액을 돌려준다"는 <dfn data-term="contract">계약</dfn> 하나면 감면·면제·상한이 모두 들어간다. 계약이란 인터페이스가 호출자에게 약속하는 입력·출력·실패 방식의 총체이고, 구현은 시그니처뿐 아니라 이 약속까지 지켜야 서로 바꿔 끼울 수 있다.</li>
     <li><strong>그것들을 상속으로 엮을 것인가, 합성으로 조립할 것인가?</strong> 지점의 차이는 행동이 아니라 조합이다. 지점마다 하위 클래스를 만들면 <dfn data-term="combinatorial-explosion">조합의 수만큼 클래스가 생긴다</dfn>. 독립적인 선택지가 늘 때마다 클래스 수가 곱으로 불어나는 이 현상을 조합 폭발이라 부른다. 규칙 객체의 목록으로 조립하면 지점 정책은 데이터가 된다.</li>
   </ol>
-  <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 01의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn data-term="refactoring">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn data-term="typing-protocol">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn data-term="dataclasses-field">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
+  <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 순진한 코드의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn data-term="refactoring">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn data-term="typing-protocol">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn data-term="dataclasses-field">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 490" role="img" aria-label="02_refactored.py의 구조: FeePolicy가 Adjustment 목록을 담아 순서대로 적용하고, ChildDiscount·ExamWaiver·Cap이 Adjustment를 상속하며, BRANCH_POLICIES가 지점마다 FeePolicy를 조립한다">
+    <svg viewBox="0 0 640 490" role="img" aria-label="리팩터링 코드의 구조: FeePolicy가 Adjustment 목록을 담아 순서대로 적용하고, ChildDiscount·ExamWaiver·Cap이 Adjustment를 상속하며, BRANCH_POLICIES가 지점마다 FeePolicy를 조립한다">
       <text class="uml-note" x="20" y="22">[변하지 않는 절차]</text>
       <g class="uml-class highlight" transform="translate(20,40)">
         <rect width="260" height="110"/>
@@ -109,9 +109,9 @@ part:
       <text class="uml-note" x="20" y="456">① Adjustment와 세 규칙: 서로를 모른다 → ② FeePolicy.late_fee(): 목록 순서대로 적용</text>
       <text class="uml-note" x="20" y="478">③ BRANCH_POLICIES: 지점 = 요율표 + 규칙 목록 → ④ 데모 [1] 동작 보존 · [2] 상한 추가 · [3] 순서</text>
     </svg>
-    <figcaption>코드 지도 · 02_refactored.py. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다".</figcaption>
+    <figcaption>코드 지도 · 리팩터링 코드. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다".</figcaption>
   </figure>
-  <pre data-src="00_intro/02_refactored.py"></pre>
+  <pre data-src="00_intro/02_refactored.py" data-title="리팩터링 코드"></pre>
   <p>데모 [1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. 데모 [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. 데모 [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
   <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn data-term="chain-of-responsibility">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
 </section>
@@ -213,8 +213,8 @@ part:
   </ul>
   <p class="lead-in">2절의 리팩터링을 이 렌즈로 다시 쓰면 어떻게 되는가. 아래 코드는 상태 없는 규칙을 함수로, 설정 있는 규칙을 클로저와 <code>__call__</code> 클래스로 바꾸고, 계약을 <code>Protocol</code>로 표현한다. 세 종류의 규칙이 한 목록 안에서 똑같이 호출된다는 점, 그리고 데모 [2]가 "클래스가 필요한 순간"에 대해 무엇을 말하는지 주목하라. docstring이 말하는 "<dfn data-term="callable">호출 가능한</dfn> 것"(callable)은 <code>()</code>로 부를 수 있는 모든 것, 곧 함수·클래스·람다·<code>__call__</code>을 가진 객체이며, 타입 힌트로는 <code>Callable[[인자...], 반환]</code>으로 적는다. <dfn data-term="serialization">직렬화</dfn>는 객체를 저장하거나 전송할 수 있는 문자열·바이트 형식으로 바꾸는 것이다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 440" role="img" aria-label="03_pythonic.py의 구조: FeePolicy가 Adjustment 프로토콜 목록을 호출하고, 함수 child_discount, 클로저를 돌려주는 cap, __call__을 가진 ExamWaiver가 상속 없이 그 모양을 맞춘다">
-      <text class="uml-note" x="20" y="22">[변하지 않는 절차] 02와 같다</text>
+    <svg viewBox="0 0 640 440" role="img" aria-label="파이썬다운 변형의 구조: FeePolicy가 Adjustment 프로토콜 목록을 호출하고, 함수 child_discount, 클로저를 돌려주는 cap, __call__을 가진 ExamWaiver가 상속 없이 그 모양을 맞춘다">
+      <text class="uml-note" x="20" y="22">[변하지 않는 절차] 리팩터링 코드와 같다</text>
       <g class="uml-class" transform="translate(20,40)">
         <rect width="260" height="110"/>
         <text class="uml-name" x="130" y="22">FeePolicy</text>
@@ -253,9 +253,9 @@ part:
         <text class="uml-member" x="10" y="68">+ __call__(loan, fee)</text>
         <text class="uml-member" x="10" y="84">+ describe() → str</text>
       </g>
-      <text class="uml-note" x="20" y="312">← 02의 ChildDiscount 클래스</text>
-      <text class="uml-note" x="225" y="312">← 02의 Cap 클래스</text>
-      <text class="uml-note" x="430" y="312">← 02에서 ABC를 상속하던 것</text>
+      <text class="uml-note" x="20" y="312">← 리팩터링 코드의 ChildDiscount 클래스</text>
+      <text class="uml-note" x="225" y="312">← 리팩터링 코드의 Cap 클래스</text>
+      <text class="uml-note" x="430" y="312">← 리팩터링 코드에서 ABC를 상속하던 것</text>
 
       <path class="marker-fill" d="M280 75 L290 68 L300 75 L290 82 Z"/>
       <path class="uml-compose" d="M300 75 H390"/>
@@ -270,14 +270,14 @@ part:
       <g class="uml-step"><circle cx="20" cy="200" r="9"/><text x="20" y="204">2</text></g>
       <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">3</text></g>
 
-      <text class="uml-note" x="20" y="362"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02에서 바뀐 중심</text>
+      <text class="uml-note" x="20" y="362"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 리팩터링 코드에서 바뀐 중심</text>
       <text class="uml-note" x="20" y="384">① Adjustment(Protocol): 상속 대신 호출 모양 → ② 세 규칙: 함수 · 클로저 · __call__ 클래스</text>
       <text class="uml-note" x="20" y="406">③ FeePolicy: 함수든 객체든 똑같이 호출 → ④ 데모 [1] 섞어 쓰기 · [2] 클래스만 자기를 설명</text>
       <text class="uml-note" x="20" y="428">· [3] 람다 한 줄짜리 테스트 대역</text>
     </svg>
-    <figcaption>코드 지도 · 03_pythonic.py. 둥근 상자는 함수, 빈 삼각형 점선은 "모양을 맞춘다", 속이 찬 마름모는 "담고 있다".</figcaption>
+    <figcaption>코드 지도 · 파이썬다운 변형. 둥근 상자는 함수, 빈 삼각형 점선은 "모양을 맞춘다", 속이 찬 마름모는 "담고 있다".</figcaption>
   </figure>
-  <pre data-src="00_intro/03_pythonic.py"></pre>
+  <pre data-src="00_intro/03_pythonic.py" data-title="파이썬다운 변형"></pre>
   <p>데모 [1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. 데모 [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
   <p>그렇다고 클래스가 사라지지는 않는다. 데모 [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
   <table data-preview>
@@ -304,8 +304,8 @@ part:
     <li><strong>트레이드오프와 관련 패턴</strong>: 얻는 것, 치르는 것, 쓰지 말아야 할 때, 이웃 패턴과의 차이.</li>
     <li><strong>연습문제</strong>: 판단·리팩터링·확장·비교 유형을 섞은 3~4문제와, 접혀 있는 해설.</li>
   </ol>
-  <p><strong>코드는 직접 실행하라.</strong> 본문의 모든 코드는 저장소의 <code>src/{nn}_{slug}/</code>에 있는 실제 파일이며, 본문에 실린 실행 결과는 빌드할 때 그 파일을 실제로 실행해 얻은 것이다. 파일은 표준 라이브러리만 쓰고 서로 import하지 않으므로 하나만 열어 <code>python3 02_refactored.py</code>처럼 바로 돌릴 수 있다. 파일 이름의 번호가 본문에 등장하는 순서다(<code>01_naive.py</code> → <code>02_…</code> → <code>03_pythonic.py</code>). 모듈 docstring 첫 단락에 그 파일이 다루는 상황이 요약되어 있으니 파일만 열어도 맥락을 잃지 않는다. 가장 좋은 학습법은 순진한 코드에 다음 변경 요구를 직접 넣어 보며 고통을 체험한 뒤 패턴 코드로 넘어가는 것이다.</p>
-  <p><strong>연습문제는 해설을 펼치기 전에 답을 써라.</strong> 해설은 정답만이 아니라 흔한 오답이 왜 틀렸는지를 함께 다룬다. 이 수준의 학생이 틀리는 이유는 대개 지식 부족이 아니라 과잉 적용이나 의도의 오독이기 때문이다. 코드 문제의 해설은 <code>src/{nn}_{slug}/solutions/</code>에 실행 가능한 파일로 있다.</p>
+  <p><strong>코드는 직접 실행하라.</strong> 본문의 코드 블록은 [▶ 실행]을 누르면 그 자리에서 돌아가고, 결과가 코드 아래에 나타난다. 코드는 표준 라이브러리만 쓰고 블록마다 따로 실행되므로, 어느 블록이든 앞뒤와 상관없이 바로 돌려 볼 수 있다. 한 장의 코드는 대체로 순진한 코드 → 패턴 코드 → 파이썬다운 변형 순서로 나온다. 코드 첫머리 docstring에 그 코드가 다루는 상황이 요약되어 있으니 그것만 읽어도 맥락을 잃지 않는다. 가장 좋은 학습법은 순진한 코드에 다음 변경 요구가 들어온다면 어디를 몇 군데 고쳐야 할지 먼저 따라가 보며 고통을 체험한 뒤 패턴 코드로 넘어가는 것이다.</p>
+  <p><strong>연습문제는 해설을 펼치기 전에 답을 써라.</strong> 해설은 정답만이 아니라 흔한 오답이 왜 틀렸는지를 함께 다룬다. 이 수준의 학생이 틀리는 이유는 대개 지식 부족이 아니라 과잉 적용이나 의도의 오독이기 때문이다. 코드 문제의 해설 코드도 [▶ 실행]으로 돌려 볼 수 있다.</p>
   <p>장마다 도메인이 다르다(과학 연구실, 클라우드 인프라, 병원 <dfn data-term="electronic-medical-record">EMR</dfn>(전자의무기록), 결제, <dfn data-term="internet-of-things">IoT</dfn>(센서·장비가 네트워크로 데이터를 주고받는 사물인터넷)…). 패턴을 특정 도메인의 관용구로 기억하지 않고 구조적 문제로 기억하게 하려는 의도다. 마지막 <a href="99-summary.html">99장</a>은 로봇 물류 창고라는 하나의 시스템에서 여러 패턴이 어떻게 조합되는지 다루고, 장마다 내린 "언어가 패턴을 흡수하는 정도" 판단을 표 하나로 정리한다.</p>
 </section>
 
@@ -406,7 +406,7 @@ part:
       <p>변하지 않는 것은 "기준 금액(정가)에서 출발해 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 규칙 각각과, 규칙의 목록과 순서다. 원래 코드의 <code>out_of_print and not donated</code>라는 결합 조건은 "기증 고정액이 먼저 적용되면 절판 할증은 의미가 없다"는 <em>순서 의존</em>을 조건문으로 우회한 흔적이다. 고정액 규칙을 목록 맨 앞에 두는 것만으로는 이 의존을 다 표현하지 못한다. 기증이면서 절판인 자료에 할증이 붙어 5,000원이 7,500원이 되기 때문이다. 리팩터링은 동작을 보존해야 하므로, 해설은 절판 규칙 안에 "기증이 아닐 때만"이라는 조건을 남겼고 데모의 마지막 사례(기증+절판 → 5,000원)로 그것을 확인한다. 이런 숨은 의존을 발견하면 몰래 바꾸지 말고 "어느 쪽이 정책인가"를 묻는 것이 옳다. 지점별 차이는 규칙 목록의 조립으로 해결된다. 바다 지점은 목록에서 <code>child_half</code>를 빼고, 하늘 지점은 <code>minimum(2000)</code>을 쓴다.</p>
       <p>두 버전의 차이는 절차 함수 안의 한 줄(<code>rule.apply(...)</code> 대 <code>rule(...)</code>)뿐이다. ABC판은 규칙이 이름 있는 타입이라 문서화와 구현 누락 검사에 유리하고, 함수판은 짧고 테스트 대역이 쉽다. 설정이 있는 규칙(<code>MinimumFee</code>/<code>minimum</code>)에서만 두 방식의 성격 차이가 드러난다. 데모 [2]는 하한을 감면 앞에 두면 아동 1,500원 자료의 배상금이 750원이 되어 하한이 무력화된다는 것을 보여준다.</p>
       <p>흔한 오답은 지점마다 <code>SaesolCompensation</code>, <code>HaneulCompensation</code> 하위 클래스를 만드는 것이다. 지점의 차이가 행동이 아니라 조합이므로, 상속은 조합의 수만큼 클래스를 만든다. 합성 우선 원칙이 정확히 이 경우를 위해 있다.</p>
-      <pre data-src="00_intro/solutions/ex2_lost_item_two_ways.py"></pre>
+      <pre data-src="00_intro/solutions/ex2_lost_item_two_ways.py" data-title="연습문제 2 해설 코드"></pre>
     </details>
   </div>
 

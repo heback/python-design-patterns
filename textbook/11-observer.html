@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="행위 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">11장 · 옵저버 (Observer)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -47,7 +47,7 @@
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 석 달 동안 자란 <code>PriceFeed</code>다. 생성자가 하위 기능을 직접 만든다는 점, <code>push_price()</code>가 "시세 수신 후 할 일 목록"을 하드코딩한다는 점에 주목하라. 데모는 화면 닫기와 푸시 서버 장애를 재현한다.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 324" role="img" aria-label="01_naive.py의 구조: PriceFeed가 ChartView·TargetPriceAlert·Portfolio·TradeLogger를 직접 만들어 담고, push_price()가 네 기능을 정해진 순서로 직접 호출한다. 알림이 예외를 던지면 뒤의 두 호출이 빠지고, 닫힌 차트도 계속 갱신된다"><defs>
+  <svg viewBox="0 0 640 324" role="img" aria-label="순진한 코드의 구조: PriceFeed가 ChartView·TargetPriceAlert·Portfolio·TradeLogger를 직접 만들어 담고, push_price()가 네 기능을 정해진 순서로 직접 호출한다. 알림이 예외를 던지면 뒤의 두 호출이 빠지고, 닫힌 차트도 계속 갱신된다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -110,16 +110,16 @@
     <text class="uml-note" x="20" y="294">① 하위 기능 넷(짧다) → ② PriceFeed: 생성자와 push_price()의 할 일 목록</text>
     <text class="uml-note" x="20" y="316">데모 [1] 평소 · [2] 닫힌 차트도 갱신 · [3] 예외로 뒤 두 줄 누락 · [4] 헛된 갱신 수</text>
   </svg>
-  <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "직접 만들어 담고 있다". 수신기 안의 네 줄이 곧 호출 순서다.</figcaption>
+  <figcaption>코드 지도 · 순진한 코드. 속이 찬 마름모는 "직접 만들어 담고 있다". 수신기 안의 네 줄이 곧 호출 순서다.</figcaption>
 </figure>
-<figure class="code"><figcaption>src/11_observer/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 시세 수신기가 모든 하위 기능을 직접 호출한다.
+<figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 시세 수신기가 모든 하위 기능을 직접 호출한다.
 
 상황: 개인 투자자용 증권 앱 &#x27;틱톡증권&#x27;의 앱 개발자 하린은 시세 수신기(PriceFeed)가
 새 가격을 받으면 push_price() 안에서 차트를 직접 다시 그리게 만들었다. 이후 목표가 알림,
 포트폴리오 평가액 재계산, 거래 로그가 붙으면서 push_price()는 &#x27;시세를 받은 뒤 해야 할
 모든 일&#x27;의 목록이 되었다.
 
-이 파일에서 확인할 고통:
+이 코드에서 확인할 고통:
   1) PriceFeed가 차트·알림·포트폴리오·로거를 모두 알고 직접 만든다(강한 결합, OCP 위반).
   2) 알림 하나가 예외를 던지면 그 뒤의 포트폴리오 갱신과 로그가 실행되지 않는다.
   3) 사용자가 차트 화면을 닫아도 PriceFeed가 참조를 쥐고 있어 계속 갱신된다(누수).
@@ -297,11 +297,11 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
-<p class="lead-in">먼저 주체와 추상 관찰자다. 전체 파일은 <code>02_observer.py</code>이며 두 부분으로 나눠 본다. <code>_notify()</code>의 두 주석 — <dfn class="term" id="term-iterate-over-a-copy" data-term="iterate-over-a-copy" title="통지를 시작할 때의 구독자 목록을 복사해 그 복사본을 도는 것. 통지 도중 구독·해제가 일어나도 건너뛰기가 생기지 않는다.">복사본 순회</dfn>와 <dfn class="term" id="term-exception-isolation" data-term="exception-isolation" title="한 관찰자(구독자)가 던진 예외를 잡아 기록하고 다음으로 넘어가, 실패가 다른 관찰자에게 번지지 않게 하는 것.">예외 격리</dfn> — 이 이 패턴을 장난감에서 실전 코드로 바꾸는 부분이다. 복사본 순회는 통지를 시작하는 순간의 구독자 목록을 복사해 그 복사본을 도는 것으로, 통지 도중 구독·해제가 일어나도 누군가 건너뛰어지지 않게 한다. 예외 격리는 관찰자 하나가 던진 예외를 잡아 기록하고 다음 관찰자로 넘어가, 한 기능의 실패가 다른 기능으로 번지지 않게 하는 것이다. <code>push_price()</code>가 상태를 갱신한 <em>뒤에</em> 통지한다는 점도 확인하라.</p>
+<p class="lead-in">먼저 주체와 추상 관찰자다. 이 패턴 코드는 두 부분으로 나눠 본다. <code>_notify()</code>의 두 주석 — <dfn class="term" id="term-iterate-over-a-copy" data-term="iterate-over-a-copy" title="통지를 시작할 때의 구독자 목록을 복사해 그 복사본을 도는 것. 통지 도중 구독·해제가 일어나도 건너뛰기가 생기지 않는다.">복사본 순회</dfn>와 <dfn class="term" id="term-exception-isolation" data-term="exception-isolation" title="한 관찰자(구독자)가 던진 예외를 잡아 기록하고 다음으로 넘어가, 실패가 다른 관찰자에게 번지지 않게 하는 것.">예외 격리</dfn> — 이 이 패턴을 장난감에서 실전 코드로 바꾸는 부분이다. 복사본 순회는 통지를 시작하는 순간의 구독자 목록을 복사해 그 복사본을 도는 것으로, 통지 도중 구독·해제가 일어나도 누군가 건너뛰어지지 않게 한다. 예외 격리는 관찰자 하나가 던진 예외를 잡아 기록하고 다음 관찰자로 넘어가, 한 기능의 실패가 다른 기능으로 번지지 않게 하는 것이다. <code>push_price()</code>가 상태를 갱신한 <em>뒤에</em> 통지한다는 점도 확인하라.</p>
 <div class="callout"><span class="label">용어</span><p>코드에 나오는 세 낱말도 미리 짚어 둔다. <dfn class="term" id="term-idempotent" data-term="idempotent" title="같은 연산을 여러 번 수행해도 한 번 수행한 것과 결과가 같은 성질.">멱등</dfn>은 같은 연산을 여러 번 해도 한 번 한 것과 결과가 같은 성질이다(<code>unsubscribe()</code>를 두 번 불러도 안전하다). <dfn class="term" id="term-pipeline" data-term="pipeline" title="앞 단계의 결과가 다음 단계의 입력이 되도록 순서가 고정된 처리 흐름. 앞 단계가 실패하면 뒤가 멈춰야 한다.">파이프라인</dfn>은 앞 단계의 결과가 다음 단계의 입력이 되도록 순서가 고정된 처리 흐름으로, 앞 단계가 실패하면 뒤가 멈춰야 한다 — 서로 독립인 관찰자들과 정반대다. <code># <dfn class="term" id="term-noqa" data-term="noqa" title="린터(flake8 등)에게 그 줄의 특정 경고(예: BLE001 너무 넓은 except)를 무시하라고 알리는 주석.">noqa</dfn>: BLE001</code>은 린터(flake8 등 코드 검사 도구)에게 그 줄의 특정 경고(여기서는 "너무 넓은 <code>except</code>")를 일부러 무시하라고 알리는 주석이다.</p></div>
 <figure class="code" data-full="&quot;&quot;&quot;옵저버 패턴 적용: 시세 수신기는 &#x27;구독자 목록&#x27;만 알고, 누가 무엇을 하는지는 모른다.
 
-상황: 01_naive.py의 PriceFeed는 차트·알림·포트폴리오·로거를 직접 만들고 호출했다.
+상황: 순진한 코드의 PriceFeed는 차트·알림·포트폴리오·로거를 직접 만들고 호출했다.
 하린은 방향을 뒤집는다. 수신기가 기능들을 찾아가 부르는 대신, 기능들이 수신기에
 &#x27;이 종목 가격이 바뀌면 알려 달라&#x27;고 등록한다.
 
@@ -312,7 +312,7 @@ if __name__ == &quot;__main__&quot;:
 
 교과서 구조에 더해, 실전에서 반드시 부딪히는 네 가지 쟁점을 코드로 다룬다.
   ① 종목별 구독  ② 통지 도중 구독 해제(복사본 순회)  ③ 관찰자 예외 격리
-  ④ 화면이 닫힐 때의 명시적 구독 해제 (자동 해제는 03_pythonic.py의 weakref에서)
+  ④ 화면이 닫힐 때의 명시적 구독 해제 (자동 해제는 파이썬다운 변형의 weakref에서)
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -513,7 +513,7 @@ if __name__ == &quot;__main__&quot;:
     feed.push_price(&quot;005930&quot;, 72100)
 
     print(&quot;[6] 72,300원 — 일회성 알림은 더 이상 오지 않는다&quot;)
-    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>src/11_observer/02_observer.py  (21–103행)</figcaption><pre><code class="language-python">ALL = &quot;*&quot;   # 모든 종목을 구독할 때 쓰는 키. 로거처럼 종목을 가리지 않는 관찰자용.
+    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>패턴 코드 (1/2)</figcaption><pre><code class="language-python">ALL = &quot;*&quot;   # 모든 종목을 구독할 때 쓰는 키. 로거처럼 종목을 가리지 않는 관찰자용.
 
 
 @dataclass(frozen=True)
@@ -601,7 +601,7 @@ class PriceFeed:
 <p class="lead-in">다음은 구체 관찰자들이다. 각 관찰자가 <em>자기 생명주기에 맞춰</em> 구독과 해제를 스스로 한다는 점 — 차트는 <code>open()</code>/<code>close()</code>에서, 알림은 목표가 도달 후 통지 도중에 — 을 보라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;옵저버 패턴 적용: 시세 수신기는 &#x27;구독자 목록&#x27;만 알고, 누가 무엇을 하는지는 모른다.
 
-상황: 01_naive.py의 PriceFeed는 차트·알림·포트폴리오·로거를 직접 만들고 호출했다.
+상황: 순진한 코드의 PriceFeed는 차트·알림·포트폴리오·로거를 직접 만들고 호출했다.
 하린은 방향을 뒤집는다. 수신기가 기능들을 찾아가 부르는 대신, 기능들이 수신기에
 &#x27;이 종목 가격이 바뀌면 알려 달라&#x27;고 등록한다.
 
@@ -612,7 +612,7 @@ class PriceFeed:
 
 교과서 구조에 더해, 실전에서 반드시 부딪히는 네 가지 쟁점을 코드로 다룬다.
   ① 종목별 구독  ② 통지 도중 구독 해제(복사본 순회)  ③ 관찰자 예외 격리
-  ④ 화면이 닫힐 때의 명시적 구독 해제 (자동 해제는 03_pythonic.py의 weakref에서)
+  ④ 화면이 닫힐 때의 명시적 구독 해제 (자동 해제는 파이썬다운 변형의 weakref에서)
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -813,7 +813,7 @@ if __name__ == &quot;__main__&quot;:
     feed.push_price(&quot;005930&quot;, 72100)
 
     print(&quot;[6] 72,300원 — 일회성 알림은 더 이상 오지 않는다&quot;)
-    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>src/11_observer/02_observer.py  (106–182행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>패턴 코드 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # [Concrete Observer] 들 — PriceFeed를 수정하지 않고 얼마든지 추가된다(OCP)
 # ---------------------------------------------------------------------------
 class ChartView(PriceObserver):
@@ -893,18 +893,18 @@ class TradeLogger(PriceObserver):
 <p>출력을 순진한 설계와 대조해 보자. [1]에서 SK하이닉스 시세에는 차트와 알림이 깨어나지 않는다 — 종목별 구독이 분기를 대신했다. [3]에서 차트는 닫힌 뒤 더 이상 다시 그려지지 않는다. [4]에서 푸시 서버 장애는 <code>!!</code> 한 줄로 기록되고 포트폴리오와 로그는 정상 실행된다. [5]에서 알림은 통지 도중 스스로 구독을 해제했는데도 바로 뒤의 포트폴리오 관찰자가 건너뛰어지지 않았다. 복사본 순회 덕분이다(연습문제 1에서 복사본이 없을 때를 재현한다).</p>
 <div class="callout warn">
   <span class="label">예외 격리는 정책이다</span>
-  <p><code>_notify()</code>가 모든 예외를 삼키는 것은 공짜가 아니다. 버그가 조용히 묻힐 수 있다. 그래서 격리한 예외는 반드시 기록해야 하고, 테스트 환경에서는 재전파하도록 정책을 바꿀 수 있어야 한다. 03_pythonic.py의 <code>EventHub</code>가 예외 처리 함수를 생성자로 주입받는 이유다. 또한 이 구현은 <dfn class="term" id="term-synchronous-notification" data-term="synchronous-notification" title="통지자가 각 수신자의 처리가 끝날 때까지 기다리는 통지 방식.">동기 통지</dfn>, 즉 통지하는 쪽이 각 관찰자의 처리가 끝날 때까지 기다리는 방식이다. 느린 관찰자 하나가 모든 통지를 지연시키므로, 실시간 시세처럼 지연에 민감한 곳에서는 관찰자 쪽에서 큐에 넣고 즉시 반환하는 설계가 뒤따른다.</p>
+  <p><code>_notify()</code>가 모든 예외를 삼키는 것은 공짜가 아니다. 버그가 조용히 묻힐 수 있다. 그래서 격리한 예외는 반드시 기록해야 하고, 테스트 환경에서는 재전파하도록 정책을 바꿀 수 있어야 한다. 파이썬다운 변형의 <code>EventHub</code>가 예외 처리 함수를 생성자로 주입받는 이유다. 또한 이 구현은 <dfn class="term" id="term-synchronous-notification" data-term="synchronous-notification" title="통지자가 각 수신자의 처리가 끝날 때까지 기다리는 통지 방식.">동기 통지</dfn>, 즉 통지하는 쪽이 각 관찰자의 처리가 끝날 때까지 기다리는 방식이다. 느린 관찰자 하나가 모든 통지를 지연시키므로, 실시간 시세처럼 지연에 민감한 곳에서는 관찰자 쪽에서 큐에 넣고 즉시 반환하는 설계가 뒤따른다.</p>
 </div>
 </section>
 
 <section id="pythonic">
 <h2>5. 파이썬다운 변형</h2>
-<p>02의 구조에는 두 가지 불만이 남는다. 로그 한 줄 남기는 데에도 <code>PriceObserver</code>를 상속한 클래스가 필요하다는 것, 그리고 <code>close()</code>를 잊으면 여전히 누수라는 것. 파이썬은 둘 다 언어 기능으로 푼다. 메서드 하나짜리 관찰자 인터페이스는 콜러블로 대체되고(10장 전략과 같은 논리다), 수명 관리는 약한 참조(<code>weakref</code>)에 맡길 수 있다.</p>
+<p>패턴 코드의 구조에는 두 가지 불만이 남는다. 로그 한 줄 남기는 데에도 <code>PriceObserver</code>를 상속한 클래스가 필요하다는 것, 그리고 <code>close()</code>를 잊으면 여전히 누수라는 것. 파이썬은 둘 다 언어 기능으로 푼다. 메서드 하나짜리 관찰자 인터페이스는 콜러블로 대체되고(10장 전략과 같은 논리다), 수명 관리는 약한 참조(<code>weakref</code>)에 맡길 수 있다.</p>
 <p class="lead-in">먼저 도메인을 모르는 범용 통지 허브 <code>EventHub</code>다. 가장 미묘한 부분은 <code>_make_ref()</code>다 — 왜 바운드 메서드는 약하게, 함수는 강하게 보관하는지 docstring을 꼼꼼히 읽어라. <code>on()</code>이 해제 함수를 돌려준다는 점도 주목하라.</p>
 <div class="callout"><span class="label">용어</span><p><code>weakref.<dfn class="term" id="term-weakref-weakmethod" data-term="weakref-weakmethod" title="바운드 메서드를 약하게 참조하는 weakref 도구. 메서드 객체가 아니라 그 주인 객체의 생존에 맞춰 살아 있다.">WeakMethod</dfn></code>는 바운드 메서드를 약하게 참조하는 도구다. 메서드 객체 자체가 아니라 그 주인 객체가 살아 있는 동안만 유효하므로, 화면 객체가 수거되면 구독도 함께 죽는다. <code><dfn class="term" id="term-collections-defaultdict" data-term="collections-defaultdict" title="없는 키를 조회하면 지정한 함수(list 등)로 기본값을 만들어 넣어 주는 딕셔너리.">defaultdict</dfn></code>는 없는 키를 조회하면 지정한 함수(여기서는 <code>list</code>)로 기본값을 만들어 넣어 주는 딕셔너리라 "처음 보는 이벤트 이름"을 따로 처리할 필요가 없다. <code><dfn class="term" id="term-inspect-ismethod" data-term="inspect-ismethod" title="객체가 바운드 메서드인지 확인하는 표준 라이브러리 함수.">inspect.ismethod</dfn></code>는 객체가 바운드 메서드인지 확인하는 표준 라이브러리 함수다.</p></div>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: 콜러블 구독자, 약한 참조 자동 해제, 이벤트 이름 디스패치, property 통지.
 
-상황: 02_observer.py는 동작하지만 하린의 팀 동료들은 불만이 있다. &quot;로그 한 줄 남기려고
+상황: 패턴 코드는 동작하지만 하린의 팀 동료들은 불만이 있다. &quot;로그 한 줄 남기려고
 PriceObserver를 상속한 클래스를 만들어야 하나요?&quot;, &quot;화면 닫을 때 close()를 깜박하면
 여전히 누수잖아요.&quot; 하린은 파이썬의 언어 기능으로 이 두 불만을 해결한다.
 
@@ -931,7 +931,7 @@ Ref = Callable[[], &quot;Callback | None&quot;]
 class EventHub:
     &quot;&quot;&quot;[Subject] 이벤트 이름별 구독/통지 허브. 관찰자 인터페이스 없이 콜러블만 받는다.
 
-    패턴 코드(02_observer.py)의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
+    패턴 코드의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
     떼어 낸 재사용 부품이고, Quote(아래)가 이것을 &#x27;가진다&#x27;(합성).
     &quot;&quot;&quot;
 
@@ -942,7 +942,7 @@ class EventHub:
 
     @staticmethod
     def _make_ref(cb: Callback) -&gt; Ref:
-        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 파일에서 가장 미묘한 결정이다.
+        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 코드에서 가장 미묘한 결정이다.
 
         바운드 메서드(chart.redraw)는 약하게: 화면 객체가 사라지면 구독도 사라지게.
           weakref.ref(chart.redraw)가 아니라 WeakMethod인 이유 — 바운드 메서드 객체는
@@ -1070,7 +1070,7 @@ if __name__ == &quot;__main__&quot;:
 
     hub.on(&quot;halt:005930&quot;, broken_halt_handler)
     hub.on(&quot;halt:005930&quot;, lambda symbol, reason: print(f&quot;    [배너] {symbol} 거래정지: {reason}&quot;))
-    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>src/11_observer/03_pythonic.py  (21–85행)</figcaption><pre><code class="language-python">Callback = Callable[..., None]
+    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>파이썬다운 변형 (1/2)</figcaption><pre><code class="language-python">Callback = Callable[..., None]
 # 보관용 참조의 공통 모양: 호출하면 콜백(살아 있으면) 또는 None(죽었으면)을 돌려준다.
 # weakref.WeakMethod 객체가 바로 이 모양이라, 강한 참조도 같은 모양으로 맞춰 둔다.
 Ref = Callable[[], &quot;Callback | None&quot;]
@@ -1079,7 +1079,7 @@ Ref = Callable[[], &quot;Callback | None&quot;]
 class EventHub:
     &quot;&quot;&quot;[Subject] 이벤트 이름별 구독/통지 허브. 관찰자 인터페이스 없이 콜러블만 받는다.
 
-    패턴 코드(02_observer.py)의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
+    패턴 코드의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
     떼어 낸 재사용 부품이고, Quote(아래)가 이것을 &#x27;가진다&#x27;(합성).
     &quot;&quot;&quot;
 
@@ -1090,7 +1090,7 @@ class EventHub:
 
     @staticmethod
     def _make_ref(cb: Callback) -&gt; Ref:
-        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 파일에서 가장 미묘한 결정이다.
+        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 코드에서 가장 미묘한 결정이다.
 
         바운드 메서드(chart.redraw)는 약하게: 화면 객체가 사라지면 구독도 사라지게.
           weakref.ref(chart.redraw)가 아니라 WeakMethod인 이유 — 바운드 메서드 객체는
@@ -1135,12 +1135,12 @@ class EventHub:
     def count(self, event: str) -&gt; int:
         &quot;&quot;&quot;살아 있는 구독자 수(데모·테스트용).&quot;&quot;&quot;
         return sum(1 for r in self._handlers[event] if r() is not None)</code></pre></figure>
-<p>이벤트 이름을 키로 하는 <code>defaultdict(list)</code>가 02의 종목별 구독 dict와 <code>ALL</code> 키를 대신한다. <code>'price:005930'</code>처럼 이벤트 이름에 주제를 넣으면, 하나의 허브로 가격·거래정지·<dfn class="term" id="term-trade-execution" data-term="trade-execution" title="매수·매도 주문이 서로 맞아 거래가 성립하는 것.">체결</dfn>(매수·매도 주문이 서로 맞아 거래가 성립하는 것) 등 여러 종류의 통지를 다룰 수 있다. 이것을 프로세스 밖으로 꺼내 네트워크 너머로 보내면 <dfn class="term" id="term-message-broker" data-term="message-broker" title="발행자와 소비자 사이에서 메시지를 받아 보관·전달하는 별도 서버(Kafka, Redis 등).">메시지 브로커</dfn>(발행자와 소비자 사이에서 메시지를 받아 보관·전달하는 별도 서버. Redis Pub/Sub, Kafka 등)의 주제(topic) 기반 발행/구독이 된다. 구조는 같고, <dfn class="term" id="term-delivery-guarantee" data-term="delivery-guarantee" title="메시지가 최소 한 번·최대 한 번·정확히 한 번 전달되는지에 대한 시스템의 약속.">전달 보장</dfn>(메시지가 최소 한 번·최대 한 번·정확히 한 번 중 어떻게 전달되는지에 대한 약속)·순서·<dfn class="term" id="term-persistence" data-term="persistence" title="프로세스가 끝나도 데이터가 저장되어 남는 성질.">영속성</dfn>(프로세스가 끝나도 메시지가 저장되어 남는 성질)이 추가될 뿐이다.</p>
+<p>이벤트 이름을 키로 하는 <code>defaultdict(list)</code>가 패턴 코드의 종목별 구독 dict와 <code>ALL</code> 키를 대신한다. <code>'price:005930'</code>처럼 이벤트 이름에 주제를 넣으면, 하나의 허브로 가격·거래정지·<dfn class="term" id="term-trade-execution" data-term="trade-execution" title="매수·매도 주문이 서로 맞아 거래가 성립하는 것.">체결</dfn>(매수·매도 주문이 서로 맞아 거래가 성립하는 것) 등 여러 종류의 통지를 다룰 수 있다. 이것을 프로세스 밖으로 꺼내 네트워크 너머로 보내면 <dfn class="term" id="term-message-broker" data-term="message-broker" title="발행자와 소비자 사이에서 메시지를 받아 보관·전달하는 별도 서버(Kafka, Redis 등).">메시지 브로커</dfn>(발행자와 소비자 사이에서 메시지를 받아 보관·전달하는 별도 서버. Redis Pub/Sub, Kafka 등)의 주제(topic) 기반 발행/구독이 된다. 구조는 같고, <dfn class="term" id="term-delivery-guarantee" data-term="delivery-guarantee" title="메시지가 최소 한 번·최대 한 번·정확히 한 번 전달되는지에 대한 시스템의 약속.">전달 보장</dfn>(메시지가 최소 한 번·최대 한 번·정확히 한 번 중 어떻게 전달되는지에 대한 약속)·순서·<dfn class="term" id="term-persistence" data-term="persistence" title="프로세스가 끝나도 데이터가 저장되어 남는 성질.">영속성</dfn>(프로세스가 끝나도 메시지가 저장되어 남는 성질)이 추가될 뿐이다.</p>
 
 <p class="lead-in">이제 허브를 쓰는 주체 <code>Quote</code>와, 아무것도 상속하지 않는 관찰자 <code>ChartWidget</code>이다. <code>price</code>에 값을 대입하는 것 자체가 통지가 되도록 <code>@property</code> setter를 쓴 점을 보라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: 콜러블 구독자, 약한 참조 자동 해제, 이벤트 이름 디스패치, property 통지.
 
-상황: 02_observer.py는 동작하지만 하린의 팀 동료들은 불만이 있다. &quot;로그 한 줄 남기려고
+상황: 패턴 코드는 동작하지만 하린의 팀 동료들은 불만이 있다. &quot;로그 한 줄 남기려고
 PriceObserver를 상속한 클래스를 만들어야 하나요?&quot;, &quot;화면 닫을 때 close()를 깜박하면
 여전히 누수잖아요.&quot; 하린은 파이썬의 언어 기능으로 이 두 불만을 해결한다.
 
@@ -1167,7 +1167,7 @@ Ref = Callable[[], &quot;Callback | None&quot;]
 class EventHub:
     &quot;&quot;&quot;[Subject] 이벤트 이름별 구독/통지 허브. 관찰자 인터페이스 없이 콜러블만 받는다.
 
-    패턴 코드(02_observer.py)의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
+    패턴 코드의 PriceFeed와 달리 &#x27;시세&#x27;라는 도메인을 모른다. 통지 메커니즘을 도메인에서
     떼어 낸 재사용 부품이고, Quote(아래)가 이것을 &#x27;가진다&#x27;(합성).
     &quot;&quot;&quot;
 
@@ -1178,7 +1178,7 @@ class EventHub:
 
     @staticmethod
     def _make_ref(cb: Callback) -&gt; Ref:
-        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 파일에서 가장 미묘한 결정이다.
+        &quot;&quot;&quot;콜백을 보관할 참조를 만든다. 여기가 이 코드에서 가장 미묘한 결정이다.
 
         바운드 메서드(chart.redraw)는 약하게: 화면 객체가 사라지면 구독도 사라지게.
           weakref.ref(chart.redraw)가 아니라 WeakMethod인 이유 — 바운드 메서드 객체는
@@ -1306,7 +1306,7 @@ if __name__ == &quot;__main__&quot;:
 
     hub.on(&quot;halt:005930&quot;, broken_halt_handler)
     hub.on(&quot;halt:005930&quot;, lambda symbol, reason: print(f&quot;    [배너] {symbol} 거래정지: {reason}&quot;))
-    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>src/11_observer/03_pythonic.py  (88–129행)</figcaption><pre><code class="language-python">class Quote:
+    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>파이썬다운 변형 (2/2)</figcaption><pre><code class="language-python">class Quote:
     &quot;&quot;&quot;[Concrete Subject] 종목 시세. price에 값을 대입하면 그 자체가 통지가 된다.
 
     property setter에서 통지하는 이유: 호출자가 &#x27;price를 바꾼 뒤 notify()를 부르는 것&#x27;을
@@ -1356,8 +1356,8 @@ class ChartWidget:
 <div class="table-wrap"><table>
   <thead><tr><th>선택지</th><th>장점</th><th>주의</th></tr></thead>
   <tbody>
-    <tr><td>Observer ABC 상속 (02)</td><td>계약이 명시적, 여러 콜백 메서드를 묶기 좋다</td><td>한 줄 반응에도 클래스가 필요</td></tr>
-    <tr><td>콜러블 구독 (03)</td><td>함수·람다·메서드 모두 수용, 테스트가 쉽다</td><td>시그니처 불일치를 실행 시점에야 발견</td></tr>
+    <tr><td>Observer ABC 상속 (패턴 코드)</td><td>계약이 명시적, 여러 콜백 메서드를 묶기 좋다</td><td>한 줄 반응에도 클래스가 필요</td></tr>
+    <tr><td>콜러블 구독 (파이썬다운 변형)</td><td>함수·람다·메서드 모두 수용, 테스트가 쉽다</td><td>시그니처 불일치를 실행 시점에야 발견</td></tr>
     <tr><td>강한 참조 보관</td><td>단순하고 예측 가능</td><td>해제를 잊으면 누수</td></tr>
     <tr><td><code>WeakMethod</code> 보관</td><td>해제 누락에 대한 안전망</td><td>람다·클로저에 쓰면 즉시 소멸, 수거 시점이 <dfn class="term" id="term-nondeterministic" data-term="nondeterministic" title="같은 입력이라도 실행할 때마다 시점·결과가 달라질 수 있는 성질.">비결정적</dfn>(실행 환경·실행마다 달라질 수 있음)</td></tr>
   </tbody>
@@ -1398,13 +1398,13 @@ class ChartWidget:
   <details class="solution">
     <summary>해설 보기</summary>
     <p>파이썬의 리스트 반복자는 내부 인덱스를 들고 다닌다. 인덱스 0에서 알림이 자신을 <code>remove()</code>하면 차트가 인덱스 0으로 당겨지는데, 반복자는 다음으로 인덱스 1을 본다. 리스트 길이가 1이 되었으므로 반복이 끝나고 차트는 이번 통지를 받지 못한다. 예외도 경고도 없다는 점이 이 버그를 위험하게 만든다.</p>
-    <figure class="code"><figcaption>src/11_observer/solutions/ex1_unsubscribe_during_notify.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 1 해설: 통지 도중 관찰자가 자기 자신을 해제하면 무엇이 깨지는가.
+    <figure class="code"><figcaption>연습문제 1 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 1 해설: 통지 도중 관찰자가 자기 자신을 해제하면 무엇이 깨지는가.
 
 상황: 목표가 알림처럼 &#x27;한 번 울리고 스스로 구독을 해제하는&#x27; 관찰자가 있다. 주체가
 구독자 리스트를 &#x27;원본 그대로&#x27; 순회하면, 해제로 리스트가 한 칸 당겨지면서 바로 뒤의
 관찰자가 이번 통지를 받지 못한다. 예외도 경고도 없이 조용히 빠진다는 점이 위험하다.
 
-이 파일은 같은 시나리오를 두 주체(원본 순회 / 복사본 순회)로 실행해 차이를 보인다.
+이 코드는 같은 시나리오를 두 주체(원본 순회 / 복사본 순회)로 실행해 차이를 보인다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1483,7 +1483,7 @@ def sign_up(email: str) -> int:
     <summary>해설 보기</summary>
     <p><code>sign_up()</code>은 '회원이 가입했다'는 사실(<code>UserSignedUp</code> 이벤트)만 발행하고, 후속 작업은 각 팀의 모듈에서 구독자로 등록한다. 구독자는 상태가 없는 한 줄짜리 반응이므로 함수로 충분하다. <code>publish()</code>가 예외를 격리하므로 메일 장애가 가입을 실패시키지 않는다. 추천인 포인트는 <code>@events.subscribe</code>가 붙은 <code>award_referral_points</code> 하나로 추가되고, <code>sign_up()</code>의 흐름(저장 → 발행)은 바뀌지 않는다. 다만 정직하게 짚어 둘 점이 있다. 원래 이벤트에는 추천인 정보가 없었으므로 <code>UserSignedUp</code>에 <code>referrer_id</code> 필드를, <code>sign_up()</code>에 같은 이름의 인자를 더해야 했다. 구독자 추가는 발행자를 건드리지 않지만, 새 구독자가 필요로 하는 <em>사실</em>이 메시지에 없으면 이벤트 <dfn class="term" id="term-schema" data-term="schema" title="데이터·메시지가 가져야 할 필드와 타입의 구조 정의.">스키마</dfn>(메시지가 가져야 할 필드와 타입의 구조)는 넓혀야 한다 — 3절에서 본 푸시 모델 메시지 설계의 비용이다. 기본값 <code>None</code>을 두어 기존 구독자와 호출자가 깨지지 않게 한 것이 이 비용을 줄이는 방법이다.</p>
     <div class="callout"><span class="label">용어</span><p>해설 코드의 <code>UserSignedUp</code> 같은 메시지를 <dfn class="term" id="term-domain-event" data-term="domain-event" title="도메인에서 이미 일어난 사실(예: UserSignedUp)을 과거형 이름으로 알리는 메시지. 무엇을 하라고 지시하지 않는다.">도메인 이벤트</dfn>라 부른다. 도메인에서 이미 일어난 사실을 과거형 이름으로 알릴 뿐, 무엇을 하라고 지시하지 않는다. 코드의 <dfn class="term" id="term-simple-mail-transfer-protocol" data-term="simple-mail-transfer-protocol" title="이메일 전송 프로토콜.">SMTP</dfn>는 이메일 전송 프로토콜이고, <dfn class="term" id="term-backward-compatibility" data-term="backward-compatibility" title="새 버전이 기존 사용 코드를 깨지 않고 그대로 동작하게 하는 성질.">하위 호환</dfn>은 새 버전이 기존 사용 코드를 깨지 않고 그대로 동작하게 하는 성질이다.</p></div>
-    <figure class="code"><figcaption>src/11_observer/solutions/ex2_signup_events.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 회원가입 함수가 직접 부르던 후속 작업을 옵저버로 분리한다.
+    <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 회원가입 함수가 직접 부르던 후속 작업을 옵저버로 분리한다.
 
 상황: 원래 sign_up()은 회원 저장 뒤 환영 메일·쿠폰 발급·통계 기록을 차례로 직접 호출했다.
 마케팅팀이 후속 작업을 추가할 때마다 회원가입이라는 핵심 흐름을 수정해야 했고, 메일
@@ -1611,7 +1611,7 @@ if __name__ == &quot;__main__&quot;:
     <nav class="pager"><a class="prev" href="10-strategy.html"><small>← 이전 · 10장</small>전략 (Strategy)</a><a class="next" href="12-command.html"><small>다음 · 12장 →</small>커맨드 (Command)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>

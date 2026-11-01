@@ -17,7 +17,7 @@ class IllegalTransition(Exception):
 
 
 # ---------------------------------------------------------------------------
-# 방식 1: 분산 — 상태 객체가 다음 상태를 직접 만든다 (GoF 기본형, 02_state.py)
+# 방식 1: 분산 — 상태 객체가 다음 상태를 직접 만든다 (GoF 기본형, 패턴 코드)
 # ---------------------------------------------------------------------------
 
 class State:
@@ -68,7 +68,7 @@ class Relocating(State):
 class Ctx:
     """[Context] 축약판이라 위임 메서드를 생략하고 데모가 ctx.state.xxx(ctx)를 직접 부른다.
 
-    실제 Context(패턴 코드 02_state.py의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
+    실제 Context(패턴 코드의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
     """
 
     def __init__(self, battery: int) -> None:

@@ -1,8 +1,8 @@
 """[14장 템플릿 메서드 · 패턴 적용] 채점 절차의 골격을 상위 클래스 한 곳에 고정한다.
 
-상황: 01_naive.py에서 도윤의 채점기 세 개는 같은 절차를 세 벌로 가졌다. 그 결과 Java 채점기는
+상황: 순진한 코드에서 도윤의 채점기 세 개는 같은 절차를 세 벌로 가졌다. 그 결과 Java 채점기는
 샌드박스를 정리하지 않았고, C++ 채점기는 시간 검사와 출력 비교의 순서가 뒤바뀌어 같은
-제출물이 언어마다 다른 판정을 받았다. 이 파일은 GoF 템플릿 메서드로 다시 짠 버전이다.
+제출물이 언어마다 다른 판정을 받았다. 이 코드는 GoF 템플릿 메서드로 다시 짠 버전이다.
 
   - `Judge.judge()`가 템플릿 메서드다. 준비 → 검증 → 컴파일 → (실행 → 시간 검사 → 비교)×N
     → 정리 → 기록이라는 '순서'를 여기서만 정의한다. 하위 클래스는 이 순서를 바꿀 수 없다.
@@ -10,7 +10,7 @@
   - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
     훅(hook)이다.
 
-외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드 01_naive.py와 같은 방식).
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드와 같은 방식).
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class Judge(ABC):
         """[Template Method] 채점 절차. @final: 하위 클래스가 '순서'를 재정의하지 말라는 선언.
 
         typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
-        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형(04_pythonic.py)의 __init_subclass__를 보라.
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형의 __init_subclass__를 보라.
         """
         sandbox = Path(tempfile.mkdtemp(prefix=f"judge-{self.language()}-"))
         try:
@@ -194,13 +194,13 @@ class FloatTolerantCppJudge(CppJudge):
     오차 허용은 '언어'가 아니라 '문제'의 속성이다. 그런데 상속 축은 언어 하나뿐이라,
     오차 허용을 훅 재정의로 넣으려면 FloatTolerantPythonJudge, FloatTolerantJavaJudge…
     언어 수만큼 클래스가 곱해진다. 변이의 축이 둘이 되는 순간 템플릿 메서드는 버거워진다.
-    03_strategy_version.py가 이 문제를 합성으로 푼다.
+    전략 버전이 이 문제를 합성으로 푼다.
     """
 
     tolerance = 1e-6
 
     def outputs_match(self, actual: str, expected: str) -> bool:
-        """훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전 03_strategy_version.py의 within은 WA로 처리)."""
+        """훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전의 within은 WA로 처리)."""
         return abs(float(actual) - float(expected)) <= self.tolerance
 
 

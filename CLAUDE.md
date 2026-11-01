@@ -8,12 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구조의 핵심 (여러 파일을 봐야 알 수 있는 것)
 
-- **원고와 코드는 분리되어 있고 빌드 때 합쳐진다.** `chapters/{nn}-{slug}.html`은 본문 조각이며 코드를 직접 담지 않는다. `<pre data-src="{nn}_{slug}/파일.py">`는 코드로 빌드 시 치환된다. 실행 결과는 싣지 않고 독자가 코드 블록의 [▶ 실행]으로 확인하며, 편집기는 연습문제 시작 코드에만 있다(교재는 내 코드를 저장하지 않는다). 따라서 코드 수정은 `src/`에서만 하고, `data-lines` 범위가 밀리지 않았는지 확인한다.
+- **원고와 코드는 분리되어 있고 빌드 때 합쳐진다.** `chapters/{nn}-{slug}.html`은 본문 조각이며 코드를 직접 담지 않는다. `<pre data-src="{nn}_{slug}/파일.py" data-title="역할 이름">`는 코드로 빌드 시 치환되고, 캡션에는 `data-title`만 나온다. 실행 결과는 싣지 않고 독자가 코드 블록의 [▶ 실행]으로 확인하며, 편집기는 연습문제 시작 코드에만 있다(교재는 내 코드를 저장하지 않는다). 따라서 코드 수정은 `src/`에서만 하고, `data-lines` 범위가 밀리지 않았는지 확인한다.
 - `textbook/`은 빌드 산출물이라 매번 삭제 후 재생성된다. 직접 수정하지 말고 `chapters/`, `src/`, `.claude/skills/html-textbook-publishing/assets/`를 고친다.
 - 장 구조·섹션 id·주석 규칙은 `.claude/skills/pattern-chapter-writing/SKILL.md`, 검증 규칙은 `.claude/skills/code-verification/` 이 기준이다.
 - `src/` 예제는 표준 라이브러리만 쓰고, 파일 간 import 없이 단독 실행된다.
 - **코드 폰트 합자는 항상 꺼 둔다.** JetBrains Mono의 합자가 `->`를 `→`로, `!=`를 `≠`로 그려 소스와 화면이 달라진다. `style.css`·`pyrun.css`·`inquiry/templates/style.css`의 `font-variant-ligatures: none !important` 규칙을 지우지 말고, 코드를 보여 주는 CSS를 새로 만들 때도 이 규칙이 적용되는지 확인한다. 소스의 `->`·비교 연산자는 ASCII 그대로 둔다(문자를 `→`·`≠`로 바꾸지 않는다). 이 규칙은 이미 반영되어 있으므로 코드 예제를 보여 줄 때마다 따로 언급하지 않는다.
-- **GitHub Pages는 `docs/`의 사본을 서비스한다.** `textbook/`만 고치면 배포 화면은 그대로다. 교재를 재빌드한 뒤 배포하려면 `rsync -a --delete textbook/ docs/textbook/`로 동기화한다(`docs/textbook/`은 `textbook/`의 순수 복사본이다). `docs/index.html`(표지)은 별도 파일이라 건드리지 않는다. 탐구 학습지(`inquiry/`)는 배포하지 않는다.
+- **학생에게 코드 저장소를 드러내지 않는다.** 학생은 `src/`나 파일 이름을 모른다. 코드는 화면의 코드 블록(▶ 실행)으로만 본다. 원고·코드 주석·SVG·캡션에 `01_naive.py`, `src/…`, "저장소에 있다", "파일 앞부분" 같은 말을 쓰지 않고 역할 이름(순진한 코드·패턴 코드·파이썬다운 변형 등)만 쓴다. 세부 규칙은 `pattern-chapter-writing` 스킬.
+- **GitHub Pages는 `docs/`의 사본을 서비스한다.** `textbook/`만 고치면 배포 화면은 그대로다. 교재를 재빌드한 뒤 배포하려면 `rsync -a --delete textbook/ docs/textbook/`로 동기화한다(`docs/textbook/`은 `textbook/`의 순수 복사본이다). `docs/index.html`(표지, `https://heback.github.io/python-design-patterns/`)이 교재의 첫 화면이며 별도 파일이라 빌드가 건드리지 않는다. `textbook/index.html`(목차)은 만들지 않고 쓰지 않는다. 교재의 상단 바 링크는 위 주소로 간다. 탐구 학습지(`inquiry/`)는 배포하지 않는다.
 
 ## 탐구학습 자료 (`inquiry/`)
 
@@ -37,7 +38,7 @@ python3 src/03_builder/02_builder.py
 
 # HTML 빌드 → textbook/
 python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
-open textbook/index.html
+open textbook/00-intro.html
 ```
 
 코드 문법 강조(신택스 하이라이팅)는 `.claude/skills/html-textbook-publishing/assets/pyhl.js`(공용, 외부 의존 없음)가 맡는다. 정적 코드 블록·편집기·예시 팝업·탐구 학습지 모두 적용되며, 수정 시 `syntax-highlighting` 스킬을 따른다.

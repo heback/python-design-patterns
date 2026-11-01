@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="생성 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">4장 · 싱글턴 (Singleton)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -47,7 +47,7 @@
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">싱글턴 도입 전, 각 모듈이 자기 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다는 점부터 확인하라. 문제는 <code>_last_hash</code>라는 상태가 인스턴스마다 따로 있고, 세 모듈이 각자 인스턴스를 만든다는 조합에서 생긴다. 데모 출력의 <code>prev</code> 열을 위에서 아래로 따라가 보라. 주석의 <dfn class="term" id="term-append-only" data-term="append-only" title="끝에 덧붙이기만 허용하고 기존 내용은 고칠 수 없게 한 저장 방식.">append-only</dfn> 파일은 끝에 덧붙이기만 허용하고 기존 내용은 고칠 수 없게 한 파일이다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 500" role="img" aria-label="01_naive.py의 문제 지점: 처방·검사·원무 모듈이 각자 AuditLogger를 만들고, 각 기록기는 자기 _last_hash만 알면서 하나뿐인 AUDIT_FILE에 기록한다. 그 결과 #1과 #2는 GENESIS를, #3은 #0을 가리켜 verify_chain()이 체인이 갈라졌다고 판정한다"><defs>
+    <svg viewBox="0 0 640 500" role="img" aria-label="순진한 코드의 문제 지점: 처방·검사·원무 모듈이 각자 AuditLogger를 만들고, 각 기록기는 자기 _last_hash만 알면서 하나뿐인 AUDIT_FILE에 기록한다. 그 결과 #1과 #2는 GENESIS를, #3은 #0을 가리켜 verify_chain()이 체인이 갈라졌다고 판정한다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -124,9 +124,9 @@
       <text class="uml-note" x="20" y="462">① AuditLogger: 체인의 마지막 해시가 인스턴스 상태 → ② 세 모듈이 각자 생성</text>
       <text class="uml-note" x="20" y="484">③ 데모 [1]: 출력의 prev 열을 위에서 아래로 → ④ 데모 [2]: verify_chain()의 판정</text>
     </svg>
-    <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "담고 있다", 점선 화살표는 "기록한다/가리킨다". 기록기 각자는 정확하지만 파일 하나를 공유하는 순간 서로를 모른다.</figcaption>
+    <figcaption>코드 지도 · 순진한 코드. 속이 찬 마름모는 "담고 있다", 점선 화살표는 "기록한다/가리킨다". 기록기 각자는 정확하지만 파일 하나를 공유하는 순간 서로를 모른다.</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/04_singleton/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 모듈마다 AuditLogger()를 새로 만들자 감사 로그의 해시 체인이 갈라진다.
+  <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 모듈마다 AuditLogger()를 새로 만들자 감사 로그의 해시 체인이 갈라진다.
 
 상황: 한결종합병원 의료정보팀 개발자 태윤은 &quot;누가 언제 어떤 환자 기록을 열람·수정했는가&quot;를
 법적 요건에 맞게 남기는 AuditLogger를 만들었다. 위·변조를 탐지하려고 각 기록에 직전 기록의
@@ -324,7 +324,7 @@ if __name__ == &quot;__main__&quot;:
     코드 주석에 처음 나오는 말들이다. <dfn class="term" id="term-cpython" data-term="cpython" title="파이썬 언어의 구현체들. CPython은 C로 만든 표준 구현, PyPy는 JIT 컴파일러를 쓰는 대안 구현으로 메모리 회수 시점 등이 다르다.">CPython</dfn>은 C로 만든 파이썬의 표준 구현이고, <dfn class="term" id="term-global-interpreter-lock" data-term="global-interpreter-lock" title="CPython에서 한 번에 한 스레드만 바이트코드를 실행하게 하는 전역 잠금; 바이트코드 하나의 원자성만 줄 뿐 &#x27;검사 후 대입&#x27; 같은 여러 동작 사이는 보호하지 않는다.">GIL</dfn>(Global Interpreter Lock)은 CPython에서 한 번에 한 스레드만 파이썬 명령을 실행하게 하는 전역 잠금이다. 잠금의 <dfn class="term" id="term-reentrancy" data-term="reentrancy" title="이미 그 잠금(또는 함수)을 쥐고 있는 같은 스레드가 다시 들어갈 수 있는 성질; `threading.Lock`은 재진입할 수 없고 `RLock`은 가능하다.">재진입</dfn>은 이미 그 잠금을 쥔 같은 스레드가 다시 잡을 수 있는 성질로, <code>threading.Lock</code>은 재진입할 수 없고 <code>RLock</code>은 가능하다. 재진입할 수 없는 잠금을 같은 스레드가 다시 잡으려 하면 <dfn class="term" id="term-deadlock" data-term="deadlock" title="실행 흐름들이 서로(또는 자신이) 쥔 자원을 기다리며 영원히 멈춘 상태.">교착</dfn> 상태, 곧 쥔 자원을 서로(또는 자신이) 기다리며 영원히 멈춘 상태가 된다. <dfn class="term" id="term-pytest" data-term="pytest" title="파이썬의 대표적 테스트 프레임워크; 픽스처로 준비·정리를 주입하고(예: 로그 캡처용 `caplog`), pytest-xdist 플러그인으로 테스트를 여러 워커 프로세스에 나눠 병렬 실행한다.">pytest</dfn>는 파이썬의 대표적 테스트 프레임워크이고, pytest-xdist는 테스트를 여러 워커 프로세스에 나눠 병렬로 돌리는 확장이다. 테스트를 찾아 실행하고 결과를 모으는 도구를 테스트 <dfn class="term" id="term-test-runner" data-term="test-runner" title="테스트를 찾아 실행하고 결과를 모으는 도구(unittest의 TextTestRunner 등).">러너</dfn>라 부른다.
   </div>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 516" role="img" aria-label="02_singleton.py의 구조: AuditLogger는 _instance와 _lock을 클래스에 두고 __new__의 이중 검사 잠금과 __init__의 _initialized 가드로 유일성을 지킨다. PrescriptionModule과 LabModule은 메서드 본문에서 AuditLogger()를 불러 의존성이 숨고, 두 테스트가 같은 인스턴스를 공유해 서로의 기록을 본다"><defs>
+    <svg viewBox="0 0 640 516" role="img" aria-label="패턴 코드의 구조: AuditLogger는 _instance와 _lock을 클래스에 두고 __new__의 이중 검사 잠금과 __init__의 _initialized 가드로 유일성을 지킨다. PrescriptionModule과 LabModule은 메서드 본문에서 AuditLogger()를 불러 의존성이 숨고, 두 테스트가 같은 인스턴스를 공유해 서로의 기록을 본다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -402,18 +402,18 @@ if __name__ == &quot;__main__&quot;:
       <text class="uml-note" x="20" y="482">① AuditLogger의 클래스 속성 → ② __new__·__init__이 각각 막는 함정 → ③ 숨은 의존성</text>
       <text class="uml-note" x="20" y="504">④ 테스트 A·B: [2] B가 A의 기록을 본다 · [3] 리셋 훅으로 땜질하면 뒷문이 생긴다</text>
     </svg>
-    <figcaption>코드 지도 · 02_singleton.py. 점선 화살표는 "부른다". 위 절반이 유일성, 아래 절반이 그 대가인 전역 접근이다.</figcaption>
+    <figcaption>코드 지도 · 패턴 코드. 점선 화살표는 "부른다". 위 절반이 유일성, 아래 절반이 그 대가인 전역 접근이다.</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/04_singleton/02_singleton.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;싱글턴 적용: AuditLogger()를 몇 번 부르든 같은 인스턴스 — 체인은 고쳐지지만 새 고통이 생긴다.
+  <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;싱글턴 적용: AuditLogger()를 몇 번 부르든 같은 인스턴스 — 체인은 고쳐지지만 새 고통이 생긴다.
 
-상황: 01_naive.py에서 모듈마다 AuditLogger를 만들자 해시 체인이 갈라졌다. 태윤은 GoF 싱글턴을
+상황: 순진한 코드에서 모듈마다 AuditLogger를 만들자 해시 체인이 갈라졌다. 태윤은 GoF 싱글턴을
 적용했다. 이제 어느 모듈에서 AuditLogger()를 불러도 같은 객체가 나온다. 1차 고통(인스턴스 중복)은
 해결된다. 그런데 몇 주 뒤 QA 팀이 모듈별 단위 테스트를 돌리면서 2차 고통이 드러났다.
 
 GoF 의도(intent): &quot;클래스의 인스턴스가 오직 하나임을 보장하고, 그 인스턴스에 대한
 전역적인 접근점을 제공한다.&quot; — 이 문장에는 요구가 &#x27;둘&#x27; 들어 있다는 점에 주목하라.
 (1) 유일성: 인스턴스가 하나여야 한다.  (2) 전역 접근: 어디서든 그것을 얻을 수 있다.
-이 파일의 후반부는 (2)가 만드는 비용을 보여준다.
+이 코드의 후반부는 (2)가 만드는 비용을 보여준다.
 
 역할 대응: [Singleton] AuditLogger
 &quot;&quot;&quot;
@@ -508,7 +508,7 @@ class AuditLogger:
 
 
 # ---------------------------------------------------------------------------
-# 진료 모듈 — 순진한 코드(01_naive.py)와 똑같이 AuditLogger()를 부르지만, 이제 모두 같은 객체를 얻는다.
+# 진료 모듈 — 순진한 코드와 똑같이 AuditLogger()를 부르지만, 이제 모두 같은 객체를 얻는다.
 # ---------------------------------------------------------------------------
 
 class PrescriptionModule:
@@ -583,7 +583,7 @@ if __name__ == &quot;__main__&quot;:
     Borg(Monostate)는 인스턴스는 여럿 만들되 모든 인스턴스가 같은 속성 저장소를 공유해 상태만 하나로 만드는 파이썬 관용구다. 그 저장소가 <code><dfn class="term" id="term-dict" data-term="dict" title="인스턴스의 속성 이름과 값을 담은 딕셔너리. vars(obj)로 볼 수 있다.">__dict__</dfn></code>, 곧 인스턴스의 속성 이름과 값을 담은 딕셔너리다. 코드 docstring의 <dfn class="term" id="term-module-cache" data-term="module-cache" title="파이썬은 모듈을 첫 import 때 한 번만 실행하고 `sys.modules`에 캐시해, 이후 import는 같은 모듈 객체를 돌려준다.">import 캐시</dfn>는 파이썬이 모듈을 첫 import 때 한 번만 실행하고 <code>sys.modules</code>에 보관해, 이후 import에는 같은 모듈 객체를 돌려주는 장치다. <dfn class="term" id="term-object-identity" data-term="object-identity" title="값이 같은지(==)와 별개로 두 참조가 &#x27;같은 객체&#x27;인지(is)를 가르는 성질.">정체성</dfn>(identity)은 값이 같은지(<code>==</code>)와 별개로 두 참조가 같은 객체인지(<code>is</code>)를 가르는 성질이다. <dfn class="term" id="term-lazy-initialization" data-term="lazy-initialization" title="비싼 객체나 데이터를 미리 만들지 않고, 실제로 처음 필요해지는 순간에 만들거나 불러오는 기법.">지연 생성</dfn>(지연 초기화)은 객체를 미리 만들지 않고 처음 필요해지는 순간에 만드는 기법이다. <code><dfn class="term" id="term-threading-barrier" data-term="threading-barrier" title="지정한 수의 스레드가 모두 도착할 때까지 기다렸다가 한꺼번에 통과시키는 동기화 도구.">threading.Barrier</dfn></code>는 정해진 수의 스레드가 모두 도착할 때까지 기다렸다가 한꺼번에 통과시키는 동기화 도구로, 경쟁을 일부러 재현하는 데 쓴다.
   </div>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 540" role="img" aria-label="03_variants.py의 배치: 다섯 묶음이 각각 다른 주체로 유일성을 보장한다. UnsafeLogger와 SafeLogger는 클래스가, SingletonMeta는 메타클래스가, BorgLogger는 공유 __dict__가, audit_logger와 get_audit_logger()는 import 캐시와 함수 캐시가 보장한다. count_instances()가 스레드 경쟁을 재현한다"><defs>
+    <svg viewBox="0 0 640 540" role="img" aria-label="구현 비교 코드의 배치: 다섯 묶음이 각각 다른 주체로 유일성을 보장한다. UnsafeLogger와 SafeLogger는 클래스가, SingletonMeta는 메타클래스가, BorgLogger는 공유 __dict__가, audit_logger와 get_audit_logger()는 import 캐시와 함수 캐시가 보장한다. count_instances()가 스레드 경쟁을 재현한다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -668,12 +668,12 @@ if __name__ == &quot;__main__&quot;:
       <text class="uml-note" x="20" y="502">주황 테두리는 경쟁에서 실제로 깨지는 구현, 파란 테두리는 유일성 로직이 빠진 평범한 클래스</text>
       <text class="uml-note" x="20" y="524">① 두 __new__의 차이는 잠금과 재검사뿐 → ② __init__ 함정이 없는 이유 → ③ 정체성 대신 상태 → ④ 관례</text>
     </svg>
-    <figcaption>코드 지도 · 03_variants.py. 점선 화살표는 "만든다/쓴다". 점선 테두리 하나가 파일의 구획 하나다.</figcaption>
+    <figcaption>코드 지도 · 구현 비교 코드. 점선 화살표는 "만든다/쓴다". 점선 테두리 하나가 코드의 구획 하나다.</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/04_singleton/03_variants.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬의 싱글턴 구현 비교: 잠금 없는 __new__의 경쟁, 메타클래스, Borg, 모듈 객체, functools.cache.
+  <figure class="code"><figcaption>구현 비교 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬의 싱글턴 구현 비교: 잠금 없는 __new__의 경쟁, 메타클래스, Borg, 모듈 객체, functools.cache.
 
-상황: 02_singleton.py의 이중 검사 잠금을 리뷰하던 동료 수아가 물었다. &quot;잠금이 정말 필요해요?
-그리고 파이썬에선 싱글턴을 만드는 방법이 너무 많던데, 뭐가 달라요?&quot; 이 파일은 그 질문에
+상황: 패턴 코드의 이중 검사 잠금을 리뷰하던 동료 수아가 물었다. &quot;잠금이 정말 필요해요?
+그리고 파이썬에선 싱글턴을 만드는 방법이 너무 많던데, 뭐가 달라요?&quot; 이 코드는 그 질문에
 실험으로 답한다. 감사 로그 기록기를 단순화한 클래스들로 각 방식의 성질을 비교한다.
 
 비교 축:
@@ -711,7 +711,7 @@ class UnsafeLogger:
 
 
 class SafeLogger:
-    &quot;&quot;&quot;[Singleton] 패턴 코드(02_singleton.py)와 같은 이중 검사 잠금.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Singleton] 패턴 코드와 같은 이중 검사 잠금.&quot;&quot;&quot;
 
     _instance: SafeLogger | None = None
     _lock = threading.Lock()
@@ -867,7 +867,7 @@ if __name__ == &quot;__main__&quot;:
   <h3>5.2 두 요구를 떼어 놓기: composition root에서 주입</h3>
   <p class="lead-in">표의 마지막 줄이 태윤의 최종 설계다. <code>AuditLogger</code>는 평범한 클래스로 돌아가고, 유일성은 <code>build_app()</code>이라는 조립 지점 하나가 책임지며, 모듈들은 기록기를 생성자로 받는다. <code>build_app()</code> docstring의 "프로세스당 하나"라는 경고와, 데모 [3]이 보여주는 이 방식의 대가를 놓치지 말라. docstring의 <dfn class="term" id="term-object-graph" data-term="object-graph" title="프로그램 안의 객체들이 서로를 참조하며 이루는 연결 구조.">객체 그래프</dfn>는 객체들이 서로를 참조하며 이루는 연결 구조이고, <dfn class="term" id="term-database-sequence" data-term="database-sequence" title="데이터베이스가 원자적으로 증가하는 번호를 발급하는 객체; 여러 프로세스에 걸친 유일성을 보장할 수 있다.">DB 시퀀스</dfn>는 데이터베이스가 원자적으로 증가하는 번호를 발급해 여러 프로세스에 걸친 유일성을 보장하는 객체다. 테스트 주석의 <dfn class="term" id="term-late-binding" data-term="late-binding" title="클로저가 변수의 값을 정의 시점이 아니라 호출 시점에 찾는 성질; 반복문 안 람다가 마지막 값만 보는 함정의 원인이며 `f=f` 기본 인자로 피한다.">늦은 바인딩</dfn>은 클로저가 변수의 값을 정의 시점이 아니라 호출 시점에 찾는 성질로, 반복문 안의 람다가 마지막 값만 보는 함정의 원인이다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 450" role="img" aria-label="04_injection.py의 구조: build_app()이 AuditLogger를 한 번 만들어 PrescriptionModule과 LabModule의 생성자에 넘기고 EmrApp으로 묶는다. 테스트는 각자 새 AuditLogger를 만들고, composition root 밖에서 만든 기록기는 다른 체인으로 새어 나간다"><defs>
+    <svg viewBox="0 0 640 450" role="img" aria-label="주입 코드의 구조: build_app()이 AuditLogger를 한 번 만들어 PrescriptionModule과 LabModule의 생성자에 넘기고 EmrApp으로 묶는다. 테스트는 각자 새 AuditLogger를 만들고, composition root 밖에서 만든 기록기는 다른 체인으로 새어 나간다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -933,11 +933,11 @@ if __name__ == &quot;__main__&quot;:
       <text class="uml-note" x="20" y="410"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 유일성을 나눠 맡은 둘: 조립 지점과 평범해진 클래스</text>
       <text class="uml-note" x="20" y="432">① build_app() → ② 모듈 생성자의 audit 인자 → ③ 테스트마다 새 기록기 → ④ 이 방식의 대가</text>
     </svg>
-    <figcaption>코드 지도 · 04_injection.py. 실선 화살표는 "생성자로 받아 들고 있다", 점선 화살표는 "만든다". 02_singleton.py 지도의 아래 절반과 비교해 보라.</figcaption>
+    <figcaption>코드 지도 · 주입 코드. 실선 화살표는 "생성자로 받아 들고 있다", 점선 화살표는 "만든다". 패턴 코드 지도의 아래 절반과 비교해 보라.</figcaption>
   </figure>
-  <figure class="code"><figcaption>src/04_singleton/04_injection.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;더 나은 대안: 싱글턴 대신 composition root에서 &#x27;하나만 만들어&#x27; 생성자로 주입한다.
+  <figure class="code"><figcaption>주입 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;더 나은 대안: 싱글턴 대신 composition root에서 &#x27;하나만 만들어&#x27; 생성자로 주입한다.
 
-상황: 02_singleton.py의 싱글턴은 해시 체인 분기(1차 고통)를 해결했지만 숨은 의존성, 테스트 오염,
+상황: 패턴 코드의 싱글턴은 해시 체인 분기(1차 고통)를 해결했지만 숨은 의존성, 테스트 오염,
 테스트용 리셋 뒷문(2차 고통)을 만들었다. 태윤은 GoF 의도의 두 요구를 분리했다.
 - 유일성(&quot;기록기는 하나여야 한다&quot;) → 애플리케이션을 조립하는 단 한 곳(composition root)이 책임진다.
 - 전역 접근(&quot;어디서든 얻는다&quot;) → 버린다. 필요한 객체는 생성자로 받는다.
@@ -1126,13 +1126,13 @@ if __name__ == &quot;__main__&quot;:
     <details class="solution">
       <summary>해설 보기</summary>
       <p><strong>원인</strong>: <code>Cls()</code> 호출은 <code>type.__call__</code>이 처리하며, 대략 "<code>obj = Cls.__new__(Cls)</code>를 부르고, <code>obj</code>가 <code>Cls</code>의 인스턴스이면 <code>obj.__init__()</code>을 부른다"로 동작한다. <code>__new__</code>가 새 객체 대신 기존 객체를 돌려줘도 그것은 여전히 <code>Cls</code>의 인스턴스이므로 <code>__init__</code>이 다시 실행된다. 유일성은 지켜졌지만 그 유일한 객체의 상태가 매번 덮어써진다.</p>
-      <p><strong>해결 1</strong>: <code>__init__</code> 첫 줄에서 <code>_initialized</code> 플래그를 검사해 두 번째 호출부터 즉시 반환한다(본문 02의 방식). <strong>해결 2</strong>: 상태 초기화를 <code>__new__</code>의 "처음 만들 때" 분기로 옮기고 <code>__init__</code>을 정의하지 않는다. 메타클래스 방식(본문 03)은 <code>type.__call__</code> 자체를 건너뛰므로 이 함정이 원천적으로 없다.</p>
+      <p><strong>해결 1</strong>: <code>__init__</code> 첫 줄에서 <code>_initialized</code> 플래그를 검사해 두 번째 호출부터 즉시 반환한다(본문 패턴 코드의 방식). <strong>해결 2</strong>: 상태 초기화를 <code>__new__</code>의 "처음 만들 때" 분기로 옮기고 <code>__init__</code>을 정의하지 않는다. 메타클래스 방식(본문 구현 비교 코드)은 <code>type.__call__</code> 자체를 건너뛰므로 이 함정이 원천적으로 없다.</p>
       <p>흔한 오답은 "<code>__new__</code>가 새 객체를 만들어서"다. 실험에서 <code>cls() is cls()</code>가 <code>True</code>이므로 객체는 하나다. 사라진 것은 객체가 아니라 상태다. 또 하나의 오답은 "<code>__init__</code>에서 <code>if not hasattr(self, 'entries')</code>로 검사한다"인데, 동작은 하지만 속성이 여러 개가 되면 검사도 늘어나고, 하위 클래스가 다른 속성을 추가하면 깨진다. 초기화 여부라는 하나의 사실은 하나의 플래그로 표현하는 편이 낫다.</p>
-      <figure class="code"><figcaption>src/04_singleton/solutions/ex1_init_reset_bug.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 1 해설: __new__ 싱글턴에서 __init__이 매번 다시 불려 상태가 초기화되는 버그.
+      <figure class="code"><figcaption>연습문제 1 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 1 해설: __new__ 싱글턴에서 __init__이 매번 다시 불려 상태가 초기화되는 버그.
 
-상황: 태윤의 첫 싱글턴 초안에는 02_singleton.py의 _initialized 가드가 없었다. 처방 모듈이
+상황: 태윤의 첫 싱글턴 초안에는 패턴 코드의 _initialized 가드가 없었다. 처방 모듈이
 기록을 남긴 뒤 검사 모듈이 처음으로 AuditLogger()를 부르자, 앞서 쌓인 기록이 사라졌다.
-&quot;인스턴스는 분명 하나인데 왜 기록이 지워지는가?&quot; — 이 파일은 그 버그를 재현하고 원인을 보인다.
+&quot;인스턴스는 분명 하나인데 왜 기록이 지워지는가?&quot; — 이 코드는 그 버그를 재현하고 원인을 보인다.
 
 원인 요약: 클래스 호출 Cls()는 type.__call__이 처리하며, 그 동작은 대략
     obj = Cls.__new__(Cls); if isinstance(obj, Cls): obj.__init__()
@@ -1158,7 +1158,7 @@ class BuggyAuditLogger:
 
 
 class GuardedAuditLogger:
-    &quot;&quot;&quot;[Singleton] 해결 1: 첫 초기화 여부를 플래그로 기억한다(02_singleton.py의 방식).&quot;&quot;&quot;
+    &quot;&quot;&quot;[Singleton] 해결 1: 첫 초기화 여부를 플래그로 기억한다(패턴 코드의 방식).&quot;&quot;&quot;
 
     _instance: GuardedAuditLogger | None = None
 
@@ -1241,7 +1241,7 @@ class NightCall:
       <p>세 단계로 바꾼다. (1) 모듈이 실제로 쓰는 세 값만 담은 불변 값 객체 <code>WardSettings</code>를 정의한다. 전역 <code>Config</code> 전체를 주입하지 않는 이유는 모듈이 무엇에 의존하는지 타입이 정확히 말하게 하기 위해서다. (2) 각 모듈은 생성자에서 <code>WardSettings</code>를 받는다. (3) 설정 파일을 읽는 일은 composition root 한 곳에서 한다.</p>
       <p>테스트는 <code>dataclasses.replace(settings, night_start_hour=20)</code>으로 하나만 바꾼 설정을 만들어 넣는다. 원래 설정은 불변이라 영향받지 않고, 되돌릴 것도 없으며, 병렬로 돌려도 안전하다.</p>
       <p>흔한 오답 두 가지. 첫째, 모듈 생성자의 기본값을 <code>settings=Config.instance()</code>로 두는 것. 시그니처에 의존성이 드러나는 것은 좋지만, 기본값이 import 시점에 한 번 평가되어 싱글턴이 그대로 숨어 있고, 주입을 깜빡한 호출부는 조용히 전역을 쓴다. 둘째, <code>Config</code>에 <code>set_instance(fake)</code>를 추가해 테스트에서 바꿔 끼우는 것. 이것은 리셋 훅의 변형으로, 전역 상태를 테스트가 조작한다는 문제를 그대로 둔다.</p>
-      <figure class="code"><figcaption>src/04_singleton/solutions/ex2_config_injection.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: Config.instance()를 직접 부르는 세 모듈을 생성자 주입으로 바꾸고 테스트에서 가짜 설정을 넣는다.
+      <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: Config.instance()를 직접 부르는 세 모듈을 생성자 주입으로 바꾸고 테스트에서 가짜 설정을 넣는다.
 
 상황: EMR의 병동 알림 기능은 세 모듈(병상 배정, 투약 알림, 야간 당직 호출)이 각자 메서드 안에서
 Config.instance()로 설정을 꺼내 썼다(문제 본문). 그래서 &quot;야간 시간대에 투약 알림이 몇 분 전에
@@ -1347,14 +1347,14 @@ if __name__ == &quot;__main__&quot;:
 
 <!--
 설계서 대비 변경 사항:
-- 파이썬다운 변형을 03_variants.py(구현 비교 + 스레드 경쟁 재현)와 04_injection.py(composition root 주입)로 나눴다.
+- 파이썬다운 변형을 구현 비교 코드(구현 비교 + 스레드 경쟁 재현)와 주입 코드(composition root 주입)로 나눴다.
   설계서의 "해결 → 부작용 → 더 나은 대안" 2단 서사에서 마지막 단계를 독립 파일로 두어야 대비가 선명하기 때문이다.
 - '프로세스당 하나'라는 한계(gunicorn 워커)를 추가했다. 감사 로그 시나리오에서 실제로 체인을 다시 가르는 원인이라 판단했다.
 -->
     <nav class="pager"><a class="prev" href="03-builder.html"><small>← 이전 · 3장</small>빌더 (Builder)</a><a class="next" href="05-adapter.html"><small>다음 · 5장 →</small>어댑터 (Adapter)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>

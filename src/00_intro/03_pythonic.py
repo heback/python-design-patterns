@@ -1,8 +1,8 @@
 """파이썬이라는 렌즈: Protocol(구조적 타이핑), 일급 함수, __call__ — 클래스가 필요한 순간은 언제인가.
 
-상황: 02_refactored.py는 조정 규칙마다 Adjustment ABC를 상속한 클래스를 만들었다. Java라면
+상황: 리팩터링 코드는 조정 규칙마다 Adjustment ABC를 상속한 클래스를 만들었다. Java라면
 자연스러운 모양이다. 그런데 ChildDiscount는 상태도 없고 메서드도 apply() 하나뿐이다.
-파이썬에서 이것은 그냥 '함수'가 아닌가? 이 파일은 같은 정책을 세 가지 재료로 다시 조립한다.
+파이썬에서 이것은 그냥 '함수'가 아닌가? 이 코드는 같은 정책을 세 가지 재료로 다시 조립한다.
 1. 상태 없는 규칙        → 평범한 함수 (일급 함수)
 2. 설정이 있는 규칙      → 클로저, 또는 __call__을 가진 작은 클래스
 3. 계약(인터페이스)      → typing.Protocol: 상속 없이 '모양'만 맞으면 된다
@@ -16,7 +16,7 @@ from datetime import date
 from enum import StrEnum
 from typing import Protocol
 
-# 순진한 코드와 같은 정의다(파일 단독 실행을 위해 다시 둔다).
+# 순진한 코드와 같은 정의다(이 코드만으로 실행되도록 다시 둔다).
 
 class Material(StrEnum):
     """자료 유형. 문자열 대신 멤버로 쓴다 — 오타(Material.DVDD)는 실행 즉시 AttributeError가 된다."""
@@ -43,7 +43,7 @@ class Branch(StrEnum):
 
 @dataclass(frozen=True)
 class Loan:
-    """대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
+    """대출 한 건. 순진한 코드·리팩터링 코드에서 branch를 뺐다 — 이 코드는 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
 
     material: Material   # 자료 유형
     member: Member       # 회원 유형

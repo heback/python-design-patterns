@@ -1,8 +1,8 @@
 """연습문제 1 해설: __new__ 싱글턴에서 __init__이 매번 다시 불려 상태가 초기화되는 버그.
 
-상황: 태윤의 첫 싱글턴 초안에는 02_singleton.py의 _initialized 가드가 없었다. 처방 모듈이
+상황: 태윤의 첫 싱글턴 초안에는 패턴 코드의 _initialized 가드가 없었다. 처방 모듈이
 기록을 남긴 뒤 검사 모듈이 처음으로 AuditLogger()를 부르자, 앞서 쌓인 기록이 사라졌다.
-"인스턴스는 분명 하나인데 왜 기록이 지워지는가?" — 이 파일은 그 버그를 재현하고 원인을 보인다.
+"인스턴스는 분명 하나인데 왜 기록이 지워지는가?" — 이 코드는 그 버그를 재현하고 원인을 보인다.
 
 원인 요약: 클래스 호출 Cls()는 type.__call__이 처리하며, 그 동작은 대략
     obj = Cls.__new__(Cls); if isinstance(obj, Cls): obj.__init__()
@@ -28,7 +28,7 @@ class BuggyAuditLogger:
 
 
 class GuardedAuditLogger:
-    """[Singleton] 해결 1: 첫 초기화 여부를 플래그로 기억한다(02_singleton.py의 방식)."""
+    """[Singleton] 해결 1: 첫 초기화 여부를 플래그로 기억한다(패턴 코드의 방식)."""
 
     _instance: GuardedAuditLogger | None = None
 

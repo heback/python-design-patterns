@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="구조 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">5장 · 어댑터 (Adapter)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -44,10 +44,10 @@
 
 <section id="naive">
 <h2>2. 순진한 설계와 그 한계</h2>
-<p>문제를 정확히 보기 위해 사고 직전의 코드를 재현한다. 파일 앞부분은 세 SDK를 흉내 낸 것이고(실제로는 우리가 고칠 수 없는 부분), 뒷부분의 <code>OrderService</code>가 예린의 코드다.</p>
+<p>문제를 정확히 보기 위해 사고 직전의 코드를 재현한다. 코드 앞부분은 세 SDK를 흉내 낸 것이고(실제로는 우리가 고칠 수 없는 부분), 뒷부분의 <code>OrderService</code>가 예린의 코드다.</p>
 <p class="lead-in">세 SDK가 서로 어떻게 다른지(이름, 금액 타입, 실패 보고 방식)를 먼저 훑고(SDK 흉내 코드의 거래번호는 <dfn class="term" id="term-itertools" data-term="itertools" title="반복자를 조립하는 표준 라이브러리 모듈(cycle 무한 반복, islice 앞 n개 자르기, chain 이어 붙이기, repeat, tee 복제 등)."><code>itertools</code></dfn>의 <code>count()</code>로 매긴다. <code>itertools</code>는 연속 번호처럼 값을 차례로 내놓는 도구들을 모아 둔 표준 라이브러리 모듈이다), <code>OrderService.pay()</code>와 <code>refund()</code>에서 그 차이가 어떻게 '비즈니스 로직 한가운데'에 녹아드는지 보라. <code># ⚠ 문제:</code> 주석이 아픈 곳이다.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 520" role="img" aria-label="01_naive.py의 문제 지점: 위쪽 세 SDK는 메서드 이름, 금액 단위, 실패 보고 방식이 서로 다르다. 아래 OrderService는 세 SDK를 직접 만들고, pay()의 PG 이름 분기 안에서 단위 변환과 오류 해석을 하며, refund()는 그 분기를 복제하다 PG C의 ×100 변환을 빠뜨린다"><defs>
+  <svg viewBox="0 0 640 520" role="img" aria-label="순진한 코드의 문제 지점: 위쪽 세 SDK는 메서드 이름, 금액 단위, 실패 보고 방식이 서로 다르다. 아래 OrderService는 세 SDK를 직접 만들고, pay()의 PG 이름 분기 안에서 단위 변환과 오류 해석을 하며, refund()는 그 분기를 복제하다 PG C의 ×100 변환을 빠뜨린다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -121,14 +121,14 @@
     <text class="uml-note" x="20" y="480">① 세 SDK의 차이: 이름 · 금액 단위 · 실패 방식 → ② pay(): PG 이름 분기 안에 번역이 섞인다</text>
     <text class="uml-note" x="20" y="502">③ refund(): 분기를 복제하다 C의 단위 변환을 놓쳤다 · 데모 [1] 세 PG 결제는 성공</text>
   </svg>
-  <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "만든다/넘긴다". SDK마다 다른 세 가지(이름, 단위, 실패 방식)를 번역하는 지식이 주문 서비스의 두 메서드에 흩어져 있다.</figcaption>
+  <figcaption>코드 지도 · 순진한 코드. 점선 화살표는 "만든다/넘긴다". SDK마다 다른 세 가지(이름, 단위, 실패 방식)를 번역하는 지식이 주문 서비스의 두 메서드에 흩어져 있다.</figcaption>
 </figure>
-<figure class="code"><figcaption>src/05_adapter/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 순진한 설계: 주문 서비스가 세 PG사 SDK를 직접 부른다.
+<figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 순진한 설계: 주문 서비스가 세 PG사 SDK를 직접 부른다.
 
 상황: 중소 쇼핑몰의 백엔드 개발자 예린은 PG사 A의 SDK로 결제를 붙였다. 이후
 수수료 협상으로 PG사 B가, 해외 고객 때문에 간편결제 C가 추가되었다. 세 SDK는
 메서드 이름, 금액 단위(원/Decimal/센트), 실패 보고 방식(예외/상태 코드/콜백)이
-전부 다르다. 이 파일은 그 차이를 OrderService 안에서 if/elif로 직접 흡수한 첫 구현이다.
+전부 다르다. 이 코드는 그 차이를 OrderService 안에서 if/elif로 직접 흡수한 첫 구현이다.
 읽을 때는 pay()와 refund()에 같은 번역 로직이 어떻게 복제되는지, 그리고 그 복제가
 실제로 어떤 버그를 낳는지(데모 [3])에 주목하라.
 &quot;&quot;&quot;
@@ -202,7 +202,7 @@ class PgCClient:
     결과는 반환값이 아니라 콜백으로 전달된다.
 
     단순화를 위해 이 흉내 코드는 콜백을 &#x27;즉시, 같은 스레드에서&#x27; 호출한다.
-    실제 SDK는 다른 스레드에서 나중에 콜백한다(02_adapter.py는 그렇게 흉내 낸다).
+    실제 SDK는 다른 스레드에서 나중에 콜백한다(패턴 코드는 그렇게 흉내 낸다).
     &quot;&quot;&quot;
 
     def submit(self, amount_minor: int, currency: str, token: str,
@@ -398,7 +398,7 @@ if __name__ == &quot;__main__&quot;:
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
 <p>예린은 먼저 "우리가 결제에 대해 말하는 방식"을 정했다. 금액은 원 단위 <code>int</code>, 결과는 즉시 반환, 실패는 우리 예외 하나. 이 결정은 SDK 문서를 보기 전에 내려야 한다. SDK 문서를 먼저 보면 Target이 특정 SDK를 닮아 간다.</p>
-<p class="lead-in">파일 <code>02_adapter.py</code>의 Target 부분이다. SDK 흉내 코드는 01과 같되, C SDK만 실제처럼 다른 스레드에서 콜백하도록 바꿨으므로(01은 단순화를 위해 즉시 콜백했다) 여기서는 생략했다(전체 파일은 저장소에 있다). <code>PaymentDeclined</code>의 docstring이 말하는 "남의 어휘를 몰라도 된다"가 이 설계의 목적이다.</p>
+<p class="lead-in">패턴 코드의 Target 부분이다. SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 다른 스레드에서 콜백하도록 바꿨으므로(순진한 코드는 단순화를 위해 즉시 콜백했다) 여기서는 생략했다. <code>PaymentDeclined</code>의 docstring이 말하는 "남의 어휘를 몰라도 된다"가 이 설계의 목적이다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
 
 상황: 예린은 주문 서비스에서 PG별 분기를 걷어내기로 한다. 먼저 &quot;우리 쪽이 원하는
@@ -407,8 +407,8 @@ if __name__ == &quot;__main__&quot;:
 그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
 번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
 
-외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
-바꿨다(순진한 코드 01_naive.py는 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+외부 SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(순진한 코드는 단순화를 위해 즉시 콜백했다). 이 코드만으로 전체가 보이도록 다시 실었다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -422,7 +422,7 @@ from decimal import Decimal
 from typing import Callable
 
 # ===========================================================================
-# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# 외부 SDK (Adaptee) — 수정 불가. 순진한 코드와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
 # ===========================================================================
 
 _ids = itertools.count(1001)
@@ -581,7 +581,7 @@ class PgBAdapter(PaymentGateway):
     def _check(res: PaymentResponse, action: str) -&gt; str:
         &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
 
-        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 순진한 코드에서는 이 규칙이
         두 곳에 복제되어 있었다는 점을 떠올려 보라.
         &quot;&quot;&quot;
         if res.status_code != 0 or res.payment_id is None:
@@ -607,7 +607,7 @@ class PgCAdapter(PaymentGateway):
     &quot;&quot;&quot;
 
     name = &quot;C&quot;
-    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 순진한 코드의 환불 버그가 여기서 사라진다.
     TIMEOUT_SEC = 5.0
 
     def __init__(self, client: PgCClient) -&gt; None:
@@ -687,7 +687,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
-        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (96–135행)</figcaption><pre><code class="language-python"># ===========================================================================
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python"># ===========================================================================
 # 우리 쪽 포트 (Target) — &quot;우리가 결제에 대해 말하는 방식&quot;을 정의한다.
 # ===========================================================================
 
@@ -731,7 +731,7 @@ class PaymentGateway(ABC):
 <p class="lead-in">이제 세 어댑터다. 각 어댑터의 docstring 첫 줄에 "번역할 것" 목록을 적어 두었다. A는 예외만, B는 단위와 상태 코드, C는 단위와 호출 모델까지 번역한다. 어댑터의 두께가 '차이의 양'에 비례한다는 점에 주목하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-exception-translation" data-term="exception-translation" title="외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것; 호출자가 남의 예외 어휘를 몰라도 되게 한다.">예외 변환</dfn>: 외부 라이브러리의 예외를 경계에서 잡아 우리 도메인의 예외로 바꿔 던지는 것. 호출자가 남의 예외 이름을 몰라도 되게 한다. <dfn class="term" id="term-staticmethod" data-term="staticmethod" title="self나 cls를 받지 않는, 클래스 이름공간에 둔 보통 함수를 만드는 데코레이터."><code>@staticmethod</code></dfn>: 메서드 정의 위에 붙이면 그 메서드가 <code>self</code>를 받지 않는 보통 함수처럼 동작한다(<code>@staticmethod</code> 같은 표기 자체는 6장에서 다룬다). <code>PgBAdapter._check</code>처럼 인스턴스 상태를 쓰지 않는 도우미에 쓴다. <dfn class="term" id="term-future" data-term="future" title="아직 끝나지 않은 작업의 결과를 담을 자리; 다른 스레드가 `set_result()`로 채우면 `result(timeout=…)`로 기다려 꺼낸다."><code>concurrent.futures.Future</code></dfn>: 아직 끝나지 않은 작업의 결과를 담을 자리. 다른 스레드가 <code>set_result()</code>로 채우면 <code>result(timeout=…)</code>로 기다렸다가 꺼낸다.</p></div>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 450" role="img" aria-label="02_adapter.py 어댑터 부분의 구조: PgAAdapter는 결과 형태와 예외만, PgBAdapter는 Decimal 변환과 상태 코드를 _check()로, PgCAdapter는 MINOR_PER_KRW 단위 변환과 콜백을 _await()로 번역한다. 왼쪽에서 오른쪽으로 갈수록 어댑터가 두꺼워진다"><defs>
+  <svg viewBox="0 0 640 450" role="img" aria-label="패턴 코드 어댑터 부분의 구조: PgAAdapter는 결과 형태와 예외만, PgBAdapter는 Decimal 변환과 상태 코드를 _check()로, PgCAdapter는 MINOR_PER_KRW 단위 변환과 콜백을 _await()로 번역한다. 왼쪽에서 오른쪽으로 갈수록 어댑터가 두꺼워진다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -815,10 +815,10 @@ class PaymentGateway(ABC):
     <g class="uml-step"><circle cx="430" cy="292" r="9"/><text x="430" y="296">4</text></g>
 
     <text class="uml-note" x="20" y="384"><tspan font-weight="700">읽는 순서</tspan> · 어댑터의 두께가 SDK와의 차이의 양에 비례한다(오른쪽일수록 두껍다)</text>
-    <text class="uml-note" x="20" y="406">파란 테두리: 01에서 pay()와 refund()에 복제되던 번역 규칙이 모인 한 곳</text>
+    <text class="uml-note" x="20" y="406">파란 테두리: 순진한 코드에서 pay()와 refund()에 복제되던 번역 규칙이 모인 한 곳</text>
     <text class="uml-note" x="20" y="428">① PgAAdapter의 예외 변환 → ② _check() → ③ MINOR_PER_KRW → ④ _await()의 Future와 timeout</text>
   </svg>
-  <figcaption>코드 지도 · 02_adapter.py의 어댑터 부분. 열 하나가 어댑터 하나, 행이 같은 메서드다. 점선 화살표는 "호출한다".</figcaption>
+  <figcaption>코드 지도 · 패턴 코드의 어댑터 부분. 열 하나가 어댑터 하나, 행이 같은 메서드다. 점선 화살표는 "호출한다".</figcaption>
 </figure>
 <figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
 
@@ -828,8 +828,8 @@ class PaymentGateway(ABC):
 그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
 번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
 
-외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
-바꿨다(순진한 코드 01_naive.py는 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+외부 SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(순진한 코드는 단순화를 위해 즉시 콜백했다). 이 코드만으로 전체가 보이도록 다시 실었다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -843,7 +843,7 @@ from decimal import Decimal
 from typing import Callable
 
 # ===========================================================================
-# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# 외부 SDK (Adaptee) — 수정 불가. 순진한 코드와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
 # ===========================================================================
 
 _ids = itertools.count(1001)
@@ -1002,7 +1002,7 @@ class PgBAdapter(PaymentGateway):
     def _check(res: PaymentResponse, action: str) -&gt; str:
         &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
 
-        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 순진한 코드에서는 이 규칙이
         두 곳에 복제되어 있었다는 점을 떠올려 보라.
         &quot;&quot;&quot;
         if res.status_code != 0 or res.payment_id is None:
@@ -1028,7 +1028,7 @@ class PgCAdapter(PaymentGateway):
     &quot;&quot;&quot;
 
     name = &quot;C&quot;
-    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 순진한 코드의 환불 버그가 여기서 사라진다.
     TIMEOUT_SEC = 5.0
 
     def __init__(self, client: PgCClient) -&gt; None:
@@ -1108,7 +1108,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
-        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (136–244행)</figcaption><pre><code class="language-python"># ===========================================================================
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python"># ===========================================================================
 # 어댑터 (Adapter) — 번역 규칙은 PG마다 여기 한 곳에만 있다(SRP).
 # ===========================================================================
 
@@ -1155,7 +1155,7 @@ class PgBAdapter(PaymentGateway):
     def _check(res: PaymentResponse, action: str) -&gt; str:
         &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
 
-        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 순진한 코드에서는 이 규칙이
         두 곳에 복제되어 있었다는 점을 떠올려 보라.
         &quot;&quot;&quot;
         if res.status_code != 0 or res.payment_id is None:
@@ -1181,7 +1181,7 @@ class PgCAdapter(PaymentGateway):
     &quot;&quot;&quot;
 
     name = &quot;C&quot;
-    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 순진한 코드의 환불 버그가 여기서 사라진다.
     TIMEOUT_SEC = 5.0
 
     def __init__(self, client: PgCClient) -&gt; None:
@@ -1237,8 +1237,8 @@ class PgCAdapter(PaymentGateway):
 그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
 번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
 
-외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
-바꿨다(순진한 코드 01_naive.py는 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+외부 SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 &#x27;다른 스레드에서&#x27; 콜백하도록
+바꿨다(순진한 코드는 단순화를 위해 즉시 콜백했다). 이 코드만으로 전체가 보이도록 다시 실었다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1252,7 +1252,7 @@ from decimal import Decimal
 from typing import Callable
 
 # ===========================================================================
-# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# 외부 SDK (Adaptee) — 수정 불가. 순진한 코드와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
 # ===========================================================================
 
 _ids = itertools.count(1001)
@@ -1411,7 +1411,7 @@ class PgBAdapter(PaymentGateway):
     def _check(res: PaymentResponse, action: str) -&gt; str:
         &quot;&quot;&quot;상태 코드 방식의 실패를 예외 방식으로 바꾼다.
 
-        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 순진한 코드에서는 이 규칙이
         두 곳에 복제되어 있었다는 점을 떠올려 보라.
         &quot;&quot;&quot;
         if res.status_code != 0 or res.payment_id is None:
@@ -1437,7 +1437,7 @@ class PgCAdapter(PaymentGateway):
     &quot;&quot;&quot;
 
     name = &quot;C&quot;
-    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 순진한 코드의 환불 버그가 여기서 사라진다.
     TIMEOUT_SEC = 5.0
 
     def __init__(self, client: PgCClient) -&gt; None:
@@ -1517,7 +1517,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
-        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>src/05_adapter/02_adapter.py  (245–289행)</figcaption><pre><code class="language-python"># ===========================================================================
+        OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python"># ===========================================================================
 # 클라이언트 (Client) — PG가 몇 개든 이 코드는 바뀌지 않는다.
 # ===========================================================================
 
@@ -1562,7 +1562,7 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[2] 거절 카드 — 세 PG의 서로 다른 실패 방식이 PaymentDeclined 하나로 보인다&quot;)
     for gw in gateways:
         OrderService(gw).checkout(f&quot;ORD-{gw.name}-X&quot;, 15_000, &quot;tok_declined&quot;)</code></pre></figure>
-<p>출력 [1]의 C 환불을 보라. 이번에는 <code>1500000</code> minor unit이 나갔다. 단위 규칙이 <code>MINOR_PER_KRW</code> 한 곳에 있고 <code>pay()</code>와 <code>refund()</code>가 그것을 공유하므로, 01의 사고는 구조적으로 재발할 수 없다. 출력 [2]는 세 가지 실패 방식이 <code>PaymentDeclined</code> 하나로 수렴했음을 보여준다. A의 경우 <code>raise ... from e</code> 덕분에 원래의 <code>PgAError</code>가 <code>__cause__</code>로 남아 있어, 로그를 볼 때 원인 정보도 잃지 않는다.</p>
+<p>출력 [1]의 C 환불을 보라. 이번에는 <code>1500000</code> minor unit이 나갔다. 단위 규칙이 <code>MINOR_PER_KRW</code> 한 곳에 있고 <code>pay()</code>와 <code>refund()</code>가 그것을 공유하므로, 순진한 코드의 사고는 구조적으로 재발할 수 없다. 출력 [2]는 세 가지 실패 방식이 <code>PaymentDeclined</code> 하나로 수렴했음을 보여준다. A의 경우 <code>raise ... from e</code> 덕분에 원래의 <code>PgAError</code>가 <code>__cause__</code>로 남아 있어, 로그를 볼 때 원인 정보도 잃지 않는다.</p>
 <div class="callout ok">
   <span class="label">핵심 정리</span>
   <p>어댑터의 가치는 '변환 코드를 작성한다'에 있지 않다. 그 코드는 어차피 어딘가에 있어야 한다. 가치는 <strong>변환 지식이 정확히 한 곳에 모이고, 그 바깥은 우리 어휘만으로 말할 수 있게 된다</strong>는 데 있다.</p>
@@ -1572,9 +1572,9 @@ if __name__ == &quot;__main__&quot;:
 <section id="pythonic">
 <h2>5. 파이썬다운 변형</h2>
 <p>팀 리드 도윤은 코드 리뷰에서 세 가지를 물었다. 어댑터가 꼭 Target을 상속해야 하는가? 함수 하나만 필요한 곳에도 클래스를 만들어야 하는가? 부가 메서드가 스무 개인 SDK라면 <code>__getattr__</code> 한 줄로 위임하면 되지 않는가? 셋 다 파이썬이라서 나오는 질문이다.</p>
-<p class="lead-in">아래 파일은 세 질문에 차례로 답한다. (1) <code>Protocol</code> Target과 상속하지 않는 <code>PgBAdapter</code>(Target에 붙은 <dfn class="term" id="term-typing-runtime-checkable" data-term="typing-runtime-checkable" title="Protocol에 붙여 `isinstance` 검사를 가능하게 하는 데코레이터; 메서드 이름의 존재만 보고 시그니처는 보지 않는다."><code>runtime_checkable</code></dfn>을 Protocol 정의 위에 붙이면 <code>isinstance</code> 검사를 할 수 있게 되는데, 메서드 이름이 있는지만 보고 시그니처는 보지 않는다), (2) <code>functools.partial</code>과 클로저로 만든 함수 어댑터, (3) 일부러 나쁘게 만든 <code>LeakyPgBAdapter</code>, (4) <code>raise ... from</code>의 의미 순서로 읽어라.</p>
+<p class="lead-in">아래 코드는 세 질문에 차례로 답한다. (1) <code>Protocol</code> Target과 상속하지 않는 <code>PgBAdapter</code>(Target에 붙은 <dfn class="term" id="term-typing-runtime-checkable" data-term="typing-runtime-checkable" title="Protocol에 붙여 `isinstance` 검사를 가능하게 하는 데코레이터; 메서드 이름의 존재만 보고 시그니처는 보지 않는다."><code>runtime_checkable</code></dfn>을 Protocol 정의 위에 붙이면 <code>isinstance</code> 검사를 할 수 있게 되는데, 메서드 이름이 있는지만 보고 시그니처는 보지 않는다), (2) <code>functools.partial</code>과 클로저로 만든 함수 어댑터, (3) 일부러 나쁘게 만든 <code>LeakyPgBAdapter</code>, (4) <code>raise ... from</code>의 의미 순서로 읽어라.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 530" role="img" aria-label="03_pythonic.py의 네 구획: PgBAdapter는 상속 없이 Protocol인 PaymentGateway의 모양을 맞추고, LeakyPgBAdapter는 __getattr__로 PgBClient의 모든 이름을 넘겨 경계를 무너뜨린다. a_charger()는 partial과 내부 함수로 PgAClient를 Charger 함수 모양으로 바꿔 settle_batch()에 넘기고, translate_errors()는 통신 예외를 raise from으로 PaymentDeclined로 바꾼다"><defs>
+  <svg viewBox="0 0 640 530" role="img" aria-label="파이썬다운 변형의 네 구획: PgBAdapter는 상속 없이 Protocol인 PaymentGateway의 모양을 맞추고, LeakyPgBAdapter는 __getattr__로 PgBClient의 모든 이름을 넘겨 경계를 무너뜨린다. a_charger()는 partial과 내부 함수로 PgAClient를 Charger 함수 모양으로 바꿔 settle_batch()에 넘기고, translate_errors()는 통신 예외를 raise from으로 PaymentDeclined로 바꾼다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -1651,19 +1651,19 @@ if __name__ == &quot;__main__&quot;:
     <g class="uml-step"><circle cx="346" cy="134" r="9"/><text x="346" y="138">3</text></g>
     <g class="uml-step"><circle cx="346" cy="266" r="9"/><text x="346" y="270">4</text></g>
 
-    <text class="uml-note" x="20" y="464"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 02의 클래스 어댑터를 대신하는 파이썬 도구</text>
+    <text class="uml-note" x="20" y="464"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 패턴 코드의 클래스 어댑터를 대신하는 파이썬 도구</text>
     <text class="uml-note" x="20" y="486">① Protocol과 상속 없는 PgBAdapter → ② partial과 내부 함수로 만든 a_charger</text>
     <text class="uml-note" x="20" y="508">③ 주황: 일부러 나쁘게 만든 LeakyPgBAdapter → ④ raise … from</text>
   </svg>
-  <figcaption>코드 지도 · 03_pythonic.py. 점선 테두리 하나가 파일의 구획 하나다. 빈 삼각형 점선은 "모양을 맞춘다", 빈 삼각형 실선은 "상속한다", 점선 화살표는 "넘긴다/돌려준다".</figcaption>
+  <figcaption>코드 지도 · 파이썬다운 변형. 점선 테두리 하나가 코드의 구획 하나다. 빈 삼각형 점선은 "모양을 맞춘다", 빈 삼각형 실선은 "상속한다", 점선 화살표는 "넘긴다/돌려준다".</figcaption>
 </figure>
-<figure class="code"><figcaption>src/05_adapter/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 파이썬다운 변형: Protocol target, 함수 어댑터, __getattr__ 위임의 함정.
+<figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 파이썬다운 변형: Protocol target, 함수 어댑터, __getattr__ 위임의 함정.
 
-상황: 02_adapter.py의 구조는 잘 돌아가지만, 예린의 팀 리드 도윤은 세 가지를 묻는다.
+상황: 패턴 코드의 구조는 잘 돌아가지만, 예린의 팀 리드 도윤은 세 가지를 묻는다.
 (1) 어댑터가 꼭 PaymentGateway를 상속해야 하나? 남이 만든 클래스도 그대로 끼울 수 없나?
 (2) 정산 배치는 &quot;금액과 토큰을 받아 거래번호를 돌려주는 함수&quot; 하나만 필요한데, 그것도 클래스로?
 (3) B SDK에는 영수증 조회 등 메서드가 스무 개다. 전부 손으로 위임해야 하나? __getattr__이면 한 줄인데?
-이 파일은 세 질문에 차례로 답한다. 외부 SDK는 설명에 필요한 만큼만 축약해 실었다.
+이 코드는 세 질문에 차례로 답한다. 외부 SDK는 설명에 필요한 만큼만 축약해 실었다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1898,10 +1898,10 @@ if __name__ == &quot;__main__&quot;:
       <li><strong>MRO 의존:</strong> 어댑터 안에서 SDK의 원본 <code>refund</code>를 부르려면 <code>PgBClient.refund(self, ...)</code>처럼 MRO를 우회해야 한다. 부모 순서를 바꾸면 동작이 바뀌는 코드는 SDK 버전 업그레이드에도 취약하다.</li>
     </ol>
     <p><strong>흔한 오답:</strong> "다중 상속은 <dfn class="term" id="term-diamond-problem" data-term="diamond-problem" title="두 부모가 같은 조상을 공유할 때 조상 메서드가 어느 경로로, 몇 번 호출되는지 모호해지는 다중 상속 문제.">다이아몬드 문제</dfn>가 있어서 위험하다." 다이아몬드 문제란 두 부모가 같은 조상을 공유할 때 조상의 메서드가 어느 경로로, 몇 번 불리는지 모호해지는 것이다. 파이썬은 <dfn class="term" id="term-c3-linearization" data-term="c3-linearization" title="다중 상속 계층을 부모 순서를 지키는 하나의 일렬 순서(MRO)로 펴는 알고리즘.">C3 선형화</dfn>(다중 상속 계층을 부모 순서를 지키는 한 줄의 MRO로 펴는 알고리즘)로 이를 결정적으로 해결하므로 그것 자체는 문제가 아니다. 문제는 is-a 관계가 공개 표면과 동적 디스패치를 통해 Adaptee의 내부 가정까지 끌어들인다는 점이다. "상속보다 합성"의 전형적 사례다.</p>
-    <figure class="code"><figcaption>src/05_adapter/solutions/ex1_class_adapter.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 1 해설: 클래스 어댑터가 파이썬에서 &#x27;가능하지만 권하지 않는&#x27; 이유.
+    <figure class="code"><figcaption>연습문제 1 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 1 해설: 클래스 어댑터가 파이썬에서 &#x27;가능하지만 권하지 않는&#x27; 이유.
 
 상황: 예린의 동료가 &quot;어댑터 클래스를 따로 두지 말고 PaymentGateway와 PgBClient를
-다중 상속하면 위임 코드가 필요 없다&quot;고 제안했다. 이 파일은 그 클래스 어댑터를 실제로
+다중 상속하면 위임 코드가 필요 없다&quot;고 제안했다. 이 코드는 그 클래스 어댑터를 실제로
 만들어 보고, (1) MRO가 어떻게 생기는지, (2) SDK 메서드가 Target에 새어 나오는
 인터페이스 오염, (3) 이름 충돌 시 SDK 내부의 self 호출이 우리 메서드로 &#x27;납치&#x27;되는
 문제를 데모로 보인다.
@@ -2020,7 +2020,7 @@ def max_celsius(sensors):
     <p>Target 이름에 대해서는 두 답이 모두 옳을 수 있다. 신형 센서의 이름을 따르면 어댑터가 하나로 줄어든다. 반면 <code>temperature_c()</code>처럼 중립적인 이름을 정하면 두 센서 모두 어댑터가 필요하지만 Target이 특정 벤더에 끌려가지 않는다. 벤더가 자주 바뀌는 환경이라면 후자가 낫다.</p>
     <p><strong>흔한 오답:</strong> <code>LegacyThermo</code>를 상속해 <code>get_celsius()</code>를 추가하는 것. 이는 클래스 어댑터이며, 센서 객체를 라이브러리가 생성해 돌려주는 경우(팩토리 함수 등)에는 아예 쓸 수 없다. 이미 만들어진 객체를 감쌀 수 있다는 것이 객체 어댑터의 실용적 장점이다.</p>
     <p>해설 코드의 클라이언트 함수는 매개변수 타입을 <dfn class="term" id="term-iterable" data-term="iterable" title="__iter__()를 구현해 for·list()·sum() 등에 바로 쓸 수 있는 객체. 그 자체가 순회 상태를 들고 있을 필요는 없다(상태는 __iter__()가 돌려주는 별개의 객체가 진다)."><code>Iterable</code></dfn>로 적었다. 이터러블은 <code>for</code> 문으로 처음부터 순회할 수 있는 객체(리스트, 튜플 등)를 말하며, 센서를 리스트로만 받겠다고 못 박지 않으려는 선택이다.</p>
-    <figure class="code"><figcaption>src/05_adapter/solutions/ex2_thermometer.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 2 해설: isinstance 분기로 두 온도 센서를 다루던 코드를 어댑터로.
+    <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 2 해설: isinstance 분기로 두 온도 센서를 다루던 코드를 어댑터로.
 
 상황: 스마트 온실 컨트롤러가 구형 센서(LegacyThermo, 화씨, read_f())와 신형 센서
 (NewThermo, 섭씨, get_celsius())를 섞어 쓴다. 원래 코드는 평균 온도를 구할 때
@@ -2118,13 +2118,13 @@ if __name__ == &quot;__main__&quot;:
     <p><strong>(다)가 답이다.</strong> 위임할 메서드가 두 개뿐이라 (가)와 (나)가 아껴 주는 <dfn class="term" id="term-boilerplate" data-term="boilerplate" title="본질적 로직 없이 형식 때문에 반복해서 써야 하는 상투적 코드(단순 위임 메서드 등).">보일러플레이트</dfn>(본질적 로직 없이 형식 때문에 반복해 쓰는 상투적 코드)는 거의 없는 반면, 공개 표면이 <code>pay</code>/<code>refund</code>로 정확히 고정되는 이점은 크다. 무엇보다 지금 "의미가 같다"는 것은 지금의 사실일 뿐이다. D가 다음 버전에서 예외 방식을 바꾸면 (다)에서는 두 메서드에 번역을 <em>추가</em>하면 되지만, (가)나 (나)로 시작했다면 구조를 갈아엎어야 한다.</p>
     <p>(나)는 특히 이 상황에 맞지 않는다. 이름이 <em>다르기</em> 때문에 <code>pay → make_payment</code> 매핑은 어차피 손으로 써야 하고, <code>__getattr__</code>은 그 외의 SDK 속성(예: <code>debug_dump</code>)만 새게 만든다. (가)는 연습문제 1의 문제를 모두 갖는다.</p>
     <p>함수 하나만 필요한 클라이언트라면 <strong><dfn class="term" id="term-bound-method" data-term="bound-method" title="인스턴스에 묶인 메서드 객체(chart.redraw). 호출할 때 self가 자동으로 채워지며, 속성 접근 때마다 새로 만들어진다.">바운드 메서드</dfn> <code>client.make_payment</code> 자체가 어댑터</strong>다. 바운드 메서드는 인스턴스에 묶인 메서드 객체로, 호출하면 <code>self</code>가 자동으로 채워진다. Target이 <code>Callable[[int, str], str]</code>이고 모양이 이미 맞으므로 아무것도 만들 필요가 없다. 파이썬에서 "어댑터가 필요 없어지는" 가장 흔한 경우다.</p>
-    <figure class="code"><figcaption>src/05_adapter/solutions/ex3_rename_only.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 3 해설: 이름만 다르고 의미가 같을 때 어떤 어댑터를 고를까.
+    <figure class="code"><figcaption>연습문제 3 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;05 어댑터 — 연습문제 3 해설: 이름만 다르고 의미가 같을 때 어떤 어댑터를 고를까.
 
 상황: 새로 계약한 PG사 D의 SDK는 make_payment(amount_krw, token) -&gt; str,
 cancel_payment(tid, amount_krw) -&gt; None 로, 우리 PaymentGateway(pay/refund)와
 이름만 다르고 인자 순서·단위·반환·예외가 모두 같다. 선택지는 셋이다:
 클래스 어댑터, __getattr__ 위임, 명시적 얇은 어댑터(혹은 함수).
-이 파일은 권장 해법인 &#x27;명시적 얇은 어댑터&#x27;와, 메서드가 하나뿐일 때의 &#x27;바운드 메서드
+이 코드는 권장 해법인 &#x27;명시적 얇은 어댑터&#x27;와, 메서드가 하나뿐일 때의 &#x27;바운드 메서드
 그대로 쓰기&#x27;를 보인다. 왜 나머지 둘을 고르지 않는지는 각 docstring에 적었다.
 &quot;&quot;&quot;
 from __future__ import annotations
@@ -2206,7 +2206,7 @@ if __name__ == &quot;__main__&quot;:
     <nav class="pager"><a class="prev" href="04-singleton.html"><small>← 이전 · 4장</small>싱글턴 (Singleton)</a><a class="next" href="06-decorator.html"><small>다음 · 6장 →</small>데코레이터 (Decorator)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>

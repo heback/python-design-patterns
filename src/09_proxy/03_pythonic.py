@@ -1,8 +1,8 @@
 """09 프록시 — 파이썬다운 변형: __getattr__ 범용 지연 프록시, cached_property, lru_cache, weakref.proxy.
 
-상황: 02_proxy.py의 LazyImageProxy는 SatelliteImage 전용이다. 수아의 팀에는 지연 로딩이
+상황: 패턴 코드의 LazyImageProxy는 SatelliteImage 전용이다. 수아의 팀에는 지연 로딩이
 필요한 대형 객체가 더 있다(수치표고모델 DEM, 토지피복 분류 래스터). 팀원 건우는 "아무 객체나
-감싸는 범용 지연 프록시를 __getattr__로 만들자"고 했다. 이 파일은 그 제안을 구현해 한계를 보고,
+감싸는 범용 지연 프록시를 __getattr__로 만들자"고 했다. 이 코드는 그 제안을 구현해 한계를 보고,
 프록시 없이 해결되는 경우와 표준 라이브러리의 프록시를 차례로 본다.
   (1) LazyProxy: __getattr__ 기반 범용 가상 프록시 — 일반 속성은 되지만 특수 메서드·isinstance·== 에서 샌다.
   (2) functools.cached_property: 객체 '내부'의 지연 로딩. 생성 시점을 통제할 수 있다면 프록시가 필요 없다.
@@ -90,7 +90,7 @@ class LandCoverScene:
 def fetch_tile(tile_id: str) -> bytes:
     """원격 타일 다운로드(흉내). 같은 인자면 캐시에서 돌려준다.
 
-    패턴 코드(02_proxy.py)의 CachingArchiveProxy와 하는 일이 같다. 차이: 인터페이스가 '함수 하나'면 이걸로 충분하고,
+    패턴 코드의 CachingArchiveProxy와 하는 일이 같다. 차이: 인터페이스가 '함수 하나'면 이걸로 충분하고,
     캐시 키·적중 통계·무효화 정책을 객체 수준에서 바꾸고 싶으면 클래스 프록시가 낫다.
     """
     LOADS.append(f"tile:{tile_id}")

@@ -1,11 +1,11 @@
 """파이썬다운 변형 1: 상속 대신 '생성 함수'를 주입하고, 설정에서 작업을 만드는 대체 생성자.
 
-상황: 02_factory_method.py에서는 장비가 하나 늘 때마다 Concrete Creator(XrdJob 등)를
+상황: 패턴 코드에서는 장비가 하나 늘 때마다 Concrete Creator(XrdJob 등)를
 하나씩 만들어야 했다. 그런데 그 하위 클래스들이 하는 일은 create_reader() 한 줄뿐이다.
 파이썬에서는 클래스 자체가 호출 가능한 객체(callable)이므로, "리더를 만드는 방법"을
 값으로 넘기면 하위 클래스 계층 없이 같은 분담(흐름은 프레임워크, 선택은 바깥)을 얻는다.
 
-이 파일이 보여주는 것:
+이 코드가 보여주는 것:
 1. reader_factory: Callable[[], Reader] 주입 — 클래스, functools.partial, 람다 모두 팩토리가 된다.
 2. Reader를 Protocol로 — 장비 리더가 프레임워크 클래스를 상속할 필요조차 없어진다.
 3. @classmethod from_config() — 흔히 '팩토리 메서드'라 불리지만 GoF의 의도와는 다른 것.
@@ -86,7 +86,7 @@ ReaderFactory = Callable[[], Reader]
 class AcquisitionJob:
     """[Creator 역할을 합성으로] 흐름은 그대로 소유하고, 생성 방법은 주입받는다.
 
-    패턴 코드(02_factory_method.py)의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
+    패턴 코드의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
     구조적으로는 '생성 전략'을 들고 있는 Context — 10장 전략 패턴과 같은 모양이다.
     상속 대신 합성을 고른 이유: 변하는 것이 '메서드 하나'뿐이라면 그 하나를 값으로
     넘기는 편이 클래스 계층을 늘리는 것보다 싸고, 런타임에 바꿀 수도 있다.

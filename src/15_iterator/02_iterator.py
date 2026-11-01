@@ -1,7 +1,7 @@
 """[15장 반복자 · 패턴 적용] 순회 정책을 반복자 객체로 분리한다 — GoF 구조를 파이썬 프로토콜 위에.
 
-상황: 01_naive.py에서 지안의 `Player`는 인덱스·셔플 순서·반복 모드를 모두 직접 관리했고,
-미리보기 화면이 같은 커서를 움직여 재생 위치가 밀렸다. 이 파일은 GoF 반복자 패턴으로 다시 짠다.
+상황: 순진한 코드에서 지안의 `Player`는 인덱스·셔플 순서·반복 모드를 모두 직접 관리했고,
+미리보기 화면이 같은 커서를 움직여 재생 위치가 밀렸다. 이 코드는 GoF 반복자 패턴으로 다시 짠다.
 
   - `Playlist`(Aggregate)는 곡을 보관하고, 순회 방식별 반복자를 '만들어 주기만' 한다.
     반복자를 만드는 메서드(`__iter__`, `iterator()`)는 1장의 팩토리 메서드와 같은 자리다.
@@ -11,8 +11,8 @@
     `for`, `list()`, `itertools`와 그대로 맞물린다. GoF의 first()/next()/is_done()/current_item()
     네 메서드가 파이썬에서는 `__next__` 하나와 예외 하나로 압축된다.
 
-이 파일은 '클래스로 쓴 반복자'가 무엇을 하는지 드러내려는 교과서적 버전이다. 같은 일을
-제너레이터로 하면 얼마나 짧아지는지는 03_pythonic.py에서 본다.
+이 코드는 '클래스로 쓴 반복자'가 무엇을 하는지 드러내려는 교과서적 버전이다. 같은 일을
+제너레이터로 하면 얼마나 짧아지는지는 파이썬다운 변형에서 본다.
 """
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ class RepeatOneIterator(PlaylistIterator):
 class ShuffleIterator(PlaylistIterator):
     """[Concrete Iterator] 지금 곡을 맨 앞에 두고 나머지를 섞은 순서로 한 번씩.
 
-    셔플 순서(_order)는 이 반복자만의 상태다. 순진한 코드(01_naive.py)에서는 Player의 shuffle_order 필드였다.
+    셔플 순서(_order)는 이 반복자만의 상태다. 순진한 코드에서는 Player의 shuffle_order 필드였다.
     seed를 받는 이유: 테스트와 교재 출력이 실행마다 같아야 하기 때문(실서비스는 None).
     """
 

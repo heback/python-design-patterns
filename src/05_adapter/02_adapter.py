@@ -6,8 +6,8 @@
 그다음 SDK마다 어댑터를 하나씩 만들어, 이름·단위·오류 체계·콜백을 Target의 언어로
 번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
 
-외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 '다른 스레드에서' 콜백하도록
-바꿨다(순진한 코드 01_naive.py는 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+외부 SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 '다른 스레드에서' 콜백하도록
+바꿨다(순진한 코드는 단순화를 위해 즉시 콜백했다). 이 코드만으로 전체가 보이도록 다시 실었다.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from decimal import Decimal
 from typing import Callable
 
 # ===========================================================================
-# 외부 SDK (Adaptee) — 수정 불가. 01_naive.py와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
+# 외부 SDK (Adaptee) — 수정 불가. 순진한 코드와 동일하되 C는 실제처럼 다른 스레드에서 콜백한다.
 # ===========================================================================
 
 _ids = itertools.count(1001)
@@ -180,7 +180,7 @@ class PgBAdapter(PaymentGateway):
     def _check(res: PaymentResponse, action: str) -> str:
         """상태 코드 방식의 실패를 예외 방식으로 바꾼다.
 
-        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 01_naive.py에서는 이 규칙이
+        pay/refund 둘 다 쓰므로 한 메서드로 뺐다. 순진한 코드에서는 이 규칙이
         두 곳에 복제되어 있었다는 점을 떠올려 보라.
         """
         if res.status_code != 0 or res.payment_id is None:
@@ -206,7 +206,7 @@ class PgCAdapter(PaymentGateway):
     """
 
     name = "C"
-    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 01_naive.py의 환불 버그가 여기서 사라진다.
+    MINOR_PER_KRW = 100   # 단위 변환 규칙을 상수 하나로. 순진한 코드의 환불 버그가 여기서 사라진다.
     TIMEOUT_SEC = 5.0
 
     def __init__(self, client: PgCClient) -> None:

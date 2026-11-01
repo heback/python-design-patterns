@@ -1,8 +1,8 @@
 """파이썬다운 변형: 키워드 전용 dataclass + __post_init__ 검증 + dataclasses.replace 파생.
 
-상황: 02_builder.py의 QueryBuilder는 70줄 남짓한 클래스였다. 하은의 동료 민재가 물었다.
+상황: 패턴 코드의 QueryBuilder는 70줄 남짓한 클래스였다. 하은의 동료 민재가 물었다.
 "Java라면 이름 있는 인자가 없으니 빌더가 필요하지만, 파이썬에는 키워드 인자와 기본값이 있잖아요.
-점층적 생성자 문제는 그걸로 이미 풀리는 것 아닌가요?" 이 파일은 그 질문에 답한다.
+점층적 생성자 문제는 그걸로 이미 풀리는 것 아닌가요?" 이 코드는 그 질문에 답한다.
 
 결론 미리보기:
 - 점층적 생성자(None 행렬)와 반쯤 만든 객체 문제 → 키워드 전용 + frozen dataclass로 충분히 풀린다.
@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, replace
 class Query:
     """[Product이자 스스로 검증하는 값 객체] 빌더 없이 키워드 인자로 만든다.
 
-    kw_only=True(3.10+)인 이유: 위치 인자로 부를 수 없게 막아야 01_naive.py의 None 행렬이
+    kw_only=True(3.10+)인 이유: 위치 인자로 부를 수 없게 막아야 순진한 코드의 None 행렬이
     원천적으로 생기지 않는다. 기본값이 있는 필드와 없는 필드의 순서 제약도 사라진다.
     """
 
@@ -33,7 +33,7 @@ class Query:
     note: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
-        """교차 검증. 패턴 코드(02_builder.py)의 build()가 하던 일을 '생성 시점'으로 옮겼다.
+        """교차 검증. 패턴 코드의 build()가 하던 일을 '생성 시점'으로 옮겼다.
 
         frozen 객체는 생성 후 바뀌지 않으므로, 여기를 통과한 Query는 영원히 유효하다.
         replace()도 내부적으로 __init__을 호출하므로 이 검증을 다시 거친다.

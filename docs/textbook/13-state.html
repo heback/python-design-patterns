@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="행위 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">13장 · 상태 (State)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -46,7 +46,7 @@
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">아래는 사고가 난 시점의 <code>Scooter</code>다. 메서드마다 상태 목록이 되풀이되는 모양, 그리고 <code>unlock()</code>의 <code>else</code>가 무엇을 삼키는지에 주목하라. <code># ⚠ 문제:</code> 주석이 결함 지점이다. 데모 [3]과 [4]가 실제 버그를 재현한다. 맨 위 상수 이름에 든 <dfn class="term" id="term-time-to-live" data-term="time-to-live" title="데이터·예약 등이 유효한 유지 시간. 지나면 만료된다.">TTL</dfn>(Time To Live)은 예약처럼 유효 기간이 있는 것의 유지 시간으로, 지나면 만료된다. 코드 주석에 나오는 <dfn class="term" id="term-illegal-transition" data-term="illegal-transition" title="현재 상태에서 허용되지 않은 동작이 요청되어 일어나서는 안 되는 상태 변화.">불법 전이</dfn>는 현재 상태에서 허용되지 않는 동작이 받아들여져, 일어나서는 안 되는 상태 변화가 생기는 것을 말한다. 정비 중인 기기의 주행 시작이 바로 그런 예이고, 이 장의 모든 설계는 이것을 어떻게 막느냐로 수렴한다.</p>
   <figure class="diagram code-map">
-  <svg viewBox="0 0 640 478" role="img" aria-label="01_naive.py의 구조: Scooter 한 클래스의 메서드 여덟 개가 각자 여섯 상태를 분기한다. unlock()의 else는 배터리 부족·정비 중·분실 신고 상태에서도 주행을 허용하고, report_lost()는 주행 중에도 분실로 바꾼다"><defs>
+  <svg viewBox="0 0 640 478" role="img" aria-label="순진한 코드의 구조: Scooter 한 클래스의 메서드 여덟 개가 각자 여섯 상태를 분기한다. unlock()의 else는 배터리 부족·정비 중·분실 신고 상태에서도 주행을 허용하고, report_lost()는 주행 중에도 분실로 바꾼다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -138,14 +138,14 @@
     <text class="uml-note" x="20" y="450">① Scooter 필드 → ② unlock()의 else(주황 셋) → ③ report_lost()(주황 하나)</text>
     <text class="uml-note" x="20" y="472">데모 [1] 정상 흐름 · [2] 예약 만료 · [3] 정비 중 잠금 해제 · [4] 주행 중 분실 신고</text>
   </svg>
-  <figcaption>코드 지도 · 01_naive.py. 표는 각 메서드가 각 상태에서 하는 일이다(조건이 붙은 전이도 ✓로 표시). ⚠는 코드의 ⚠ 문제 주석과 대응한다.</figcaption>
+  <figcaption>코드 지도 · 순진한 코드. 표는 각 메서드가 각 상태에서 하는 일이다(조건이 붙은 전이도 ✓로 표시). ⚠는 코드의 ⚠ 문제 주석과 대응한다.</figcaption>
 </figure>
-<figure class="code"><figcaption>src/13_state/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 순진한 설계] 전동킥보드 대여 생명주기를 status 문자열과 if 분기로 관리한다.
+<figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 순진한 설계] 전동킥보드 대여 생명주기를 status 문자열과 if 분기로 관리한다.
 
 상황: 공유 모빌리티 스타트업 &#x27;킥고&#x27;의 백엔드 개발자 서진은 처음에 킥보드를
 &quot;available&quot;/&quot;riding&quot; 두 상태로만 관리했다. 그 뒤 예약됨(10분 유지), 배터리 부족,
 정비 중, 분실 신고가 차례로 추가되면서 모든 메서드에 `if self.status == ...` 분기가
-복제되었다. 이 파일은 그 시점의 코드를 그대로 보여 주고, 두 상태 시절에 쓴 `else`
+복제되었다. 이 코드는 그 시점의 코드를 그대로 보여 주고, 두 상태 시절에 쓴 `else`
 분기 하나 때문에 &quot;정비 중인 킥보드로 주행이 시작되는&quot; 실제 버그를 데모로 재현한다.
 
 시간은 테스트 가능하도록 `now`(초 단위 정수)를 인자로 받는다. 실제 서비스라면
@@ -377,12 +377,12 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">먼저 상태의 공통 기반을 보자. 사용자 명령(<code>reserve</code>, <code>unlock</code> …)의 기본 구현은 예외를 던지고, 시스템 이벤트(<code>tick</code>, <code>on_battery_changed</code>)의 기본 구현은 아무것도 하지 않는다. 기본값을 이벤트 종류에 따라 다르게 정했다는 점, 그리고 추상 메서드가 <code>label()</code> 하나뿐인 이유에 주목하라. 전체 파일은 <code>src/13_state/02_state.py</code>이고, 여기서는 세 부분으로 나눠 싣는다. docstring에 나오는 <dfn class="term" id="term-stateless" data-term="stateless" title="인스턴스마다 다른 필드(상태)를 갖지 않는 성질. 무상태 객체는 여러 곳이 하나를 공유해도 안전하다.">무상태</dfn> 상태 객체란 인스턴스마다 다른 필드를 갖지 않는 객체로, 그래서 여러 킥보드가 하나를 공유해도 안전하다(5.2절에서 실제로 공유한다).</p>
+  <p class="lead-in">먼저 상태의 공통 기반을 보자. 사용자 명령(<code>reserve</code>, <code>unlock</code> …)의 기본 구현은 예외를 던지고, 시스템 이벤트(<code>tick</code>, <code>on_battery_changed</code>)의 기본 구현은 아무것도 하지 않는다. 기본값을 이벤트 종류에 따라 다르게 정했다는 점, 그리고 추상 메서드가 <code>label()</code> 하나뿐인 이유에 주목하라. 이 패턴 코드는 세 부분으로 나눠 싣는다. docstring에 나오는 <dfn class="term" id="term-stateless" data-term="stateless" title="인스턴스마다 다른 필드(상태)를 갖지 않는 성질. 무상태 객체는 여러 곳이 하나를 공유해도 안전하다.">무상태</dfn> 상태 객체란 인스턴스마다 다른 필드를 갖지 않는 객체로, 그래서 여러 킥보드가 하나를 공유해도 안전하다(5.2절에서 실제로 공유한다).</p>
   <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
-상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+상황: 순진한 코드에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
 두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
-이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+이 코드는 GoF 상태 패턴으로 다시 짠 버전이다.
 
 핵심 설계 결정 세 가지:
 1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
@@ -391,7 +391,7 @@ if __name__ == &quot;__main__&quot;:
    허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
    순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
 3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
-   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 전략·상태 비교 코드 참고.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -418,7 +418,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -718,11 +718,11 @@ if __name__ == &quot;__main__&quot;:
     attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
     s5.send_to_maintenance()
     s5.finish_maintenance()
-    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (1–94행)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
-상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+상황: 순진한 코드에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
 두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
-이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+이 코드는 GoF 상태 패턴으로 다시 짠 버전이다.
 
 핵심 설계 결정 세 가지:
 1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
@@ -731,7 +731,7 @@ if __name__ == &quot;__main__&quot;:
    허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
    순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
 3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
-   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 전략·상태 비교 코드 참고.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -758,7 +758,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -817,7 +817,7 @@ class ScooterState(ABC):
 
   <p class="lead-in">다음은 구체 상태 여섯 개다. 각 클래스가 <em>"이 상태에서 무엇이 허용되는가"</em>와 <em>"그다음은 어디인가"</em>만 말한다는 점을 보라. <code>Maintenance</code>가 <code>unlock()</code>을 아예 재정의하지 않는다는 사실이 바로 사고에 대한 해답이다. <code>Reserved.unlock()</code>의 <dfn class="term" id="term-guard-condition" data-term="guard-condition" title="전이가 일어나기 위해 추가로 만족해야 하는 조건(예: 예약자 본인만 잠금 해제).">가드(guard)</dfn> 조건도 보라. 가드는 전이가 일어나려면 사건 외에 추가로 만족해야 하는 조건이다(여기서는 "예약자 본인일 것"). 같은 사건이라도 가드가 거짓이면 전이는 거부된다.</p>
   <figure class="diagram code-map">
-  <svg viewBox="0 0 640 570" role="img" aria-label="02_state.py 둘째 조각의 구조: 구체 상태 여섯 클래스가 각각 허용하는 동작과 다음 상태만 재정의한다. Reserved와 Riding은 그 상태만의 데이터를 가지며, Maintenance는 unlock을 재정의하지 않아 잠금 해제가 기본 구현에서 거부된다"><defs>
+  <svg viewBox="0 0 640 570" role="img" aria-label="패턴 코드 둘째 조각의 구조: 구체 상태 여섯 클래스가 각각 허용하는 동작과 다음 상태만 재정의한다. Reserved와 Riding은 그 상태만의 데이터를 가지며, Maintenance는 unlock을 재정의하지 않아 잠금 해제가 기본 구현에서 거부된다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -886,17 +886,17 @@ class ScooterState(ABC):
     <g class="uml-step"><circle cx="330" cy="36" r="9"/><text x="330" y="40">2</text></g>
     <g class="uml-step"><circle cx="20" cy="340" r="9"/><text x="20" y="344">3</text></g>
 
-    <text class="uml-note" x="20" y="510"><tspan font-weight="700">읽는 순서</tspan> · 01 지도의 "행"이 메서드였다면, 여기서는 상태다</text>
+    <text class="uml-note" x="20" y="510"><tspan font-weight="700">읽는 순서</tspan> · 순진한 코드 지도의 "행"이 메서드였다면, 여기서는 상태다</text>
     <text class="uml-note" x="20" y="532">① Available: 출구가 가장 많다 → ② Reserved·Riding: 상태 데이터와 가드 → ③ Maintenance</text>
     <text class="uml-note" x="20" y="554">[...] 안은 가드 조건이다. 모든 화살표는 scooter.change_state(다음 상태)로 실행된다</text>
   </svg>
-  <figcaption>코드 지도 · 02_state.py(둘째 조각). 파란 테두리는 순진한 코드에서 사고가 났던 상태다. 클래스 구조는 그림 13-1에 있다.</figcaption>
+  <figcaption>코드 지도 · 패턴 코드(둘째 조각). 파란 테두리는 순진한 코드에서 사고가 났던 상태다. 클래스 구조는 그림 13-1에 있다.</figcaption>
 </figure>
 <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
-상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+상황: 순진한 코드에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
 두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
-이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+이 코드는 GoF 상태 패턴으로 다시 짠 버전이다.
 
 핵심 설계 결정 세 가지:
 1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
@@ -905,7 +905,7 @@ class ScooterState(ABC):
    허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
    순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
 3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
-   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 전략·상태 비교 코드 참고.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -932,7 +932,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -1232,7 +1232,7 @@ if __name__ == &quot;__main__&quot;:
     attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
     s5.send_to_maintenance()
     s5.finish_maintenance()
-    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (96–224행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 구체 상태들 — 각 클래스는 &#x27;이 상태에서 허용되는 것&#x27;과 &#x27;그다음 어디로 가는지&#x27;만 안다.
 # ---------------------------------------------------------------------------
 
@@ -1366,9 +1366,9 @@ class Lost(ScooterState):
   <p class="lead-in">마지막으로 컨텍스트다. 공개 메서드가 모두 한 줄짜리 위임이라는 점, 그리고 모든 전이가 <code>change_state()</code> 한곳을 지나간다는 점에 주목하라. docstring이 말하는 <dfn class="term" id="term-metrics-collection" data-term="metrics-collection" title="시스템 동작 수치(횟수·지연 등)를 모아 모니터링하는 것.">지표 수집</dfn>은 전이 횟수·지연 같은 동작 수치를 모아 모니터링하는 일이다.</p>
   <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
-상황: 01_naive.py에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
+상황: 순진한 코드에서 서진의 `Scooter`는 label()을 뺀 동작 메서드 여덟 개마다 여섯 상태의 분기를 반복했고,
 두 상태 시절에 쓴 `else` 하나 때문에 정비 중인 킥보드로 주행이 시작되는 사고가 났다.
-이 파일은 GoF 상태 패턴으로 다시 짠 버전이다.
+이 코드는 GoF 상태 패턴으로 다시 짠 버전이다.
 
 핵심 설계 결정 세 가지:
 1. 행동이 상태별로 다른 메서드(reserve, unlock, end_ride ...)는 모두 현재 상태 객체에 위임한다.
@@ -1377,7 +1377,7 @@ class Lost(ScooterState):
    허용할 동작만 오버라이드하면 되고, 깜빡 잊은 동작은 자동으로 &#x27;불법 전이&#x27;가 된다.
    순진한 코드의 `else`가 기본값을 &#x27;허용&#x27;으로 둔 것과 정반대의 안전한 기본값이다.
 3. 다음 상태는 상태 객체가 스스로 정한다(`scooter.change_state(...)` 호출).
-   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 03_state_vs_strategy.py 참고.
+   이것이 같은 구조를 가진 전략 패턴과 갈라지는 지점이다 — 전략·상태 비교 코드 참고.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1404,7 +1404,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -1704,7 +1704,7 @@ if __name__ == &quot;__main__&quot;:
     attempt(&quot;분실 기기 바로 정비 완료 처리&quot;, s5.finish_maintenance)
     s5.send_to_maintenance()
     s5.finish_maintenance()
-    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>src/13_state/02_state.py  (226–296행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    print(&quot;    전이 로그:&quot;, &quot; | &quot;.join(s5.history))"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # Context
 # ---------------------------------------------------------------------------
 
@@ -1784,7 +1784,7 @@ class Scooter:
   <p>그림 13-1을 10장의 전략 그림 옆에 놓으면 거의 구별되지 않는다. 컨텍스트가 추상 타입 필드를 들고 위임하고, 구체 클래스 여럿이 그 타입을 구현한다. GoF가 두 패턴을 따로 둔 이유는 구조가 아니라 <strong>누가, 언제, 왜 교체하는가</strong>에 있다. 10장은 이 비교를 이 장으로 미뤘다. 이제 두 패턴을 한 클래스에 나란히 놓아 보자.</p>
   <p class="lead-in">킥고 운영팀은 시간대마다 요금 정책을 바꾼다. 아래 <code>Scooter</code>는 요금 정책 슬롯(전략)과 대여 생명주기 슬롯(상태)을 함께 가진다. 두 슬롯의 <em>교체 경로</em>를 비교하라. <code>set_pricing()</code>은 바깥에서 부르고, <code>change_state()</code>는 상태 객체만 부른다. 맨 아래의 <code>app_server_end_ride()</code>는 전이 책임을 바깥으로 옮겼을 때 무슨 일이 생기는지 보여 주는 반례다. 모듈 docstring의 <dfn class="term" id="term-state-machine" data-term="state-machine" title="유한한 상태 집합과, (현재 상태, 사건) → 다음 상태로 정해진 전이 규칙으로 동작을 기술하는 모델.">상태 기계</dfn>(유한 상태 기계)는 유한한 상태 집합과 "(현재 상태, 사건) → 다음 상태"라는 전이 규칙으로 객체의 동작을 기술하는 모델이다. 상태 패턴은 상태 기계를 객체로 구현하는 한 방법이고, 5.1절은 같은 기계를 표로 구현한다.</p>
   <figure class="diagram code-map">
-  <svg viewBox="0 0 640 616" role="img" aria-label="03_state_vs_strategy.py의 구조: Scooter는 pricing 슬롯과 _state 슬롯을 가진다. pricing은 바깥(운영 콘솔)이 set_pricing()으로 바꾸고, _state는 상태 객체만 change_state()로 바꾼다. Riding은 출발 시점의 요금 정책을 붙잡아 두고, 반례 app_server_end_ride()는 바깥에서 isinstance로 분기해 전이를 고른다"><defs>
+  <svg viewBox="0 0 640 616" role="img" aria-label="전략·상태 비교 코드의 구조: Scooter는 pricing 슬롯과 _state 슬롯을 가진다. pricing은 바깥(운영 콘솔)이 set_pricing()으로 바꾸고, _state는 상태 객체만 change_state()로 바꾼다. Riding은 출발 시점의 요금 정책을 붙잡아 두고, 반례 app_server_end_ride()는 바깥에서 isinstance로 분기해 전이를 고른다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -1889,13 +1889,13 @@ class Scooter:
     <text class="uml-note" x="20" y="578">① Scooter의 두 교체 창구 → ② 전략 계열 → ③ 상태 계열(Riding이 정책을 붙잡음) → ④ 반례</text>
     <text class="uml-note" x="20" y="600">데모 [1] 교체 경로 둘 · [2] 전략은 아무 때나 · [3] 가드는 상태 안에 · [4] 반례</text>
   </svg>
-  <figcaption>코드 지도 · 03_state_vs_strategy.py. 빈 삼각형은 상속, 실선 화살표는 "슬롯이 가리킨다", 점선 화살표는 "호출한다/붙잡는다".</figcaption>
+  <figcaption>코드 지도 · 전략·상태 비교 코드. 빈 삼각형은 상속, 실선 화살표는 "슬롯이 가리킨다", 점선 화살표는 "호출한다/붙잡는다".</figcaption>
 </figure>
-<figure class="code"><figcaption>src/13_state/03_state_vs_strategy.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 전략과의 비교] 한 Context 안에 전략(요금 정책)과 상태(대여 생명주기)를 나란히 둔다.
+<figure class="code"><figcaption>전략·상태 비교 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 전략과의 비교] 한 Context 안에 전략(요금 정책)과 상태(대여 생명주기)를 나란히 둔다.
 
 상황: 킥고 운영팀은 도시·시간대별 요금 정책을 수시로 바꾼다(10장의 전략 패턴 그대로).
-같은 `Scooter`에 패턴 코드(02_state.py)에서 만든 상태 패턴도 들어 있다. 두 패턴의 클래스 다이어그램은 거의
-같다 — Context가 추상 타입 필드를 들고 있고 호출을 위임한다. 이 파일은 둘을 한 클래스에
+같은 `Scooter`에 패턴 코드에서 만든 상태 패턴도 들어 있다. 두 패턴의 클래스 다이어그램은 거의
+같다 — Context가 추상 타입 필드를 들고 있고 호출을 위임한다. 이 코드는 둘을 한 클래스에
 나란히 놓아, 구조가 같아도 &#x27;누가, 언제, 왜 교체하는가&#x27;가 완전히 다르다는 것을 보인다.
 
   - 요금 정책(Strategy): 바깥(운영 콘솔)이 `set_pricing()`으로 교체한다. 정책끼리는 서로 모른다.
@@ -2075,7 +2075,7 @@ def app_server_end_ride(scooter: Scooter, now: int) -&gt; int:
     &quot;&quot;&quot;앱 서버가 &#x27;다음 상태&#x27;를 직접 고르는 설계(상태를 전략처럼 다루기)를 흉내 낸다.
 
     상태 객체에서 change_state 호출을 빼고 클라이언트가 결정하게 하면, 클라이언트는
-    현재 상태를 알아내 분기할 수밖에 없다. 01_naive.py의 if 사슬이 사라진 게 아니라
+    현재 상태를 알아내 분기할 수밖에 없다. 순진한 코드의 if 사슬이 사라진 게 아니라
     Scooter 밖으로 이사 온 것이다. 게다가 이런 클라이언트가 둘(앱, 관제)이 되면
     전이 규칙도 두 벌이 된다. 이 함수는 &#x27;이렇게 하지 말라&#x27;는 예시다.
     이 함수가 change_state()를 부를 수 있다는 것 자체가 관례 기반 캡슐화의 한계다 —
@@ -2152,7 +2152,7 @@ if __name__ == &quot;__main__&quot;:
     <p><code>match</code> 문은 값의 구조를 여러 패턴과 차례로 대조해 분기하는 문법이다(파이썬 3.10+). <code>|</code>로 여러 패턴을 묶고, <code>case</code> 뒤의 <code>if</code>로 조건을 덧붙인다. 마지막의 <code>case _</code>는 어떤 값과도 맞는 <dfn class="term" id="term-wildcard-pattern" data-term="wildcard-pattern" title="match 문에서 어떤 값과도 맞는 case _ 패턴.">와일드카드</dfn> 패턴으로, 전이표의 "키 없음"에 해당한다. <code>_enter()</code>가 하는 <dfn class="term" id="term-entry-action" data-term="entry-action" title="어떤 상태로 들어갈 때마다 실행되는 동작(예: 그 상태에 필요 없는 데이터 정리).">진입 동작</dfn>(entry action)은 어떤 상태로 들어갈 때마다 실행되는 동작으로, 여기서는 그 상태에 필요 없는 데이터를 지운다. 정적 검증에 쓰는 <dfn class="term" id="term-collections-deque" data-term="collections-deque" title="양쪽 끝에서 빠르게 넣고 뺄 수 있는 큐 자료구조."><code>deque</code></dfn>는 양쪽 끝에서 빠르게 넣고 뺄 수 있는 큐이고, <code>reachable_from()</code>은 이를 써서 <dfn class="term" id="term-breadth-first-search" data-term="breadth-first-search" title="가까운 노드부터 차례로 방문하는 그래프 너비 우선 탐색.">BFS</dfn>(너비 우선 탐색: 가까운 노드부터 차례로 방문)로 도달 가능한 상태를 찾는다.</p>
   </div>
   <figure class="diagram code-map">
-  <svg viewBox="0 0 640 626" role="img" aria-label="04_pythonic_fsm.py의 구조: Status와 Event 열거형이 전이표 TRANSITIONS의 키와 값이 되고, next_status()가 표를 조회하며 next_status_match()는 같은 규칙을 match 문으로 쓴다. reachable_from()은 표를 순회해 검증한다. Scooter는 _fire()로 모든 전이를 처리하고, 표에 못 넣은 가드는 Scooter의 if로 남는다"><defs>
+  <svg viewBox="0 0 640 626" role="img" aria-label="전이표 변형의 구조: Status와 Event 열거형이 전이표 TRANSITIONS의 키와 값이 되고, next_status()가 표를 조회하며 next_status_match()는 같은 규칙을 match 문으로 쓴다. reachable_from()은 표를 순회해 검증한다. Scooter는 _fire()로 모든 전이를 처리하고, 표에 못 넣은 가드는 Scooter의 if로 남는다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -2240,13 +2240,13 @@ if __name__ == &quot;__main__&quot;:
     <text class="uml-note" x="20" y="604">① Status·Event → ② TRANSITIONS → ③ 표 조회와 match 버전 → ④ Scooter: 표 밖에 남은 if</text>
     <text class="uml-note" x="20" y="622">데모 [1] 표 출력 · [2] 도달 불가·출구 없음 검증 · [3] 두 버전 대조 · [4] 시나리오와 전이 로그</text>
   </svg>
-  <figcaption>코드 지도 · 04_pythonic_fsm.py. 점선 화살표는 "키·값으로 쓴다/조회한다/호출한다". 02에서 상태 클래스에 흩어져 있던 전이가 TRANSITIONS 한 곳에 모였다.</figcaption>
+  <figcaption>코드 지도 · 전이표 변형. 점선 화살표는 "키·값으로 쓴다/조회한다/호출한다". 패턴 코드에서 상태 클래스에 흩어져 있던 전이가 TRANSITIONS 한 곳에 모였다.</figcaption>
 </figure>
-<figure class="code"><figcaption>src/13_state/04_pythonic_fsm.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 파이썬다운 변형 1] Enum + 전이표(dict)로 쓴 유한 상태 기계, 그리고 match 버전.
+<figure class="code"><figcaption>전이표 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 파이썬다운 변형 1] Enum + 전이표(dict)로 쓴 유한 상태 기계, 그리고 match 버전.
 
 상황: 킥고의 관제팀장 유나가 서진에게 묻는다. &quot;전이 규칙 전체를 한 장으로 볼 수 없어요?
 지금은 상태 클래스 여섯 개를 다 열어 봐야 정비 중에서 어디로 갈 수 있는지 알 수 있잖아요.&quot;
-패턴 코드(02_state.py)의 상태 패턴은 전이 규칙을 상태 클래스들에 &#x27;분산&#x27;시켰다. 이 파일은 정반대로 전이 규칙을
+패턴 코드의 상태 패턴은 전이 규칙을 상태 클래스들에 &#x27;분산&#x27;시켰다. 이 코드는 정반대로 전이 규칙을
 하나의 표(데이터)에 &#x27;집중&#x27;시킨다. 전이의 책임자가 상태 객체에서 Context(표)로 옮겨 간다.
 
 얻는 것: 전이 전체가 한눈에 보이고, 표가 데이터이므로 출력·검증(도달 불가 상태 찾기)·
@@ -2266,7 +2266,7 @@ LOW_BATTERY = 15
 class Status(Enum):
     &quot;&quot;&quot;상태 이름의 닫힌 집합. 문자열 status와 달리 오타는 AttributeError로 즉시 드러난다.
 
-    값에 표시 문구를 넣어 순진한 코드(01_naive.py)의 label() 상태별 문구 dict를 없앴다.
+    값에 표시 문구를 넣어 순진한 코드의 label() 상태별 문구 dict를 없앴다.
     &quot;&quot;&quot;
 
     AVAILABLE = &quot;대여 가능&quot;
@@ -2495,7 +2495,7 @@ if __name__ == &quot;__main__&quot;:
   <p>킥보드가 3만 대로 늘자 서진은 전이마다 새 상태 객체를 만드는 일이 마음에 걸렸다. GoF는 "상태 객체는 흔히 싱글턴"이라고 쓴다. 파이썬에서는 4장의 싱글턴 클래스 기법이 필요 없다. 모듈 수준 상수 하나면 충분하다. 파이썬에는 더 과격한 선택지도 있다. 객체의 <code>__class__</code>를 바꿔 GoF 의도의 문구 그대로 "클래스가 바뀐 것처럼" 만드는 방법이다.</p>
   <p class="lead-in">A 부분에서는 <dfn class="term" id="term-slots" data-term="slots" title="인스턴스가 가질 속성 이름을 고정해 __dict__를 없애는 클래스 속성. 메모리를 아끼고 새 속성 추가를 막는다."><code>__slots__</code></dfn> <code>= ()</code>가 공유 상태 객체를 어떻게 보호하는지 보라. <code>__slots__</code>는 인스턴스가 가질 속성 이름을 클래스에서 고정해 인스턴스별 <code>__dict__</code>를 없애는 클래스 속성이다. 메모리를 아끼고, 목록에 없는 속성의 추가를 막는다(빈 튜플이면 어떤 속성도 추가할 수 없다). B 부분에서는 <code>__class__</code> 교체가 실제로 동작한다는 사실과, 그 뒤에 따라오는 세 가지 문제를 데모 출력으로 확인하라.</p>
   <figure class="diagram code-map">
-  <svg viewBox="0 0 640 540" role="img" aria-label="05_pythonic_variants.py의 구조: A 부분에서는 __slots__가 빈 SharedState의 하위 클래스를 모듈 상수 AVAILABLE과 RIDING으로 하나씩만 만들고 FleetScooter가 이를 공유한다. B 부분에서는 ClassSwapScooter와 RidingScooter가 __class__ 교체로 서로 바뀌며, 상속 때문에 RidingScooter가 unlock을 물려받는다"><defs>
+  <svg viewBox="0 0 640 540" role="img" aria-label="파이썬다운 변형 모음의 구조: A 부분에서는 __slots__가 빈 SharedState의 하위 클래스를 모듈 상수 AVAILABLE과 RIDING으로 하나씩만 만들고 FleetScooter가 이를 공유한다. B 부분에서는 ClassSwapScooter와 RidingScooter가 __class__ 교체로 서로 바뀌며, 상속 때문에 RidingScooter가 unlock을 물려받는다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -2565,11 +2565,11 @@ if __name__ == &quot;__main__&quot;:
     <text class="uml-note" x="20" y="506"><tspan font-weight="700">읽는 순서</tspan> · A는 상태 객체를 공유하고, B는 객체의 클래스 자체를 바꾼다</text>
     <text class="uml-note" x="20" y="528">① SharedState와 두 상수 → ② FleetScooter: 데이터는 Context에 → ③ B와 그 문제 셋</text>
   </svg>
-  <figcaption>코드 지도 · 05_pythonic_variants.py. 빈 삼각형은 상속, 점선 화살표는 "인스턴스다/클래스를 바꾼다", 실선 화살표는 "슬롯이 가리킨다".</figcaption>
+  <figcaption>코드 지도 · 파이썬다운 변형 모음. 빈 삼각형은 상속, 점선 화살표는 "인스턴스다/클래스를 바꾼다", 실선 화살표는 "슬롯이 가리킨다".</figcaption>
 </figure>
-<figure class="code"><figcaption>src/13_state/05_pythonic_variants.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 파이썬다운 변형 2] 무상태 상태 객체의 공유, 그리고 `__class__` 교체 트릭.
+<figure class="code"><figcaption>파이썬다운 변형 모음</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 파이썬다운 변형 2] 무상태 상태 객체의 공유, 그리고 `__class__` 교체 트릭.
 
-상황: 킥고가 서울·부산에 킥보드 3만 대를 깔았다. 패턴 코드(02_state.py) 방식은 전이마다 `Available()` 같은
+상황: 킥고가 서울·부산에 킥보드 3만 대를 깔았다. 패턴 코드 방식은 전이마다 `Available()` 같은
 새 상태 객체를 만든다. 대부분의 상태는 필드가 없는데도 말이다. 서진은 두 가지를 검토한다.
 
 A. 무상태(stateless) 상태 객체를 모듈 상수로 하나씩만 만들어 모든 킥보드가 공유한다.
@@ -2736,14 +2736,14 @@ if __name__ == &quot;__main__&quot;:
     k.end_ride()
     print(f&quot;    반납 후 type(k) = {type(k).__name__}, 그런데 캐시 키는 {list(registry)[0].__name__}&quot;)
 
-    print(&quot;[B-3] 문제 2 — 이전 상태의 데이터가 남는다(순진한 코드 01_naive.py의 찌꺼기 문제 재발)&quot;)
+    print(&quot;[B-3] 문제 2 — 이전 상태의 데이터가 남는다(순진한 코드의 찌꺼기 문제 재발)&quot;)
     print(f&quot;    대여 가능 상태인데 k.rider = {k.rider!r}&quot;)
 
     print(&quot;[B-4] 문제 3 — 상속 때문에 &#x27;주행 중 잠금 해제&#x27;가 조용히 허용된다&quot;)
     k.unlock(&quot;서윤&quot;)
     k.unlock(&quot;해커&quot;)                               # RidingScooter가 unlock을 물려받았다
     print(f&quot;    주행 중 두 번째 unlock 결과: {k.label()}, 탑승자 {k.rider!r} ← 예외 없음&quot;)</code></pre></figure>
-  <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 02의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
+  <p>공유 방식(A)은 상태 객체에 데이터가 없을 때만 성립한다. 3만 대가 상태 객체 두 개를 나눠 쓰는 대신, 데이터는 다시 컨텍스트로 돌아간다. 패턴 코드의 <code>Reserved</code>처럼 데이터를 가진 상태는 공유할 수 없다. 그래서 실무에서는 섞어 쓰는 경우가 많다. 데이터 없는 상태는 상수로 공유하고, 데이터 있는 상태만 그때그때 만든다. <code>__slots__ = ()</code>는 "공유 객체에 개별 데이터를 넣는" 치명적 실수를 언어 수준에서 막는 값싼 보험이다.</p>
   <p><code>__class__</code> 교체(B)는 짧고 영리하다. 그러나 [B-2]에서 보듯 객체의 타입이 수명 중에 바뀌어 타입을 키로 쓰는 코드가 깨진다. [B-3]처럼 이전 상태의 속성이 남고, [B-4]처럼 상태 클래스끼리의 상속 때문에 금지해야 할 동작을 물려받는다. 타입 검사기와 디버거도 따라오지 못한다. 동작한다는 것과 유지보수할 수 있다는 것은 다른 문제다. 이 트릭은 언어의 유연성을 보여 주는 예로 알아 두기만 하라.</p>
 </section>
 
@@ -2758,9 +2758,9 @@ if __name__ == &quot;__main__&quot;:
   <div class="table-wrap"><table>
     <thead><tr><th>설계</th><th>전이 결정</th><th>행동</th><th>맞는 경우</th></tr></thead>
     <tbody>
-      <tr><td>상태 클래스(02)</td><td>각 상태 객체</td><td>각 상태 객체</td><td>상태마다 행동과 데이터가 크게 다르다</td></tr>
+      <tr><td>상태 클래스(패턴 코드)</td><td>각 상태 객체</td><td>각 상태 객체</td><td>상태마다 행동과 데이터가 크게 다르다</td></tr>
       <tr><td>상태 클래스 + 중앙 전이표(혼합)</td><td>컨텍스트의 표</td><td>각 상태 객체</td><td>행동은 다르지만 전이 규칙을 감사·시각화해야 한다</td></tr>
-      <tr><td>Enum + 전이표(04)</td><td>컨텍스트의 표</td><td>컨텍스트(if/match)</td><td>상태별 행동 차이가 작고 전이 구조가 핵심이다</td></tr>
+      <tr><td>Enum + 전이표</td><td>컨텍스트의 표</td><td>컨텍스트(if/match)</td><td>상태별 행동 차이가 작고 전이 구조가 핵심이다</td></tr>
     </tbody>
   </table></div>
   <h3>이 패턴을 쓰지 말아야 할 때</h3>
@@ -2772,7 +2772,7 @@ if __name__ == &quot;__main__&quot;:
   </ul>
   <h3>관련 패턴</h3>
   <ul>
-    <li><strong>전략(10장)</strong>: 구조가 같다. 교체 주체가 바깥이면 전략, 안이면 상태다. 03에서 보았듯 한 컨텍스트 안에서 두 패턴은 자연스럽게 협력한다.</li>
+    <li><strong>전략(10장)</strong>: 구조가 같다. 교체 주체가 바깥이면 전략, 안이면 상태다. 전략·상태 비교 코드에서 보았듯 한 컨텍스트 안에서 두 패턴은 자연스럽게 협력한다.</li>
     <li><strong>옵저버(11장)</strong>: <code>change_state()</code> 관문에서 전이를 통지하면, 앱 푸시·관제 대시보드·지표 수집을 상태 코드와 분리할 수 있다.</li>
     <li><strong>싱글턴(4장)</strong>: 무상태 상태 객체는 공유할 수 있다. 파이썬에서는 모듈 상수로 충분하며, 싱글턴 클래스 기법은 필요 없다.</li>
     <li><strong>커맨드(12장)</strong>: 전이를 일으키는 사건(<code>Event.UNLOCK</code>)을 커맨드 객체로 만들면 큐잉, 재시도, 감사 로그가 가능해진다. 표 방식의 <code>Event</code>는 그 첫걸음이다.</li>
@@ -2784,12 +2784,12 @@ if __name__ == &quot;__main__&quot;:
 
   <div class="exercise" id="ex1">
     <h3><span class="ex-tag">개념</span> 문제 1. 전이를 누가 정하는가</h3>
-    <p>킥고에 '재배치 중(Relocating)' 상태가 생긴다. 배터리 부족 기기를 트럭이 수거해 충전소로 옮기는 동안의 상태로, <code>LowBattery → Relocating → Available</code> 경로가 추가된다. (a) 상태 객체가 다음 상태를 직접 만드는 방식(02)과 (b) 컨텍스트가 전이표로 결정하는 방식(04) 각각에서 무엇을 고쳐야 하는지 나열하라. 그리고 두 방식의 결합도 차이를 "누가 누구를 아는가"로 설명하라.</p>
+    <p>킥고에 '재배치 중(Relocating)' 상태가 생긴다. 배터리 부족 기기를 트럭이 수거해 충전소로 옮기는 동안의 상태로, <code>LowBattery → Relocating → Available</code> 경로가 추가된다. (a) 상태 객체가 다음 상태를 직접 만드는 방식(패턴 코드)과 (b) 컨텍스트가 전이표로 결정하는 방식(전이표 변형) 각각에서 무엇을 고쳐야 하는지 나열하라. 그리고 두 방식의 결합도 차이를 "누가 누구를 아는가"로 설명하라.</p>
     <details class="solution">
       <summary>해설 보기</summary>
       <p>(a) 분산 방식에서는 새 클래스 <code>Relocating</code>과 함께 <strong>새 상태로 들어가는 이웃</strong>인 <code>LowBattery</code>를 고쳐야 한다. 새 사건(<code>relocate</code>, <code>arrive</code>)이 생기므로 기본 클래스와 컨텍스트의 위임 메서드도 늘어난다. (b) 집중 방식에서는 상태 <code>Enum</code>에 한 줄, 사건 <code>Enum</code>에 두 줄, 표에 두 줄을 추가하면 끝나고 다른 상태는 전혀 바뀌지 않는다. 상태가 서로를 모르기 때문이다.</p>
       <p>결합도로 보면, (a)에서는 상태 그래프의 간선이 그대로 클래스 의존이다. 아래 코드가 <code>co_names</code>로 측정한 의존 목록이 바로 그 간선이다. (b)에서는 모든 간선이 표라는 한 객체에 모이고, 상태 사이의 의존은 0이다. 그렇다고 (b)가 언제나 낫지는 않다. 조건부 전이(<code>end_ride</code>)와 진입 동작(배터리 100으로 갱신)이 컨텍스트로 돌아온 것을 보라. <strong>흔한 오답</strong>은 "표 방식이 결합도가 낮으니 항상 더 좋다"이다. 결합이 사라진 것이 아니라 컨텍스트 한곳으로 집중된 것이다. 상태별 행동이 많다면 그 집중이 곧 순진한 코드의 거대 if로 되돌아가는 길이다.</p>
-      <figure class="code"><figcaption>src/13_state/solutions/ex1_transition_owner.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 1 해설] 전이를 누가 결정하는가 — 분산(상태 객체) vs 집중(전이표)의 결합도 비교.
+      <figure class="code"><figcaption>연습문제 1 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 1 해설] 전이를 누가 결정하는가 — 분산(상태 객체) vs 집중(전이표)의 결합도 비교.
 
 상황: 킥고에 &#x27;재배치 중(Relocating)&#x27; 상태가 추가된다. 배터리 부족 킥보드를 트럭이 수거해
 충전소로 옮기는 동안의 상태다. LowBattery → Relocating → Available 경로가 생긴다.
@@ -2808,7 +2808,7 @@ class IllegalTransition(Exception):
 
 
 # ---------------------------------------------------------------------------
-# 방식 1: 분산 — 상태 객체가 다음 상태를 직접 만든다 (GoF 기본형, 02_state.py)
+# 방식 1: 분산 — 상태 객체가 다음 상태를 직접 만든다 (GoF 기본형, 패턴 코드)
 # ---------------------------------------------------------------------------
 
 class State:
@@ -2859,7 +2859,7 @@ class Relocating(State):
 class Ctx:
     &quot;&quot;&quot;[Context] 축약판이라 위임 메서드를 생략하고 데모가 ctx.state.xxx(ctx)를 직접 부른다.
 
-    실제 Context(패턴 코드 02_state.py의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
+    실제 Context(패턴 코드의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
     &quot;&quot;&quot;
 
     def __init__(self, battery: int) -&gt; None:
@@ -2991,7 +2991,7 @@ if __name__ == &quot;__main__&quot;:
       <summary>해설 보기</summary>
       <p>버그 1: <code>edit()</code>는 "상신 중"만 막고 나머지를 허용한다. 그래서 <strong>승인된 문서도 수정된다</strong>. 이는 킥보드의 <code>else</code>와 같은 '기본값이 허용'인 결함이다. 버그 2: 재상신 뒤에도 <code>reject_reason</code>이 남아, 화면이 승인된 문서에 옛 반려 사유를 보여 줄 수 있다. 상태별 데이터가 객체 전체에 깔려 있어서 생기는 찌꺼기다.</p>
       <p>해설 코드는 두 버그를 구조로 없앤다. <code>edit()</code>는 <code>Draft</code>와 <code>Rejected</code>만 재정의하므로 <code>Approved</code>에서는 자동으로 거부된다. 반려 사유는 <code>Rejected</code> 객체의 필드이므로, 그 상태를 떠나는 순간 사라진다. 빈 문서 상신을 막는 가드는 <code>Draft.submit()</code> 안에 넣었다. <strong>흔한 오답</strong>은 상태 클래스를 만든 뒤에도 <code>Document.edit()</code>에 <code>if isinstance(self._state, Approved)</code>를 남기는 것이다. 그렇게 하면 분기가 사라지지 않고 모양만 바뀐다.</p>
-      <figure class="code"><figcaption>src/13_state/solutions/ex2_approval_state.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 2 해설] 문서 결재 흐름(작성 중/상신/승인/반려)을 상태 패턴으로 리팩터링한다.
+      <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 2 해설] 문서 결재 흐름(작성 중/상신/승인/반려)을 상태 패턴으로 리팩터링한다.
 
 상황: 사내 전자결재 모듈의 `Document`가 edit/submit/approve/reject 네 메서드마다
 `if self.status == ...`를 반복하고, 반려 사유(reject_reason)가 재상신 뒤에도 남아 있었다.
@@ -3161,7 +3161,7 @@ if __name__ == &quot;__main__&quot;:
       <summary>해설 보기</summary>
       <p><code>Enum</code> + 전이표를 택한다. 상태 패턴의 이득은 "상태별로 다른 <em>행동</em>"을 다형성으로 나누는 데서 오는데, 여기서는 나눌 행동이 없다. 클래스 세 개의 본문이 "다음은 X, 색은 Y" 한두 줄씩일 것이다. 반면 전이표는 규칙 전체를 다섯 줄에 보여 주고, 표시 속성은 <code>Enum</code> 값에 붙이면 된다.</p>
       <p>판단을 뒤집을 신호는 <strong>특정 상태에만 무거운 행동이 생길 때</strong>다. 예를 들어 '사용 중'에만 연장 결제와 다음 예약자 알림이 붙는 경우다. 그때도 전체를 갈아엎을 필요는 없다. 그 상태만 객체로 승격하는 혼합형(6절 표의 가운데 줄)으로 충분하다. <strong>흔한 오답</strong>은 "확장될지 모르니 처음부터 상태 패턴"이다. 확장 방향을 모르는 채로 미리 깐 계층은 대개 엉뚱한 축으로 나뉘어 있다.</p>
-      <figure class="code"><figcaption>src/13_state/solutions/ex3_enum_table.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 3 해설] 상태 3개, 행동 차이는 거의 없고 전이만 중요한 경우 — Enum + 전이표를 택한다.
+      <figure class="code"><figcaption>연습문제 3 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 3 해설] 상태 3개, 행동 차이는 거의 없고 전이만 중요한 경우 — Enum + 전이표를 택한다.
 
 상황: 킥고 사무실 회의실 앞 태블릿은 &#x27;비어 있음 / 예약됨 / 사용 중&#x27; 세 상태를 색으로만 표시한다.
 상태마다 다른 &#x27;행동&#x27;은 사실상 색과 문구뿐이고, 중요한 것은 어떤 전이가 허용되는지다.
@@ -3257,7 +3257,7 @@ class Scooter:
     <details class="solution">
       <summary>해설 보기</summary>
       <p>현재 코드는 <strong>전략</strong>이다. 교체하는 주체가 사용자(바깥)이고, 아무 모드에서 아무 모드로나 바꿀 수 있으며, 모드 객체들은 서로를 모른다. 4절 비교표의 모든 행이 전략 쪽을 가리킨다. 사실 모드마다 다른 것이 숫자 하나뿐이므로, 전략 클래스조차 과하다. <code>Enum</code>이나 dict 값으로도 충분하다. <strong>흔한 오답</strong>은 이름이 <code>State</code>이고 <code>set_state</code>가 있으니 상태 패턴이라고 답하는 것이다. 패턴은 이름이 아니라 책임의 배치로 판별한다.</p>
-      <p>보호구역 요구가 추가되면 이야기가 달라진다. 이제 <em>사건(GPS 진입/이탈)에 반응해 객체 스스로</em> 모드를 바꿔야 하고, "이전 모드로 복귀"라는 전이 규칙이 생긴다. 보호구역 안에서는 사용자의 스포츠 모드 요청을 거부해야 하므로 불법 전이도 생긴다. 이 부분은 상태 패턴이 맞다. 다만 사용자 선택 모드(전략)와 보호구역 여부(상태)를 한 계층에 섞지 말고, 03처럼 <strong>두 슬롯으로 분리</strong>하는 것이 좋다. <code>SchoolZone</code> 상태는 진입 시 사용자 모드를 기억해 두고, <code>limit_speed()</code>는 상태가 허용하는 상한과 사용자 전략의 상한 중 작은 값을 쓴다. 한 축에 두 종류의 변화를 섞으면 '에코+보호구역', '스포츠+보호구역' 같은 조합 클래스가 폭발한다.</p>
+      <p>보호구역 요구가 추가되면 이야기가 달라진다. 이제 <em>사건(GPS 진입/이탈)에 반응해 객체 스스로</em> 모드를 바꿔야 하고, "이전 모드로 복귀"라는 전이 규칙이 생긴다. 보호구역 안에서는 사용자의 스포츠 모드 요청을 거부해야 하므로 불법 전이도 생긴다. 이 부분은 상태 패턴이 맞다. 다만 사용자 선택 모드(전략)와 보호구역 여부(상태)를 한 계층에 섞지 말고, 전략·상태 비교 코드처럼 <strong>두 슬롯으로 분리</strong>하는 것이 좋다. <code>SchoolZone</code> 상태는 진입 시 사용자 모드를 기억해 두고, <code>limit_speed()</code>는 상태가 허용하는 상한과 사용자 전략의 상한 중 작은 값을 쓴다. 한 축에 두 종류의 변화를 섞으면 '에코+보호구역', '스포츠+보호구역' 같은 조합 클래스가 폭발한다.</p>
     </details>
   </div>
 </section>
@@ -3265,12 +3265,12 @@ class Scooter:
 설계서 대비 변경:
 - 연습문제 4(비교: 이름만 State인 전략)를 추가했다. 10장이 Strategy/State 비교를 이 장으로 위임했기 때문에 판별 연습이 하나 더 필요하다고 보았다.
 - 연습문제 3의 도메인을 '회의실 표시등'으로 구체화했다(설계서에는 도메인 없이 '상태 3개'로만 되어 있었다).
-- 03_state_vs_strategy.py를 추가해 한 Context 안에서 전략과 상태 슬롯을 나란히 비교했다. Riding이 출발 시점의 전략을 붙잡는 상호작용도 함께 보였다.
+- 전략·상태 비교 코드를 추가해 한 Context 안에서 전략과 상태 슬롯을 나란히 비교했다. Riding이 출발 시점의 전략을 붙잡는 상호작용도 함께 보였다.
 -->
     <nav class="pager"><a class="prev" href="12-command.html"><small>← 이전 · 12장</small>커맨드 (Command)</a><a class="next" href="14-template-method.html"><small>다음 · 14장 →</small>템플릿 메서드 (Template Method)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>

@@ -2,7 +2,7 @@
 
 상황: 다온기계의 다른 팀은 BOM 편집 화면을 만든다. 화면 코드는 사용자가 클릭한 항목에
 "하위 항목 추가"를 호출하는데, 그 항목이 단품인지 조립품인지 매번 isinstance로 묻기 싫어서
-add()를 BomItem(Component)에 올리자고 제안했다. 이 파일은 그 투명성 설계를 구현해,
+add()를 BomItem(Component)에 올리자고 제안했다. 이 코드는 그 투명성 설계를 구현해,
 무엇이 편해지고 어떤 원칙(LSP)이 위협받는지를 실행으로 보인다.
 """
 from __future__ import annotations

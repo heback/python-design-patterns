@@ -1,7 +1,7 @@
 """06 데코레이터 — 연습문제 1 해설: 감싸는 순서에 따라 전송 크기가 어떻게 달라지는가.
 
 상황: 준호의 게이트웨이 설정 파일에서 누군가 compress와 encrypt의 순서를 바꿨다.
-테스트는 모두 통과했지만 그달 LTE 요금이 여섯 배로 뛰었다. 이 파일은 두 순서를
+테스트는 모두 통과했지만 그달 LTE 요금이 여섯 배로 뛰었다. 이 코드는 두 순서를
 실제로 실행해 크기를 비교하고, 덤으로 '배치를 압축 바깥에 두느냐 안쪽에 두느냐'도 비교한다.
 """
 from __future__ import annotations
@@ -91,7 +91,7 @@ class Batch(Wrapper):
             self._emit()
 
     def _emit(self) -> None:
-        """버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. '내보내기'만 하고 flush는 전파하지 않는다(패턴 코드 02_decorator.py와 같은 구조)."""
+        """버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. '내보내기'만 하고 flush는 전파하지 않는다(패턴 코드와 같은 구조)."""
         if self._buf:
             self._inner.send(b"\n".join(self._buf))
             self._buf.clear()

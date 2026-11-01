@@ -2,14 +2,14 @@
 
 상황: 연구실 서버 관리자가 웹 서버 접근 로그를 모으는 LogCollector를 만들었다. collect()
 안에서 `if fmt == "nginx": ... elif fmt == "apache": ...`로 파서를 골랐다(문제 본문 코드).
-본문의 순진한 코드(01_naive.py)·패턴 코드(02_factory_method.py)와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
+본문의 순진한 코드·패턴 코드와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
 
 해설의 두 단계:
 - 1단계(GoF 팩토리 메서드): LogCollector가 collect() 흐름을 소유하고 create_parser()를 훅으로
   남긴다. NginxCollector/ApacheCollector가 오버라이드한다.
 - 2단계(__init_subclass__ 레지스트리): 하위 클래스가 '정의되는 순간' 형식 이름으로 등록되어
   설정 문자열로 수집기를 고를 수 있게 한다. Creator 하위 클래스 자체를 등록한다는 점이
-  본문 04_registry.py(Product를 등록)와 다르다 — 어느 쪽을 등록해도 된다.
+  본문 레지스트리 변형(Product를 등록)와 다르다 — 어느 쪽을 등록해도 된다.
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class LogCollector(ABC):
         if fmt is None:
             return
         if fmt in LogCollector.registry:
-            # 본문 04_registry.py와 같은 이유: 조용히 덮어쓰면 두 수집기가 서로를 가리는 버그가 늦게 드러난다.
+            # 본문 레지스트리 변형과 같은 이유: 조용히 덮어쓰면 두 수집기가 서로를 가리는 버그가 늦게 드러난다.
             raise ValueError(f"형식 {fmt!r}가 이미 {LogCollector.registry[fmt].__name__}로 등록됨")
         LogCollector.registry[fmt] = cls
 

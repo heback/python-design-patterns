@@ -1,6 +1,6 @@
 """추상 팩토리 적용: 팩토리 하나를 고르면 스토리지·큐·시크릿 제품군 전체가 정해진다.
 
-상황: 01_naive.py에서는 생성 지점이 UploadService와 ThumbnailWorker에 흩어져 있었고,
+상황: 순진한 코드에서는 생성 지점이 UploadService와 ThumbnailWorker에 흩어져 있었고,
 GCP 전환 때 한 곳을 빠뜨리자 GCS 업로드 + S3 다운로드라는 '섞인 조합'이 만들어져
 첫 메시지 처리 때에야 실패했다. 여기서는 "함께 쓰여야 하는 객체들의 생성"을
 CloudFactory 하나에 묶는다. 서비스 코드는 팩토리만 받으므로 제품을 섞을 방법 자체가 없다.
@@ -94,7 +94,7 @@ class _AccountStorage(BlobStorage):
         return f"{self.account.url_scheme}://uploads/{key}"
 
     def get(self, url: str) -> bytes:
-        """자기 URL 형식이 아니면 거부한다 — 01_naive.py에서 터졌던 바로 그 검사."""
+        """자기 URL 형식이 아니면 거부한다 — 순진한 코드에서 터졌던 바로 그 검사."""
         prefix = f"{self.account.url_scheme}://uploads/"
         if not url.startswith(prefix):
             raise ValueError(f"{type(self).__name__}는 이 URL을 읽을 수 없음: {url}")
@@ -290,7 +290,7 @@ class UploadService:
 
 
 class ThumbnailWorker:
-    """[Client] 썸네일 워커. 01_naive.py에서 S3Storage를 하드코딩했던 바로 그 클래스."""
+    """[Client] 썸네일 워커. 순진한 코드에서 S3Storage를 하드코딩했던 바로 그 클래스."""
 
     def __init__(self, cloud: CloudFactory) -> None:
         """같은 팩토리에서 받으므로 저장소와 큐가 반드시 같은 제품군이다."""
@@ -319,7 +319,7 @@ class CloudEnv(StrEnum):
 def make_cloud_factory(env: CloudEnv) -> CloudFactory:
     """배포 환경으로 구체 팩토리를 고른다.
 
-    여기에는 if/elif가 있어도 된다. 01_naive.py의 문제는 분기가 '있다'는 것이 아니라
+    여기에는 if/elif가 있어도 된다. 순진한 코드의 문제는 분기가 '있다'는 것이 아니라
     생성 지점마다 '복제'되었다는 것이었다. 분기가 한 곳에만 있으면 환경 추가 비용은 한 줄이다.
     환경 변수에서 읽은 문자열은 CloudEnv(...)로 경계에서 한 번만 바꾼다. 오타는 그 자리에서 ValueError다.
     """

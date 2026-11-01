@@ -1,6 +1,6 @@
 """커맨드 패턴 적용: 편집 동작을 '실행·취소할 수 있는 객체'로 만든다.
 
-상황: 01_naive.py에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
+상황: 순진한 코드에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
 정보가 형식 없는 튜플 하나에 제각각 기록되었다. 은우는 '무엇을 할지'(요청)를 객체로
 만들어, '언제·어디서 호출하는지'(툴바·단축키·메뉴)와 분리한다.
 
@@ -11,8 +11,8 @@
   - CommandHistory                        [Invoker]   실행 기록, undo/redo 스택
   - Toolbar/단축키/메뉴 함수                  [Client]    명령을 만들어 Invoker에 건넨다
 
-undo 정보 보존 방식: 이 파일의 세 명령은 모두 '스냅샷'이다(MoveShape는 좌표, ChangeColor는 색,
-DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드(01_naive.py)의 데모 [1]을 보라.
+undo 정보 보존 방식: 이 코드의 세 명령은 모두 '스냅샷'이다(MoveShape는 좌표, ChangeColor는 색,
+DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드의 데모 [1]을 보라.
 """
 from __future__ import annotations
 

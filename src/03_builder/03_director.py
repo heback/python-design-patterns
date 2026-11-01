@@ -1,7 +1,7 @@
 """GoF 빌더: 같은 조립 절차(Director)로 서로 다른 표현(SQL, 사람이 읽는 요약)을 만든다.
 
-상황: 02_builder.py로 쿼리 정의(Query)는 안전해졌다. 그런데 분석 팀이 "대시보드마다
-이 차트가 무엇을 집계하는지 한국어 요약을 같이 보여 달라"고 요청했다. 01_naive.py에서는
+상황: 패턴 코드로 쿼리 정의(Query)는 안전해졌다. 그런데 분석 팀이 "대시보드마다
+이 차트가 무엇을 집계하는지 한국어 요약을 같이 보여 달라"고 요청했다. 순진한 코드에서는
 to_sql()과 to_summary()가 같은 분기를 복제했고, 결국 회원 등급 필터가 요약에서 빠지는
 불일치가 났다. 여기서는 "어떤 순서로 무엇을 조립하는가"를 Director 한 곳에 두고,
 "각 조각을 어떻게 표현하는가"만 Concrete Builder마다 다르게 한다.
@@ -15,8 +15,8 @@ GoF 의도(intent): "복잡한 객체의 생성 과정과 표현 방법을 분�
 - [Concrete Builder]  PostgresRenderer, SummaryRenderer — 각자의 표현을 쌓는다
 - [Product]           SqlStatement, 요약 문자열 — 서로 공통 타입이 없다는 점이 GoF 빌더의 특징
 
-패턴 코드(02_builder.py)와의 차이: 패턴 코드의 '빌더'는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
-이 파일의 '빌더'는 GoF 원전의 의미(같은 절차, 다른 표현)다. 둘은 이름만 같고 목적이 다르다.
+패턴 코드와의 차이: 패턴 코드의 '빌더'는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
+이 코드의 '빌더'는 GoF 원전의 의미(같은 절차, 다른 표현)다. 둘은 이름만 같고 목적이 다르다.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 
 # ---------------------------------------------------------------------------
-# 입력: 02_builder.py의 Query를 간추린 것. (파일 간 import를 하지 않는 교재 규칙 때문에 다시 정의)
+# 입력: 패턴 코드의 Query를 간추린 것. (예제끼리 import하지 않으므로 다시 정의)
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -140,7 +140,7 @@ class SummaryRenderer(QueryRenderer):
         self._parts.append(f"[{table}] {' · '.join(select)}")
 
     def add_filters(self, conds: tuple[Condition, ...]) -> None:
-        """조건. 01_naive.py처럼 필터 종류마다 분기하지 않으므로 '빠뜨릴' 필터가 없다."""
+        """조건. 순진한 코드처럼 필터 종류마다 분기하지 않으므로 '빠뜨릴' 필터가 없다."""
         self._parts.append(f"조건: {self._describe(conds)}")
 
     def add_grouping(self, group_by: tuple[str, ...], having: tuple[Condition, ...]) -> None:

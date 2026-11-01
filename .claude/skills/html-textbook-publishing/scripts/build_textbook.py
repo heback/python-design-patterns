@@ -24,7 +24,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 SKILL = Path(__file__).resolve().parents[1]
 CHAPTERS, SRC, OUT = ROOT / "chapters", ROOT / "src", ROOT / "textbook"
-PARTS = [("생성 패턴", "create"), ("구조 패턴", "struct"), ("행위 패턴", "behave")]
 
 # SVG 화살표 마커. 원고 작성자는 marker-end="url(#triangle)" 처럼 참조만 하면 된다.
 SVG_DEFS = """<defs>
@@ -86,30 +85,51 @@ def load_chapters() -> list[Chapter]:
     return result
 
 
-def render_src(match: re.Match, chapter: Chapter) -> str:
-    """<pre data-src="x.py" [data-lines="a-b"]></pre> 를 캡션 달린 코드 블록으로 바꾼다."""
-    rel, lines = match.group("path"), match.group("lines")
+def render_src(match: re.Match, chapter: Chapter, part: tuple[int, int] = (1, 1)) -> str:
+    """<pre data-src="x.py" [data-lines="a-b"] [data-title="제목"]></pre> 를 캡션 달린 코드 블록으로 바꾼다.
+
+    캡션에는 파일 경로·행 번호를 싣지 않는다. 학생은 코드 저장소의 존재를 알 필요가 없으므로
+    원고가 정한 제목(data-title)만 보이고, 같은 코드를 나눠 싣는 경우에만 "(2/3)" 같은 순서를 덧붙인다.
+    """
+    rel, lines, title = match.group("path"), match.group("lines"), match.group("title")
     path = SRC / rel
     if not path.exists():
         problems.append(f"{chapter.out_name}: data-src 대상 없음 src/{rel}")
-        return f'<div class="missing-src">⚠ 코드 파일 없음: src/{html.escape(rel)}</div>'
+        return '<div class="missing-src">⚠ 코드를 불러오지 못했다</div>'
+    if not title:
+        problems.append(f"{chapter.out_name}: data-title 없음 ({rel})")
+        title = "코드"
     code_lines = path.read_text(encoding="utf-8").rstrip("\n").splitlines()
-    full = ""    # 일부 행만 보여 줄 때, 브라우저에서 실행·편집하려면 파일 전체가 필요하다
-    caption = f"src/{rel}"
+    full = ""    # 일부 행만 보여 줄 때, 브라우저에서 실행·편집하려면 코드 전체가 필요하다
+    caption = title
     if lines:
         full = f' data-full="{html.escape(chr(10).join(code_lines))}"'
         a, b = (int(x) for x in lines.split("-"))
         code_lines = code_lines[a - 1:b]
-        caption += f"  ({a}–{b}행)"
+    if part[1] > 1:
+        caption += f" ({part[0]}/{part[1]})"
     code = html.escape("\n".join(code_lines))
     return (f'<figure class="code"{full}><figcaption>{html.escape(caption)}</figcaption>'
             f'<pre><code class="language-python">{code}</code></pre></figure>')
 
 
+SRC_PRE = re.compile(r'<pre\s+data-src="(?P<path>[^"]+)"(?:\s+data-lines="(?P<lines>\d+-\d+)")?'
+                     r'(?:\s+data-title="(?P<title>[^"]*)")?\s*>\s*</pre>')
+
+
 def process_body(ch: Chapter) -> tuple[str, str]:
     """본문 자리표시자 치환, SVG 마커 주입, 장 내부 목차 생성. (본문, 목차 HTML)을 돌려준다."""
-    body = re.sub(r'<pre\s+data-src="(?P<path>[^"]+)"(?:\s+data-lines="(?P<lines>\d+-\d+)")?\s*>\s*</pre>',
-                  lambda m: render_src(m, ch), ch.body)
+    totals: dict[str, int] = {}     # 같은 파일을 몇 조각으로 나눠 싣는가
+    for m in SRC_PRE.finditer(ch.body):
+        totals[m.group("path")] = totals.get(m.group("path"), 0) + 1
+    seen: dict[str, int] = {}
+
+    def place(m: re.Match) -> str:
+        path = m.group("path")
+        seen[path] = seen.get(path, 0) + 1
+        return render_src(m, ch, (seen[path], totals[path]))
+
+    body = SRC_PRE.sub(place, ch.body)
     # 원고에 직접 쓴 표는 좁은 화면에서 가로 스크롤되도록 감싼다.
     body = re.sub(r"(<table\b.*?</table>)", r'<div class="table-wrap">\1</div>', body, flags=re.S)
     body = re.sub(r"(<svg\b[^>]*>)", lambda m: m.group(1) + SVG_DEFS, body)
@@ -199,30 +219,7 @@ def build() -> int:
         (OUT / "glossary.html").write_text(glossary, encoding="utf-8")
         print(f"  built glossary.html ({len(TERMS)} terms)")
 
-    # ---- 목차 페이지 ----
-    def card(ch: Chapter) -> str:
-        return (f'<a class="card" href="{ch.out_name}"><span class="num">{chapter_label(ch)}</span>'
-                f'<span class="t">{ch.title}</span><span class="s">{ch.subtitle}</span></a>')
-
-    blocks = []
-    intro = [c for c in chapters if not c.part]
-    if intro:
-        blocks.append(f'<section class="part-block"><h2>시작과 정리</h2><div class="cards">{"".join(card(c) for c in intro)}</div></section>')
-    for name, cls in PARTS:
-        group = [c for c in chapters if c.part == name]
-        if group:
-            blocks.append(f'<section class="part-block {cls}"><h2>{name}</h2><div class="cards">{"".join(card(c) for c in group)}</div></section>')
-    cover = ('<header class="cover"><h1>파이썬으로 배우는<br>디자인 패턴</h1>'
-             '<p>객체지향 원리를 이미 아는 학생을 위한 교재. 장마다 실제 상황에서 출발해, '
-             '순진한 설계가 무너지는 지점을 확인하고, 패턴과 파이썬다운 대안을 비교한다.</p></header>')
-    if TERMS:
-        blocks.append('<section class="part-block"><h2>부록</h2><div class="cards"><a class="card" href="glossary.html">'
-                      f'<span class="num">용어집</span><span class="t">용어 {len(TERMS)}개</span>'
-                      '<span class="s">교재에서 정의하는 용어와 처음 정의되는 위치</span></a></div></section>')
-    index = fill(template, page_title="파이썬 디자인 패턴", body_class="index", crumb="목차",
-                 hero=cover, content="".join(blocks))
-    (OUT / "index.html").write_text(index, encoding="utf-8")
-    print("  built index.html")
+    # 목차 페이지(index.html)는 만들지 않는다. 첫 화면은 배포 사이트의 표지(docs/index.html)가 맡는다.
 
     # ---- 링크 검사 ----
     for page in OUT.glob("*.html"):

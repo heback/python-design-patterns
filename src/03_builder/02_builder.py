@@ -1,6 +1,6 @@
 """유창한(fluent) 빌더: 단계적으로 조립하고, build()에서 한 번에 검증해 불변 Query를 낸다.
 
-상황: 01_naive.py의 SalesQuery는 (1) None 투성이 점층적 생성자, (2) "WHERE AND" 같은
+상황: 순진한 코드의 SalesQuery는 (1) None 투성이 점층적 생성자, (2) "WHERE AND" 같은
 문자열 조립 오류, (3) GROUP BY 없는 HAVING 같은 팀 규칙 위반 조합, (4) 값 직접 삽입에 의한
 SQL 주입 위험을 안고 있었다. 하은의 팀은 쿼리를 '조립하는 객체(QueryBuilder)'와
 '완성된 쿼리(Query)'를 분리하기로 했다.
@@ -13,7 +13,7 @@ SQL 주입 위험을 안고 있었다. 하은의 팀은 쿼리를 '조립하는 
 - 값은 SQL 문자열에 넣지 않고 params로 분리한다(매개변수 바인딩).
 
 역할 대응: [Builder] QueryBuilder, [Product] Query. GoF의 Director와 '여러 표현'은
-03_director.py에서 다룬다 — 이 파일은 현업에서 더 흔한 유창한 빌더 형태다.
+GoF 빌더 코드에서 다룬다 — 이 코드는 현업에서 더 흔한 유창한 빌더 형태다.
 """
 from __future__ import annotations
 

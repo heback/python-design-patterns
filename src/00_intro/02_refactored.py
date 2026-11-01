@@ -1,6 +1,6 @@
 """세 원칙으로 리팩터링: 변하는 것을 찾아 → 인터페이스 뒤에 숨기고 → 합성으로 조립한다.
 
-상황: 01_naive.py의 late_fee()는 지점 정책이 셋으로 갈라지자 if/elif가 곱해졌다. 지민의
+상황: 순진한 코드의 late_fee()는 지점 정책이 셋으로 갈라지자 if/elif가 곱해졌다. 지민의
 선배 개발자 현우는 함수를 고치기 전에 질문부터 했다. "이 함수에서 지점마다 '다른' 것은
 무엇이고, 어디서나 '같은' 것은 무엇인가?" 답은 이랬다.
 - 같은 것: 연체 일수 × 일당 요율을 구한 뒤 조정 규칙들을 차례로 적용한다는 '절차'.
@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
 
-# 순진한 코드와 같은 정의다(파일 단독 실행을 위해 다시 둔다).
+# 순진한 코드와 같은 정의다(이 코드만으로 실행되도록 다시 둔다).
 
 class Material(StrEnum):
     """자료 유형. 문자열 대신 멤버로 쓴다 — 오타(Material.DVDD)는 실행 즉시 AttributeError가 된다."""
@@ -46,7 +46,7 @@ class Branch(StrEnum):
 
 @dataclass(frozen=True)
 class Loan:
-    """대출 한 건(순진한 코드 01_naive.py와 같다)."""
+    """대출 한 건(순진한 코드와 같다)."""
 
     material: Material   # 자료 유형
     member: Member       # 회원 유형
@@ -59,7 +59,7 @@ class Adjustment(ABC):
     """[변하는 것의 인터페이스] 기본 연체료에 적용하는 조정 규칙 하나.
 
     ABC를 고른 이유: 이 교재에서는 '우리가 정의하고 우리가 구현하는' 계약에 ABC를 쓴다.
-    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 파이썬다운 변형 03_pythonic.py).
+    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 파이썬다운 변형).
     """
 
     @abstractmethod
@@ -134,7 +134,7 @@ BRANCH_POLICIES: dict[Branch, FeePolicy] = {
 
 
 if __name__ == "__main__":
-    print("[1] 01_naive.py와 같은 입력, 같은 결과")
+    print("[1] 순진한 코드와 같은 입력, 같은 결과")
     due, back = date(2026, 6, 10), date(2026, 6, 15)
     cases = [(Material.BOOK, Member.ADULT), (Material.DVD, Member.ADULT),
              (Material.BOOK, Member.CHILD), (Material.BOOK, Member.UNIVERSITY)]

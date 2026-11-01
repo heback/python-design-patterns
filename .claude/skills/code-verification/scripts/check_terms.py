@@ -71,7 +71,7 @@ def build_stream() -> tuple[str, list[Segment]]:
     """책 전체를 읽기 순서의 단일 문자열로 만든다. 코드는 data-src 자리에 끼운다."""
     segments: list[Segment] = []
     pos = 0
-    pre = re.compile(r'<pre\s+data-src="([^"]+)"(?:\s+data-lines="(\d+)-(\d+)")?\s*>\s*</pre>')
+    pre = re.compile(r'<pre\s+data-src="([^"]+)"(?:\s+data-lines="(\d+)-(\d+)")?(?:\s+data-title="[^"]*")?\s*>\s*</pre>')
     for path in chapter_files():
         raw = path.read_text(encoding="utf-8")
         cursor = 0

@@ -4,7 +4,7 @@
 cancel_payment(tid, amount_krw) -> None 로, 우리 PaymentGateway(pay/refund)와
 이름만 다르고 인자 순서·단위·반환·예외가 모두 같다. 선택지는 셋이다:
 클래스 어댑터, __getattr__ 위임, 명시적 얇은 어댑터(혹은 함수).
-이 파일은 권장 해법인 '명시적 얇은 어댑터'와, 메서드가 하나뿐일 때의 '바운드 메서드
+이 코드는 권장 해법인 '명시적 얇은 어댑터'와, 메서드가 하나뿐일 때의 '바운드 메서드
 그대로 쓰기'를 보인다. 왜 나머지 둘을 고르지 않는지는 각 docstring에 적었다.
 """
 from __future__ import annotations

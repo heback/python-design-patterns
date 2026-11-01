@@ -45,7 +45,7 @@ class CachingArchiveProxy(Archive):
     """[Proxy: 캐싱] RemoteArchive와 같은 인터페이스. 최근 capacity개 원본을 기억한다(LRU).
 
     캐시를 '화면'이 아니라 '저장소 앞'에 둔 이유: 카탈로그·비교 뷰·내보내기 등 영상을 여는
-    모든 경로가 자동으로 같은 캐시를 공유한다. 01_naive.py에서는 화면마다 캐시가 따로였다.
+    모든 경로가 자동으로 같은 캐시를 공유한다. 순진한 코드에서는 화면마다 캐시가 따로였다.
     OrderedDict를 쓴 이유: move_to_end/popitem(last=False)로 LRU를 몇 줄에 구현할 수 있다.
     """
 
@@ -109,7 +109,7 @@ class SatelliteImage(ABC):
 
 
 class RealSatelliteImage(SatelliteImage):
-    """[Real Subject] 생성자에서 원본을 받는다. 순진한 코드(01_naive.py)와 같은 '무거운' 객체 — 바꾸지 않았다.
+    """[Real Subject] 생성자에서 원본을 받는다. 순진한 코드와 같은 '무거운' 객체 — 바꾸지 않았다.
 
     프록시 패턴의 장점 하나가 여기 있다: 실제 객체는 지연·권한·캐시를 전혀 모른 채 자기 일만 한다.
     """

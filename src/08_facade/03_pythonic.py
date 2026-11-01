@@ -1,8 +1,8 @@
 """08 퍼사드 — 파이썬다운 변형: 함수 퍼사드, contextmanager 퍼사드, 표준 라이브러리 속 퍼사드.
 
-상황: 02_facade.py의 CheckInFacade는 상태가 없다. 서브시스템 참조만 들고 있을 뿐,
+상황: 패턴 코드의 CheckInFacade는 상태가 없다. 서브시스템 참조만 들고 있을 뿐,
 check_in() 호출 사이에 기억하는 것이 없다. 지호의 동료 서윤은 묻는다. "그럼 클래스일 이유가 있어?"
-이 파일은 세 가지를 보인다.
+이 코드는 세 가지를 보인다.
   (1) 함수 퍼사드: 모듈 수준 함수 check_in() 하나. 파이썬에서는 '모듈'이 곧 퍼사드가 될 수 있다
       (패키지의 __init__.py가 __all__로 공개 API를 좁히는 것이 그 형태다).
   (2) contextmanager 퍼사드: 키오스크 하드웨어의 "열기 → 작업 → 반드시 닫기"를 with 한 줄로 감싼다.
@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from typing import Iterator
 
 __all__ = ["check_in", "kiosk_session"]
-# __all__: 'from 이모듈 import *'로 노출할 이름. 이 파일이 패키지의 __init__.py라면
+# __all__: 'from 이모듈 import *'로 노출할 이름. 이 코드가 패키지의 __init__.py라면
 # 클라이언트가 보는 공개 표면은 이 두 이름뿐이고, 아래 서브시스템 클래스는 '내부'로 읽힌다.
 
 

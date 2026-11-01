@@ -3,7 +3,7 @@
 상황: 농장 관리 앱의 알림 모듈 Notifier.send(msg, *, with_retry, with_log, with_rate_limit)는
 플래그 세 개를 받아 한 메서드 안에서 재시도·로그·호출 제한을 처리했다. 호출부마다 플래그
 조합이 달랐고, "로그는 재시도마다 찍어야 하나, 최종 결과만 찍어야 하나" 같은 질문에
-코드가 답하지 못했다. 이 파일은 각 플래그를 같은 Notifier 인터페이스의 래퍼 하나로 바꾼다.
+코드가 답하지 못했다. 이 코드는 각 플래그를 같은 Notifier 인터페이스의 래퍼 하나로 바꾼다.
 """
 from __future__ import annotations
 

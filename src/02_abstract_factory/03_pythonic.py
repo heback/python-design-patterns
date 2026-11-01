@@ -1,11 +1,11 @@
 """파이썬다운 변형: Protocol 제품 + frozen dataclass '생성 함수 번들' + composition root.
 
-상황: 02_abstract_factory.py는 추상 팩토리 1개, 구체 팩토리 3개, 추상 제품 3개, 구체 제품 9개로
+상황: 패턴 코드는 추상 팩토리 1개, 구체 팩토리 3개, 추상 제품 3개, 구체 제품 9개로
 제품군을 표현했다. 도현의 팀은 "클래스가 너무 많다"고 느꼈다. 파이썬에서는
 (1) 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 되도록 제품 인터페이스를 Protocol로 두고,
 (2) 팩토리를 클래스 계층 대신 '생성 함수 세 개를 묶은 불변 값'으로 표현할 수 있다.
 
-이 파일이 함께 보여주는 비판적 지점: 번들은 '데이터'라서 누구나 필드를 섞어 새 번들을
+이 코드가 함께 보여주는 비판적 지점: 번들은 '데이터'라서 누구나 필드를 섞어 새 번들을
 만들 수 있다. 클래스 계층이 구조로 보장하던 제품군 일관성이 사라지므로, 그 보장을
 __post_init__ 검증으로 되찾아야 한다. 이 비용이 클래스 계층이 여전히 필요한 이유이기도 하다.
 """
@@ -122,7 +122,7 @@ def aws_kit() -> CloudKit:
     """[Concrete Factory 역할] AWS 제품군. 클래스 대신 함수 하나가 번들을 만든다.
 
     저장소·큐 인스턴스를 클로저로 하나씩 공유해, 같은 키트에서 나온 제품들이 같은
-    '계정'을 보게 한다(패턴 코드 02_abstract_factory.py의 CloudAccount 공유와 같은 효과).
+    '계정'을 보게 한다(패턴 코드의 CloudAccount 공유와 같은 효과).
     """
     storage, queue = SchemeStorage("aws", "s3"), ListQueue("aws")
     return CloudKit("aws", storage=lambda: storage, queue=lambda: queue)
@@ -147,7 +147,7 @@ KITS: dict[str, Callable[[], CloudKit]] = {"aws": aws_kit, "gcp": gcp_kit, "loca
 def composition_root() -> CloudKit:
     """[Composition Root] 환경 변수를 읽는 곳은 프로그램 전체에서 여기 하나다.
 
-    서비스 코드가 os.environ을 직접 읽으면 01_naive.py의 '생성 지점마다 분기'가 되살아난다.
+    서비스 코드가 os.environ을 직접 읽으면 순진한 코드의 '생성 지점마다 분기'가 되살아난다.
     기본값을 local로 둔 이유: 설정을 빠뜨린 개발자가 실수로 운영 클라우드를 건드리지 않게.
     """
     return KITS[os.environ.get("CLOUD_ENV", "local")]()
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         kit = composition_root()
         print(f"  CLOUD_ENV={env:5} → {kit.provider} 키트, {upload_and_process(kit, 'cat.png')}")
 
-    print("\n[2] 번들은 데이터라 누구나 섞을 수 있다 — 검증이 없었다면 01_naive.py로 돌아간다")
+    print("\n[2] 번들은 데이터라 누구나 섞을 수 있다 — 검증이 없었다면 순진한 코드로 돌아간다")
     aws, gcp = aws_kit(), gcp_kit()
     try:
         CloudKit("gcp", storage=gcp.storage, queue=aws.queue)  # GCP 저장소 + AWS 큐

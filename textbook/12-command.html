@@ -16,7 +16,7 @@
 </head>
 <body class="chapter" data-part="행위 패턴">
 <header class="topbar">
-  <a class="brand" href="index.html">파이썬 디자인 패턴</a>
+  <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="crumb">12장 · 커맨드 (Command)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
@@ -46,7 +46,7 @@
 <h2>2. 순진한 설계와 그 한계</h2>
 <p class="lead-in">아래가 은우의 편집기다. 이동 코드가 툴바와 단축키에 복제된 모습, 핸들러마다 <code>last_action</code>을 다른 모양으로 채우는 모습, 그리고 <code>on_undo()</code>가 모든 동작의 종류를 알아야 하는 구조에 주목하라. 코드 주석에 나오는 <dfn class="term" id="term-inverse-operation" data-term="inverse-operation" title="어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(예: +1 ↔ −1). 연산이 정보를 잃으면(자르기·삭제·반올림) 존재하지 않는다.">역연산</dfn>은 어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(+30 이동 ↔ −30 이동)이다. 연산이 정보를 잃으면(경계에서 자르기, 삭제, 반올림) 올바른 역연산은 존재하지 않는다 — 이 점이 첫 번째 버그의 원인이다. 데모는 베타 사용자의 버그 보고 네 건을 그대로 재현한다.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 392" role="img" aria-label="01_naive.py의 구조: Editor 한 클래스가 도형 저장소이자 UI 핸들러 모음이다. 핸들러마다 last_action 한 칸을 다른 모양으로 채우거나 잊고, on_undo()가 동작 종류별로 분기해 역연산으로 되돌린다"><defs>
+  <svg viewBox="0 0 640 392" role="img" aria-label="순진한 코드의 구조: Editor 한 클래스가 도형 저장소이자 UI 핸들러 모음이다. 핸들러마다 last_action 한 칸을 다른 모양으로 채우거나 잊고, on_undo()가 동작 종류별로 분기해 역연산으로 되돌린다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -95,16 +95,16 @@
     <text class="uml-note" x="20" y="352">① Shape → ② 핸들러 넷: 무엇을 last_action에 남기는가 → ③ on_undo()의 분기</text>
     <text class="uml-note" x="20" y="374">데모 [1] 잘린 이동의 undo · [2] 단축키는 캔버스 밖으로 · [3] 한 단계뿐 · [4] 삭제는 영영</text>
   </svg>
-  <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "담고 있다". 오른쪽 열은 각 핸들러가 last_action에 남기는 것이다.</figcaption>
+  <figcaption>코드 지도 · 순진한 코드. 속이 찬 마름모는 "담고 있다". 오른쪽 열은 각 핸들러가 last_action에 남기는 것이다.</figcaption>
 </figure>
-<figure class="code"><figcaption>src/12_command/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 도형 편집 동작이 UI 핸들러 안에 직접 박혀 있다.
+<figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 도형 편집 동작이 UI 핸들러 안에 직접 박혀 있다.
 
 상황: 웹 기반 다이어그램 도구 &#x27;스케치보드&#x27;의 개발자 은우는 툴바 버튼 핸들러 안에서
 도형 이동·색 변경·삭제를 바로 실행했다. 그런데 같은 기능을 단축키와 우클릭 메뉴에서도
 불러야 했고, Ctrl+Z(실행 취소)가 필요해졌다. 은우는 핸들러마다 &#x27;직전 동작&#x27;을 각자
 기록하는 방식으로 대응했다.
 
-이 파일에서 확인할 고통:
+이 코드에서 확인할 고통:
   1) 같은 동작 코드가 툴바·단축키·메뉴 세 곳에 복제되고, 복제본끼리 어긋난다.
   2) undo 정보를 핸들러마다 제각각 기록한다. 한 곳이라도 잊으면 Ctrl+Z가 엉뚱하게 동작한다.
   3) 직전 동작 &#x27;하나&#x27;만 기억하므로 여러 단계 undo, redo, 매크로 녹화가 불가능하다.
@@ -296,11 +296,11 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
-<p>은우가 먼저 정한 것은 책임의 경계다. 도형을 어떻게 옮기는지(경계 검사 포함)는 <code>Canvas</code>가 안다. 무엇을 옮겼고 어떻게 되돌리는지는 명령이 안다. 언제 실행되었고 무엇을 취소할 차례인지는 이력이 안다. 버튼·단축키·메뉴는 명령을 만들어 건네는 일만 한다. 전체 파일은 <code>02_command.py</code>이고, 세 부분으로 나눠 읽는다.</p>
+<p>은우가 먼저 정한 것은 책임의 경계다. 도형을 어떻게 옮기는지(경계 검사 포함)는 <code>Canvas</code>가 안다. 무엇을 옮겼고 어떻게 되돌리는지는 명령이 안다. 언제 실행되었고 무엇을 취소할 차례인지는 이력이 안다. 버튼·단축키·메뉴는 명령을 만들어 건네는 일만 한다. 이 패턴 코드는 세 부분으로 나눠 읽는다.</p>
 <p class="lead-in">먼저 수신자 <code>Canvas</code>다. naive 코드에서 핸들러마다 복제되던 "0에서 자르기" 규칙이 <code>move_to()</code> 한 곳에 있다는 점, 그리고 <code>remove()</code>와 <code>set_color()</code>가 되돌리기에 필요한 원래 위치·이전 색을 함께 돌려준다는 점을 보라. 여기서 "위치"는 <dfn class="term" id="term-z-order" data-term="z-order" title="화면에서 겹친 도형의 앞뒤(그리기) 순서.">z-순서</dfn>, 즉 겹친 도형들의 앞뒤(그리기) 순서다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;커맨드 패턴 적용: 편집 동작을 &#x27;실행·취소할 수 있는 객체&#x27;로 만든다.
 
-상황: 01_naive.py에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
+상황: 순진한 코드에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
 정보가 형식 없는 튜플 하나에 제각각 기록되었다. 은우는 &#x27;무엇을 할지&#x27;(요청)를 객체로
 만들어, &#x27;언제·어디서 호출하는지&#x27;(툴바·단축키·메뉴)와 분리한다.
 
@@ -311,8 +311,8 @@ if __name__ == &quot;__main__&quot;:
   - CommandHistory                        [Invoker]   실행 기록, undo/redo 스택
   - Toolbar/단축키/메뉴 함수                  [Client]    명령을 만들어 Invoker에 건넨다
 
-undo 정보 보존 방식: 이 파일의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
-DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드(01_naive.py)의 데모 [1]을 보라.
+undo 정보 보존 방식: 이 코드의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
+DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드의 데모 [1]을 보라.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -613,7 +613,7 @@ if __name__ == &quot;__main__&quot;:
                                                       DeleteShape(canvas, &quot;ghost&quot;)]))
     except ValueError as e:   # Canvas.remove()의 list.index가 없는 id에 ValueError를 낸다
         print(&quot;    실패        :&quot;, e)
-    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>src/12_command/02_command.py  (33–68행)</figcaption><pre><code class="language-python">class Canvas:
+    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python">class Canvas:
     &quot;&quot;&quot;[Receiver] 도형을 보관하고 조작하는 법을 안다. undo·UI·이력은 전혀 모른다.
 
     &#x27;0에서 자르기&#x27; 같은 도메인 규칙이 여기 한 곳에만 있다. naive 코드에서 단축키
@@ -653,7 +653,7 @@ if __name__ == &quot;__main__&quot;:
 
 <p class="lead-in">다음은 명령 계약과 구체 명령 셋이다. 각 명령이 되돌리기 정보를 <em>언제</em> 기록하는지(생성 시점이 아니라 <code>execute()</code> 시점), 그리고 세 명령이 각각 무엇을 <dfn class="term" id="term-snapshot" data-term="snapshot" title="어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것. 커맨드의 undo에서 실행 직전 값을 기억해 두었다가 그대로 되돌리는 데 쓴다.">스냅샷</dfn>으로 남기는지 docstring에서 확인하라. 스냅샷은 어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것으로, 여기서는 실행 직전 값을 기억했다가 undo 때 그대로 되돌리는 데 쓴다. <code>MoveShape</code>가 왜 역연산이 아니라 스냅샷을 쓰는지도 주목하라.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 520" role="img" aria-label="02_command.py 둘째 조각의 구조: 추상 클래스 Command를 MoveShape·ChangeColor·DeleteShape가 구현하고, 각 명령은 execute() 때 _before·_prev·_removed 스냅샷을 남긴 뒤 Canvas의 API만 호출한다"><defs>
+  <svg viewBox="0 0 640 520" role="img" aria-label="패턴 코드 둘째 조각의 구조: 추상 클래스 Command를 MoveShape·ChangeColor·DeleteShape가 구현하고, 각 명령은 execute() 때 _before·_prev·_removed 스냅샷을 남긴 뒤 Canvas의 API만 호출한다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -730,11 +730,11 @@ if __name__ == &quot;__main__&quot;:
     <text class="uml-note" x="20" y="478"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 조각의 계약</text>
     <text class="uml-note" x="20" y="500">① Command → ② 명령마다 무엇을 스냅샷으로 남기는가(가운데 칸) → ③ 모두 Canvas API를 거친다</text>
   </svg>
-  <figcaption>코드 지도 · 02_command.py(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "호출한다". 각 명령의 가운데 칸이 undo를 위한 스냅샷이다.</figcaption>
+  <figcaption>코드 지도 · 패턴 코드(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "호출한다". 각 명령의 가운데 칸이 undo를 위한 스냅샷이다.</figcaption>
 </figure>
 <figure class="code" data-full="&quot;&quot;&quot;커맨드 패턴 적용: 편집 동작을 &#x27;실행·취소할 수 있는 객체&#x27;로 만든다.
 
-상황: 01_naive.py에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
+상황: 순진한 코드에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
 정보가 형식 없는 튜플 하나에 제각각 기록되었다. 은우는 &#x27;무엇을 할지&#x27;(요청)를 객체로
 만들어, &#x27;언제·어디서 호출하는지&#x27;(툴바·단축키·메뉴)와 분리한다.
 
@@ -745,8 +745,8 @@ if __name__ == &quot;__main__&quot;:
   - CommandHistory                        [Invoker]   실행 기록, undo/redo 스택
   - Toolbar/단축키/메뉴 함수                  [Client]    명령을 만들어 Invoker에 건넨다
 
-undo 정보 보존 방식: 이 파일의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
-DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드(01_naive.py)의 데모 [1]을 보라.
+undo 정보 보존 방식: 이 코드의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
+DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드의 데모 [1]을 보라.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1047,7 +1047,7 @@ if __name__ == &quot;__main__&quot;:
                                                       DeleteShape(canvas, &quot;ghost&quot;)]))
     except ValueError as e:   # Canvas.remove()의 list.index가 없는 id에 ValueError를 낸다
         print(&quot;    실패        :&quot;, e)
-    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>src/12_command/02_command.py  (71–170행)</figcaption><pre><code class="language-python">class Command(ABC):
+    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python">class Command(ABC):
     &quot;&quot;&quot;[Command] &#x27;실행할 수 있고 되돌릴 수 있는 요청&#x27;의 계약.
 
     Protocol이 아니라 ABC인 이유: undo()를 빠뜨린 명령이 이력 스택에 들어가면
@@ -1160,7 +1160,7 @@ class DeleteShape(Command):
 <p class="lead-in">마지막으로 매크로, 호출자, 그리고 클라이언트다. <code>MacroCommand.execute()</code>가 중간 단계 실패 시 앞 단계를 되돌리는 이유를 docstring에서 확인하라. <code>CommandHistory.undo()</code>가 <code>cmd.undo()</code> 한 줄이라는 점을 naive 코드의 <code>on_undo()</code> 분기와 비교하라. 세 UI 진입점이 모두 같은 명령 클래스를 쓴다는 점도 보라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;커맨드 패턴 적용: 편집 동작을 &#x27;실행·취소할 수 있는 객체&#x27;로 만든다.
 
-상황: 01_naive.py에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
+상황: 순진한 코드에서 은우의 편집기는 동작 코드가 UI 핸들러 세 곳에 복제되고, undo
 정보가 형식 없는 튜플 하나에 제각각 기록되었다. 은우는 &#x27;무엇을 할지&#x27;(요청)를 객체로
 만들어, &#x27;언제·어디서 호출하는지&#x27;(툴바·단축키·메뉴)와 분리한다.
 
@@ -1171,8 +1171,8 @@ class DeleteShape(Command):
   - CommandHistory                        [Invoker]   실행 기록, undo/redo 스택
   - Toolbar/단축키/메뉴 함수                  [Client]    명령을 만들어 Invoker에 건넨다
 
-undo 정보 보존 방식: 이 파일의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
-DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드(01_naive.py)의 데모 [1]을 보라.
+undo 정보 보존 방식: 이 코드의 세 명령은 모두 &#x27;스냅샷&#x27;이다(MoveShape는 좌표, ChangeColor는 색,
+DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드의 데모 [1]을 보라.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -1473,7 +1473,7 @@ if __name__ == &quot;__main__&quot;:
                                                       DeleteShape(canvas, &quot;ghost&quot;)]))
     except ValueError as e:   # Canvas.remove()의 list.index가 없는 id에 ValueError를 낸다
         print(&quot;    실패        :&quot;, e)
-    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>src/12_command/02_command.py  (173–267행)</figcaption><pre><code class="language-python">class MacroCommand(Command):
+    print(&quot;    결과        :&quot;, canvas.dump())"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python">class MacroCommand(Command):
     &quot;&quot;&quot;[Concrete Command / Composite] 여러 명령을 하나의 명령처럼.
 
     MacroCommand도 Command이므로 이력 입장에서는 &#x27;명령 하나&#x27;다 — undo 한 번에
@@ -1581,13 +1581,13 @@ def context_menu_delete(history: CommandHistory, canvas: Canvas, shape_id: str) 
 <p class="lead-in">은우는 매크로 녹화와 협업 로그를 위해 먼저 <code>partial</code>을 시험한다. 실행은 되지만 무엇이 안 되는지 보라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: partial 커맨드의 한계, dataclass 커맨드와 직렬화, 매크로 녹화.
 
-상황: 02_command.py로 undo/redo는 해결됐다. 남은 요구는 둘이다.
+상황: 패턴 코드로 undo/redo는 해결됐다. 남은 요구는 둘이다.
   (a) 사용자가 여러 동작을 &#x27;매크로&#x27;로 녹화해 다른 도형에 재생하기
   (b) 협업: 동작 로그를 서버로 보내 다른 사용자의 캔버스에서 그대로 재현하기
 은우는 먼저 &quot;파이썬이니 functools.partial이면 충분하지 않나?&quot;를 시험해 보고, 그 한계에서
 dataclass 커맨드로 넘어간다.
 
-패턴 코드(02_command.py)와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
+패턴 코드와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
 execute(canvas)/undo(canvas)의 &#x27;인자&#x27;로 받는다. 그래야 커맨드가 순수한 데이터가 되어
 JSON으로 직렬화되고, 다른 캔버스(다른 사용자의 화면)에 재생될 수 있다.
 &quot;&quot;&quot;
@@ -1858,7 +1858,7 @@ if __name__ == &quot;__main__&quot;:
         class FastMove(Move):
             &quot;&quot;&quot;kind를 빠뜨린 하위 클래스 — &#x27;move&#x27; 등록을 덮어쓸 뻔했다.&quot;&quot;&quot;
     except TypeError as e:
-        print(&quot;    TypeError   :&quot;, e)"><figcaption>src/12_command/03_pythonic.py  (54–71행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+        print(&quot;    TypeError   :&quot;, e)"><figcaption>파이썬다운 변형 (1/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 시도 ①: functools.partial 커맨드 — 실행은 되지만 그 이상은 안 된다
 # ---------------------------------------------------------------------------
 def partial_command_demo(canvas: Canvas) -&gt; None:
@@ -1880,7 +1880,7 @@ def partial_command_demo(canvas: Canvas) -&gt; None:
 
 <p class="lead-in">그래서 은우는 설계를 하나 바꾼다. 명령이 수신자를 필드로 들지 않고 <code>execute(canvas)</code>의 인자로 받게 한다. 그러면 명령은 순수한 데이터가 되고, <code>dataclass</code>가 직렬화를 거의 공짜로 해 준다. 요청 매개변수(<code>init=True</code>)와 undo 정보(<code><dfn class="term" id="term-field-init-false" data-term="field-init-false" title="생성자 인자로 받지 않는 dataclass 필드. 12장에서는 execute() 때 채워지는 undo 정보를 담는다.">init=False</dfn></code>)를 필드 수준에서 나눈 방법에 주목하라. <code>field(init=False)</code>로 선언한 필드는 생성자 인자로 받지 않는 필드로, 여기서는 <code>execute()</code> 때 채워지는 undo 정보를 담는다.</p>
 <figure class="diagram code-map">
-  <svg viewBox="0 0 640 606" role="img" aria-label="03_pythonic.py 둘째 조각의 구조: dataclass 기반 EditCommand가 __init_subclass__로 하위 클래스를 COMMAND_TYPES에 등록하고 from_dict()가 그것으로 클래스를 찾는다. Move·Recolor는 init=False 필드에 undo 정보를 두고, Macro는 EditCommand 목록을 담는다. Session이 실행·이력·JSON 로그를 맡고, Canvas는 execute의 인자로 전달된다"><defs>
+  <svg viewBox="0 0 640 606" role="img" aria-label="파이썬다운 변형 둘째 조각의 구조: dataclass 기반 EditCommand가 __init_subclass__로 하위 클래스를 COMMAND_TYPES에 등록하고 from_dict()가 그것으로 클래스를 찾는다. Move·Recolor는 init=False 필드에 undo 정보를 두고, Macro는 EditCommand 목록을 담는다. Session이 실행·이력·JSON 로그를 맡고, Canvas는 execute의 인자로 전달된다"><defs>
 <marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
 <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
 <marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
@@ -1973,21 +1973,21 @@ def partial_command_demo(canvas: Canvas) -&gt; None:
     <g class="uml-step"><circle cx="410" cy="250" r="9"/><text x="410" y="254">3</text></g>
     <g class="uml-step"><circle cx="20" cy="412" r="9"/><text x="20" y="416">4</text></g>
 
-    <text class="uml-note" x="20" y="548"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 중심. 02와 달리 Canvas는 필드가 아니라 인자다</text>
+    <text class="uml-note" x="20" y="548"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 중심. 패턴 코드와 달리 Canvas는 필드가 아니라 인자다</text>
     <text class="uml-note" x="20" y="570">① EditCommand: 등록·직렬화 계약 → ② Move·Recolor: init=False 칸 → ③ Macro → ④ Session</text>
     <text class="uml-note" x="20" y="592">데모(다음 조각): outbox의 JSON → from_dict()로 다른 캔버스에 재생</text>
   </svg>
-  <figcaption>코드 지도 · 03_pythonic.py(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "등록한다/찾는다/인자로 받는다", 속이 찬 마름모는 "담고 있다".</figcaption>
+  <figcaption>코드 지도 · 파이썬다운 변형(둘째 조각). 빈 삼각형은 상속, 점선 화살표는 "등록한다/찾는다/인자로 받는다", 속이 찬 마름모는 "담고 있다".</figcaption>
 </figure>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: partial 커맨드의 한계, dataclass 커맨드와 직렬화, 매크로 녹화.
 
-상황: 02_command.py로 undo/redo는 해결됐다. 남은 요구는 둘이다.
+상황: 패턴 코드로 undo/redo는 해결됐다. 남은 요구는 둘이다.
   (a) 사용자가 여러 동작을 &#x27;매크로&#x27;로 녹화해 다른 도형에 재생하기
   (b) 협업: 동작 로그를 서버로 보내 다른 사용자의 캔버스에서 그대로 재현하기
 은우는 먼저 &quot;파이썬이니 functools.partial이면 충분하지 않나?&quot;를 시험해 보고, 그 한계에서
 dataclass 커맨드로 넘어간다.
 
-패턴 코드(02_command.py)와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
+패턴 코드와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
 execute(canvas)/undo(canvas)의 &#x27;인자&#x27;로 받는다. 그래야 커맨드가 순수한 데이터가 되어
 JSON으로 직렬화되고, 다른 캔버스(다른 사용자의 화면)에 재생될 수 있다.
 &quot;&quot;&quot;
@@ -2258,7 +2258,7 @@ if __name__ == &quot;__main__&quot;:
         class FastMove(Move):
             &quot;&quot;&quot;kind를 빠뜨린 하위 클래스 — &#x27;move&#x27; 등록을 덮어쓸 뻔했다.&quot;&quot;&quot;
     except TypeError as e:
-        print(&quot;    TypeError   :&quot;, e)"><figcaption>src/12_command/03_pythonic.py  (74–220행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+        print(&quot;    TypeError   :&quot;, e)"><figcaption>파이썬다운 변형 (2/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 시도 ②: dataclass 커맨드 — 요청 매개변수 = 직렬화 대상, undo 정보 = 비직렬화 필드
 # ---------------------------------------------------------------------------
 COMMAND_TYPES: dict[str, type[EditCommand]] = {}
@@ -2410,13 +2410,13 @@ class Macro(EditCommand):
 <p class="lead-in">마지막으로 세션(호출자)과 데모다. 은우의 화면에서 실행된 명령의 JSON 로그가 동료 지아의 캔버스에서 재생되어 같은 상태를 만드는지 확인하라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: partial 커맨드의 한계, dataclass 커맨드와 직렬화, 매크로 녹화.
 
-상황: 02_command.py로 undo/redo는 해결됐다. 남은 요구는 둘이다.
+상황: 패턴 코드로 undo/redo는 해결됐다. 남은 요구는 둘이다.
   (a) 사용자가 여러 동작을 &#x27;매크로&#x27;로 녹화해 다른 도형에 재생하기
   (b) 협업: 동작 로그를 서버로 보내 다른 사용자의 캔버스에서 그대로 재현하기
 은우는 먼저 &quot;파이썬이니 functools.partial이면 충분하지 않나?&quot;를 시험해 보고, 그 한계에서
 dataclass 커맨드로 넘어간다.
 
-패턴 코드(02_command.py)와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
+패턴 코드와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
 execute(canvas)/undo(canvas)의 &#x27;인자&#x27;로 받는다. 그래야 커맨드가 순수한 데이터가 되어
 JSON으로 직렬화되고, 다른 캔버스(다른 사용자의 화면)에 재생될 수 있다.
 &quot;&quot;&quot;
@@ -2687,7 +2687,7 @@ if __name__ == &quot;__main__&quot;:
         class FastMove(Move):
             &quot;&quot;&quot;kind를 빠뜨린 하위 클래스 — &#x27;move&#x27; 등록을 덮어쓸 뻔했다.&quot;&quot;&quot;
     except TypeError as e:
-        print(&quot;    TypeError   :&quot;, e)"><figcaption>src/12_command/03_pythonic.py  (223–240행)</figcaption><pre><code class="language-python">class Session:
+        print(&quot;    TypeError   :&quot;, e)"><figcaption>파이썬다운 변형 (3/3)</figcaption><pre><code class="language-python">class Session:
     &quot;&quot;&quot;[Invoker] 한 사용자의 편집 세션: 실행, undo, 그리고 서버로 보낼 로그.&quot;&quot;&quot;
 
     def __init__(self, canvas: Canvas) -&gt; None:
@@ -2751,8 +2751,8 @@ if __name__ == &quot;__main__&quot;:
     <summary>해설 보기</summary>
     <p><strong>의도.</strong> 전략은 <em>같은 일</em>을 하는 여러 방법 중 하나다. 어떤 정책이든 "배달비 계산"이라는 같은 질문에 답하고, 서로 교체 가능하다. 커맨드는 <em>서로 다른 일</em> 자체다. <code>MoveShape</code>와 <code>DeleteShape</code>는 교체 가능한 대안이 아니라 별개의 요청이다. 그래서 전략은 "어떻게", 커맨드는 "무엇을"이다.</p>
     <p><strong>생명주기.</strong> 전략은 컨텍스트에 꽂혀 오래 살며 반복 호출된다(<code>DeliveryFeeService.policy</code>는 수천 번의 <code>quote()</code>에 쓰인다). 커맨드는 하나의 요청 인스턴스로 만들어져 대개 한 번 실행되고, 그 뒤 이력에 <em>기록</em>으로 남는다. 커맨드는 실행 이후에도 의미가 있는 객체다.</p>
-    <p><strong>undo와 상태.</strong> 전략은 상태가 없거나 설정만 가지며, 호출 사이에 결과를 기억하지 않는 것이 미덕이다. 커맨드는 실행 시 되돌리기 정보를 저장한다. 같은 커맨드 인스턴스를 두 번 실행하면 안 되는 이유(03_pythonic.py의 <code>retarget</code>)가 여기서 나온다. 전략 인스턴스는 얼마든지 재사용해도 된다.</p>
-    <p>흔한 오답은 "커맨드는 인자가 없고 전략은 인자가 있다"이다. 시그니처는 우연이다. 03_pythonic.py의 커맨드는 <code>execute(canvas)</code>로 인자를 받는다. 구분은 모양이 아니라 의도와 생명주기에 있다.</p>
+    <p><strong>undo와 상태.</strong> 전략은 상태가 없거나 설정만 가지며, 호출 사이에 결과를 기억하지 않는 것이 미덕이다. 커맨드는 실행 시 되돌리기 정보를 저장한다. 같은 커맨드 인스턴스를 두 번 실행하면 안 되는 이유(파이썬다운 변형의 <code>retarget</code>)가 여기서 나온다. 전략 인스턴스는 얼마든지 재사용해도 된다.</p>
+    <p>흔한 오답은 "커맨드는 인자가 없고 전략은 인자가 있다"이다. 시그니처는 우연이다. 파이썬다운 변형의 커맨드는 <code>execute(canvas)</code>로 인자를 받는다. 구분은 모양이 아니라 의도와 생명주기에 있다.</p>
   </details>
 </div>
 
@@ -2779,7 +2779,7 @@ if __name__ == &quot;__main__&quot;:
     <summary>해설 보기</summary>
     <p>리모컨(호출자)은 버튼 슬롯 → 명령 팩토리 dict만 갖고, 기기를 전혀 모른다. 버튼 재배치는 <code>assign()</code>으로 슬롯에 다른 팩토리를 꽂는 것이다. 취소 버튼은 실행한 명령을 스택에 쌓고 <code>pop().undo()</code>한다. 슬롯에 명령 <em>인스턴스</em>가 아니라 <em>팩토리</em>(<code>lambda: LightSwitch(light, True)</code>)를 두는 이유는 데모 [1]의 연타에 있다. 같은 인스턴스를 두 번 실행하면 두 번째 실행이 첫 번째의 되돌리기 정보(<code>_prev</code>)를 덮어써, 취소 네 번 후에도 조명이 켜진 채로 남는다. 누를 때마다 새 명령을 만들면 이력의 각 항목이 자기만의 되돌리기 정보를 갖는다 — 본문 <code>Macro.retarget()</code>과 같은 원리다.</p>
     <p>해설 코드의 <code>press()</code>에는 <dfn class="term" id="term-assignment-expression-walrus" data-term="assignment-expression-walrus" title="식 안에서 값을 이름에 대입하면서 그 값을 쓰는 := 연산자.">대입 표현식</dfn>(<code>:=</code>, <code>if make := self.slots.get(button):</code>)이 쓰였다. 식 안에서 값을 이름에 대입하면서 그 값을 바로 조건으로 쓴다 — "조회해서 있으면 실행"을 한 줄로 쓰는 관용구다.</p>
-    <figure class="code"><figcaption>src/12_command/solutions/ex2_remote_undo.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 스마트홈 리모컨을 커맨드로 바꾸고 undo 버튼을 추가한다.
+    <figure class="code"><figcaption>연습문제 2 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 2 해설: 스마트홈 리모컨을 커맨드로 바꾸고 undo 버튼을 추가한다.
 
 상황: 리모컨의 press(button)가 &#x27;if button == 1: light.on()&#x27; 식으로 기기를 직접 호출했다.
 버튼 배치를 사용자가 바꾸고 싶어 하고, &#x27;방금 누른 것 취소&#x27; 버튼이 필요해졌다.
@@ -2914,7 +2914,7 @@ if __name__ == &quot;__main__&quot;:
     <summary>해설 보기</summary>
     <p><code>dict[str, Callable]</code>을 택한다. 커맨드 패턴에서 이 상황이 실제로 쓰는 것은 "요청의 객체화 → 이름으로 선택" 하나뿐이고, 파이썬 함수는 이미 일급 객체라 dict에 담는 것만으로 그것을 얻는다. 새 하위 명령은 함수 하나와 dict 한 줄이다.</p>
     <p>해설 코드의 주석에 나오는 <dfn class="term" id="term-argparse" data-term="argparse" title="명령행 인자와 하위 명령(subparser)을 해석하는 표준 라이브러리.">argparse</dfn>는 명령행 인자와 하위 명령(subparser)을 해석하는 표준 라이브러리다. 실제 도구라면 하위 명령마다 인자 형식을 그것으로 정의한다.</p>
-    <figure class="code"><figcaption>src/12_command/solutions/ex3_cli_dispatch.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 3 해설: undo가 필요 없는 CLI 하위 명령에는 dict[str, Callable]로 충분하다.
+    <figure class="code"><figcaption>연습문제 3 해설 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;연습문제 3 해설: undo가 필요 없는 CLI 하위 명령에는 dict[str, Callable]로 충분하다.
 
 상황: 사내 배포 도구 &#x27;shipit&#x27;에 status / deploy / logs 하위 명령이 있다. 각 명령은 한 번
 실행되고 끝나며, 되돌리기·큐잉·로그 재생이 필요 없다. 커맨드 패턴의 &#x27;요청의 객체화&#x27;는
@@ -2966,13 +2966,13 @@ if __name__ == &quot;__main__&quot;:
 
 <!--
 설계서 대비 변경 사항:
-- 03_pythonic.py에서 커맨드가 수신자를 필드로 들지 않고 execute(canvas) 인자로 받게 바꿨다. 직렬화·협업 재생을 위해 필요한 설계 변경이며 원고 5절에서 이유를 설명한다.
+- 파이썬다운 변형에서 커맨드가 수신자를 필드로 들지 않고 execute(canvas) 인자로 받게 바꿨다. 직렬화·협업 재생을 위해 필요한 설계 변경이며 원고 5절에서 이유를 설명한다.
 - 문제 1(개념)은 원고 해설만 두고 해설 코드를 두지 않았다.
 -->
     <nav class="pager"><a class="prev" href="11-observer.html"><small>← 이전 · 11장</small>옵저버 (Observer)</a><a class="next" href="13-state.html"><small>다음 · 13장 →</small>상태 (State)</a></nav>
   </main>
 </div>
-<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 <code>src/</code>에서 직접 실행할 수 있다.</footer>
+<footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>
 <script>
