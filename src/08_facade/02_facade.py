@@ -10,6 +10,7 @@ SeatServiceV2에 직접 접근한다(데모 [3]). 퍼사드는 '쉬운 길'을 �
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 # ===========================================================================
 # 서브시스템 (01_naive.py와 같되, 좌석 서비스가 v2로 바뀌었다)
@@ -84,6 +85,10 @@ class BoardingPassPrinter:
 # 퍼사드
 # ===========================================================================
 
+# 좌석 선호는 두 값뿐이다. 오타("windwo")가 에러 없이 통로석으로 배정되지 않도록 타입으로 적는다.
+SeatPref = Literal["window", "aisle"]
+
+
 class CheckInError(Exception):
     """체크인 실패. 클라이언트는 서브시스템별 오류가 아니라 이것 하나만 처리한다."""
 
@@ -114,7 +119,7 @@ class CheckInFacade:
         self._baggage, self._apis, self._printer = baggage, apis, printer
 
     def check_in(self, pnr: str, last_name: str, mrz: str,
-                 seat_pref: str = "window", bags: int = 1) -> CheckInResult:
+                 seat_pref: SeatPref = "window", bags: int = 1) -> CheckInResult:
         """체크인 전체 흐름. 순서 규칙은 이 메서드의 '줄 순서'로 단 한 번 표현된다."""
         booking = self._res.find(pnr, last_name)
 
@@ -147,7 +152,7 @@ class KioskScreen:
         """퍼사드만 받는다."""
         self._facade = facade
 
-    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -> str:
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -> str:
         """화면 표시용 문자열. UI는 UI 일(메시지 포맷)만 한다."""
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -163,7 +168,7 @@ class MobileApp:
         """퍼사드만 받는다."""
         self._facade = facade
 
-    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -> dict:
+    def check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -> dict:
         """앱 API 응답(JSON 흉내)."""
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)

@@ -7,11 +7,16 @@
 """
 from __future__ import annotations
 
+from typing import Literal
+
+# 좌석 구역 코드는 두 값뿐이다. "w" 같은 오타가 조용히 31C로 배정되지 않게 타입으로 적는다.
+Zone = Literal["W", "A"]
+
 
 class SeatService:
     """[Subsystem] 좌석."""
 
-    def allocate(self, pnr: str, zone: str) -> str:
+    def allocate(self, pnr: str, zone: Zone) -> str:
         """자동 배정."""
         return "31A" if zone == "W" else "31C"
 

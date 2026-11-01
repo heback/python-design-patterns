@@ -2787,7 +2787,7 @@ if __name__ == &quot;__main__&quot;:
     <p>킥고에 '재배치 중(Relocating)' 상태가 생긴다. 배터리 부족 기기를 트럭이 수거해 충전소로 옮기는 동안의 상태로, <code>LowBattery → Relocating → Available</code> 경로가 추가된다. (a) 상태 객체가 다음 상태를 직접 만드는 방식(02)과 (b) 컨텍스트가 전이표로 결정하는 방식(04) 각각에서 무엇을 고쳐야 하는지 나열하라. 그리고 두 방식의 결합도 차이를 "누가 누구를 아는가"로 설명하라.</p>
     <details class="solution">
       <summary>해설 보기</summary>
-      <p>(a) 분산 방식에서는 새 클래스 <code>Relocating</code>과 함께 <strong>새 상태로 들어가는 이웃</strong>인 <code>LowBattery</code>를 고쳐야 한다. 새 사건(<code>relocate</code>, <code>arrive</code>)이 생기므로 기본 클래스와 컨텍스트의 위임 메서드도 늘어난다. (b) 집중 방식에서는 <code>Enum</code>에 한 줄, 표에 두 줄을 추가하면 끝나고 다른 상태는 전혀 바뀌지 않는다. 상태가 서로를 모르기 때문이다.</p>
+      <p>(a) 분산 방식에서는 새 클래스 <code>Relocating</code>과 함께 <strong>새 상태로 들어가는 이웃</strong>인 <code>LowBattery</code>를 고쳐야 한다. 새 사건(<code>relocate</code>, <code>arrive</code>)이 생기므로 기본 클래스와 컨텍스트의 위임 메서드도 늘어난다. (b) 집중 방식에서는 상태 <code>Enum</code>에 한 줄, 사건 <code>Enum</code>에 두 줄, 표에 두 줄을 추가하면 끝나고 다른 상태는 전혀 바뀌지 않는다. 상태가 서로를 모르기 때문이다.</p>
       <p>결합도로 보면, (a)에서는 상태 그래프의 간선이 그대로 클래스 의존이다. 아래 코드가 <code>co_names</code>로 측정한 의존 목록이 바로 그 간선이다. (b)에서는 모든 간선이 표라는 한 객체에 모이고, 상태 사이의 의존은 0이다. 그렇다고 (b)가 언제나 낫지는 않다. 조건부 전이(<code>end_ride</code>)와 진입 동작(배터리 100으로 갱신)이 컨텍스트로 돌아온 것을 보라. <strong>흔한 오답</strong>은 "표 방식이 결합도가 낮으니 항상 더 좋다"이다. 결합이 사라진 것이 아니라 컨텍스트 한곳으로 집중된 것이다. 상태별 행동이 많다면 그 집중이 곧 순진한 코드의 거대 if로 되돌아가는 길이다.</p>
       <figure class="code"><figcaption>src/13_state/solutions/ex1_transition_owner.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 연습문제 1 해설] 전이를 누가 결정하는가 — 분산(상태 객체) vs 집중(전이표)의 결합도 비교.
 
@@ -2881,14 +2881,21 @@ class St(Enum):
     RELOCATING = &quot;재배치 중&quot;
 
 
-TABLE: dict[tuple[St, str], St] = {
-    (St.LOW_BATTERY, &quot;relocate&quot;): St.RELOCATING,   # [추가됨]
-    (St.RELOCATING, &quot;arrive&quot;): St.AVAILABLE,       # [추가됨]
+class Ev(Enum):
+    &quot;&quot;&quot;사건 이름. [추가됨] 두 줄. 문자열이 아니라 Enum이라 오타(&quot;arive&quot;)가 조용히 지나가지 않는다.&quot;&quot;&quot;
+
+    RELOCATE = &quot;relocate&quot;   # [추가됨]
+    ARRIVE = &quot;arrive&quot;       # [추가됨]
+
+
+TABLE: dict[tuple[St, Ev], St] = {
+    (St.LOW_BATTERY, Ev.RELOCATE): St.RELOCATING,   # [추가됨]
+    (St.RELOCATING, Ev.ARRIVE): St.AVAILABLE,       # [추가됨]
 }
 
 
 class TableCtx:
-    &quot;&quot;&quot;[Context + 전이 책임자] 수정은 Enum 한 줄 + 표 두 줄로 끝났다. 다른 &#x27;상태&#x27;는 아무것도 몰랐다.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Context + 전이 책임자] 수정은 상태 Enum 한 줄 + 사건 Enum 두 줄 + 표 두 줄로 끝났다. 다른 &#x27;상태&#x27;는 아무것도 몰랐다.&quot;&quot;&quot;
 
     def __init__(self, battery: int) -&gt; None:
         &quot;&quot;&quot;주행 중으로 시작.&quot;&quot;&quot;
@@ -2901,13 +2908,13 @@ class TableCtx:
             raise IllegalTransition(self.state.value)
         self.state = St.LOW_BATTERY if self.battery &lt; 15 else St.AVAILABLE
 
-    def fire(self, event: str) -&gt; None:
+    def fire(self, event: Ev) -&gt; None:
         &quot;&quot;&quot;표로 표현 가능한 전이는 전부 이 한 메서드가 처리한다.&quot;&quot;&quot;
         try:
             self.state = TABLE[(self.state, event)]
         except KeyError:
-            raise IllegalTransition(f&quot;{self.state.value}: {event}&quot;) from None
-        if self.state is St.AVAILABLE and event == &quot;arrive&quot;:
+            raise IllegalTransition(f&quot;{self.state.value}: {event.value}&quot;) from None
+        if self.state is St.AVAILABLE and event is Ev.ARRIVE:
             self.battery = 100   # 진입 동작도 Context가 맡는다 — 행동이 다시 모이는 모습
 
 
@@ -2933,8 +2940,8 @@ if __name__ == &quot;__main__&quot;:
     c.state.arrive(c)
     t = TableCtx(battery=9)
     t.end_ride()
-    t.fire(&quot;relocate&quot;)
-    t.fire(&quot;arrive&quot;)
+    t.fire(Ev.RELOCATE)
+    t.fire(Ev.ARRIVE)
     print(f&quot;    분산: {type(c.state).__name__}, 배터리 {c.battery} / 집중: {t.state.name}, 배터리 {t.battery}&quot;)
 
     print(&quot;[2] 분산 방식: 상태 클래스 사이의 이름 의존(그래프의 간선 = 결합)&quot;)
@@ -2943,7 +2950,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[3] Relocating 추가 시 수정해야 했던 곳&quot;)
     print(&quot;    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)&quot;)
-    print(&quot;    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다&quot;)</code></pre></figure>
+    print(&quot;    집중: St(1줄) + Ev(2줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다&quot;)</code></pre></figure>
     </details>
   </div>
 

@@ -331,6 +331,7 @@ SeatServiceV2에 직접 접근한다(데모 [3]). 퍼사드는 &#x27;쉬운 길&
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 # ===========================================================================
 # 서브시스템 (01_naive.py와 같되, 좌석 서비스가 v2로 바뀌었다)
@@ -405,6 +406,10 @@ class BoardingPassPrinter:
 # 퍼사드
 # ===========================================================================
 
+# 좌석 선호는 두 값뿐이다. 오타(&quot;windwo&quot;)가 에러 없이 통로석으로 배정되지 않도록 타입으로 적는다.
+SeatPref = Literal[&quot;window&quot;, &quot;aisle&quot;]
+
+
 class CheckInError(Exception):
     &quot;&quot;&quot;체크인 실패. 클라이언트는 서브시스템별 오류가 아니라 이것 하나만 처리한다.&quot;&quot;&quot;
 
@@ -435,7 +440,7 @@ class CheckInFacade:
         self._baggage, self._apis, self._printer = baggage, apis, printer
 
     def check_in(self, pnr: str, last_name: str, mrz: str,
-                 seat_pref: str = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
+                 seat_pref: SeatPref = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
         &quot;&quot;&quot;체크인 전체 흐름. 순서 규칙은 이 메서드의 &#x27;줄 순서&#x27;로 단 한 번 표현된다.&quot;&quot;&quot;
         booking = self._res.find(pnr, last_name)
 
@@ -468,7 +473,7 @@ class KioskScreen:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; str:
         &quot;&quot;&quot;화면 표시용 문자열. UI는 UI 일(메시지 포맷)만 한다.&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -484,7 +489,7 @@ class MobileApp:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; dict:
+    def check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; dict:
         &quot;&quot;&quot;앱 API 응답(JSON 흉내).&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -510,9 +515,13 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] 카운터 직원 웹 — 퍼사드로 체크인한 뒤, 서브시스템에 직접 접근해 좌석 수동 변경&quot;)
     result = facade.check_in(&quot;NR55CD&quot;, &quot;Choi&quot;, &quot;P&lt;KORCHOI&lt;&lt;YUNA&quot;, &quot;aisle&quot;, 1)
     print(f&quot;    퍼사드 결과: {result.boarding_pass}&quot;)
-    print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)"><figcaption>src/08_facade/02_facade.py  (83–138행)</figcaption><pre><code class="language-python"># ===========================================================================
+    print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)"><figcaption>src/08_facade/02_facade.py  (84–143행)</figcaption><pre><code class="language-python"># ===========================================================================
 # 퍼사드
 # ===========================================================================
+
+# 좌석 선호는 두 값뿐이다. 오타(&quot;windwo&quot;)가 에러 없이 통로석으로 배정되지 않도록 타입으로 적는다.
+SeatPref = Literal[&quot;window&quot;, &quot;aisle&quot;]
+
 
 class CheckInError(Exception):
     &quot;&quot;&quot;체크인 실패. 클라이언트는 서브시스템별 오류가 아니라 이것 하나만 처리한다.&quot;&quot;&quot;
@@ -544,7 +553,7 @@ class CheckInFacade:
         self._baggage, self._apis, self._printer = baggage, apis, printer
 
     def check_in(self, pnr: str, last_name: str, mrz: str,
-                 seat_pref: str = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
+                 seat_pref: SeatPref = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
         &quot;&quot;&quot;체크인 전체 흐름. 순서 규칙은 이 메서드의 &#x27;줄 순서&#x27;로 단 한 번 표현된다.&quot;&quot;&quot;
         booking = self._res.find(pnr, last_name)
 
@@ -585,6 +594,7 @@ SeatServiceV2에 직접 접근한다(데모 [3]). 퍼사드는 &#x27;쉬운 길&
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 # ===========================================================================
 # 서브시스템 (01_naive.py와 같되, 좌석 서비스가 v2로 바뀌었다)
@@ -659,6 +669,10 @@ class BoardingPassPrinter:
 # 퍼사드
 # ===========================================================================
 
+# 좌석 선호는 두 값뿐이다. 오타(&quot;windwo&quot;)가 에러 없이 통로석으로 배정되지 않도록 타입으로 적는다.
+SeatPref = Literal[&quot;window&quot;, &quot;aisle&quot;]
+
+
 class CheckInError(Exception):
     &quot;&quot;&quot;체크인 실패. 클라이언트는 서브시스템별 오류가 아니라 이것 하나만 처리한다.&quot;&quot;&quot;
 
@@ -689,7 +703,7 @@ class CheckInFacade:
         self._baggage, self._apis, self._printer = baggage, apis, printer
 
     def check_in(self, pnr: str, last_name: str, mrz: str,
-                 seat_pref: str = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
+                 seat_pref: SeatPref = &quot;window&quot;, bags: int = 1) -&gt; CheckInResult:
         &quot;&quot;&quot;체크인 전체 흐름. 순서 규칙은 이 메서드의 &#x27;줄 순서&#x27;로 단 한 번 표현된다.&quot;&quot;&quot;
         booking = self._res.find(pnr, last_name)
 
@@ -722,7 +736,7 @@ class KioskScreen:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; str:
         &quot;&quot;&quot;화면 표시용 문자열. UI는 UI 일(메시지 포맷)만 한다.&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -738,7 +752,7 @@ class MobileApp:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; dict:
+    def check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; dict:
         &quot;&quot;&quot;앱 API 응답(JSON 흉내).&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -764,7 +778,7 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[3] 카운터 직원 웹 — 퍼사드로 체크인한 뒤, 서브시스템에 직접 접근해 좌석 수동 변경&quot;)
     result = facade.check_in(&quot;NR55CD&quot;, &quot;Choi&quot;, &quot;P&lt;KORCHOI&lt;&lt;YUNA&quot;, &quot;aisle&quot;, 1)
     print(f&quot;    퍼사드 결과: {result.boarding_pass}&quot;)
-    print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)"><figcaption>src/08_facade/02_facade.py  (139–192행)</figcaption><pre><code class="language-python"># ===========================================================================
+    print(f&quot;    직원 수동 변경: {seats.override(&#x27;NR55CD&#x27;, &#x27;12F&#x27;)} (퍼사드는 이 길을 막지 않는다)&quot;)"><figcaption>src/08_facade/02_facade.py  (144–197행)</figcaption><pre><code class="language-python"># ===========================================================================
 # 클라이언트 — 각자 퍼사드 하나에만 의존한다.
 # ===========================================================================
 
@@ -775,7 +789,7 @@ class KioskScreen:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def on_check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; str:
+    def on_check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; str:
         &quot;&quot;&quot;화면 표시용 문자열. UI는 UI 일(메시지 포맷)만 한다.&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -791,7 +805,7 @@ class MobileApp:
         &quot;&quot;&quot;퍼사드만 받는다.&quot;&quot;&quot;
         self._facade = facade
 
-    def check_in(self, pnr: str, name: str, mrz: str, pref: str, bags: int) -&gt; dict:
+    def check_in(self, pnr: str, name: str, mrz: str, pref: SeatPref, bags: int) -&gt; dict:
         &quot;&quot;&quot;앱 API 응답(JSON 흉내).&quot;&quot;&quot;
         try:
             r = self._facade.check_in(pnr, name, mrz, pref, bags)
@@ -1252,11 +1266,16 @@ if __name__ == &quot;__main__&quot;:
 &quot;&quot;&quot;
 from __future__ import annotations
 
+from typing import Literal
+
+# 좌석 구역 코드는 두 값뿐이다. &quot;w&quot; 같은 오타가 조용히 31C로 배정되지 않게 타입으로 적는다.
+Zone = Literal[&quot;W&quot;, &quot;A&quot;]
+
 
 class SeatService:
     &quot;&quot;&quot;[Subsystem] 좌석.&quot;&quot;&quot;
 
-    def allocate(self, pnr: str, zone: str) -&gt; str:
+    def allocate(self, pnr: str, zone: Zone) -&gt; str:
         &quot;&quot;&quot;자동 배정.&quot;&quot;&quot;
         return &quot;31A&quot; if zone == &quot;W&quot; else &quot;31C&quot;
 

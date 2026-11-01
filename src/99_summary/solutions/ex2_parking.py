@@ -10,22 +10,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Protocol
+from typing import Callable, Literal, Protocol
 
 # ---------------------------------------------------------------------------
 # 축 1: 요금 규칙 — 전략이지만 파이썬에서는 그냥 함수
 # ---------------------------------------------------------------------------
 
-FeeRule = Callable[[str, int], int]  # (차종, 주차 분) → 요금(원)
+# 차종은 두 값뿐이다. "compct" 같은 오타가 에러 없이 경차 할인 누락으로 이어지지 않게 타입으로 적는다.
+CarType = Literal["compact", "sedan"]
+FeeRule = Callable[[CarType, int], int]  # (차종, 주차 분) → 요금(원)
 
 
-def standard(car: str, minutes: int) -> int:
+def standard(car: CarType, minutes: int) -> int:
     """기본: 30분 1,000원, 경차 50% 할인. 할인은 규칙 내부 사정이라 여기에 둔다."""
     fee = -(-minutes // 30) * 1000  # 올림 나눗셈: 31분은 2구간
     return fee // 2 if car == "compact" else fee
 
 
-def staff_free(car: str, minutes: int) -> int:
+def staff_free(car: CarType, minutes: int) -> int:
     """직원 주차장: 무료."""
     return 0
 
@@ -101,7 +103,7 @@ class ParkingLot:
     gate: Gate
     listeners: list[Listener] = field(default_factory=list)
 
-    def leave(self, plate: str, car: str, minutes: int) -> str:
+    def leave(self, plate: str, car: CarType, minutes: int) -> str:
         """요금 계산 → 차단기 열기 → 통지. 문제 본문의 if 사슬이 위임 세 줄이 되었다."""
         fee = self.fee_rule(car, minutes)
         opened = self.gate.open()

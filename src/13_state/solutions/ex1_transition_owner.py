@@ -90,14 +90,21 @@ class St(Enum):
     RELOCATING = "재배치 중"
 
 
-TABLE: dict[tuple[St, str], St] = {
-    (St.LOW_BATTERY, "relocate"): St.RELOCATING,   # [추가됨]
-    (St.RELOCATING, "arrive"): St.AVAILABLE,       # [추가됨]
+class Ev(Enum):
+    """사건 이름. [추가됨] 두 줄. 문자열이 아니라 Enum이라 오타("arive")가 조용히 지나가지 않는다."""
+
+    RELOCATE = "relocate"   # [추가됨]
+    ARRIVE = "arrive"       # [추가됨]
+
+
+TABLE: dict[tuple[St, Ev], St] = {
+    (St.LOW_BATTERY, Ev.RELOCATE): St.RELOCATING,   # [추가됨]
+    (St.RELOCATING, Ev.ARRIVE): St.AVAILABLE,       # [추가됨]
 }
 
 
 class TableCtx:
-    """[Context + 전이 책임자] 수정은 Enum 한 줄 + 표 두 줄로 끝났다. 다른 '상태'는 아무것도 몰랐다."""
+    """[Context + 전이 책임자] 수정은 상태 Enum 한 줄 + 사건 Enum 두 줄 + 표 두 줄로 끝났다. 다른 '상태'는 아무것도 몰랐다."""
 
     def __init__(self, battery: int) -> None:
         """주행 중으로 시작."""
@@ -110,13 +117,13 @@ class TableCtx:
             raise IllegalTransition(self.state.value)
         self.state = St.LOW_BATTERY if self.battery < 15 else St.AVAILABLE
 
-    def fire(self, event: str) -> None:
+    def fire(self, event: Ev) -> None:
         """표로 표현 가능한 전이는 전부 이 한 메서드가 처리한다."""
         try:
             self.state = TABLE[(self.state, event)]
         except KeyError:
-            raise IllegalTransition(f"{self.state.value}: {event}") from None
-        if self.state is St.AVAILABLE and event == "arrive":
+            raise IllegalTransition(f"{self.state.value}: {event.value}") from None
+        if self.state is St.AVAILABLE and event is Ev.ARRIVE:
             self.battery = 100   # 진입 동작도 Context가 맡는다 — 행동이 다시 모이는 모습
 
 
@@ -142,8 +149,8 @@ if __name__ == "__main__":
     c.state.arrive(c)
     t = TableCtx(battery=9)
     t.end_ride()
-    t.fire("relocate")
-    t.fire("arrive")
+    t.fire(Ev.RELOCATE)
+    t.fire(Ev.ARRIVE)
     print(f"    분산: {type(c.state).__name__}, 배터리 {c.battery} / 집중: {t.state.name}, 배터리 {t.battery}")
 
     print("[2] 분산 방식: 상태 클래스 사이의 이름 의존(그래프의 간선 = 결합)")
@@ -152,4 +159,4 @@ if __name__ == "__main__":
 
     print("[3] Relocating 추가 시 수정해야 했던 곳")
     print("    분산: State(기본 메서드 2개) + LowBattery(출구) + Relocating(신규) + Context(위임 2개, 축약판에선 생략)")
-    print("    집중: St(1줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다")
+    print("    집중: St(1줄) + Ev(2줄) + TABLE(2줄) — 다른 상태는 수정 없음. 단, 진입 동작이 Context로 왔다")

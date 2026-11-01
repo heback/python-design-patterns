@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Literal
+
+# 역할은 세 값뿐이다. guest는 정책 표에 한 줄도 없는 역할이라 기본 거부를 시험하는 데 쓴다.
+Role = Literal["admin", "staff", "guest"]
 
 
 @dataclass(frozen=True)
@@ -17,7 +21,7 @@ class User:
     """사용자."""
 
     name: str
-    role: str   # "admin" | "staff"
+    role: Role
 
 
 class DocumentService(ABC):
@@ -64,7 +68,7 @@ class ProtectedDocumentService(DocumentService):
     단, 위임 메서드에서 _check 호출 자체를 빠뜨리는 누락은 막지 못한다(check_policy_complete와 데모 [3] 참조).
     """
 
-    POLICY: dict[str, set[str]] = {
+    POLICY: dict[str, set[Role]] = {
         "read": {"admin", "staff"},
         "update": {"admin"},
         "export": {"admin"},
