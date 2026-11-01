@@ -23,7 +23,23 @@ part: 생성 패턴
 
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
-  <p class="lead-in">서윤이 분기를 추가한 직후의 코드다. 리더 클래스들 자체는 멀쩡하다. 주목할 곳은 <code>AcquisitionJob.__init__</code>의 <code>port</code>와 <code>run()</code> 맨 앞의 분기, 그리고 데모 [3]에서 테스트가 전역 이름을 바꿔치기하는 대목이다. 코드에 처음 나오는 표준 라이브러리 도구 몇 가지를 짚어 둔다. <code><dfn data-term="io-stringio">io.StringIO</dfn></code>는 문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼이고, <code><dfn data-term="struct">struct.pack</dfn></code>은 파이썬 값을 형식 문자열(예: <code>"&lt;6d"</code>)에 따라 바이트열로 바꾸는 <code>struct</code> 모듈의 함수다. 질량분석기 포맷의 <dfn data-term="little-endian">리틀엔디언</dfn>은 여러 바이트로 된 수를 낮은 자리 바이트부터 저장하는 순서이고, <dfn data-term="double-precision-float">float64</dfn>는 8바이트 배정밀도 부동소수점 수다. 데모의 <code><dfn data-term="globals">globals()</dfn></code>는 현재 모듈의 전역 이름공간을 딕셔너리로 돌려주는 내장 함수로, 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.</p>
+  <p class="lead-in">서윤이 분기를 추가한 직후의 코드다. 리더 클래스들 자체는 멀쩡하다. 주목할 곳은 <code>AcquisitionJob.__init__</code>의 <code>port</code>와 <code>run()</code> 맨 앞의 분기, 그리고 데모 [3]에서 테스트가 전역 이름을 바꿔치기하는 대목이다. 코드에 처음 나오는 표준 라이브러리 도구 몇 가지를 짚어 둔다. <code><dfn data-term="io-stringio">io.StringIO</dfn></code>는 문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼이고, <code><dfn data-term="struct">struct.pack</dfn></code>은 파이썬 값을 형식 문자열(예: <code>"&lt;6d"</code>)에 따라 바이트열로 바꾸는 <code>struct</code> 모듈의 함수다. 질량분석기 포맷의 <dfn data-term="little-endian">리틀엔디언</dfn>은 여러 바이트로 된 수를 낮은 자리 바이트부터 저장하는 순서(아래 상자에서 반대 순서와 견줘 본다)이고, <dfn data-term="double-precision-float">float64</dfn>는 8바이트 배정밀도 부동소수점 수다. 데모의 <code><dfn data-term="globals">globals()</dfn></code>는 현재 모듈의 전역 이름공간을 딕셔너리로 돌려주는 내장 함수로, 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.</p>
+  <div class="callout">
+    <span class="label">바이트 순서</span>
+    수 하나가 여러 바이트를 차지하면 어느 쪽 바이트를 먼저 적을지 정해야 한다. 낮은 자리 바이트부터 적는 쪽이 리틀엔디언이고, 높은 자리 바이트부터 적는 쪽이 빅엔디언이다. 빅엔디언은 우리가 숫자를 쓰는 순서와 같다. <code>struct</code>의 형식 문자열은 맨 앞 글자로 이를 고른다. <code>&lt;</code>는 리틀엔디언, <code>&gt;</code>는 빅엔디언이다.
+    <table>
+      <thead>
+        <tr><th>값</th><th>형식</th><th>저장된 바이트(16진수)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>정수 258 (<code>0x0102</code>, 2바이트)</td><td><code>"&lt;H"</code> 리틀엔디언</td><td><code>02 01</code></td></tr>
+        <tr><td>정수 258 (<code>0x0102</code>, 2바이트)</td><td><code>"&gt;H"</code> 빅엔디언</td><td><code>01 02</code></td></tr>
+        <tr><td>18.0 (float64, 8바이트)</td><td><code>"&lt;d"</code> 리틀엔디언</td><td><code>00 00 00 00 00 00 32 40</code></td></tr>
+        <tr><td>18.0 (float64, 8바이트)</td><td><code>"&gt;d"</code> 빅엔디언</td><td><code>40 32 00 00 00 00 00 00</code></td></tr>
+      </tbody>
+    </table>
+    같은 값이 두 순서에서 정반대 바이트 배열이 된다. 순서가 엇갈려도 오류는 나지 않고 값만 조용히 달라진다. 리틀엔디언으로 쓴 258을 <code>"&gt;H"</code>로 읽으면 513이 나오고, 18.0을 <code>"&gt;d"</code>로 읽으면 0에 가까운 엉뚱한 수가 나온다. 그래서 바이너리 포맷을 읽는 코드는 형식 문자열의 첫 글자를 제조사가 정한 포맷 계약의 일부로 다뤄야 한다. 질량분석기는 리틀엔디언을 쓰므로 이 장의 리더는 <code>"&lt;"</code>로 시작한다. 첫 글자를 생략하면 기본값은 실행 중인 컴퓨터의 순서와 정렬 방식이라, 컴퓨터마다 결과가 달라질 수 있다.
+  </div>
   <figure class="diagram code-map">
     <svg viewBox="0 0 640 520" role="img" aria-label="순진한 코드의 문제 지점: AcquisitionJob의 생성자에 port가 붙어 있고, run() 안의 if 사슬이 세 리더를 이름으로 직접 만들며, 새 장비는 else의 ValueError로 막히고, 테스트는 전역 이름을 바꿔치기해야 한다">
       <text class="uml-note" x="20" y="22">AcquisitionJob · 공용 프레임워크(모든 연구실이 함께 고친다)</text>
