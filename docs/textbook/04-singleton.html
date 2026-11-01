@@ -46,6 +46,86 @@
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">싱글턴 도입 전, 각 모듈이 자기 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다는 점부터 확인하라. 문제는 <code>_last_hash</code>라는 상태가 인스턴스마다 따로 있고, 세 모듈이 각자 인스턴스를 만든다는 조합에서 생긴다. 데모 출력의 <code>prev</code> 열을 위에서 아래로 따라가 보라. 주석의 <dfn class="term" id="term-append-only" data-term="append-only" title="끝에 덧붙이기만 허용하고 기존 내용은 고칠 수 없게 한 저장 방식.">append-only</dfn> 파일은 끝에 덧붙이기만 허용하고 기존 내용은 고칠 수 없게 한 파일이다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 500" role="img" aria-label="01_naive.py의 문제 지점: 처방·검사·원무 모듈이 각자 AuditLogger를 만들고, 각 기록기는 자기 _last_hash만 알면서 하나뿐인 AUDIT_FILE에 기록한다. 그 결과 #1과 #2는 GENESIS를, #3은 #0을 가리켜 verify_chain()이 체인이 갈라졌다고 판정한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="24">진료 모듈 — 서로 다른 팀이 작성</text>
+      <g class="uml-class" transform="translate(20,40)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">PrescriptionModule</text>
+        <text class="uml-member" x="10" y="42">self.audit = 새 기록기</text>
+      </g>
+      <path class="marker-fill" d="M115 92 L122 102 L115 112 L108 102 Z"/>
+      <path class="uml-compose" d="M115 112 V130"/>
+      <g class="uml-class warn" transform="translate(20,130)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">AuditLogger</text>
+        <text class="uml-member" x="10" y="42">⚠ _last_hash = GENESIS</text>
+      </g>
+      <path class="uml-dep" d="M115 182 V222" marker-end="url(#arrow)"/>
+      <g class="uml-class" transform="translate(225,40)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">LabModule</text>
+        <text class="uml-member" x="10" y="42">두 번째 기록기</text>
+      </g>
+      <path class="marker-fill" d="M320 92 L327 102 L320 112 L313 102 Z"/>
+      <path class="uml-compose" d="M320 112 V130"/>
+      <g class="uml-class warn" transform="translate(225,130)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">AuditLogger</text>
+        <text class="uml-member" x="10" y="42">_last_hash (자기 것)</text>
+      </g>
+      <path class="uml-dep" d="M320 182 V222" marker-end="url(#arrow)"/>
+      <g class="uml-class" transform="translate(430,40)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">BillingModule</text>
+        <text class="uml-member" x="10" y="42">세 번째 기록기</text>
+      </g>
+      <path class="marker-fill" d="M525 92 L532 102 L525 112 L518 102 Z"/>
+      <path class="uml-compose" d="M525 112 V130"/>
+      <g class="uml-class warn" transform="translate(430,130)">
+        <rect width="190" height="52"/>
+        <text class="uml-name" x="95" y="22">AuditLogger</text>
+        <text class="uml-member" x="10" y="42">_last_hash (자기 것)</text>
+      </g>
+      <path class="uml-dep" d="M525 182 V222" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="123" y="208">record()</text>
+      <g class="uml-group" transform="translate(20,222)"><rect width="600" height="100"/></g>
+      <g class="uml-class" transform="translate(36,234)"><rect width="134" height="44"/><text class="uml-member" x="10" y="18">#0 처방</text><text class="uml-member" x="10" y="36">prev=GENESIS</text></g>
+      <g class="uml-class warn" transform="translate(180,234)"><rect width="134" height="44"/><text class="uml-member" x="10" y="18">#1 검사</text><text class="uml-member" x="10" y="36">prev=GENESIS</text></g>
+      <g class="uml-class warn" transform="translate(324,234)"><rect width="134" height="44"/><text class="uml-member" x="10" y="18">#2 원무</text><text class="uml-member" x="10" y="36">prev=GENESIS</text></g>
+      <g class="uml-class warn" transform="translate(468,234)"><rect width="134" height="44"/><text class="uml-member" x="10" y="18">#3 처방</text><text class="uml-member" x="10" y="36">prev=#0</text></g>
+      <path class="uml-dep" d="M535 278 V292 H103 V278" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="150" y="312">AUDIT_FILE은 하나 · #3의 prev는 파일상 직전인 #2가 아니라 #0</text>
+
+      <g class="uml-func" transform="translate(20,350)">
+        <rect width="230" height="52"/>
+        <text class="uml-name" x="115" y="22">verify_chain(entries)</text>
+        <text class="uml-member" x="10" y="42">파일상 직전 기록과 비교</text>
+      </g>
+      <path class="uml-dep" d="M135 322 V350" marker-end="url(#arrow)"/>
+      <g class="uml-func warn" transform="translate(300,350)">
+        <rect width="230" height="52"/>
+        <text class="uml-name" x="115" y="22">[2] 어긋남 [1, 2, 3]</text>
+        <text class="uml-member" x="10" y="42">변조가 없었는데 "변조 의심"</text>
+      </g>
+      <path class="uml-dep" d="M250 376 H300" marker-end="url(#arrow)"/>
+
+      <g class="uml-step"><circle cx="20" cy="130" r="9"/><text x="20" y="134">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="222" r="9"/><text x="20" y="226">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="350" r="9"/><text x="20" y="354">4</text></g>
+
+      <text class="uml-note" x="20" y="440"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+      <text class="uml-note" x="20" y="462">① AuditLogger: 체인의 마지막 해시가 인스턴스 상태 → ② 세 모듈이 각자 생성</text>
+      <text class="uml-note" x="20" y="484">③ 데모 [1]: 출력의 prev 열을 위에서 아래로 → ④ 데모 [2]: verify_chain()의 판정</text>
+    </svg>
+    <figcaption>코드 지도 · 01_naive.py. 속이 찬 마름모는 "담고 있다", 점선 화살표는 "기록한다/가리킨다". 기록기 각자는 정확하지만 파일 하나를 공유하는 순간 서로를 모른다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/04_singleton/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 모듈마다 AuditLogger()를 새로 만들자 감사 로그의 해시 체인이 갈라진다.
 
 상황: 한결종합병원 의료정보팀 개발자 태윤은 &quot;누가 언제 어떤 환자 기록을 열람·수정했는가&quot;를
@@ -243,6 +323,87 @@ if __name__ == &quot;__main__&quot;:
     <span class="label">용어</span>
     코드 주석에 처음 나오는 말들이다. <dfn class="term" id="term-cpython" data-term="cpython" title="파이썬 언어의 구현체들. CPython은 C로 만든 표준 구현, PyPy는 JIT 컴파일러를 쓰는 대안 구현으로 메모리 회수 시점 등이 다르다.">CPython</dfn>은 C로 만든 파이썬의 표준 구현이고, <dfn class="term" id="term-global-interpreter-lock" data-term="global-interpreter-lock" title="CPython에서 한 번에 한 스레드만 바이트코드를 실행하게 하는 전역 잠금; 바이트코드 하나의 원자성만 줄 뿐 &#x27;검사 후 대입&#x27; 같은 여러 동작 사이는 보호하지 않는다.">GIL</dfn>(Global Interpreter Lock)은 CPython에서 한 번에 한 스레드만 파이썬 명령을 실행하게 하는 전역 잠금이다. 잠금의 <dfn class="term" id="term-reentrancy" data-term="reentrancy" title="이미 그 잠금(또는 함수)을 쥐고 있는 같은 스레드가 다시 들어갈 수 있는 성질; `threading.Lock`은 재진입할 수 없고 `RLock`은 가능하다.">재진입</dfn>은 이미 그 잠금을 쥔 같은 스레드가 다시 잡을 수 있는 성질로, <code>threading.Lock</code>은 재진입할 수 없고 <code>RLock</code>은 가능하다. 재진입할 수 없는 잠금을 같은 스레드가 다시 잡으려 하면 <dfn class="term" id="term-deadlock" data-term="deadlock" title="실행 흐름들이 서로(또는 자신이) 쥔 자원을 기다리며 영원히 멈춘 상태.">교착</dfn> 상태, 곧 쥔 자원을 서로(또는 자신이) 기다리며 영원히 멈춘 상태가 된다. <dfn class="term" id="term-pytest" data-term="pytest" title="파이썬의 대표적 테스트 프레임워크; 픽스처로 준비·정리를 주입하고(예: 로그 캡처용 `caplog`), pytest-xdist 플러그인으로 테스트를 여러 워커 프로세스에 나눠 병렬 실행한다.">pytest</dfn>는 파이썬의 대표적 테스트 프레임워크이고, pytest-xdist는 테스트를 여러 워커 프로세스에 나눠 병렬로 돌리는 확장이다. 테스트를 찾아 실행하고 결과를 모으는 도구를 테스트 <dfn class="term" id="term-test-runner" data-term="test-runner" title="테스트를 찾아 실행하고 결과를 모으는 도구(unittest의 TextTestRunner 등).">러너</dfn>라 부른다.
   </div>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 516" role="img" aria-label="02_singleton.py의 구조: AuditLogger는 _instance와 _lock을 클래스에 두고 __new__의 이중 검사 잠금과 __init__의 _initialized 가드로 유일성을 지킨다. PrescriptionModule과 LabModule은 메서드 본문에서 AuditLogger()를 불러 의존성이 숨고, 두 테스트가 같은 인스턴스를 공유해 서로의 기록을 본다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="24">[Singleton] 앞부분: 유일성 구현</text>
+      <g class="uml-class highlight" transform="translate(20,40)">
+        <rect width="300" height="184"/>
+        <text class="uml-name" x="150" y="22">AuditLogger</text>
+        <line x1="0" y1="32" x2="300" y2="32"/>
+        <text class="uml-member" x="10" y="52">_instance: AuditLogger | None</text>
+        <text class="uml-member" x="10" y="70">_lock = threading.Lock()</text>
+        <line x1="0" y1="80" x2="300" y2="80"/>
+        <text class="uml-member" x="10" y="100">__new__(): 이중 검사 잠금</text>
+        <text class="uml-member" x="10" y="118">__init__(): _initialized 가드</text>
+        <text class="uml-member" x="10" y="136">record(): 잠근 채 체인 잇기</text>
+        <text class="uml-member" x="10" y="154">verify()</text>
+        <text class="uml-member" x="10" y="174">⚠ _reset_for_tests()</text>
+      </g>
+
+      <text class="uml-note" x="380" y="24">AuditLogger()를 부를 때마다</text>
+      <g class="uml-func" transform="translate(380,40)">
+        <rect width="240" height="36"/>
+        <text class="uml-member" x="120" y="23" text-anchor="middle">AuditLogger() 호출</text>
+      </g>
+      <g class="uml-func" transform="translate(380,92)">
+        <rect width="240" height="52"/>
+        <text class="uml-name" x="120" y="22">__new__</text>
+        <text class="uml-member" x="10" y="42">없을 때만 잠그고 다시 검사</text>
+      </g>
+      <g class="uml-func" transform="translate(380,160)">
+        <rect width="240" height="52"/>
+        <text class="uml-name" x="120" y="22">__init__</text>
+        <text class="uml-member" x="10" y="42">매번 다시 불림 → 가드</text>
+      </g>
+      <path class="uml-dep" d="M500 76 V92" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M500 144 V160" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="380" y="230">→ 언제나 같은 인스턴스, 체인은 하나 [1]</text>
+
+      <text class="uml-note" x="20" y="262">뒷부분: 2차 고통</text>
+      <g class="uml-class warn" transform="translate(20,272)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">PrescriptionModule</text>
+        <text class="uml-member" x="10" y="44">⚠ prescribe() 본문</text>
+      </g>
+      <g class="uml-class warn" transform="translate(225,272)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">LabModule</text>
+        <text class="uml-member" x="10" y="44">view_result() 본문</text>
+      </g>
+      <path class="uml-dep" d="M150 272 V248 H170"/>
+      <path class="uml-dep" d="M320 272 V248 H170 V224" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="330" y="262">AuditLogger() — 시그니처에 안 보임</text>
+
+      <g class="uml-func" transform="translate(20,372)">
+        <rect width="290" height="52"/>
+        <text class="uml-member" x="10" y="22">test_prescription_writes_one_entry</text>
+        <text class="uml-member" x="10" y="42">테스트 A: 기록 1줄 기대</text>
+      </g>
+      <g class="uml-func" transform="translate(330,372)">
+        <rect width="290" height="52"/>
+        <text class="uml-member" x="10" y="22">test_lab_writes_one_entry</text>
+        <text class="uml-member" x="10" y="42">테스트 B: 기록 1줄 기대</text>
+      </g>
+      <path class="uml-dep" d="M115 372 V332" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M475 372 V352 H320 V332" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="430" y="346">같은 인스턴스를 공유</text>
+
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">1</text></g>
+      <g class="uml-step"><circle cx="380" cy="40" r="9"/><text x="380" y="44">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="272" r="9"/><text x="20" y="276">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="372" r="9"/><text x="20" y="376">4</text></g>
+
+      <text class="uml-note" x="20" y="460"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 싱글턴, 주황 테두리가 ⚠ 주석이 가리키는 2차 고통</text>
+      <text class="uml-note" x="20" y="482">① AuditLogger의 클래스 속성 → ② __new__·__init__이 각각 막는 함정 → ③ 숨은 의존성</text>
+      <text class="uml-note" x="20" y="504">④ 테스트 A·B: [2] B가 A의 기록을 본다 · [3] 리셋 훅으로 땜질하면 뒷문이 생긴다</text>
+    </svg>
+    <figcaption>코드 지도 · 02_singleton.py. 점선 화살표는 "부른다". 위 절반이 유일성, 아래 절반이 그 대가인 전역 접근이다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/04_singleton/02_singleton.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;싱글턴 적용: AuditLogger()를 몇 번 부르든 같은 인스턴스 — 체인은 고쳐지지만 새 고통이 생긴다.
 
 상황: 01_naive.py에서 모듈마다 AuditLogger를 만들자 해시 체인이 갈라졌다. 태윤은 GoF 싱글턴을
@@ -421,6 +582,94 @@ if __name__ == &quot;__main__&quot;:
     <span class="label">용어</span>
     Borg(Monostate)는 인스턴스는 여럿 만들되 모든 인스턴스가 같은 속성 저장소를 공유해 상태만 하나로 만드는 파이썬 관용구다. 그 저장소가 <code><dfn class="term" id="term-dict" data-term="dict" title="인스턴스의 속성 이름과 값을 담은 딕셔너리. vars(obj)로 볼 수 있다.">__dict__</dfn></code>, 곧 인스턴스의 속성 이름과 값을 담은 딕셔너리다. 코드 docstring의 <dfn class="term" id="term-module-cache" data-term="module-cache" title="파이썬은 모듈을 첫 import 때 한 번만 실행하고 `sys.modules`에 캐시해, 이후 import는 같은 모듈 객체를 돌려준다.">import 캐시</dfn>는 파이썬이 모듈을 첫 import 때 한 번만 실행하고 <code>sys.modules</code>에 보관해, 이후 import에는 같은 모듈 객체를 돌려주는 장치다. <dfn class="term" id="term-object-identity" data-term="object-identity" title="값이 같은지(==)와 별개로 두 참조가 &#x27;같은 객체&#x27;인지(is)를 가르는 성질.">정체성</dfn>(identity)은 값이 같은지(<code>==</code>)와 별개로 두 참조가 같은 객체인지(<code>is</code>)를 가르는 성질이다. <dfn class="term" id="term-lazy-initialization" data-term="lazy-initialization" title="비싼 객체나 데이터를 미리 만들지 않고, 실제로 처음 필요해지는 순간에 만들거나 불러오는 기법.">지연 생성</dfn>(지연 초기화)은 객체를 미리 만들지 않고 처음 필요해지는 순간에 만드는 기법이다. <code><dfn class="term" id="term-threading-barrier" data-term="threading-barrier" title="지정한 수의 스레드가 모두 도착할 때까지 기다렸다가 한꺼번에 통과시키는 동기화 도구.">threading.Barrier</dfn></code>는 정해진 수의 스레드가 모두 도착할 때까지 기다렸다가 한꺼번에 통과시키는 동기화 도구로, 경쟁을 일부러 재현하는 데 쓴다.
   </div>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 540" role="img" aria-label="03_variants.py의 배치: 다섯 묶음이 각각 다른 주체로 유일성을 보장한다. UnsafeLogger와 SafeLogger는 클래스가, SingletonMeta는 메타클래스가, BorgLogger는 공유 __dict__가, audit_logger와 get_audit_logger()는 import 캐시와 함수 캐시가 보장한다. count_instances()가 스레드 경쟁을 재현한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="24">① __new__ 계열 — 주체: 클래스 · 데모 [1]</text>
+      <g class="uml-group" transform="translate(20,32)"><rect width="600" height="92"/></g>
+      <g class="uml-class warn" transform="translate(36,46)">
+        <rect width="170" height="64"/>
+        <text class="uml-name" x="85" y="22">UnsafeLogger</text>
+        <text class="uml-member" x="10" y="42">_instance</text>
+        <text class="uml-member" x="10" y="58">검사와 대입 사이 틈</text>
+      </g>
+      <g class="uml-class" transform="translate(222,46)">
+        <rect width="170" height="64"/>
+        <text class="uml-name" x="85" y="22">SafeLogger</text>
+        <text class="uml-member" x="10" y="42">_instance · _lock</text>
+        <text class="uml-member" x="10" y="58">잠금 안에서 재검사</text>
+      </g>
+      <g class="uml-func" transform="translate(424,46)">
+        <rect width="180" height="64"/>
+        <text class="uml-name" x="90" y="22">count_instances</text>
+        <text class="uml-member" x="10" y="42">두 클래스를 factory로</text>
+        <text class="uml-member" x="10" y="58">Barrier로 동시 출발</text>
+      </g>
+      <path class="uml-dep" d="M424 78 H392" marker-end="url(#arrow)"/>
+
+      <text class="uml-note" x="20" y="148">② 메타클래스 — 주체: 메타클래스 · [2]</text>
+      <g class="uml-group" transform="translate(20,156)"><rect width="290" height="160"/></g>
+      <g class="uml-class" transform="translate(36,170)">
+        <rect width="258" height="60"/>
+        <text class="uml-name" x="129" y="22">SingletonMeta</text>
+        <text class="uml-member" x="10" y="44">__call__(): 있으면 건너뜀</text>
+      </g>
+      <g class="uml-class" transform="translate(36,262)">
+        <rect width="258" height="40"/>
+        <text class="uml-name" x="129" y="25">MetaLogger</text>
+      </g>
+      <path class="uml-dep" d="M165 262 V230" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="173" y="250">metaclass=</text>
+
+      <text class="uml-note" x="330" y="148">③ Borg — 주체: 공유 __dict__ · [3]</text>
+      <g class="uml-group" transform="translate(330,156)"><rect width="290" height="160"/></g>
+      <g class="uml-class" transform="translate(346,170)">
+        <rect width="258" height="60"/>
+        <text class="uml-name" x="129" y="22">BorgLogger</text>
+        <text class="uml-member" x="10" y="44">setdefault로 처음만 채움</text>
+      </g>
+      <g class="uml-func" transform="translate(346,262)">
+        <rect width="258" height="40"/>
+        <text class="uml-name" x="129" y="25">_shared_state</text>
+      </g>
+      <path class="uml-dep" d="M475 230 V262" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="483" y="250">__dict__로 공유</text>
+
+      <text class="uml-note" x="20" y="340">④⑤ 모듈 객체와 @cache — 주체: import 캐시 · 함수 캐시 · [4]</text>
+      <g class="uml-group" transform="translate(20,348)"><rect width="600" height="96"/></g>
+      <g class="uml-func" transform="translate(36,370)">
+        <rect width="170" height="52"/>
+        <text class="uml-name" x="85" y="22">audit_logger</text>
+        <text class="uml-member" x="10" y="42">import 때 한 번</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(236,370)">
+        <rect width="170" height="52"/>
+        <text class="uml-name" x="85" y="22">PlainLogger</text>
+        <text class="uml-member" x="10" y="42">유일성 로직 없음</text>
+      </g>
+      <g class="uml-func" transform="translate(436,370)">
+        <rect width="168" height="52"/>
+        <text class="uml-name" x="84" y="22">get_audit_logger</text>
+        <text class="uml-member" x="10" y="42">@cache · 첫 호출 때</text>
+      </g>
+      <path class="uml-dep" d="M206 396 H236" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M436 396 H406" marker-end="url(#arrow)"/>
+
+      <g class="uml-step"><circle cx="20" cy="32" r="9"/><text x="20" y="36">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="156" r="9"/><text x="20" y="160">2</text></g>
+      <g class="uml-step"><circle cx="330" cy="156" r="9"/><text x="330" y="160">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="348" r="9"/><text x="20" y="352">4</text></g>
+
+      <text class="uml-note" x="20" y="480"><tspan font-weight="700">읽는 순서</tspan> · 묶음마다 "하나"를 보장하는 주체가 다르다(아래 표의 둘째 열)</text>
+      <text class="uml-note" x="20" y="502">주황 테두리는 경쟁에서 실제로 깨지는 구현, 파란 테두리는 유일성 로직이 빠진 평범한 클래스</text>
+      <text class="uml-note" x="20" y="524">① 두 __new__의 차이는 잠금과 재검사뿐 → ② __init__ 함정이 없는 이유 → ③ 정체성 대신 상태 → ④ 관례</text>
+    </svg>
+    <figcaption>코드 지도 · 03_variants.py. 점선 화살표는 "만든다/쓴다". 점선 테두리 하나가 파일의 구획 하나다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/04_singleton/03_variants.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬의 싱글턴 구현 비교: 잠금 없는 __new__의 경쟁, 메타클래스, Borg, 모듈 객체, functools.cache.
 
 상황: 02_singleton.py의 이중 검사 잠금을 리뷰하던 동료 수아가 물었다. &quot;잠금이 정말 필요해요?
@@ -617,6 +866,75 @@ if __name__ == &quot;__main__&quot;:
 
   <h3>5.2 두 요구를 떼어 놓기: composition root에서 주입</h3>
   <p class="lead-in">표의 마지막 줄이 태윤의 최종 설계다. <code>AuditLogger</code>는 평범한 클래스로 돌아가고, 유일성은 <code>build_app()</code>이라는 조립 지점 하나가 책임지며, 모듈들은 기록기를 생성자로 받는다. <code>build_app()</code> docstring의 "프로세스당 하나"라는 경고와, 데모 [3]이 보여주는 이 방식의 대가를 놓치지 말라. docstring의 <dfn class="term" id="term-object-graph" data-term="object-graph" title="프로그램 안의 객체들이 서로를 참조하며 이루는 연결 구조.">객체 그래프</dfn>는 객체들이 서로를 참조하며 이루는 연결 구조이고, <dfn class="term" id="term-database-sequence" data-term="database-sequence" title="데이터베이스가 원자적으로 증가하는 번호를 발급하는 객체; 여러 프로세스에 걸친 유일성을 보장할 수 있다.">DB 시퀀스</dfn>는 데이터베이스가 원자적으로 증가하는 번호를 발급해 여러 프로세스에 걸친 유일성을 보장하는 객체다. 테스트 주석의 <dfn class="term" id="term-late-binding" data-term="late-binding" title="클로저가 변수의 값을 정의 시점이 아니라 호출 시점에 찾는 성질; 반복문 안 람다가 마지막 값만 보는 함정의 원인이며 `f=f` 기본 인자로 피한다.">늦은 바인딩</dfn>은 클로저가 변수의 값을 정의 시점이 아니라 호출 시점에 찾는 성질로, 반복문 안의 람다가 마지막 값만 보는 함정의 원인이다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 450" role="img" aria-label="04_injection.py의 구조: build_app()이 AuditLogger를 한 번 만들어 PrescriptionModule과 LabModule의 생성자에 넘기고 EmrApp으로 묶는다. 테스트는 각자 새 AuditLogger를 만들고, composition root 밖에서 만든 기록기는 다른 체인으로 새어 나간다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="24">[Composition Root]</text>
+      <g class="uml-func highlight" transform="translate(20,40)">
+        <rect width="220" height="60"/>
+        <text class="uml-name" x="110" y="22">build_app()</text>
+        <text class="uml-member" x="10" y="44">AuditLogger()는 여기 한 곳</text>
+      </g>
+      <g class="uml-class" transform="translate(290,40)">
+        <rect width="330" height="60"/>
+        <text class="uml-name" x="165" y="22">EmrApp</text>
+        <text class="uml-member" x="10" y="44">audit · prescription · lab</text>
+      </g>
+      <path class="uml-dep" d="M240 70 H290" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M130 100 V135 H320 V170" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="138" y="128">한 번 생성</text>
+
+      <g class="uml-class" transform="translate(20,170)">
+        <rect width="180" height="60"/>
+        <text class="uml-name" x="90" y="22">PrescriptionModule</text>
+        <text class="uml-member" x="10" y="44">__init__(self, audit)</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(225,170)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">AuditLogger</text>
+        <text class="uml-member" x="10" y="44">평범한 클래스</text>
+      </g>
+      <g class="uml-class" transform="translate(440,170)">
+        <rect width="180" height="60"/>
+        <text class="uml-name" x="90" y="22">LabModule</text>
+        <text class="uml-member" x="10" y="44">__init__(self, audit)</text>
+      </g>
+      <path class="uml-assoc" d="M200 200 H225" marker-end="url(#arrow)"/>
+      <path class="uml-assoc" d="M440 200 H415" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="20" y="256">두 모듈이 같은 audit 객체를 생성자로 받는다 — 의존성이 시그니처에 보인다 [1]</text>
+
+      <g class="uml-func" transform="translate(20,290)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">테스트 A</text>
+        <text class="uml-member" x="10" y="44">자기 AuditLogger()</text>
+      </g>
+      <g class="uml-func" transform="translate(225,290)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">테스트 B</text>
+        <text class="uml-member" x="10" y="44">자기 AuditLogger()</text>
+      </g>
+      <g class="uml-func warn" transform="translate(430,290)">
+        <rect width="190" height="60"/>
+        <text class="uml-name" x="95" y="22">[3] rogue</text>
+        <text class="uml-member" x="10" y="44">root 밖에서 생성</text>
+      </g>
+      <text class="uml-note" x="20" y="374">순서를 바꿔도, 병렬로 돌려도 간섭 없음 · 리셋 훅 없음 [2]</text>
+      <text class="uml-note" x="430" y="374">언어는 막지 않는다 → 리뷰</text>
+
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">1</text></g>
+      <g class="uml-step"><circle cx="20" cy="170" r="9"/><text x="20" y="174">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="290" r="9"/><text x="20" y="294">3</text></g>
+      <g class="uml-step"><circle cx="430" cy="290" r="9"/><text x="430" y="294">4</text></g>
+
+      <text class="uml-note" x="20" y="410"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 유일성을 나눠 맡은 둘: 조립 지점과 평범해진 클래스</text>
+      <text class="uml-note" x="20" y="432">① build_app() → ② 모듈 생성자의 audit 인자 → ③ 테스트마다 새 기록기 → ④ 이 방식의 대가</text>
+    </svg>
+    <figcaption>코드 지도 · 04_injection.py. 실선 화살표는 "생성자로 받아 들고 있다", 점선 화살표는 "만든다". 02_singleton.py 지도의 아래 절반과 비교해 보라.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/04_singleton/04_injection.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;더 나은 대안: 싱글턴 대신 composition root에서 &#x27;하나만 만들어&#x27; 생성자로 주입한다.
 
 상황: 02_singleton.py의 싱글턴은 해시 체인 분기(1차 고통)를 해결했지만 숨은 의존성, 테스트 오염,

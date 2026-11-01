@@ -38,7 +38,117 @@
   <h2>1. 닮은 패턴 구별하기</h2>
   <p>열다섯 장을 지나 온 독자는 이미 눈치챘을 것이다. 클래스 다이어그램만 놓고 보면 구별되지 않는 패턴이 많다. 전략과 상태는 "Context가 교체 가능한 객체에 위임한다"는 같은 그림이고, 데코레이터와 프록시는 "같은 인터페이스로 감싸고 위임한다"는 같은 그림이다. 서론(<a href="00-intro.html">0장</a>)에서 말했듯 패턴을 가르는 것은 모양이 아니라 의도다. 그리고 의도는 대개 하나의 질문으로 드러난다. <strong>누가 무엇을 결정하는가?</strong></p>
   <p class="lead-in">먼저 가장 자주 혼동되는 두 쌍을 같은 모양으로 짠 코드다. 창고 로봇의 속도 규칙을 전략과 상태로 각각 만들고, 로봇 드라이버를 데코레이터와 프록시로 각각 감쌌다. <code>StrategyRobot</code>과 <code>StateRobot</code>에서 다음 규칙을 고르는 코드가 <em>어디에</em> 있는지, <code>TimingDriver</code>와 <code>LazyDriver</code>에서 실제 드라이버를 <em>누가</em> 만드는지에 주목하라.</p>
-  <figure class="code"><figcaption>src/99_summary/01_lookalikes.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;닮은 패턴 구별하기: 같은 클래스 모양, 다른 의도 — 전략 vs 상태, 데코레이터 vs 프록시.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 678" role="img" aria-label="01_lookalikes.py의 구조: 위쪽은 전략과 상태다. StrategyRobot의 규칙은 관제 시스템이 바깥에서 바꾸고, StateRobot의 모드는 Normal과 PowerSave의 after_trip()이 스스로 고른다. 아래쪽은 데코레이터와 프록시다. TimingDriver는 조립 코드가 만든 RealDriver를 받아 감싸고, LazyDriver는 첫 move() 때 RealDriver를 스스로 만든다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="26">전략 vs 상태 — 교체를 누가 결정하는가</text>
+    <g class="uml-group"><rect x="20" y="36" width="600" height="250"/></g>
+    <path class="uml-dep" d="M320 50 V272"/>
+
+    <g class="uml-func" transform="translate(36,56)">
+      <rect width="268" height="32"/>
+      <text class="uml-member" x="134" y="21" text-anchor="middle">관제 시스템(데모 코드)</text>
+    </g>
+    <path class="uml-dep" d="M170 88 V110" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="180" y="104">r.rule = careful</text>
+    <g class="uml-class highlight" transform="translate(36,110)">
+      <rect width="268" height="76"/>
+      <text class="uml-name" x="134" y="22">StrategyRobot</text>
+      <line x1="0" y1="32" x2="268" y2="32"/>
+      <text class="uml-member" x="10" y="52">rule: SpeedRule</text>
+      <text class="uml-member" x="10" y="70">speed() → rule(load_kg)</text>
+    </g>
+    <path class="uml-assoc" d="M170 186 V198 H99 V214" marker-end="url(#arrow)"/>
+    <path class="uml-assoc" d="M170 198 H241 V214" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(36,214)"><rect width="126" height="30"/><text class="uml-member" x="63" y="20" text-anchor="middle">careful()</text></g>
+    <g class="uml-func" transform="translate(178,214)"><rect width="126" height="30"/><text class="uml-member" x="63" y="20" text-anchor="middle">by_weight()</text></g>
+    <text class="uml-label" x="36" y="268">다음 규칙을 고르는 코드가 없다</text>
+
+    <g class="uml-class highlight" transform="translate(336,56)">
+      <rect width="268" height="100"/>
+      <text class="uml-name" x="134" y="22">StateRobot</text>
+      <line x1="0" y1="32" x2="268" y2="32"/>
+      <text class="uml-member" x="10" y="52">mode: Mode</text>
+      <text class="uml-member" x="10" y="70">finish_trip(battery):</text>
+      <text class="uml-member" x="24" y="88">mode.after_trip()로 교체</text>
+    </g>
+    <path class="uml-assoc" d="M391 156 V190" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(336,190)">
+      <rect width="110" height="52"/>
+      <text class="uml-name" x="55" y="22">Normal</text>
+      <text class="uml-member" x="55" y="42" text-anchor="middle">정상</text>
+    </g>
+    <g class="uml-class" transform="translate(494,190)">
+      <rect width="110" height="52"/>
+      <text class="uml-name" x="55" y="22">PowerSave</text>
+      <text class="uml-member" x="55" y="42" text-anchor="middle">절전</text>
+    </g>
+    <path class="uml-dep" d="M446 206 H494" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M494 228 H446" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="430" y="180">after_trip(): &lt;30 → 절전</text>
+    <text class="uml-label" x="430" y="262">after_trip(): ≥60 → 정상</text>
+
+    <text class="uml-note" x="20" y="318">데코레이터 vs 프록시 — 실제 객체를 누가 만드는가</text>
+    <g class="uml-group"><rect x="20" y="328" width="600" height="234"/></g>
+    <path class="uml-dep" d="M320 342 V548"/>
+
+    <g class="uml-func" transform="translate(36,344)">
+      <rect width="268" height="32"/>
+      <text class="uml-member" x="134" y="21" text-anchor="middle">조립 코드가 RealDriver를 만들어 넘김</text>
+    </g>
+    <path class="uml-dep" d="M170 376 V398" marker-end="url(#arrow)"/>
+    <g class="uml-class highlight" transform="translate(36,398)">
+      <rect width="268" height="76"/>
+      <text class="uml-name" x="134" y="22">TimingDriver</text>
+      <line x1="0" y1="32" x2="268" y2="32"/>
+      <text class="uml-member" x="10" y="52">inner: Driver ← 받는다</text>
+      <text class="uml-member" x="10" y="70">move(): 위임 + log 기록</text>
+    </g>
+    <path class="uml-assoc" d="M170 474 V506" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="180" y="494">inner</text>
+    <g class="uml-class" transform="translate(36,506)">
+      <rect width="268" height="44"/>
+      <text class="uml-name" x="134" y="18">RealDriver</text>
+      <text class="uml-member" x="134" y="36" text-anchor="middle">감싸기 전에 이미 연결됨</text>
+    </g>
+
+    <g class="uml-func" transform="translate(336,344)">
+      <rect width="268" height="32"/>
+      <text class="uml-member" x="134" y="21" text-anchor="middle">클라이언트는 robot_id만 안다</text>
+    </g>
+    <path class="uml-dep" d="M470 376 V398" marker-end="url(#arrow)"/>
+    <g class="uml-class highlight" transform="translate(336,398)">
+      <rect width="268" height="76"/>
+      <text class="uml-name" x="134" y="22">LazyDriver</text>
+      <line x1="0" y1="32" x2="268" y2="32"/>
+      <text class="uml-member" x="10" y="52">robot_id · _real = None</text>
+      <text class="uml-member" x="10" y="70">move(): 처음이면 직접 생성</text>
+    </g>
+    <path class="uml-dep" d="M470 474 V506" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="480" y="494">«create» 첫 사용 때</text>
+    <g class="uml-class" transform="translate(336,506)">
+      <rect width="268" height="44"/>
+      <text class="uml-name" x="134" y="18">RealDriver</text>
+      <text class="uml-member" x="134" y="36" text-anchor="middle">첫 move()에서 연결</text>
+    </g>
+    <text class="uml-label" x="20" y="586">이 세 드라이버는 모두 Driver 프로토콜(move)을 따른다. 모양은 같고 화살표 하나가 다르다</text>
+
+    <g class="uml-step"><circle cx="36" cy="110" r="9"/><text x="36" y="114">1</text></g>
+    <g class="uml-step"><circle cx="336" cy="56" r="9"/><text x="336" y="60">2</text></g>
+    <g class="uml-step"><circle cx="36" cy="398" r="9"/><text x="36" y="402">3</text></g>
+    <g class="uml-step"><circle cx="336" cy="398" r="9"/><text x="336" y="402">4</text></g>
+
+    <text class="uml-note" x="20" y="620"><tspan font-weight="700">읽는 순서</tspan> · 왼쪽과 오른쪽에서 교체·생성 화살표가 어디서 시작하는지 비교하라</text>
+    <text class="uml-note" x="20" y="642">① 전략: 바깥이 바꾼다 → ② 상태: 상태 객체가 고른다 → ③ 데코레이터: 받는다 → ④ 프록시: 만든다</text>
+    <text class="uml-note" x="20" y="664">데모 [1] 전략 교체 · [2] 상태 전이 · [3] 감싼 직후 연결 1 · [4] 첫 이동 때 연결 1</text>
+  </svg>
+  <figcaption>코드 지도 · 01_lookalikes.py. 실선 화살표는 "필드가 가리킨다", 점선 화살표는 "바꾼다/고른다/만든다". 가운데 세로 점선이 같은 모양의 두 패턴을 가른다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/99_summary/01_lookalikes.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;닮은 패턴 구별하기: 같은 클래스 모양, 다른 의도 — 전략 vs 상태, 데코레이터 vs 프록시.
 
 상황: 물류 기업 &#x27;한빛로지스&#x27;의 로봇 창고 팀 신입 다온은 코드 리뷰에서 두 번 지적을 받았다.
 &quot;이건 전략이 아니라 상태예요&quot;, &quot;이건 데코레이터가 아니라 프록시예요&quot;. 다온은 항의했다.
@@ -440,7 +550,160 @@ if __name__ == &quot;__main__&quot;:
 
   <h3>2.4 조합된 코드</h3>
   <p class="lead-in">완성된 WMS다. 파일이 길지만 구획마다 패턴 하나이고, 각 클래스 docstring 첫 줄의 역할 태그가 그림 99-1과 대응한다. 경로 전략 <code>nearest_first</code>가 쓰는 <dfn class="term" id="term-manhattan-distance" data-term="manhattan-distance" title="두 점의 x 차이와 y 차이의 절댓값 합.">맨해튼 거리</dfn>는 두 점의 x 차이와 y 차이의 절댓값을 더한 거리로, 통로를 따라 직각으로 움직이는 창고 로봇에 맞는 척도다. 처음 읽을 때는 세 곳만 보라. <code>PickOrder.execute()</code>가 배터리를 판단하지 않고 "사실만" 알리는 부분, <code>BatteryGuard</code> docstring의 "왜 여기서 바로 충전하지 않는가", 그리고 모든 배선이 모인 <code>build()</code>다. 모듈 docstring 끝에는 넣지 않은 패턴 목록이 있다.</p>
-  <figure class="code"><figcaption>src/99_summary/03_wms.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;패턴 조합: 로봇 창고 WMS — 변경 축마다 가장 가벼운 해법, 그리고 넣지 않은 패턴들.
+  <figure class="diagram code-map">
+  <svg viewBox="0 0 640 496" role="img" aria-label="03_wms.py 파일 배치: 위에서부터 컴포지트와 반복자, 어댑터, 상태 패턴을 쓰지 않은 로봇, 옵저버, 커맨드, 옵저버와 커맨드를 잇는 BatteryGuard, 전략, 퍼사드, 조립 함수 build() 순서로 구획이 이어지고, 각 구획이 데모의 어느 번호에서 쓰이는지 표시한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">구획(파일 위 → 아래)</text>
+    <text class="uml-note" x="180" y="24">그 구획의 이름들</text>
+    <text class="uml-note" x="560" y="24">데모</text>
+    <text class="uml-note" x="20" y="58">컴포지트 + 반복자</text>
+    <g class="uml-class" transform="translate(180,36)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">Bin · Group.walk() · stock()</text>
+    </g>
+    <text class="uml-label" x="560" y="57">[1]</text>
+    <text class="uml-note" x="20" y="98">어댑터 (SDK 둘)</text>
+    <g class="uml-class" transform="translate(180,76)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">RobotDriver ← AcmeAdapter · RoboKoAdapter</text>
+    </g>
+    <text class="uml-note" x="20" y="138">상태 패턴 안 씀</text>
+    <g class="uml-class" transform="translate(180,116)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">Status(Enum) · Robot</text>
+    </g>
+    <text class="uml-note" x="20" y="178">옵저버</text>
+    <g class="uml-class" transform="translate(180,156)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">EventHub: on() · emit()</text>
+    </g>
+    <text class="uml-note" x="20" y="218">커맨드</text>
+    <g class="uml-class highlight" transform="translate(180,196)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">Context · PickOrder · ChargeRobot · TaskQueue</text>
+    </g>
+    <text class="uml-label" x="560" y="217">[2] [4]</text>
+    <g class="uml-step"><circle cx="180" cy="196" r="9"/><text x="180" y="200">1</text></g>
+    <text class="uml-note" x="20" y="258">옵저버 + 커맨드</text>
+    <g class="uml-class highlight" transform="translate(180,236)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">BatteryGuard: 이벤트 → ChargeRobot</text>
+    </g>
+    <text class="uml-label" x="560" y="257">[3]</text>
+    <g class="uml-step"><circle cx="180" cy="236" r="9"/><text x="180" y="240">2</text></g>
+    <text class="uml-note" x="20" y="298">전략</text>
+    <g class="uml-class" transform="translate(180,276)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">nearest_first · zone_sweep · ROUTES</text>
+    </g>
+    <text class="uml-label" x="560" y="297">[5]</text>
+    <text class="uml-note" x="20" y="338">퍼사드</text>
+    <g class="uml-class" transform="translate(180,316)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">WarehouseOps: order · cancel · run_all · stock</text>
+    </g>
+    <text class="uml-note" x="20" y="378">조립</text>
+    <g class="uml-class highlight" transform="translate(180,356)">
+      <rect width="360" height="32"/>
+      <text class="uml-member" x="12" y="21">build(route): 모든 생성과 구독 배선</text>
+    </g>
+    <text class="uml-label" x="560" y="377">[1]~[5]</text>
+    <g class="uml-step"><circle cx="180" cy="356" r="9"/><text x="180" y="360">3</text></g>
+    <path class="uml-assoc" d="M168 40 V384" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="20" y="414">각 구획은 그림 99-1의 상자 하나(또는 둘)에 대응하고, 클래스 docstring 첫 줄의 역할 태그로도 확인된다</text>
+    <text class="uml-note" x="20" y="448"><tspan font-weight="700">읽는 순서</tspan> · 처음에는 파란 세 곳만: ① PickOrder.execute() → ② BatteryGuard → ③ build()</text>
+    <text class="uml-note" x="20" y="470">그다음 build()가 부르는 순서대로 위 구획을 하나씩 찾아 읽는다</text>
+  </svg>
+  <figcaption>코드 지도 · 03_wms.py(파일 배치). 507줄을 구획 아홉으로 나눈 목차다. 오른쪽 번호는 그 구획이 주로 드러나는 데모 출력이다.</figcaption>
+</figure>
+<figure class="diagram code-map">
+  <svg viewBox="0 0 640 516" role="img" aria-label="03_wms.py 데모 [3]의 실행 흐름: ops.order()가 PickOrder를 TaskQueue에 넣고, run_all()이 run_next()로 꺼내 PickOrder.execute()를 실행한다. execute()는 로봇과 칸을 고르고 경로 전략과 어댑터를 거쳐 피킹한 뒤 robot.battery 이벤트를 알린다. BatteryGuard가 이를 듣고 ChargeRobot을 대기열 맨 앞에 넣어, 다음 run_next가 충전을 실행한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+    <text class="uml-note" x="20" y="24">실행 순서 (데모 [3])</text>
+    <g class="uml-func" transform="translate(20,36)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">ops.order() → submit(PickOrder)</text>
+    </g>
+    <path class="uml-assoc" d="M170 70 V86" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(20,86)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">run_all() → run_next(ctx)</text>
+    </g>
+    <path class="uml-assoc" d="M170 120 V136" marker-end="url(#arrow)"/>
+    <g class="uml-class highlight" transform="translate(20,136)">
+      <rect width="300" height="118"/>
+      <text class="uml-name" x="150" y="22">PickOrder.execute(ctx)</text>
+      <line x1="0" y1="32" x2="300" y2="32"/>
+      <text class="uml-member" x="10" y="52">IDLE 로봇 중 배터리가 많은 쪽</text>
+      <text class="uml-member" x="10" y="70">inventory.walk() → 후보 칸</text>
+      <text class="uml-member" x="10" y="88">ctx.route() 순서  [전략]</text>
+      <text class="uml-member" x="10" y="106">driver.go_and_pick()  [어댑터]</text>
+    </g>
+    <path class="uml-assoc" d="M170 254 V270" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(20,270)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">hub.emit("robot.battery", pct)</text>
+    </g>
+    <path class="uml-assoc" d="M170 304 V330" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(20,330)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">다음 run_next → ChargeRobot.execute()</text>
+    </g>
+    <path class="uml-assoc" d="M170 364 V380" marker-end="url(#arrow)"/>
+    <g class="uml-func" transform="translate(20,380)">
+      <rect width="300" height="34"/>
+      <text class="uml-member" x="150" y="22" text-anchor="middle">emit("robot.charged") → 대시보드</text>
+    </g>
+
+    <text class="uml-note" x="360" y="24">대기열</text>
+    <g class="uml-class" transform="translate(360,36)">
+      <rect width="260" height="76"/>
+      <text class="uml-name" x="130" y="22">TaskQueue</text>
+      <line x1="0" y1="32" x2="260" y2="32"/>
+      <text class="uml-member" x="10" y="52">_pending: 명령 목록</text>
+      <text class="uml-member" x="10" y="70">urgent면 맨 앞에 끼운다</text>
+    </g>
+    <path class="uml-dep" d="M320 53 H360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M360 103 H320" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="328" y="120">pop</text>
+
+    <text class="uml-note" x="360" y="160">"robot.battery" 구독자</text>
+    <g class="uml-func" transform="translate(360,170)">
+      <rect width="220" height="34"/>
+      <text class="uml-member" x="110" y="22" text-anchor="middle">[대시보드] 출력</text>
+    </g>
+    <g class="uml-class highlight" transform="translate(360,240)">
+      <rect width="230" height="76"/>
+      <text class="uml-name" x="115" y="22">BatteryGuard</text>
+      <line x1="0" y1="32" x2="230" y2="32"/>
+      <text class="uml-member" x="10" y="52">pct &lt; 30이면</text>
+      <text class="uml-member" x="10" y="70">ChargeRobot을 만든다</text>
+    </g>
+    <path class="uml-dep" d="M320 287 H360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M340 287 V187 H360" marker-end="url(#arrow)"/>
+    <path class="uml-dep" d="M605 240 V112" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="598" y="228" text-anchor="end">submit(urgent=True)</text>
+    <text class="uml-label" x="360" y="340">충전은 지금 하지 않고 명령으로 미룬다</text>
+
+    <g class="uml-step"><circle cx="20" cy="136" r="9"/><text x="20" y="140">1</text></g>
+    <g class="uml-step"><circle cx="360" cy="240" r="9"/><text x="360" y="244">2</text></g>
+    <g class="uml-step"><circle cx="360" cy="36" r="9"/><text x="360" y="40">3</text></g>
+
+    <text class="uml-label" x="20" y="444">결과: 실행 순서가 주문 → 충전 → 주문이 된다. 충전은 명령과 명령 사이에서만 일어난다</text>
+    <text class="uml-note" x="20" y="478"><tspan font-weight="700">읽는 순서</tspan> · 왼쪽이 실행 순서, 오른쪽이 대기열과 구독자</text>
+    <text class="uml-note" x="20" y="500">① PickOrder는 배터리 사실만 알린다 → ② 충전 결정은 BatteryGuard → ③ 실행 시점은 TaskQueue</text>
+  </svg>
+  <figcaption>코드 지도 · 03_wms.py(실행 흐름). 실선 화살표는 실행 순서, 점선 화살표는 "넣는다/꺼낸다/통지한다". 정적 구조는 그림 99-1에 있다.</figcaption>
+</figure>
+<figure class="code"><figcaption>src/99_summary/03_wms.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;패턴 조합: 로봇 창고 WMS — 변경 축마다 가장 가벼운 해법, 그리고 넣지 않은 패턴들.
 
 상황: 02_naive_wms.py의 WMS 클래스에는 변경 축 여섯 개(제조사 SDK, 경로 알고리즘, 주문 대기·취소,
 배터리 대응, 알림 채널, 재고 계층)가 묶여 있었다. 도윤의 팀은 &quot;패턴을 몇 개 넣을까&quot;가 아니라

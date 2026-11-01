@@ -45,6 +45,89 @@
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">서윤이 분기를 추가한 직후의 코드다. 리더 클래스들 자체는 멀쩡하다. 주목할 곳은 <code>AcquisitionJob.__init__</code>의 <code>port</code>와 <code>run()</code> 맨 앞의 분기, 그리고 데모 [3]에서 테스트가 전역 이름을 바꿔치기하는 대목이다. 코드에 처음 나오는 표준 라이브러리 도구 몇 가지를 짚어 둔다. <code><dfn class="term" id="term-io-stringio" data-term="io-stringio" title="문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼 객체(파일 대신 쓰는 테스트·파싱용 대역).">io.StringIO</dfn></code>는 문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼이고, <code><dfn class="term" id="term-struct" data-term="struct" title="파이썬 값과 C 구조체 형식의 바이트열을 형식 문자열(예: `&lt;6d`)에 따라 서로 변환하는 표준 모듈.">struct.pack</dfn></code>은 파이썬 값을 형식 문자열(예: <code>"&lt;6d"</code>)에 따라 바이트열로 바꾸는 <code>struct</code> 모듈의 함수다. 질량분석기 포맷의 <dfn class="term" id="term-little-endian" data-term="little-endian" title="여러 바이트 수를 낮은 자리 바이트부터 메모리에 저장하는 순서.">리틀엔디언</dfn>은 여러 바이트로 된 수를 낮은 자리 바이트부터 저장하는 순서이고, <dfn class="term" id="term-double-precision-float" data-term="double-precision-float" title="8바이트(64비트) 배정밀도 부동소수점 수 형식.">float64</dfn>는 8바이트 배정밀도 부동소수점 수다. 데모의 <code><dfn class="term" id="term-globals" data-term="globals" title="현재 모듈의 전역 이름공간 딕셔너리를 돌려주는 내장 함수; 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.">globals()</dfn></code>는 현재 모듈의 전역 이름공간을 딕셔너리로 돌려주는 내장 함수로, 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 520" role="img" aria-label="01_naive.py의 문제 지점: AcquisitionJob의 생성자에 port가 붙어 있고, run() 안의 if 사슬이 세 리더를 이름으로 직접 만들며, 새 장비는 else의 ValueError로 막히고, 테스트는 전역 이름을 바꿔치기해야 한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">AcquisitionJob · 공용 프레임워크(모든 연구실이 함께 고친다)</text>
+      <g class="uml-group" transform="translate(20,34)">
+        <rect width="300" height="290"/>
+      </g>
+      <g class="uml-func warn" transform="translate(36,50)">
+        <rect width="268" height="56"/>
+        <text class="uml-name" x="134" y="22">__init__(…, device, port)</text>
+        <text class="uml-member" x="10" y="44">⚠ port는 시리얼 장비만 쓴다</text>
+      </g>
+      <g class="uml-func warn" transform="translate(36,122)">
+        <rect width="268" height="104"/>
+        <text class="uml-name" x="134" y="22">run()</text>
+        <text class="uml-member" x="10" y="44">if device == "uv-vis": …</text>
+        <text class="uml-member" x="10" y="62">elif "mass-spec" / "serial-json"</text>
+        <text class="uml-member" x="10" y="80">else: raise ValueError</text>
+        <text class="uml-member" x="10" y="96">⚠ 흐름과 생성이 한 메서드에</text>
+      </g>
+      <g class="uml-func" transform="translate(36,242)">
+        <rect width="268" height="66"/>
+        <text class="uml-name" x="134" y="22">normalize() · save()</text>
+        <text class="uml-member" x="10" y="44">연결 → 읽기 → 정규화 → 저장</text>
+        <text class="uml-member" x="10" y="60">모든 장비에 공통인 흐름</text>
+      </g>
+
+      <text class="uml-note" x="430" y="22">장비별 리더 — 문제 아님</text>
+      <g class="uml-class" transform="translate(430,40)">
+        <rect width="190" height="64"/>
+        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">CSV 텍스트</text>
+      </g>
+      <g class="uml-class" transform="translate(430,120)">
+        <rect width="190" height="64"/>
+        <text class="uml-name" x="95" y="22">MassSpecBinaryReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">float64 바이너리</text>
+      </g>
+      <g class="uml-class" transform="translate(430,200)">
+        <rect width="190" height="64"/>
+        <text class="uml-name" x="95" y="22">SerialJsonReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">JSON · __init__(port)</text>
+      </g>
+      <g class="uml-func warn" transform="translate(430,290)">
+        <rect width="190" height="56"/>
+        <text class="uml-name" x="95" y="22">"xrd" → 실패</text>
+        <text class="uml-member" x="10" y="44">PR 말고는 길이 없다</text>
+      </g>
+
+      <path class="uml-dep" d="M304 160 H360 V72 H430" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M360 160 V152 H430" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M360 160 V232 H430" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="368" y="116">직접 생성</text>
+      <path class="uml-dep" d="M304 212 H340 V318 H430" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="350" y="310">else</text>
+
+      <g class="uml-func warn" transform="translate(20,350)">
+        <rect width="300" height="56"/>
+        <text class="uml-name" x="150" y="22">데모 [3]의 테스트</text>
+        <text class="uml-member" x="10" y="44">globals()[…] = FakeReader</text>
+      </g>
+      <text class="uml-note" x="332" y="374">⚠ 가짜 리더를 끼울 자리가 없어</text>
+      <text class="uml-note" x="332" y="392">CsvSpectrumReader라는 이름 자체를 교체</text>
+
+      <g class="uml-step"><circle cx="36" cy="50" r="9"/><text x="36" y="54">1</text></g>
+      <g class="uml-step"><circle cx="36" cy="122" r="9"/><text x="36" y="126">2</text></g>
+      <g class="uml-step"><circle cx="430" cy="290" r="9"/><text x="430" y="294">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="350" r="9"/><text x="20" y="354">4</text></g>
+
+      <text class="uml-note" x="20" y="444"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
+      <text class="uml-note" x="20" y="466">① 생성자: 장비별 인자가 모든 작업에 붙는다 → ② run(): 흐름 속 if 사슬이 리더 셋을 직접 만든다</text>
+      <text class="uml-note" x="20" y="488">③ else: 새 장비는 공용 코드를 고쳐야 한다(데모 [2]) → ④ 데모 [3]: 테스트가 전역 이름을 바꿔치기</text>
+      <text class="uml-note" x="20" y="510">데모 [1]은 세 장비가 '일단은' 잘 돌아감을 보인다.</text>
+    </svg>
+    <figcaption>코드 지도 · 01_naive.py. 점선 화살표는 "만든다/넘어간다". 리더들은 멀쩡하고, 문제는 모두 그것을 만드는 쪽에 있다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/01_factory_method/01_naive.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;순진한 설계: 측정 흐름 안에서 장비 리더를 직접 만드는 AcquisitionJob.
 
 상황: 화학과 박사과정 서윤은 UV-Vis 분광광도계 한 대의 CSV 출력을 읽어
@@ -307,6 +390,110 @@ if __name__ == &quot;__main__&quot;:
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
   <p class="lead-in">이제 <code>run()</code>에서 분기를 걷어 내고 "리더를 만든다"는 단계를 추상 메서드 <code>create_reader()</code>로 떼어 낸다. 읽을 때 세 가지를 확인하라. <code>run()</code> 본문에 구체 리더 이름이 하나라도 남아 있는가? <code>port</code>는 어디로 옮겨 갔는가? 파일 아래쪽 "다른 연구실의 코드" 구획이 위쪽 프레임워크를 한 줄이라도 고치는가? <code>Sample</code> docstring의 "<dfn class="term" id="term-immutable-object" data-term="immutable-object" title="생성된 뒤 상태를 바꿀 수 없는 객체; 공유해도 안전하고 해시 키로 쓸 수 있다.">불변</dfn>"은 생성된 뒤 상태를 바꿀 수 없다는 뜻이다(<code>frozen=True</code>가 그것을 보장한다). 데모 [3]의 <code><dfn class="term" id="term-assert-python-o" data-term="assert-python-o" title="개발 중 불변 조건을 확인하는 문장; `python -O`로 실행하면 제거되므로 입력 검증에 쓰면 안 된다.">assert</dfn></code>는 조건이 거짓이면 <code>AssertionError</code>를 내는 개발용 확인 문장인데, <code>python -O</code>로 실행하면 통째로 제거되므로 테스트 확인에는 쓰되 입력 검증에는 쓰지 않는다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 590" role="img" aria-label="02_factory_method.py의 배치: 위쪽 공용 프레임워크에는 Reader와 AcquisitionJob이 있고 run()의 흐름 첫 단계가 create_reader()다. 그 아래 장비별 작업 클래스가 각자 리더를 만들고, 맨 아래 다른 연구실 구획이 XrdJob과 XrdReader를 추가한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="26">공용 프레임워크 — Product와 Creator</text>
+      <g class="uml-group" transform="translate(20,34)"><rect width="600" height="172"/></g>
+      <g class="uml-class" transform="translate(36,50)">
+        <rect width="170" height="72"/>
+        <text class="uml-name uml-abstract" x="85" y="22">Reader</text>
+        <line x1="0" y1="32" x2="170" y2="32"/>
+        <text class="uml-member" x="10" y="50">+ connect()</text>
+        <text class="uml-member" x="10" y="66">+ read_samples()</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(300,50)">
+        <rect width="304" height="72"/>
+        <text class="uml-name uml-abstract" x="152" y="22">AcquisitionJob</text>
+        <line x1="0" y1="32" x2="304" y2="32"/>
+        <text class="uml-member" x="10" y="50">+ create_reader() → Reader</text>
+        <text class="uml-member" x="10" y="66">+ run() · normalize() · save()</text>
+      </g>
+      <path class="uml-dep" d="M300 86 H206" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="220" y="78">run()이 사용</text>
+      <text class="uml-note" x="36" y="146">run()의 흐름 — 구체 리더 이름이 하나도 없다</text>
+      <g class="uml-func highlight" transform="translate(36,156)">
+        <rect width="128" height="36"/>
+        <text class="uml-member" x="64" y="22" text-anchor="middle">create_reader()</text>
+      </g>
+      <g class="uml-func" transform="translate(190,156)">
+        <rect width="84" height="36"/>
+        <text class="uml-member" x="42" y="22" text-anchor="middle">connect()</text>
+      </g>
+      <g class="uml-func" transform="translate(300,156)">
+        <rect width="116" height="36"/>
+        <text class="uml-member" x="58" y="22" text-anchor="middle">read_samples()</text>
+      </g>
+      <g class="uml-func" transform="translate(442,156)">
+        <rect width="160" height="36"/>
+        <text class="uml-member" x="80" y="22" text-anchor="middle">normalize() → save()</text>
+      </g>
+      <path class="uml-dep" d="M164 174 H190" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M274 174 H300" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M416 174 H442" marker-end="url(#arrow)"/>
+
+      <text class="uml-note" x="20" y="226">장비별 Concrete Creator → 만드는 Concrete Product</text>
+      <g class="uml-group" transform="translate(20,234)"><rect width="600" height="152"/></g>
+      <g class="uml-class" transform="translate(36,250)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">UvVisJob</text>
+      </g>
+      <path class="uml-dep" d="M256 266 H384" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="264" y="260">create_reader()</text>
+      <g class="uml-class" transform="translate(384,250)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">CsvSpectrumReader</text>
+      </g>
+      <g class="uml-class" transform="translate(36,294)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">MassSpecJob</text>
+      </g>
+      <path class="uml-dep" d="M256 310 H384" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="264" y="304">create_reader()</text>
+      <g class="uml-class" transform="translate(384,294)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">MassSpecBinaryReader</text>
+      </g>
+      <g class="uml-class" transform="translate(36,338)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">SerialJsonJob(…, port)</text>
+      </g>
+      <path class="uml-dep" d="M256 354 H384" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="264" y="348">create_reader()</text>
+      <g class="uml-class" transform="translate(384,338)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">SerialJsonReader(port)</text>
+      </g>
+
+      <text class="uml-note" x="20" y="406">다른 연구실의 코드 — 위를 한 줄도 고치지 않고 추가만</text>
+      <g class="uml-group" transform="translate(20,414)"><rect width="600" height="64"/></g>
+      <g class="uml-class" transform="translate(36,430)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">XrdJob</text>
+      </g>
+      <path class="uml-dep" d="M256 446 H384" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="264" y="440">create_reader()</text>
+      <g class="uml-class" transform="translate(384,430)">
+        <rect width="220" height="32"/>
+        <text class="uml-name" x="110" y="21">XrdReader</text>
+      </g>
+
+      <g class="uml-step"><circle cx="36" cy="50" r="9"/><text x="36" y="54">1</text></g>
+      <g class="uml-step"><circle cx="300" cy="50" r="9"/><text x="300" y="54">2</text></g>
+      <g class="uml-step"><circle cx="36" cy="250" r="9"/><text x="36" y="254">3</text></g>
+      <g class="uml-step"><circle cx="36" cy="430" r="9"/><text x="36" y="434">4</text></g>
+
+      <text class="uml-note" x="20" y="512"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 팩토리 메서드와 그것을 부르는 Creator</text>
+      <text class="uml-note" x="20" y="534">① Reader와 구체 리더 → ② AcquisitionJob.run(): create_reader()가 끼는 자리</text>
+      <text class="uml-note" x="20" y="556">③ 장비별 Job: create_reader() 한 줄, port의 새 자리 → ④ 다른 연구실 구획</text>
+      <text class="uml-note" x="20" y="578">데모 [1] 세 작업 실행 · [2] XrdJob 추가 · [3] FakeJob으로 테스트 · [4] 구현 누락은 생성 시 TypeError</text>
+    </svg>
+    <figcaption>코드 지도 · 02_factory_method.py. 그림 1-1의 클래스들이 파일 안에서 놓인 자리다. 점선 화살표는 "사용한다/만든다", 점선 테두리는 파일의 구획이다.</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/01_factory_method/02_factory_method.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;팩토리 메서드 적용: 흐름은 상위 클래스가, 리더 선택은 하위 클래스가 결정한다.
 
 상황: 01_naive.py에서 AcquisitionJob.run()은 측정 흐름과 리더 생성 분기를 함께 품고
@@ -579,6 +766,93 @@ if __name__ == &quot;__main__&quot;:
   <p>02의 Concrete Creator들을 다시 보면 하는 일이 <code>create_reader()</code> 한 줄뿐이다. Java 같은 언어에서는 "생성 방법"을 값으로 넘기기가 번거로웠기 때문에 메서드 하나를 바꾸려고 클래스를 하나 만드는 것이 자연스러웠다. 파이썬에서는 클래스 자체가 호출 가능한 객체이고, 함수도 일급 값이다. 그렇다면 하위 클래스 계층 없이 같은 분담을 얻을 수 있지 않을까?</p>
   <h3>생성 함수 주입과 <dfn class="term" id="term-alternative-constructor" data-term="alternative-constructor" title="`@classmethod` 등으로 만든, 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점; GoF 팩토리 메서드와 달리 무엇을 만들지는 호출자가 고른 클래스가 정한다.">대체 생성자</dfn></h3>
   <p class="lead-in">대체 생성자는 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점이다. 생성자 오버로딩이 없는 파이썬에서는 흔히 <code><dfn class="term" id="term-classmethod" data-term="classmethod" title="인스턴스 대신 클래스(cls)를 첫 인자로 받는 메서드를 만드는 데코레이터; 하위 클래스에서 부르면 cls가 그 하위 클래스가 된다.">@classmethod</dfn></code>로 만든다. <code>@classmethod</code>를 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받으므로, 하위 클래스에서 부르면 <code>cls</code>가 그 하위 클래스가 된다. 아래 코드는 <code>create_reader()</code> 오버라이드를 생성자 인자 <code>reader_factory</code>로 바꾼다. 리더 인스턴스가 아니라 <em>만드는 방법</em>을 받는다는 점, <code>Reader</code>가 <code>Protocol</code>이 되어 리더들이 아무것도 상속하지 않는다는 점, 그리고 <code>from_config()</code>의 docstring이 그것을 "GoF 팩토리 메서드가 아니다"라고 말하는 이유에 주목하라. 새로 나오는 도구도 있다. <code><dfn class="term" id="term-functools-partial" data-term="functools-partial" title="함수의 일부 인자를 미리 채워 둔 새 호출 가능 객체를 만든다. repr에 채운 인자가 보인다.">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 호출 가능 객체를 만든다. 타입 힌트의 <code><dfn class="term" id="term-typing-classvar" data-term="typing-classvar" title="그 속성이 인스턴스가 아니라 클래스 전체에 속함을 타입 검사기에 알리는 타입 힌트(데이터클래스 필드에서도 제외된다).">ClassVar</dfn></code>는 그 속성이 인스턴스가 아니라 클래스 전체에 속한다고 표시하고, <code><dfn class="term" id="term-typing-any" data-term="typing-any" title="어떤 타입이든 허용한다는 타입 힌트. 타입 검사를 사실상 끈다.">Any</dfn></code>는 어떤 타입이든 허용한다는 표시로 그 자리의 타입 검사를 사실상 끈다. docstring의 "<dfn class="term" id="term-runtime" data-term="runtime" title="프로그램이 실제로 실행되는 시점(또는 실행 환경). 정적 검사 시점과 대비된다.">런타임</dfn>"은 프로그램이 실제로 실행되는 시점을 말하며, 코드를 실행하지 않고 검사하는 정적 검사 시점과 대비된다.</p>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 520" role="img" aria-label="03_pythonic.py의 구조: 클래스, partial, 평범한 함수가 모두 ReaderFactory로서 AcquisitionJob의 reader_factory 인자로 들어가고, run()이 그것을 불러 Reader 프로토콜을 만족하는 리더를 얻는다. from_config()는 DEVICES 표를 조회하는 대체 생성자다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">"리더를 만드는 방법" 세 가지 — 02의 Concrete Creator 하위 클래스를 대신한다</text>
+      <g class="uml-func" transform="translate(20,40)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
+        <text class="uml-member" x="10" y="44">() → 리더</text>
+        <text class="uml-member" x="10" y="62">클래스 자체 · [1]</text>
+      </g>
+      <g class="uml-func" transform="translate(225,40)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">partial(…)</text>
+        <text class="uml-member" x="10" y="44">SerialJsonReader</text>
+        <text class="uml-member" x="10" y="62">port를 미리 묶음 · [2]</text>
+      </g>
+      <g class="uml-func" transform="translate(430,40)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">spying_factory</text>
+        <text class="uml-member" x="10" y="44">def … → FakeReader()</text>
+        <text class="uml-member" x="10" y="62">평범한 함수 · [3]</text>
+      </g>
+      <path class="uml-dep" d="M115 116 V136 H320"/>
+      <path class="uml-dep" d="M525 116 V136 H320"/>
+      <path class="uml-dep" d="M320 116 V156" marker-end="url(#arrow)"/>
+
+      <g class="uml-func" transform="translate(200,156)">
+        <rect width="240" height="56"/>
+        <text class="uml-name" x="120" y="22">ReaderFactory</text>
+        <text class="uml-member" x="10" y="44">= Callable[[], Reader]</text>
+      </g>
+      <path class="uml-dep" d="M320 212 V240" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="328" y="231">reader_factory 인자로</text>
+
+      <g class="uml-class" transform="translate(20,240)">
+        <rect width="130" height="92"/>
+        <text class="uml-name" x="65" y="22">Reader</text>
+        <text class="uml-stereo" x="65" y="38">Protocol</text>
+        <line x1="0" y1="46" x2="130" y2="46"/>
+        <text class="uml-member" x="10" y="64">connect()</text>
+        <text class="uml-member" x="10" y="82">read_samples()</text>
+      </g>
+      <g class="uml-class highlight" transform="translate(200,240)">
+        <rect width="240" height="128"/>
+        <text class="uml-name" x="120" y="22">AcquisitionJob</text>
+        <line x1="0" y1="32" x2="240" y2="32"/>
+        <text class="uml-member" x="10" y="52">DEVICES: ClassVar[dict]</text>
+        <text class="uml-member" x="10" y="70">_reader_factory</text>
+        <line x1="0" y1="80" x2="240" y2="80"/>
+        <text class="uml-member" x="10" y="100">+ from_config(config)</text>
+        <text class="uml-member" x="10" y="118">+ run(): 이때 비로소 생성</text>
+      </g>
+      <path class="uml-dep" d="M200 286 H150" marker-end="url(#arrow)"/>
+
+      <text class="uml-note" x="460" y="250">from_config()의 안</text>
+      <g class="uml-func" transform="translate(460,262)">
+        <rect width="160" height="30"/>
+        <text class="uml-member" x="80" y="20" text-anchor="middle">config dict</text>
+      </g>
+      <g class="uml-func warn" transform="translate(460,308)">
+        <rect width="160" height="30"/>
+        <text class="uml-member" x="80" y="20" text-anchor="middle">DEVICES[device]</text>
+      </g>
+      <g class="uml-func" transform="translate(460,354)">
+        <rect width="160" height="30"/>
+        <text class="uml-member" x="80" y="20" text-anchor="middle">cls(id, partial)</text>
+      </g>
+      <path class="uml-dep" d="M540 292 V308" marker-end="url(#arrow)"/>
+      <path class="uml-dep" d="M540 338 V354" marker-end="url(#arrow)"/>
+      <text class="uml-note" x="300" y="402">[4] 표에 없는 "xrd"는 KeyError — 결국 DEVICES를 고쳐야 한다</text>
+
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">1</text></g>
+      <g class="uml-step"><circle cx="200" cy="156" r="9"/><text x="200" y="160">2</text></g>
+      <g class="uml-step"><circle cx="200" cy="240" r="9"/><text x="200" y="244">3</text></g>
+      <g class="uml-step"><circle cx="460" cy="262" r="9"/><text x="460" y="266">4</text></g>
+
+      <text class="uml-note" x="20" y="440"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 흐름을 소유하는 쪽, 주황 테두리가 단순 팩토리로 되돌아간 곳</text>
+      <text class="uml-note" x="20" y="462">① 세 생성 방법 → ② ReaderFactory: 모두 "인자 없이 부르면 리더가 나온다"</text>
+      <text class="uml-note" x="20" y="484">③ AcquisitionJob: 방법만 받아 두고 run()에서 부른다 → ④ from_config(): 표 조회</text>
+      <text class="uml-note" x="20" y="506">리더들은 Reader를 상속하지 않는다. 모양만 맞으면 된다.</text>
+    </svg>
+    <figcaption>코드 지도 · 03_pythonic.py. 둥근 상자는 함수·값, 점선 화살표는 "넘겨진다/사용한다".</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/01_factory_method/03_pythonic.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형 1: 상속 대신 &#x27;생성 함수&#x27;를 주입하고, 설정에서 작업을 만드는 대체 생성자.
 
 상황: 02_factory_method.py에서는 장비가 하나 늘 때마다 Concrete Creator(XrdJob 등)를
@@ -763,6 +1037,91 @@ if __name__ == &quot;__main__&quot;:
     <span class="label">용어</span>
     코드 주석에 처음 나오는 말들이다. <dfn class="term" id="term-metaclass" data-term="metaclass" title="클래스를 만들어 내는 클래스(기본은 `type`); 클래스 생성·호출 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다.">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 생성되고 호출되는 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다. <dfn class="term" id="term-keyword-only-argument" data-term="keyword-only-argument" title="매개변수 목록의 * 뒤에 두어 반드시 이름=값으로만 넘길 수 있게 한 인자.">키워드 전용</dfn> 인자는 매개변수 목록의 <code>*</code> 뒤에 두어 반드시 <code>이름=값</code>으로만 넘길 수 있게 한 인자다. <dfn class="term" id="term-declarative" data-term="declarative" title="&#x27;어떻게&#x27;의 절차 대신 &#x27;무엇&#x27;을 원하는지를 기술하는 방식.">선언적</dfn>이라는 말은 "어떻게"의 절차 대신 "무엇"을 원하는지를 적는 방식을 뜻한다. <dfn class="term" id="term-cooperative-multiple-inheritance" data-term="cooperative-multiple-inheritance" title="다중 상속 계층의 각 클래스가 `super()`로 다음 클래스에 호출을 넘겨 MRO 순서대로 모두 실행되게 하는 관례.">협력적 다중 상속</dfn>은 계층의 각 클래스가 <code>super()</code>로 다음 클래스에 호출을 넘겨, 여러 부모의 같은 메서드가 빠짐없이 차례로 실행되게 하는 관례다. <code>raise … <dfn class="term" id="term-exception-chaining" data-term="exception-chaining" title="`raise New(...) from e`로 새 예외의 `__cause__`에 원인 예외를 남기는 문법; `from`을 빼면 원래 예외는 `__context__`에 담겨 &#x27;처리 도중 다른 예외&#x27;로 보고되고, `from None`은 원인 표시를 숨긴다.">from None</dfn></code>은 예외 연쇄 문법의 한 형태다. <code>raise 새예외 from e</code>는 원인 예외 <code>e</code>를 새 예외에 기록하고, <code>from None</code>은 원인 표시를 숨겨 사용자에게 필요한 메시지만 남긴다. 마지막 데모의 <dfn class="term" id="term-entry-points" data-term="entry-points" title="설치된 패키지가 &#x27;이 이름으로 이 객체를 제공한다&#x27;고 메타데이터에 선언해, 다른 프로그램이 import하지 않고도 플러그인을 찾게 하는 파이썬 패키징 메커니즘.">진입점(entry points)</dfn>은 설치된 패키지가 "이 이름으로 이 객체를 제공한다"고 메타데이터에 선언해, 다른 프로그램이 직접 import하지 않고도 플러그인을 찾게 하는 파이썬 패키징 장치다.
   </div>
+  <figure class="diagram code-map">
+    <svg viewBox="0 0 640 500" role="img" aria-label="04_registry.py의 구조: Reader가 _registry와 __init_subclass__를 가지고, device 인자를 준 하위 클래스는 정의되는 순간 등록된다. device 없는 TextColumnReader는 등록되지 않고, 같은 키를 다시 쓰면 ValueError가 난다. AcquisitionJob은 Reader.for_device()로 이름을 조회한다"><defs>
+<marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path class="marker-hollow" d="M1 1 L11 6 L1 11 Z"/></marker>
+<marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 1 L11 6 L1 11" fill="none" style="fill:none;stroke-width:1.4"/></marker>
+<marker id="diamond" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-hollow" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+<marker id="diamond-fill" viewBox="0 0 16 10" refX="1" refY="5" markerWidth="16" markerHeight="10" orient="auto-start-reverse"><path class="marker-fill" d="M1 5 L8 1 L15 5 L8 9 Z"/></marker>
+</defs>
+      <text class="uml-note" x="20" y="22">[Client] 장비 목록을 모른다</text>
+      <g class="uml-class" transform="translate(20,40)">
+        <rect width="200" height="76"/>
+        <text class="uml-name" x="100" y="22">AcquisitionJob</text>
+        <line x1="0" y1="32" x2="200" y2="32"/>
+        <text class="uml-member" x="10" y="52">device · options</text>
+        <text class="uml-member" x="10" y="68">+ run()</text>
+      </g>
+      <text class="uml-note" x="300" y="22">[Product] 이자 등록부의 주인 · ABC</text>
+      <g class="uml-class highlight" transform="translate(300,40)">
+        <rect width="320" height="128"/>
+        <text class="uml-name uml-abstract" x="160" y="22">Reader</text>
+        <line x1="0" y1="32" x2="320" y2="32"/>
+        <text class="uml-member" x="10" y="52">_registry: ClassVar[dict]</text>
+        <line x1="0" y1="62" x2="320" y2="62"/>
+        <text class="uml-member" x="10" y="82">__init_subclass__(*, device)</text>
+        <text class="uml-member" x="10" y="100">+ for_device(device, **options)</text>
+        <text class="uml-member" x="10" y="118">+ connect() · read_samples()</text>
+      </g>
+      <g class="uml-func" transform="translate(20,160)">
+        <rect width="220" height="70"/>
+        <text class="uml-name" x="110" y="22">Reader._registry</text>
+        <text class="uml-member" x="10" y="44">uv-vis → CsvSpectrumReader</text>
+        <text class="uml-member" x="10" y="60">xrd → XrdReader ([3] 이후)</text>
+      </g>
+      <path class="uml-dep" d="M120 116 V160" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="128" y="142">Reader.for_device()</text>
+      <path class="marker-fill" d="M300 100 L290 93 L280 100 L290 107 Z"/>
+      <path class="uml-compose" d="M280 100 H266 V195 H240"/>
+
+      <g class="uml-class" transform="translate(360,200)">
+        <rect width="200" height="60"/>
+        <text class="uml-name uml-abstract" x="100" y="22">TextColumnReader</text>
+        <line x1="0" y1="32" x2="200" y2="32"/>
+        <text class="uml-member" x="10" y="50">device 없음 → 등록 안 됨</text>
+      </g>
+      <path class="uml-inherit" d="M460 200 V168" marker-end="url(#triangle)"/>
+
+      <g class="uml-class" transform="translate(20,310)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">device="uv-vis"</text>
+        <text class="uml-member" x="10" y="68">import 때 등록</text>
+      </g>
+      <g class="uml-class" transform="translate(225,310)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">XrdReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">device="xrd"</text>
+        <text class="uml-member" x="10" y="68">데모 [3]에서 정의</text>
+      </g>
+      <g class="uml-class warn" transform="translate(430,310)">
+        <rect width="190" height="76"/>
+        <text class="uml-name" x="95" y="22">AnotherXrdReader</text>
+        <line x1="0" y1="32" x2="190" y2="32"/>
+        <text class="uml-member" x="10" y="52">device="xrd"</text>
+        <text class="uml-member" x="10" y="68">[4] 중복 → ValueError</text>
+      </g>
+      <path class="uml-inherit" d="M115 310 V290 H460"/>
+      <path class="uml-inherit" d="M320 310 V290"/>
+      <path class="uml-inherit" d="M525 310 V290 H460"/>
+      <path class="uml-inherit" d="M460 290 V260" marker-end="url(#triangle)"/>
+      <path class="uml-dep" d="M50 310 V230" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="58" y="268">정의되는 순간 등록</text>
+
+      <g class="uml-step"><circle cx="300" cy="40" r="9"/><text x="300" y="44">1</text></g>
+      <g class="uml-step"><circle cx="360" cy="200" r="9"/><text x="360" y="204">2</text></g>
+      <g class="uml-step"><circle cx="20" cy="310" r="9"/><text x="20" y="314">3</text></g>
+      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">4</text></g>
+
+      <text class="uml-note" x="20" y="420"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 등록을 맡는 클래스</text>
+      <text class="uml-note" x="20" y="442">① Reader: _registry와 __init_subclass__ → ② TextColumnReader: device 없는 중간 클래스</text>
+      <text class="uml-note" x="20" y="464">③ 구체 리더: class 문 한 줄이 곧 등록 → ④ AcquisitionJob.run(): 이름으로 조회</text>
+      <text class="uml-note" x="20" y="486">데모 [1] 등록 목록 · [2] 정의 전 LookupError · [3] 정의 후 성공 · [4] 중복 거부 · [5] import 함정</text>
+    </svg>
+    <figcaption>코드 지도 · 04_registry.py. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "등록한다/조회한다".</figcaption>
+  </figure>
   <figure class="code"><figcaption>src/01_factory_method/04_registry.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;파이썬다운 변형 2: __init_subclass__로 &#x27;정의하는 순간 등록되는&#x27; 리더 레지스트리.
 
 상황: 03_pythonic.py의 from_config()는 DEVICES 표를 프레임워크가 직접 들고 있어서,
