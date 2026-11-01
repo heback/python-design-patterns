@@ -33,7 +33,7 @@ class Query:
     note: str = field(default="", compare=False)
 
     def __post_init__(self) -> None:
-        """교차 검증. 02의 build()가 하던 일을 '생성 시점'으로 옮겼다.
+        """교차 검증. 패턴 코드(02_builder.py)의 build()가 하던 일을 '생성 시점'으로 옮겼다.
 
         frozen 객체는 생성 후 바뀌지 않으므로, 여기를 통과한 Query는 영원히 유효하다.
         replace()도 내부적으로 __init__을 호출하므로 이 검증을 다시 거친다.
@@ -51,7 +51,7 @@ def assemble_from_ui(toggles: dict[str, object]) -> Query:
 
     조각이 조건부로 하나씩 결정되므로, 생성자를 한 번에 부르려면 임시 리스트들에 먼저 모아야 한다.
     아래 where/group_by 리스트가 바로 '손으로 만든 빌더 상태'다. 이런 조립이 여러 곳에서
-    반복되면 그 리스트와 규칙을 클래스로 묶는 것, 즉 02의 QueryBuilder가 정당화된다.
+    반복되면 그 리스트와 규칙을 클래스로 묶는 것, 즉 패턴 코드의 QueryBuilder가 정당화된다.
     """
     where: list[tuple[str, str, object]] = []
     group_by: list[str] = []

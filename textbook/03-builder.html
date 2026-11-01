@@ -706,7 +706,7 @@ GoF 의도(intent): &quot;복잡한 객체의 생성 과정과 표현 방법을 
 - [Concrete Builder]  PostgresRenderer, SummaryRenderer — 각자의 표현을 쌓는다
 - [Product]           SqlStatement, 요약 문자열 — 서로 공통 타입이 없다는 점이 GoF 빌더의 특징
 
-02와의 차이: 02의 &#x27;빌더&#x27;는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
+패턴 코드(02_builder.py)와의 차이: 패턴 코드의 &#x27;빌더&#x27;는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
 이 파일의 &#x27;빌더&#x27;는 GoF 원전의 의미(같은 절차, 다른 표현)다. 둘은 이름만 같고 목적이 다르다.
 &quot;&quot;&quot;
 from __future__ import annotations
@@ -730,7 +730,7 @@ class Condition:
 
 @dataclass(frozen=True)
 class Query:
-    &quot;&quot;&quot;검증이 끝난 쿼리 정의. 실제로는 02의 QueryBuilder.build()가 만든다.&quot;&quot;&quot;
+    &quot;&quot;&quot;검증이 끝난 쿼리 정의. 실제로는 패턴 코드의 QueryBuilder.build()가 만든다.&quot;&quot;&quot;
 
     table: str
     select: tuple[str, ...]
@@ -950,7 +950,7 @@ class Query:
     note: str = field(default=&quot;&quot;, compare=False)
 
     def __post_init__(self) -&gt; None:
-        &quot;&quot;&quot;교차 검증. 02의 build()가 하던 일을 &#x27;생성 시점&#x27;으로 옮겼다.
+        &quot;&quot;&quot;교차 검증. 패턴 코드(02_builder.py)의 build()가 하던 일을 &#x27;생성 시점&#x27;으로 옮겼다.
 
         frozen 객체는 생성 후 바뀌지 않으므로, 여기를 통과한 Query는 영원히 유효하다.
         replace()도 내부적으로 __init__을 호출하므로 이 검증을 다시 거친다.
@@ -968,7 +968,7 @@ def assemble_from_ui(toggles: dict[str, object]) -&gt; Query:
 
     조각이 조건부로 하나씩 결정되므로, 생성자를 한 번에 부르려면 임시 리스트들에 먼저 모아야 한다.
     아래 where/group_by 리스트가 바로 &#x27;손으로 만든 빌더 상태&#x27;다. 이런 조립이 여러 곳에서
-    반복되면 그 리스트와 규칙을 클래스로 묶는 것, 즉 02의 QueryBuilder가 정당화된다.
+    반복되면 그 리스트와 규칙을 클래스로 묶는 것, 즉 패턴 코드의 QueryBuilder가 정당화된다.
     &quot;&quot;&quot;
     where: list[tuple[str, str, object]] = []
     group_by: list[str] = []

@@ -4,15 +4,15 @@
 기획자는 '같은 아티스트 연속 금지' 셔플을 요구한다. 반복자 패턴 덕분에 순회 방식(제너레이터 함수)
 하나만 추가하면 된다 — 단, 03_pythonic.py의 모드 계약을 정확히 지켜야 한다.
 
-03의 MODES 계약: `(pl, start) -> Iterator[tuple[int, Track]]`
+파이썬다운 변형(03_pythonic.py)의 MODES 계약: `(pl, start) -> Iterator[tuple[int, Track]]`
   - start(지금 듣는 곡의 위치)를 받아 그 곡을 '첫 값'으로 낸다(모드를 바꿔도 지금 곡 유지).
   - 곡이 아니라 (위치, 곡) 쌍을 낸다(다음 모드 전환 때 Player가 위치를 넘겨야 하므로).
-이 파일은 그 계약을 지키는 smart_shuffle을 만들고, 03의 Player·MODES를 축약 재현해(03 set_mode의 shuffle 특수 처리 lambda는 빼고 모든 모드를 partial로 등록)
+이 파일은 그 계약을 지키는 smart_shuffle을 만들고, 파이썬다운 변형의 Player·MODES를 축약 재현해(파이썬다운 변형의 set_mode에 있는 shuffle 특수 처리 lambda는 빼고 모든 모드를 partial로 등록)
 '등록 한 줄'로 동작하는 것을 보인다(교재 규칙상 파일끼리 import하지 않는다).
 
-03에 실제로 넣을 때 필요한 변경: ① 03의 Track에 artist 필드를 기본값과 함께 추가한다(artist: str = ""
-— 기본값이 없으면 03의 기존 Track("Intro") 호출이 깨진다).
-② MODES에 한 줄 등록한다. ③ 03의 set_mode는 shuffle만 seed를 넘기는 lambda로 특수 처리하므로,
+파이썬다운 변형에 실제로 넣을 때 필요한 변경: ① 파이썬다운 변형의 Track에 artist 필드를 기본값과 함께 추가한다(artist: str = ""
+— 기본값이 없으면 파이썬다운 변형의 기존 Track("Intro") 호출이 깨진다).
+② MODES에 한 줄 등록한다. ③ 파이썬다운 변형의 set_mode는 shuffle만 seed를 넘기는 lambda로 특수 처리하므로,
 seed가 필요하면 같은 처리를 하나 더 하거나 MODES 값에 partial(smart_shuffle, seed=7)을 넣는다.
 Player의 재생 로직과 Playlist는 고치지 않는다.
 
@@ -35,21 +35,21 @@ from typing import Iterator, Sequence
 
 @dataclass(frozen=True)
 class Track:
-    """곡과 아티스트. 03의 Track에 artist 필드를 더한 형태(변경 ①)."""
+    """곡과 아티스트. 파이썬다운 변형의 Track에 artist 필드를 더한 형태(변경 ①)."""
 
     title: str
     artist: str
 
 
 def sequential(pl: Sequence[Track], start: int = 0) -> Iterator[tuple[int, Track]]:
-    """03의 sequential과 같은 계약 — 비교용 기존 모드."""
+    """파이썬다운 변형의 sequential과 같은 계약 — 비교용 기존 모드."""
     for i in range(start, len(pl)):
         yield i, pl[i]
 
 
 def smart_shuffle(pl: Sequence[Track], start: int = 0,
                   seed: int | None = None) -> Iterator[tuple[int, Track]]:
-    """[Concrete Iterator] 03의 모드 계약을 지키는 스마트 셔플. 상태(풀, 직전 아티스트)는 지역 변수다."""
+    """[Concrete Iterator] 파이썬다운 변형의 모드 계약을 지키는 스마트 셔플. 상태(풀, 직전 아티스트)는 지역 변수다."""
     yield start, pl[start]                       # 계약: 지금 곡을 먼저 — 모드 전환 시 곡이 끊기지 않는다
     last = pl[start].artist
     pool = [i for i in range(len(pl)) if i != start]
@@ -69,7 +69,7 @@ def smart_shuffle(pl: Sequence[Track], start: int = 0,
 
 def plain_shuffle(pl: Sequence[Track], start: int = 0,
                   seed: int | None = None) -> Iterator[tuple[int, Track]]:
-    """비교용 평범한 셔플(03의 shuffled와 같은 동작)."""
+    """비교용 평범한 셔플(파이썬다운 변형의 shuffled와 같은 동작)."""
     yield start, pl[start]
     rest = [i for i in range(len(pl)) if i != start]
     random.Random(seed).shuffle(rest)
@@ -77,13 +77,13 @@ def plain_shuffle(pl: Sequence[Track], start: int = 0,
         yield i, pl[i]
 
 
-# 03의 MODES와 같은 모양의 등록표. seed가 필요한 모드는 partial로 묶어 (pl, start) 모양을 맞춘다.
+# 파이썬다운 변형의 MODES와 같은 모양의 등록표. seed가 필요한 모드는 partial로 묶어 (pl, start) 모양을 맞춘다.
 MODES = {"normal": sequential, "shuffle": partial(plain_shuffle, seed=5)}
 MODES["smart_shuffle"] = partial(smart_shuffle, seed=5)      # ← 변경 ②: 추가는 이 한 줄
 
 
 class Player:
-    """[Client] 03의 Player를 축약 재현. 모드 이름으로 MODES에서 제너레이터를 골라 쓸 뿐이다."""
+    """[Client] 파이썬다운 변형의 Player를 축약 재현. 모드 이름으로 MODES에서 제너레이터를 골라 쓸 뿐이다."""
 
     def __init__(self, pl: Sequence[Track]) -> None:
         """순서대로 재생으로 시작."""

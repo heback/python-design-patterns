@@ -39,7 +39,7 @@ class UnsafeLogger:
 
 
 class SafeLogger:
-    """[Singleton] 02와 같은 이중 검사 잠금."""
+    """[Singleton] 패턴 코드(02_singleton.py)와 같은 이중 검사 잠금."""
 
     _instance: SafeLogger | None = None
     _lock = threading.Lock()
@@ -150,7 +150,7 @@ def get_audit_logger() -> PlainLogger:
 
     모듈 객체와 달리 import만으로는 생성되지 않는다(설정을 읽은 뒤 만들어야 할 때 유용).
     테스트에서는 get_audit_logger.cache_clear()로 비울 수 있는데, 이것도 결국 전역 리셋이라는
-    점에서 02의 _reset_for_tests와 같은 냄새를 풍긴다.
+    점에서 패턴 코드의 _reset_for_tests와 같은 냄새를 풍긴다.
     """
     return PlainLogger()
 

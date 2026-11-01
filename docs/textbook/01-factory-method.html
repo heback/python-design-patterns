@@ -941,7 +941,7 @@ ReaderFactory = Callable[[], Reader]
 class AcquisitionJob:
     &quot;&quot;&quot;[Creator 역할을 합성으로] 흐름은 그대로 소유하고, 생성 방법은 주입받는다.
 
-    02의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
+    패턴 코드(02_factory_method.py)의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
     구조적으로는 &#x27;생성 전략&#x27;을 들고 있는 Context — 10장 전략 패턴과 같은 모양이다.
     상속 대신 합성을 고른 이유: 변하는 것이 &#x27;메서드 하나&#x27;뿐이라면 그 하나를 값으로
     넘기는 편이 클래스 계층을 늘리는 것보다 싸고, 런타임에 바꿀 수도 있다.
@@ -979,7 +979,7 @@ class AcquisitionJob:
         return cls(config[&quot;sample_id&quot;], partial(maker, **options))
 
     def run(self) -&gt; list[Sample]:
-        &quot;&quot;&quot;흐름은 02와 동일하다. 생성 지점이 self.create_reader()에서 주입된 함수로 바뀌었을 뿐.&quot;&quot;&quot;
+        &quot;&quot;&quot;흐름은 패턴 코드와 동일하다. 생성 지점이 self.create_reader()에서 주입된 함수로 바뀌었을 뿐.&quot;&quot;&quot;
         reader = self._reader_factory()
         print(f&quot;  연결: {reader.connect()}&quot;)
         samples = reader.read_samples()
@@ -1337,7 +1337,7 @@ if __name__ == &quot;__main__&quot;:
 결론 요약: 둘 다 GoF 팩토리 메서드가 아니라 &#x27;대체 생성자(alternative constructor)&#x27;다.
 - 생성될 클래스는 &#x27;호출자가 고른 수신 클래스(cls)&#x27;로 정해진다. 하위 클래스가 생성
   결정을 오버라이드하는 훅이 아니다.
-- 생성 결과를 사용하는 Creator 쪽 연산(02의 run()에 해당)이 없다. 메서드의 목적이
+- 생성 결과를 사용하는 Creator 쪽 연산(패턴 코드 02_factory_method.py의 run()에 해당)이 없다. 메서드의 목적이
   &#x27;다른 입력 형식으로 같은 타입을 만든다&#x27;는 데 있다.
 공통점은 하나다: cls를 통해 생성하므로 하위 클래스에서 호출하면 하위 클래스 인스턴스가 나온다.
 &quot;&quot;&quot;
@@ -1415,7 +1415,7 @@ class LogCollector:
 
 상황: 연구실 서버 관리자가 웹 서버 접근 로그를 모으는 LogCollector를 만들었다. collect()
 안에서 `if fmt == &quot;nginx&quot;: ... elif fmt == &quot;apache&quot;: ...`로 파서를 골랐다(문제 본문 코드).
-본문 01~02와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
+본문의 순진한 코드(01_naive.py)·패턴 코드(02_factory_method.py)와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
 
 해설의 두 단계:
 - 1단계(GoF 팩토리 메서드): LogCollector가 collect() 흐름을 소유하고 create_parser()를 훅으로

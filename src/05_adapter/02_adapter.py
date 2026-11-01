@@ -7,7 +7,7 @@
 번역한다. OrderService는 이제 PaymentGateway 하나만 안다(DIP).
 
 외부 SDK 흉내 코드는 01_naive.py와 같되, C SDK만 실제처럼 '다른 스레드에서' 콜백하도록
-바꿨다(01은 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
+바꿨다(순진한 코드 01_naive.py는 단순화를 위해 즉시 콜백했다). 파일 하나만 열어도 전체가 보이도록 다시 실었다.
 """
 from __future__ import annotations
 

@@ -109,7 +109,7 @@ class SatelliteImage(ABC):
 
 
 class RealSatelliteImage(SatelliteImage):
-    """[Real Subject] 생성자에서 원본을 받는다. 01과 같은 '무거운' 객체 — 바꾸지 않았다.
+    """[Real Subject] 생성자에서 원본을 받는다. 순진한 코드(01_naive.py)와 같은 '무거운' 객체 — 바꾸지 않았다.
 
     프록시 패턴의 장점 하나가 여기 있다: 실제 객체는 지연·권한·캐시를 전혀 모른 채 자기 일만 한다.
     """

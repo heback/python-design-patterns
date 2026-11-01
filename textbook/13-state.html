@@ -418,7 +418,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -758,7 +758,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -932,7 +932,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -1404,7 +1404,7 @@ class ScooterState(ABC):
 
     메서드마다 context(`scooter`)를 인자로 받는다. 상태 객체가 context를 필드로 들고
     있지 않게 한 이유: 순환 참조를 피하고, 상태 객체가 &#x27;어느 킥보드의 상태인지&#x27;에
-    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 05 참고).
+    묶이지 않게 하기 위해서다(무상태 상태 객체는 여러 킥보드가 공유할 수도 있다 — 파이썬다운 변형 모음 05_pythonic_variants.py 참고).
 
     추상 메서드는 label() 하나뿐이다. 동작 메서드를 전부 abstractmethod로 만들면
     새 상태마다 거부용 보일러플레이트 여섯 개를 써야 하고, 그 복붙 속에서 또 실수가 난다.
@@ -1894,7 +1894,7 @@ class Scooter:
 <figure class="code"><figcaption>src/13_state/03_state_vs_strategy.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 전략과의 비교] 한 Context 안에 전략(요금 정책)과 상태(대여 생명주기)를 나란히 둔다.
 
 상황: 킥고 운영팀은 도시·시간대별 요금 정책을 수시로 바꾼다(10장의 전략 패턴 그대로).
-같은 `Scooter`에 02에서 만든 상태 패턴도 들어 있다. 두 패턴의 클래스 다이어그램은 거의
+같은 `Scooter`에 패턴 코드(02_state.py)에서 만든 상태 패턴도 들어 있다. 두 패턴의 클래스 다이어그램은 거의
 같다 — Context가 추상 타입 필드를 들고 있고 호출을 위임한다. 이 파일은 둘을 한 클래스에
 나란히 놓아, 구조가 같아도 &#x27;누가, 언제, 왜 교체하는가&#x27;가 완전히 다르다는 것을 보인다.
 
@@ -1904,7 +1904,7 @@ class Scooter:
 마지막 데모는 &#x27;전이 책임을 바깥(클라이언트)에 두면 어떻게 되는가&#x27;를 보여 준다:
 상태 객체가 사실상 전략이 되고, 순진한 코드의 if 분기가 클라이언트로 이사 간다.
 
-02와 겹치지 않게 상태는 셋(Available, Riding, LowBattery)으로 줄였다.
+패턴 코드와 겹치지 않게 상태는 셋(Available, Riding, LowBattery)으로 줄였다.
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -2246,7 +2246,7 @@ if __name__ == &quot;__main__&quot;:
 
 상황: 킥고의 관제팀장 유나가 서진에게 묻는다. &quot;전이 규칙 전체를 한 장으로 볼 수 없어요?
 지금은 상태 클래스 여섯 개를 다 열어 봐야 정비 중에서 어디로 갈 수 있는지 알 수 있잖아요.&quot;
-02의 상태 패턴은 전이 규칙을 상태 클래스들에 &#x27;분산&#x27;시켰다. 이 파일은 정반대로 전이 규칙을
+패턴 코드(02_state.py)의 상태 패턴은 전이 규칙을 상태 클래스들에 &#x27;분산&#x27;시켰다. 이 파일은 정반대로 전이 규칙을
 하나의 표(데이터)에 &#x27;집중&#x27;시킨다. 전이의 책임자가 상태 객체에서 Context(표)로 옮겨 간다.
 
 얻는 것: 전이 전체가 한눈에 보이고, 표가 데이터이므로 출력·검증(도달 불가 상태 찾기)·
@@ -2266,7 +2266,7 @@ LOW_BATTERY = 15
 class Status(Enum):
     &quot;&quot;&quot;상태 이름의 닫힌 집합. 문자열 status와 달리 오타는 AttributeError로 즉시 드러난다.
 
-    값에 표시 문구를 넣어 01 label()의 상태별 문구 dict를 없앴다.
+    값에 표시 문구를 넣어 순진한 코드(01_naive.py)의 label() 상태별 문구 dict를 없앴다.
     &quot;&quot;&quot;
 
     AVAILABLE = &quot;대여 가능&quot;
@@ -2295,7 +2295,7 @@ class Event(Enum):
 S, E = Status, Event   # 표를 한 줄씩 읽히게 하려는 별칭. 이 표 근처에서만 쓴다.
 
 # 전이표: (현재 상태, 사건) → 다음 상태. 표에 없는 조합은 전부 불법 전이다.
-# 02에서 &#x27;ScooterState 기본 메서드 = 거부&#x27;가 하던 일을, 여기서는 &#x27;dict에 키가 없음&#x27;이 한다.
+# 패턴 코드에서 &#x27;ScooterState 기본 메서드 = 거부&#x27;가 하던 일을, 여기서는 &#x27;dict에 키가 없음&#x27;이 한다.
 TRANSITIONS: dict[tuple[Status, Event], Status] = {
     # --- 대여 가능: 출구가 가장 많은 허브 상태 ---
     (S.AVAILABLE, E.RESERVE): S.RESERVED,
@@ -2311,7 +2311,7 @@ TRANSITIONS: dict[tuple[Status, Event], Status] = {
     (S.LOW_BATTERY, E.BATTERY_OK): S.AVAILABLE,
     (S.LOW_BATTERY, E.MAINTAIN): S.MAINTENANCE,
     (S.LOW_BATTERY, E.LOSE): S.LOST,
-    # --- 정비 중·분실: 01에서 사고가 난 지점. UNLOCK 행이 없으므로 자동으로 불법 ---
+    # --- 정비 중·분실: 순진한 코드에서 사고가 난 지점. UNLOCK 행이 없으므로 자동으로 불법 ---
     (S.MAINTENANCE, E.REPAIRED): S.AVAILABLE,
     (S.LOST, E.MAINTAIN): S.MAINTENANCE,
 }
@@ -2360,9 +2360,9 @@ def next_status_match(status: Status, event: Event) -&gt; Status:
 class Scooter:
     &quot;&quot;&quot;[Context + 전이 책임자] 상태는 Enum 값 하나이고, 행동과 가드는 다시 여기로 돌아왔다.
 
-    02와 비교하면 상태별 데이터(reserved_by, rider ...)가 Context 필드로 돌아왔다는 점이
+    패턴 코드와 비교하면 상태별 데이터(reserved_by, rider ...)가 Context 필드로 돌아왔다는 점이
     가장 큰 후퇴다. 그래서 _enter()에서 &#x27;들어가는 상태에 필요 없는 필드는 지운다&#x27;는
-    규칙을 한 곳에 모아 01의 찌꺼기 문제를 완화한다.
+    규칙을 한 곳에 모아 순진한 코드의 찌꺼기 문제를 완화한다.
     &quot;&quot;&quot;
 
     def __init__(self, battery: int = 100) -&gt; None:
@@ -2389,7 +2389,7 @@ class Scooter:
         if new is not Status.RIDING:
             self.rider = None
 
-    # 아래 공개 메서드들은 &#x27;외부 요청 → 사건&#x27;으로 번역하는 어댑터 층이다. 02에서는 이 번역과
+    # 아래 공개 메서드들은 &#x27;외부 요청 → 사건&#x27;으로 번역하는 어댑터 층이다. 패턴 코드에서는 이 번역과
     # 행동이 상태 클래스에 있었고, 여기서는 상태와 무관한 Context 메서드에 있다.
     def reserve(self, user: str, now: int) -&gt; None:
         &quot;&quot;&quot;표가 허용하면 예약. 데이터 기록은 전이 성공 뒤에 한다(실패 시 오염 방지).&quot;&quot;&quot;
@@ -2448,7 +2448,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[2] 정적 검증: 도달 불가 상태와 출구 없는 상태 찾기&quot;)
     # 새 상태를 Enum에 추가하고 표에 들어가는 간선을 깜빡하면 &#x27;도달 불가&#x27;로 잡힌다.
-    # CI에서 단언(assert)으로 돌리면 01의 &#x27;분기 누락&#x27;을 기계가 대신 찾아 준다.
+    # CI에서 단언(assert)으로 돌리면 순진한 코드의 &#x27;분기 누락&#x27;을 기계가 대신 찾아 준다.
     unreachable = set(Status) - reachable_from(Status.AVAILABLE)
     dead_ends = {s for s in Status if not any(src is s for src, _ in TRANSITIONS)}
     print(f&quot;    도달 불가: {unreachable or &#x27;없음&#x27;} / 출구 없음: {dead_ends or &#x27;없음&#x27;}&quot;)
@@ -2482,7 +2482,7 @@ if __name__ == &quot;__main__&quot;:
     sc.battery = 8
     sc.end_ride()
     sc.send_to_maintenance()
-    # 01의 사고 시나리오: 정비 중 잠금 해제. 표에 (MAINTENANCE, UNLOCK) 행이 없어 거부된다.
+    # 순진한 코드의 사고 시나리오: 정비 중 잠금 해제. 표에 (MAINTENANCE, UNLOCK) 행이 없어 거부된다.
     try:
         sc.unlock(&quot;해커&quot;)
     except IllegalTransition as e:
@@ -2569,7 +2569,7 @@ if __name__ == &quot;__main__&quot;:
 </figure>
 <figure class="code"><figcaption>src/13_state/05_pythonic_variants.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[13장 상태 · 파이썬다운 변형 2] 무상태 상태 객체의 공유, 그리고 `__class__` 교체 트릭.
 
-상황: 킥고가 서울·부산에 킥보드 3만 대를 깔았다. 02 방식은 전이마다 `Available()` 같은
+상황: 킥고가 서울·부산에 킥보드 3만 대를 깔았다. 패턴 코드(02_state.py) 방식은 전이마다 `Available()` 같은
 새 상태 객체를 만든다. 대부분의 상태는 필드가 없는데도 말이다. 서진은 두 가지를 검토한다.
 
 A. 무상태(stateless) 상태 객체를 모듈 상수로 하나씩만 만들어 모든 킥보드가 공유한다.
@@ -2736,7 +2736,7 @@ if __name__ == &quot;__main__&quot;:
     k.end_ride()
     print(f&quot;    반납 후 type(k) = {type(k).__name__}, 그런데 캐시 키는 {list(registry)[0].__name__}&quot;)
 
-    print(&quot;[B-3] 문제 2 — 이전 상태의 데이터가 남는다(01의 찌꺼기 문제 재발)&quot;)
+    print(&quot;[B-3] 문제 2 — 이전 상태의 데이터가 남는다(순진한 코드 01_naive.py의 찌꺼기 문제 재발)&quot;)
     print(f&quot;    대여 가능 상태인데 k.rider = {k.rider!r}&quot;)
 
     print(&quot;[B-4] 문제 3 — 상속 때문에 &#x27;주행 중 잠금 해제&#x27;가 조용히 허용된다&quot;)
@@ -2859,7 +2859,7 @@ class Relocating(State):
 class Ctx:
     &quot;&quot;&quot;[Context] 축약판이라 위임 메서드를 생략하고 데모가 ctx.state.xxx(ctx)를 직접 부른다.
 
-    실제 Context(02의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
+    실제 Context(패턴 코드 02_state.py의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
     &quot;&quot;&quot;
 
     def __init__(self, battery: int) -&gt; None:

@@ -120,7 +120,7 @@ if __name__ == &quot;__main__&quot;:
     for r in reasons:
         print(f&quot;  - {r}&quot;)
     print(f&quot;  → 변경 이유 {len(reasons)}가지가 한 함수에 모여 있다&quot;)</code></pre></figure>
-  <p>[1]의 표는 지금은 정확하다. 문제는 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
+  <p>데모 [1]의 표는 지금은 정확하다. 문제는 데모 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
   <ol>
     <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
     <li><strong>변하는 것을 어떤 인터페이스 뒤에 숨길 것인가?</strong> "대출과 현재 금액을 받아 조정된 금액을 돌려준다"는 <dfn class="term" id="term-contract" data-term="contract" title="인터페이스가 호출자에게 약속하는 입력·출력·실패 방식·불변 조건의 총체; 구현은 시그니처뿐 아니라 이 약속을 지켜야 대체 가능하다.">계약</dfn> 하나면 감면·면제·상한이 모두 들어간다. 계약이란 인터페이스가 호출자에게 약속하는 입력·출력·실패 방식의 총체이고, 구현은 시그니처뿐 아니라 이 약속까지 지켜야 서로 바꿔 끼울 수 있다.</li>
@@ -229,7 +229,7 @@ from datetime import date
 
 @dataclass(frozen=True)
 class Loan:
-    &quot;&quot;&quot;대출 한 건(01과 같다).&quot;&quot;&quot;
+    &quot;&quot;&quot;대출 한 건(순진한 코드 01_naive.py와 같다).&quot;&quot;&quot;
 
     material: str
     member: str
@@ -242,7 +242,7 @@ class Adjustment(ABC):
     &quot;&quot;&quot;[변하는 것의 인터페이스] 기본 연체료에 적용하는 조정 규칙 하나.
 
     ABC를 고른 이유: 이 교재에서는 &#x27;우리가 정의하고 우리가 구현하는&#x27; 계약에 ABC를 쓴다.
-    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 03).
+    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 파이썬다운 변형 03_pythonic.py).
     &quot;&quot;&quot;
 
     @abstractmethod
@@ -308,7 +308,7 @@ class FeePolicy:
 
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 
-# 지점 정책은 &#x27;코드&#x27;가 아니라 &#x27;조립&#x27;이다. 01의 if 사슬이 이 표 한 장으로 바뀌었다.
+# 지점 정책은 &#x27;코드&#x27;가 아니라 &#x27;조립&#x27;이다. 순진한 코드의 if 사슬이 이 표 한 장으로 바뀌었다.
 BRANCH_POLICIES: dict[str, FeePolicy] = {
     &quot;새솔&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 500}, [ChildDiscount(), EXAM]),
     &quot;하늘&quot;: FeePolicy({&quot;book&quot;: 100, &quot;dvd&quot;: 700}, [ChildDiscount()]),
@@ -336,7 +336,7 @@ if __name__ == &quot;__main__&quot;:
     a = FeePolicy(haneul.rates, [ChildDiscount(), Cap(3000)]).late_fee(child_dvd)
     b = FeePolicy(haneul.rates, [Cap(3000), ChildDiscount()]).late_fee(child_dvd)
     print(f&quot;  감면→상한: {a}원, 상한→감면: {b}원  (어느 쪽이 정책인지 시청에 물어볼 수 있게 되었다)&quot;)</code></pre></figure>
-  <p>[1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
+  <p>데모 [1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. 데모 [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. 데모 [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
   <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn class="term" id="term-chain-of-responsibility" data-term="chain-of-responsibility" title="요청을 처리할 수 있는 객체들을 사슬로 잇고, 각 객체가 처리하거나 다음으로 넘기게 하는 GoF 행위 패턴(이 책의 범위 밖).">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
 </section>
 
@@ -458,7 +458,7 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class Loan:
-    &quot;&quot;&quot;대출 한 건. 01·02에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
+    &quot;&quot;&quot;대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다.&quot;&quot;&quot;
 
     material: str
     member: str
@@ -521,7 +521,7 @@ class ExamWaiver:
 
 @dataclass(frozen=True)
 class FeePolicy:
-    &quot;&quot;&quot;02와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다.&quot;&quot;&quot;
+    &quot;&quot;&quot;리팩터링 코드와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다.&quot;&quot;&quot;
 
     rates: dict[str, int]
     adjustments: list[Adjustment] = field(default_factory=list)
@@ -565,8 +565,8 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;\n[3] 테스트 대역도 상속 없이 람다 한 줄 — Protocol이라 가능하다&quot;)
     always_100 = FeePolicy({&quot;book&quot;: 100}, [lambda loan, fee: 100])
     print(f&quot;  {always_100.late_fee(Loan(&#x27;book&#x27;, &#x27;adult&#x27;, due, back))}원&quot;)</code></pre></figure>
-  <p>[1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
-  <p>그렇다고 클래스가 사라지지는 않는다. [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
+  <p>데모 [1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. 데모 [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
+  <p>그렇다고 클래스가 사라지지는 않는다. 데모 [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
   <div class="table-wrap"><table data-preview>
     <thead><tr><th>파이썬 기능</th><th>흡수하거나 단순화하는 패턴</th><th>여전히 클래스가 필요한 경우(장에서 다룸)</th></tr></thead>
     <tbody>

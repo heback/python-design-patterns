@@ -10,7 +10,7 @@
   - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
     훅(hook)이다.
 
-외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(01과 같은 방식).
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드 01_naive.py와 같은 방식).
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class Judge(ABC):
         """[Template Method] 채점 절차. @final: 하위 클래스가 '순서'를 재정의하지 말라는 선언.
 
         typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
-        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 04의 __init_subclass__를 보라.
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형(04_pythonic.py)의 __init_subclass__를 보라.
         """
         sandbox = Path(tempfile.mkdtemp(prefix=f"judge-{self.language()}-"))
         try:
@@ -75,7 +75,7 @@ class Judge(ABC):
         except Exception as e:                       # 제출물 예외 = 런타임 에러
             verdict = f"RE ({type(e).__name__})"
         finally:
-            # 정리는 골격이 보장한다. 01의 JavaJudge처럼 '빠뜨릴' 하위 클래스가 존재할 수 없다.
+            # 정리는 골격이 보장한다. 순진한 코드의 JavaJudge처럼 '빠뜨릴' 하위 클래스가 존재할 수 없다.
             shutil.rmtree(sandbox, ignore_errors=True)
         self.records.append(f"{self.language()}: {verdict}")
         return verdict
@@ -200,7 +200,7 @@ class FloatTolerantCppJudge(CppJudge):
     tolerance = 1e-6
 
     def outputs_match(self, actual: str, expected: str) -> bool:
-        """훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리)."""
+        """훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전 03_strategy_version.py의 within은 WA로 처리)."""
         return abs(float(actual) - float(expected)) <= self.tolerance
 
 

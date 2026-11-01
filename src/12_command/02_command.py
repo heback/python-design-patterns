@@ -12,7 +12,7 @@
   - Toolbar/단축키/메뉴 함수                  [Client]    명령을 만들어 Invoker에 건넨다
 
 undo 정보 보존 방식: 이 파일의 세 명령은 모두 '스냅샷'이다(MoveShape는 좌표, ChangeColor는 색,
-DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 01의 [1]을 보라.
+DeleteShape는 도형+z-순서). 역연산(−dx)이 왜 실패하는지는 MoveShape docstring과 순진한 코드(01_naive.py)의 데모 [1]을 보라.
 """
 from __future__ import annotations
 

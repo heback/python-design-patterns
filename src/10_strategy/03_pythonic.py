@@ -18,7 +18,7 @@ from functools import partial
 from typing import Any, Callable
 
 # ---------------------------------------------------------------------------
-# 공통 재료 (파일 단독 실행을 위해 02와 같은 정의를 다시 둔다)
+# 공통 재료 (파일 단독 실행을 위해 패턴 코드 02_strategy.py와 같은 정의를 다시 둔다)
 # ---------------------------------------------------------------------------
 
 
@@ -184,7 +184,7 @@ class DeliveryFeeService:
         return max(0, self.policy(q) - store_discount)
 
 
-# 운영팀이 내려 주는 JSON. 02에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
+# 운영팀이 내려 주는 JSON. 패턴 코드에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
 REGION_CONFIG_JSON = """
 {
   "seoul-gangnam":  {"type": "distance"},

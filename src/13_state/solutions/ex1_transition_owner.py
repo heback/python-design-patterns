@@ -68,7 +68,7 @@ class Relocating(State):
 class Ctx:
     """[Context] 축약판이라 위임 메서드를 생략하고 데모가 ctx.state.xxx(ctx)를 직접 부른다.
 
-    실제 Context(02의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
+    실제 Context(패턴 코드 02_state.py의 Scooter)라면 새 사건마다 위임 메서드가 하나씩 는다(relocate, arrive).
     """
 
     def __init__(self, battery: int) -> None:

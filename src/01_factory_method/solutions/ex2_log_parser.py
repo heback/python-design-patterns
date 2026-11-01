@@ -2,7 +2,7 @@
 
 상황: 연구실 서버 관리자가 웹 서버 접근 로그를 모으는 LogCollector를 만들었다. collect()
 안에서 `if fmt == "nginx": ... elif fmt == "apache": ...`로 파서를 골랐다(문제 본문 코드).
-본문 01~02와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
+본문의 순진한 코드(01_naive.py)·패턴 코드(02_factory_method.py)와 같은 냄새 — 흐름과 생성의 결합 — 를 같은 방법으로 푼다.
 
 해설의 두 단계:
 - 1단계(GoF 팩토리 메서드): LogCollector가 collect() 흐름을 소유하고 create_parser()를 훅으로

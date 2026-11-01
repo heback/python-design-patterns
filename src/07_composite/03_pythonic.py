@@ -22,7 +22,7 @@ from typing import Iterator
 class BomItem(ABC):
     """[Component] 다형적 연산을 '최소한'으로 줄인 공통 인터페이스.
 
-    02에서는 cost/weight/lead_time… 연산마다 추상 메서드가 있었다. 여기서는 두 가지만 둔다.
+    패턴 코드(02_composite.py)에서는 cost/weight/lead_time… 연산마다 추상 메서드가 있었다. 여기서는 두 가지만 둔다.
       - own_cost: 이 항목 '자체'의 몫(단품은 단가, 조립품은 공임).
       - walk():   자신과 하위 항목을 (항목, 누적 수량)으로 흘려보내는 순회.
     나머지 합산형 연산은 이 둘 위에서 클래스 밖의 함수로 표현된다.
@@ -69,7 +69,7 @@ class Assembly(BomItem):
     children: list[tuple[BomItem, int]] = field(default_factory=list)
 
     def add(self, item: BomItem, qty: int = 1) -> Assembly:
-        """자식 추가(체이닝). 순환 검사는 02에서 다뤘으므로 생략했다."""
+        """자식 추가(체이닝). 순환 검사는 패턴 코드에서 다뤘으므로 생략했다."""
         self.children.append((item, qty))
         return self
 
@@ -144,7 +144,7 @@ def _(item: Assembly) -> int:
 
 
 if __name__ == "__main__":
-    # 02와 다른, 더 작은 BOM이다(실린더 블록·링 세트 없음). 금액을 02와 비교하지 말 것.
+    # 패턴 코드와 다른, 더 작은 BOM이다(실린더 블록·링 세트 없음). 금액을 패턴 코드와 비교하지 말 것.
     bolt = Part("M8 볼트", 120, 40)
     ring = Part("피스톤 링", 2_400, 300)
     pin = Part("피스톤 핀", 3_100, 520)
@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     print("[1] 순회 한 번 + 다형적 own_cost로 원가")
     # walk()가 누적 수량을 곱해 주므로 피스톤 조립품의 공임도 ×2로 더해진다.
-    # 이 BOM에 02식 재귀 cost()를 적용해도 같은 값이 나온다(02와는 BOM이 달라 금액이 다르다).
+    # 이 BOM에 패턴 코드 방식의 재귀 cost()를 적용해도 같은 값이 나온다(패턴 코드와는 BOM이 달라 금액이 다르다).
     print(f"    경운기 원가 {total_cost(tiller):,}원, 단품 하나도 같은 함수로: {total_cost(bolt):,}원")
 
     print("[2] 소요량 전개 — 경운기 10대")

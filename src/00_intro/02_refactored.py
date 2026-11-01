@@ -21,7 +21,7 @@ from datetime import date
 
 @dataclass(frozen=True)
 class Loan:
-    """대출 한 건(01과 같다)."""
+    """대출 한 건(순진한 코드 01_naive.py와 같다)."""
 
     material: str
     member: str
@@ -34,7 +34,7 @@ class Adjustment(ABC):
     """[변하는 것의 인터페이스] 기본 연체료에 적용하는 조정 규칙 하나.
 
     ABC를 고른 이유: 이 교재에서는 '우리가 정의하고 우리가 구현하는' 계약에 ABC를 쓴다.
-    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 03).
+    구현을 빠뜨린 규칙 클래스를 인스턴스화 시점에 잡아 주기 때문이다(Protocol과의 비교는 파이썬다운 변형 03_pythonic.py).
     """
 
     @abstractmethod
@@ -100,7 +100,7 @@ class FeePolicy:
 
 EXAM = ExamWaiver(date(2026, 6, 8), date(2026, 6, 21))
 
-# 지점 정책은 '코드'가 아니라 '조립'이다. 01의 if 사슬이 이 표 한 장으로 바뀌었다.
+# 지점 정책은 '코드'가 아니라 '조립'이다. 순진한 코드의 if 사슬이 이 표 한 장으로 바뀌었다.
 BRANCH_POLICIES: dict[str, FeePolicy] = {
     "새솔": FeePolicy({"book": 100, "dvd": 500}, [ChildDiscount(), EXAM]),
     "하늘": FeePolicy({"book": 100, "dvd": 700}, [ChildDiscount()]),

@@ -1499,7 +1499,7 @@ from functools import partial
 from typing import Any, Callable
 
 # ---------------------------------------------------------------------------
-# 공통 재료 (파일 단독 실행을 위해 02와 같은 정의를 다시 둔다)
+# 공통 재료 (파일 단독 실행을 위해 패턴 코드 02_strategy.py와 같은 정의를 다시 둔다)
 # ---------------------------------------------------------------------------
 
 
@@ -1665,7 +1665,7 @@ class DeliveryFeeService:
         return max(0, self.policy(q) - store_discount)
 
 
-# 운영팀이 내려 주는 JSON. 02에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
+# 운영팀이 내려 주는 JSON. 패턴 코드에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
 REGION_CONFIG_JSON = &quot;&quot;&quot;
 {
   &quot;seoul-gangnam&quot;:  {&quot;type&quot;: &quot;distance&quot;},
@@ -1699,7 +1699,7 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[4] 런타임 교체도 필드 대입 한 번&quot;)
     services[&quot;jeju&quot;].policy = standard_distance
     print(&quot;    jeju(정액 이벤트 종료 후) →&quot;, services[&quot;jeju&quot;].quote(q), &quot;원&quot;)"><figcaption>src/10_strategy/03_pythonic.py  (20–109행)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
-# 공통 재료 (파일 단독 실행을 위해 02와 같은 정의를 다시 둔다)
+# 공통 재료 (파일 단독 실행을 위해 패턴 코드 02_strategy.py와 같은 정의를 다시 둔다)
 # ---------------------------------------------------------------------------
 
 
@@ -1811,7 +1811,7 @@ from functools import partial
 from typing import Any, Callable
 
 # ---------------------------------------------------------------------------
-# 공통 재료 (파일 단독 실행을 위해 02와 같은 정의를 다시 둔다)
+# 공통 재료 (파일 단독 실행을 위해 패턴 코드 02_strategy.py와 같은 정의를 다시 둔다)
 # ---------------------------------------------------------------------------
 
 
@@ -1977,7 +1977,7 @@ class DeliveryFeeService:
         return max(0, self.policy(q) - store_discount)
 
 
-# 운영팀이 내려 주는 JSON. 02에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
+# 운영팀이 내려 주는 JSON. 패턴 코드에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
 REGION_CONFIG_JSON = &quot;&quot;&quot;
 {
   &quot;seoul-gangnam&quot;:  {&quot;type&quot;: &quot;distance&quot;},
@@ -2085,7 +2085,7 @@ class DeliveryFeeService:
         return max(0, self.policy(q) - store_discount)
 
 
-# 운영팀이 내려 주는 JSON. 02에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
+# 운영팀이 내려 주는 JSON. 패턴 코드에서는 파이썬 dict였지만 이제 진짜 텍스트 설정이다.
 REGION_CONFIG_JSON = &quot;&quot;&quot;
 {
   &quot;seoul-gangnam&quot;:  {&quot;type&quot;: &quot;distance&quot;},

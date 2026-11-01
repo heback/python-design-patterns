@@ -20,9 +20,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -> bytes:
-    """교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    """교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     "암호문은 압축되지 않는다"는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     """
     stream = b"".join(hashlib.sha256(key + i.to_bytes(4, "big")).digest()

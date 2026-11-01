@@ -6,7 +6,7 @@
 은우는 먼저 "파이썬이니 functools.partial이면 충분하지 않나?"를 시험해 보고, 그 한계에서
 dataclass 커맨드로 넘어간다.
 
-02와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
+패턴 코드(02_command.py)와 달라진 설계 판단 하나: 커맨드가 수신자(Canvas)를 필드로 들고 있지 않고,
 execute(canvas)/undo(canvas)의 '인자'로 받는다. 그래야 커맨드가 순수한 데이터가 되어
 JSON으로 직렬화되고, 다른 캔버스(다른 사용자의 화면)에 재생될 수 있다.
 """
@@ -29,7 +29,7 @@ class Shape:
 
 
 class Canvas:
-    """[Receiver] 02와 같은 역할을 하는 축약판."""
+    """[Receiver] 패턴 코드와 같은 역할을 하는 축약판."""
 
     def __init__(self, shapes: list[Shape]) -> None:
         """초기 도형들. 협업 데모에서 두 캔버스가 같은 초기 상태로 시작한다."""
@@ -41,7 +41,7 @@ class Canvas:
         s.x, s.y = max(0, x), max(0, y)
 
     def set_color(self, shape_id: str, color: str) -> str:
-        """색 변경 후 이전 색 반환(02와 같은 수신자 API)."""
+        """색 변경 후 이전 색 반환(패턴 코드와 같은 수신자 API)."""
         s = self.shapes[shape_id]
         prev, s.color = s.color, color
         return prev
@@ -190,7 +190,7 @@ class Macro(EditCommand):
     steps: list[EditCommand]
 
     def execute(self, canvas: Canvas) -> None:
-        """순서대로. 중간 실패 시 실행한 단계를 역순으로 되돌리고 다시 던진다(02와 같은 롤백)."""
+        """순서대로. 중간 실패 시 실행한 단계를 역순으로 되돌리고 다시 던진다(패턴 코드와 같은 롤백)."""
         done: list[EditCommand] = []
         try:
             for s in self.steps:

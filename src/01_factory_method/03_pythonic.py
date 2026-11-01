@@ -86,7 +86,7 @@ ReaderFactory = Callable[[], Reader]
 class AcquisitionJob:
     """[Creator 역할을 합성으로] 흐름은 그대로 소유하고, 생성 방법은 주입받는다.
 
-    02의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
+    패턴 코드(02_factory_method.py)의 create_reader() 오버라이드가 생성자 인자 reader_factory로 바뀌었다.
     구조적으로는 '생성 전략'을 들고 있는 Context — 10장 전략 패턴과 같은 모양이다.
     상속 대신 합성을 고른 이유: 변하는 것이 '메서드 하나'뿐이라면 그 하나를 값으로
     넘기는 편이 클래스 계층을 늘리는 것보다 싸고, 런타임에 바꿀 수도 있다.
@@ -124,7 +124,7 @@ class AcquisitionJob:
         return cls(config["sample_id"], partial(maker, **options))
 
     def run(self) -> list[Sample]:
-        """흐름은 02와 동일하다. 생성 지점이 self.create_reader()에서 주입된 함수로 바뀌었을 뿐."""
+        """흐름은 패턴 코드와 동일하다. 생성 지점이 self.create_reader()에서 주입된 함수로 바뀌었을 뿐."""
         reader = self._reader_factory()
         print(f"  연결: {reader.connect()}")
         samples = reader.read_samples()

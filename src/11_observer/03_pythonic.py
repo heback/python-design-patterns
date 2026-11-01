@@ -27,7 +27,7 @@ Ref = Callable[[], "Callback | None"]
 class EventHub:
     """[Subject] 이벤트 이름별 구독/통지 허브. 관찰자 인터페이스 없이 콜러블만 받는다.
 
-    02의 PriceFeed와 달리 '시세'라는 도메인을 모른다. 통지 메커니즘을 도메인에서
+    패턴 코드(02_observer.py)의 PriceFeed와 달리 '시세'라는 도메인을 모른다. 통지 메커니즘을 도메인에서
     떼어 낸 재사용 부품이고, Quote(아래)가 이것을 '가진다'(합성).
     """
 

@@ -98,7 +98,7 @@ class RepeatOneIterator(PlaylistIterator):
 class ShuffleIterator(PlaylistIterator):
     """[Concrete Iterator] 지금 곡을 맨 앞에 두고 나머지를 섞은 순서로 한 번씩.
 
-    셔플 순서(_order)는 이 반복자만의 상태다. 01에서는 Player의 shuffle_order 필드였다.
+    셔플 순서(_order)는 이 반복자만의 상태다. 순진한 코드(01_naive.py)에서는 Player의 shuffle_order 필드였다.
     seed를 받는 이유: 테스트와 교재 출력이 실행마다 같아야 하기 때문(실서비스는 None).
     """
 
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     preview = iter(album)                       # 미리보기 화면만의 반복자
     print("    재생 중:", player.current.title)
     print("    다른 화면의 독립 순회(앨범 앞 3곡):", [next(preview).title for _ in range(3)])
-    print("    그 뒤 재생 중:", player.current.title, "← 01의 버그가 사라졌다")
+    print("    그 뒤 재생 중:", player.current.title, "← 순진한 코드의 버그가 사라졌다")
 
     print("[3] 모드 전환: Blue에서 셔플 → 전체 반복으로 바꿔도 현재 곡이 유지된다")
     player.skip()

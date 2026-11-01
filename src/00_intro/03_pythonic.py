@@ -18,7 +18,7 @@ from typing import Protocol
 
 @dataclass(frozen=True)
 class Loan:
-    """대출 한 건. 01·02에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
+    """대출 한 건. 순진한 코드(01_naive.py)·리팩터링 코드(02_refactored.py)에서 branch를 뺐다 — 이 파일은 지점을 BRANCH_POLICIES의 키로 고르므로 대출에 실을 필요가 없다."""
 
     material: str
     member: str
@@ -81,7 +81,7 @@ class ExamWaiver:
 
 @dataclass(frozen=True)
 class FeePolicy:
-    """02와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다."""
+    """리팩터링 코드와 같은 절차. 규칙 목록의 타입만 Protocol로 바뀌었다."""
 
     rates: dict[str, int]
     adjustments: list[Adjustment] = field(default_factory=list)

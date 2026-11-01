@@ -91,7 +91,7 @@ class Batch(Wrapper):
             self._emit()
 
     def _emit(self) -> None:
-        """버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. '내보내기'만 하고 flush는 전파하지 않는다(02와 같은 구조)."""
+        """버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. '내보내기'만 하고 flush는 전파하지 않는다(패턴 코드 02_decorator.py와 같은 구조)."""
         if self._buf:
             self._inner.send(b"\n".join(self._buf))
             self._buf.clear()

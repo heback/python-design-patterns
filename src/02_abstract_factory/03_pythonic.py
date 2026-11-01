@@ -122,7 +122,7 @@ def aws_kit() -> CloudKit:
     """[Concrete Factory 역할] AWS 제품군. 클래스 대신 함수 하나가 번들을 만든다.
 
     저장소·큐 인스턴스를 클로저로 하나씩 공유해, 같은 키트에서 나온 제품들이 같은
-    '계정'을 보게 한다(02의 CloudAccount 공유와 같은 효과).
+    '계정'을 보게 한다(패턴 코드 02_abstract_factory.py의 CloudAccount 공유와 같은 효과).
     """
     storage, queue = SchemeStorage("aws", "s3"), ListQueue("aws")
     return CloudKit("aws", storage=lambda: storage, queue=lambda: queue)

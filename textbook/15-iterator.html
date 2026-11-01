@@ -510,7 +510,7 @@ class RepeatOneIterator(PlaylistIterator):
 class ShuffleIterator(PlaylistIterator):
     &quot;&quot;&quot;[Concrete Iterator] 지금 곡을 맨 앞에 두고 나머지를 섞은 순서로 한 번씩.
 
-    셔플 순서(_order)는 이 반복자만의 상태다. 01에서는 Player의 shuffle_order 필드였다.
+    셔플 순서(_order)는 이 반복자만의 상태다. 순진한 코드(01_naive.py)에서는 Player의 shuffle_order 필드였다.
     seed를 받는 이유: 테스트와 교재 출력이 실행마다 같아야 하기 때문(실서비스는 None).
     &quot;&quot;&quot;
 
@@ -601,7 +601,7 @@ if __name__ == &quot;__main__&quot;:
     preview = iter(album)                       # 미리보기 화면만의 반복자
     print(&quot;    재생 중:&quot;, player.current.title)
     print(&quot;    다른 화면의 독립 순회(앨범 앞 3곡):&quot;, [next(preview).title for _ in range(3)])
-    print(&quot;    그 뒤 재생 중:&quot;, player.current.title, &quot;← 01의 버그가 사라졌다&quot;)
+    print(&quot;    그 뒤 재생 중:&quot;, player.current.title, &quot;← 순진한 코드의 버그가 사라졌다&quot;)
 
     print(&quot;[3] 모드 전환: Blue에서 셔플 → 전체 반복으로 바꿔도 현재 곡이 유지된다&quot;)
     player.skip()
@@ -751,7 +751,7 @@ class Track:
 class Playlist(Sequence[Track]):
     &quot;&quot;&quot;[Aggregate] Sequence 믹스인: 두 메서드만 쓰고 나머지 순회 관련 연산을 물려받는다.
 
-    02에서 손으로 썼던 __iter__가 없다는 점에 주목하라. Sequence가 __getitem__을 0부터
+    패턴 코드(02_iterator.py)에서 손으로 썼던 __iter__가 없다는 점에 주목하라. Sequence가 __getitem__을 0부터
     IndexError가 날 때까지 부르는 __iter__를 제공한다. &#x27;in&#x27;도, reversed()도 공짜다.
     &quot;&quot;&quot;
 
@@ -773,7 +773,7 @@ class Playlist(Sequence[Track]):
 # ---------------------------------------------------------------------------
 
 def sequential(pl: Playlist, start: int = 0) -&gt; Iterator[tuple[int, Track]]:
-    &quot;&quot;&quot;02 SequentialIterator 전체가 이 두 줄이다. 커서는 range가, 종료는 함수의 끝이 맡는다.&quot;&quot;&quot;
+    &quot;&quot;&quot;패턴 코드의 SequentialIterator 전체가 이 두 줄이다. 커서는 range가, 종료는 함수의 끝이 맡는다.&quot;&quot;&quot;
     for i in range(start, len(pl)):
         yield i, pl[i]
 
@@ -803,7 +803,7 @@ MODES = {&quot;normal&quot;: sequential, &quot;repeat_all&quot;: repeat_all, &qu
 
 
 class Player:
-    &quot;&quot;&quot;[Client] 02와 같은 역할. 반복자 클래스 대신 제너레이터 객체를 들고 있다.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Client] 패턴 코드와 같은 역할. 반복자 클래스 대신 제너레이터 객체를 들고 있다.&quot;&quot;&quot;
 
     def __init__(self, pl: Playlist) -&gt; None:
         &quot;&quot;&quot;기본 모드로 시작.&quot;&quot;&quot;
@@ -829,7 +829,7 @@ class Player:
         &quot;&quot;&quot;&#x27;다음에 재생&#x27; 미리보기: 사용자 대기열 뒤에 플레이리스트 나머지를 이어 붙인다.
 
         chain과 islice는 어느 쪽도 끝까지 펼치지 않는다. 재생 중인 반복자(self._it)를
-        건드리지 않기 위해 같은 위치에서 &#x27;새&#x27; 반복자를 만들어 미리 본다 — 01의 버그를 피하는 방법.
+        건드리지 않기 위해 같은 위치에서 &#x27;새&#x27; 반복자를 만들어 미리 본다 — 순진한 코드(01_naive.py)의 버그를 피하는 방법.
         한계: &#x27;순서대로&#x27; 모드 기준이다. 셔플·한 곡 반복의 실제 다음 곡과는 다를 수 있다. 현재 반복자를
         itertools.tee로 복제하거나 peek를 지원하는 반복자 클래스(5.1절 끝)가 필요한 이유다.
         &quot;&quot;&quot;
@@ -865,7 +865,7 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;    &quot;, [t.title for t in album], Track(&quot;Run&quot;) in album,
           [t.title for t in reversed(album)][:2])
 
-    print(&quot;[2] 02와 같은 시나리오를 제너레이터로&quot;)
+    print(&quot;[2] 패턴 코드와 같은 시나리오를 제너레이터로&quot;)
     p = Player(album)
     p.skip()
     p.set_mode(&quot;shuffle&quot;)
@@ -975,7 +975,7 @@ if __name__ == &quot;__main__&quot;:
 </figure>
 <figure class="code"><figcaption>src/15_iterator/04_lazy_pagination.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[15장 반복자 · 지연 평가] 서버의 페이지 API를 &#x27;그냥 이터러블&#x27;로 보이게 한다.
 
-상황: &#x27;좋아요 표시한 곡&#x27;은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 01에서는
+상황: &#x27;좋아요 표시한 곡&#x27;은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 순진한 코드(01_naive.py)에서는
 첫 곡을 틀기 전에 400번 요청해 2만 곡을 메모리에 올렸다. 사용자는 대개 앞의 몇 곡만 듣는다.
 
 이 파일의 설계:
@@ -1018,7 +1018,7 @@ class FakeLikedSongsAPI:
 
 
 def pages(api: FakeLikedSongsAPI) -&gt; Iterator[Track]:
-    &quot;&quot;&quot;페이지 토큰 루프를 감춘 제너레이터. 01의 while 루프와 거의 같은 모양이다.
+    &quot;&quot;&quot;페이지 토큰 루프를 감춘 제너레이터. 순진한 코드의 while 루프와 거의 같은 모양이다.
 
     차이는 &#x27;모으기(extend)&#x27; 대신 &#x27;흘려보내기(yield from)&#x27;라는 한 단어다. 그 한 단어 덕분에
     소비자가 멈추면 생산도 멈춘다 — 다음 페이지 요청은 이전 페이지를 다 소비한 뒤에야 일어난다.
@@ -1051,7 +1051,7 @@ class LikedSongs:
 def play_first(tracks: Iterable[Track], n: int) -&gt; list[str]:
     &quot;&quot;&quot;[Client] 이 함수는 tracks가 list인지, 페이지 API인지, 제너레이터인지 모른다.
 
-    타입 힌트가 list가 아니라 Iterable이라는 점이 곧 설계다. 01의 Player가 list에 묶였던 것과 대비.
+    타입 힌트가 list가 아니라 Iterable이라는 점이 곧 설계다. 순진한 코드의 Player가 list에 묶였던 것과 대비.
     &quot;&quot;&quot;
     return [t.title for t in islice(tracks, n)]
 
@@ -1060,7 +1060,7 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;[1] 지연 평가: 앞의 3곡만 들으면 요청은 1번&quot;)
     api = FakeLikedSongsAPI(total=20_000)
     liked = LikedSongs(api)
-    print(&quot;    &quot;, play_first(liked, 3), f&quot;/ 요청 {api.requests}번 (01에서는 400번)&quot;)
+    print(&quot;    &quot;, play_first(liked, 3), f&quot;/ 요청 {api.requests}번 (순진한 코드에서는 400번)&quot;)
 
     print(&quot;[2] 120곡까지 들으면 그때 필요한 만큼만 더 받는다&quot;)
     api.requests = 0
@@ -1355,15 +1355,15 @@ if __name__ == &quot;__main__&quot;:
 기획자는 &#x27;같은 아티스트 연속 금지&#x27; 셔플을 요구한다. 반복자 패턴 덕분에 순회 방식(제너레이터 함수)
 하나만 추가하면 된다 — 단, 03_pythonic.py의 모드 계약을 정확히 지켜야 한다.
 
-03의 MODES 계약: `(pl, start) -&gt; Iterator[tuple[int, Track]]`
+파이썬다운 변형(03_pythonic.py)의 MODES 계약: `(pl, start) -&gt; Iterator[tuple[int, Track]]`
   - start(지금 듣는 곡의 위치)를 받아 그 곡을 &#x27;첫 값&#x27;으로 낸다(모드를 바꿔도 지금 곡 유지).
   - 곡이 아니라 (위치, 곡) 쌍을 낸다(다음 모드 전환 때 Player가 위치를 넘겨야 하므로).
-이 파일은 그 계약을 지키는 smart_shuffle을 만들고, 03의 Player·MODES를 축약 재현해(03 set_mode의 shuffle 특수 처리 lambda는 빼고 모든 모드를 partial로 등록)
+이 파일은 그 계약을 지키는 smart_shuffle을 만들고, 파이썬다운 변형의 Player·MODES를 축약 재현해(파이썬다운 변형의 set_mode에 있는 shuffle 특수 처리 lambda는 빼고 모든 모드를 partial로 등록)
 &#x27;등록 한 줄&#x27;로 동작하는 것을 보인다(교재 규칙상 파일끼리 import하지 않는다).
 
-03에 실제로 넣을 때 필요한 변경: ① 03의 Track에 artist 필드를 기본값과 함께 추가한다(artist: str = &quot;&quot;
-— 기본값이 없으면 03의 기존 Track(&quot;Intro&quot;) 호출이 깨진다).
-② MODES에 한 줄 등록한다. ③ 03의 set_mode는 shuffle만 seed를 넘기는 lambda로 특수 처리하므로,
+파이썬다운 변형에 실제로 넣을 때 필요한 변경: ① 파이썬다운 변형의 Track에 artist 필드를 기본값과 함께 추가한다(artist: str = &quot;&quot;
+— 기본값이 없으면 파이썬다운 변형의 기존 Track(&quot;Intro&quot;) 호출이 깨진다).
+② MODES에 한 줄 등록한다. ③ 파이썬다운 변형의 set_mode는 shuffle만 seed를 넘기는 lambda로 특수 처리하므로,
 seed가 필요하면 같은 처리를 하나 더 하거나 MODES 값에 partial(smart_shuffle, seed=7)을 넣는다.
 Player의 재생 로직과 Playlist는 고치지 않는다.
 
@@ -1386,21 +1386,21 @@ from typing import Iterator, Sequence
 
 @dataclass(frozen=True)
 class Track:
-    &quot;&quot;&quot;곡과 아티스트. 03의 Track에 artist 필드를 더한 형태(변경 ①).&quot;&quot;&quot;
+    &quot;&quot;&quot;곡과 아티스트. 파이썬다운 변형의 Track에 artist 필드를 더한 형태(변경 ①).&quot;&quot;&quot;
 
     title: str
     artist: str
 
 
 def sequential(pl: Sequence[Track], start: int = 0) -&gt; Iterator[tuple[int, Track]]:
-    &quot;&quot;&quot;03의 sequential과 같은 계약 — 비교용 기존 모드.&quot;&quot;&quot;
+    &quot;&quot;&quot;파이썬다운 변형의 sequential과 같은 계약 — 비교용 기존 모드.&quot;&quot;&quot;
     for i in range(start, len(pl)):
         yield i, pl[i]
 
 
 def smart_shuffle(pl: Sequence[Track], start: int = 0,
                   seed: int | None = None) -&gt; Iterator[tuple[int, Track]]:
-    &quot;&quot;&quot;[Concrete Iterator] 03의 모드 계약을 지키는 스마트 셔플. 상태(풀, 직전 아티스트)는 지역 변수다.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Concrete Iterator] 파이썬다운 변형의 모드 계약을 지키는 스마트 셔플. 상태(풀, 직전 아티스트)는 지역 변수다.&quot;&quot;&quot;
     yield start, pl[start]                       # 계약: 지금 곡을 먼저 — 모드 전환 시 곡이 끊기지 않는다
     last = pl[start].artist
     pool = [i for i in range(len(pl)) if i != start]
@@ -1420,7 +1420,7 @@ def smart_shuffle(pl: Sequence[Track], start: int = 0,
 
 def plain_shuffle(pl: Sequence[Track], start: int = 0,
                   seed: int | None = None) -&gt; Iterator[tuple[int, Track]]:
-    &quot;&quot;&quot;비교용 평범한 셔플(03의 shuffled와 같은 동작).&quot;&quot;&quot;
+    &quot;&quot;&quot;비교용 평범한 셔플(파이썬다운 변형의 shuffled와 같은 동작).&quot;&quot;&quot;
     yield start, pl[start]
     rest = [i for i in range(len(pl)) if i != start]
     random.Random(seed).shuffle(rest)
@@ -1428,13 +1428,13 @@ def plain_shuffle(pl: Sequence[Track], start: int = 0,
         yield i, pl[i]
 
 
-# 03의 MODES와 같은 모양의 등록표. seed가 필요한 모드는 partial로 묶어 (pl, start) 모양을 맞춘다.
+# 파이썬다운 변형의 MODES와 같은 모양의 등록표. seed가 필요한 모드는 partial로 묶어 (pl, start) 모양을 맞춘다.
 MODES = {&quot;normal&quot;: sequential, &quot;shuffle&quot;: partial(plain_shuffle, seed=5)}
 MODES[&quot;smart_shuffle&quot;] = partial(smart_shuffle, seed=5)      # ← 변경 ②: 추가는 이 한 줄
 
 
 class Player:
-    &quot;&quot;&quot;[Client] 03의 Player를 축약 재현. 모드 이름으로 MODES에서 제너레이터를 골라 쓸 뿐이다.&quot;&quot;&quot;
+    &quot;&quot;&quot;[Client] 파이썬다운 변형의 Player를 축약 재현. 모드 이름으로 MODES에서 제너레이터를 골라 쓸 뿐이다.&quot;&quot;&quot;
 
     def __init__(self, pl: Sequence[Track]) -&gt; None:
         &quot;&quot;&quot;순서대로 재생으로 시작.&quot;&quot;&quot;

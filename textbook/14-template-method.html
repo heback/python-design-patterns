@@ -445,7 +445,7 @@ if __name__ == &quot;__main__&quot;:
   - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
     훅(hook)이다.
 
-외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(01과 같은 방식).
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드 01_naive.py와 같은 방식).
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -496,7 +496,7 @@ class Judge(ABC):
         &quot;&quot;&quot;[Template Method] 채점 절차. @final: 하위 클래스가 &#x27;순서&#x27;를 재정의하지 말라는 선언.
 
         typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
-        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 04의 __init_subclass__를 보라.
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형(04_pythonic.py)의 __init_subclass__를 보라.
         &quot;&quot;&quot;
         sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{self.language()}-&quot;))
         try:
@@ -510,7 +510,7 @@ class Judge(ABC):
         except Exception as e:                       # 제출물 예외 = 런타임 에러
             verdict = f&quot;RE ({type(e).__name__})&quot;
         finally:
-            # 정리는 골격이 보장한다. 01의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
+            # 정리는 골격이 보장한다. 순진한 코드의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
             shutil.rmtree(sandbox, ignore_errors=True)
         self.records.append(f&quot;{self.language()}: {verdict}&quot;)
         return verdict
@@ -635,7 +635,7 @@ class FloatTolerantCppJudge(CppJudge):
     tolerance = 1e-6
 
     def outputs_match(self, actual: str, expected: str) -&gt; bool:
-        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리).&quot;&quot;&quot;
+        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전 03_strategy_version.py의 within은 WA로 처리).&quot;&quot;&quot;
         return abs(float(actual) - float(expected)) &lt;= self.tolerance
 
 
@@ -713,7 +713,7 @@ if __name__ == &quot;__main__&quot;:
   - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
     훅(hook)이다.
 
-외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(01과 같은 방식).
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드 01_naive.py와 같은 방식).
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -764,7 +764,7 @@ class Judge(ABC):
         &quot;&quot;&quot;[Template Method] 채점 절차. @final: 하위 클래스가 &#x27;순서&#x27;를 재정의하지 말라는 선언.
 
         typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
-        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 04의 __init_subclass__를 보라.
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형(04_pythonic.py)의 __init_subclass__를 보라.
         &quot;&quot;&quot;
         sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{self.language()}-&quot;))
         try:
@@ -778,7 +778,7 @@ class Judge(ABC):
         except Exception as e:                       # 제출물 예외 = 런타임 에러
             verdict = f&quot;RE ({type(e).__name__})&quot;
         finally:
-            # 정리는 골격이 보장한다. 01의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
+            # 정리는 골격이 보장한다. 순진한 코드의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
             shutil.rmtree(sandbox, ignore_errors=True)
         self.records.append(f&quot;{self.language()}: {verdict}&quot;)
         return verdict
@@ -839,7 +839,7 @@ class Judge(ABC):
   - 언어에 따라 있을 수도 없을 수도 있는 단계(검증, 컴파일, 출력 비교 방식)는 기본 구현이 있는
     훅(hook)이다.
 
-외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(01과 같은 방식).
+외부 컴파일러 없이 돌아가도록 컴파일·실행은 흉내 낸다(순진한 코드 01_naive.py와 같은 방식).
 &quot;&quot;&quot;
 from __future__ import annotations
 
@@ -890,7 +890,7 @@ class Judge(ABC):
         &quot;&quot;&quot;[Template Method] 채점 절차. @final: 하위 클래스가 &#x27;순서&#x27;를 재정의하지 말라는 선언.
 
         typing.final은 런타임에는 아무것도 막지 않는다. mypy·pyright 같은 타입 검사기가
-        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 04의 __init_subclass__를 보라.
+        오버라이드를 오류로 잡아 줄 뿐이다. 런타임 강제가 필요하면 파이썬다운 변형(04_pythonic.py)의 __init_subclass__를 보라.
         &quot;&quot;&quot;
         sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{self.language()}-&quot;))
         try:
@@ -904,7 +904,7 @@ class Judge(ABC):
         except Exception as e:                       # 제출물 예외 = 런타임 에러
             verdict = f&quot;RE ({type(e).__name__})&quot;
         finally:
-            # 정리는 골격이 보장한다. 01의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
+            # 정리는 골격이 보장한다. 순진한 코드의 JavaJudge처럼 &#x27;빠뜨릴&#x27; 하위 클래스가 존재할 수 없다.
             shutil.rmtree(sandbox, ignore_errors=True)
         self.records.append(f&quot;{self.language()}: {verdict}&quot;)
         return verdict
@@ -1029,7 +1029,7 @@ class FloatTolerantCppJudge(CppJudge):
     tolerance = 1e-6
 
     def outputs_match(self, actual: str, expected: str) -&gt; bool:
-        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리).&quot;&quot;&quot;
+        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전 03_strategy_version.py의 within은 WA로 처리).&quot;&quot;&quot;
         return abs(float(actual) - float(expected)) &lt;= self.tolerance
 
 
@@ -1174,7 +1174,7 @@ class FloatTolerantCppJudge(CppJudge):
     tolerance = 1e-6
 
     def outputs_match(self, actual: str, expected: str) -&gt; bool:
-        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(03의 within은 WA로 처리).&quot;&quot;&quot;
+        &quot;&quot;&quot;훅 재정의: 절대 오차 비교. 숫자가 아닌 출력은 ValueError → 골격이 RE로 오판한다(전략 버전 03_strategy_version.py의 within은 WA로 처리).&quot;&quot;&quot;
         return abs(float(actual) - float(expected)) &lt;= self.tolerance</code></pre></figure>
   <p>출력 [2]에서 느린 오답은 이제 모든 언어에서 TLE다. [3]과 [4]에서는 컴파일 오류와 런타임 에러가 하위 클래스의 <code>try/except</code> 없이 골격에서 판정으로 바뀐다. [6]은 이 데모가 남긴 샌드박스가 0개임을 보여 준다. 01의 세 증상이 모두 사라졌다.</p>
   <p>[7]은 <code>abstractmethod</code>가 보장하는 범위를 정확히 보여 준다. <code>run()</code>을 아예 빠뜨린 <code>GoJudge</code>는 인스턴스화 시점에 거부된다. 그러나 <code>abstractmethod</code>는 <em>이름</em>만 확인하고 시그니처는 보지 않는다. 그래서 인자를 빠뜨린 <code>run(self)</code>를 가진 <code>SloppyJudge</code>는 문제없이 만들어지고, 채점 도중 <code>TypeError</code>가 나면 골격의 <code>except</code>가 이를 학생의 런타임 에러(RE)로 오판한다. 시그니처 불일치는 mypy 같은 타입 검사기만 잡는다.</p>
@@ -1251,7 +1251,7 @@ class FloatTolerantCppJudge(CppJudge):
 </figure>
 <figure class="code"><figcaption>src/14_template_method/03_strategy_version.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 합성 버전] 같은 채점 골격을, 상속 대신 단계 객체·함수를 주입해 만든다.
 
-상황: 02에서 부동소수 오차 허용을 훅 재정의로 넣자 FloatTolerantCppJudge가 생겼고,
+상황: 패턴 코드(02_template_method.py)에서 부동소수 오차 허용을 훅 재정의로 넣자 FloatTolerantCppJudge가 생겼고,
 같은 일을 Python·Java에도 하려면 클래스가 &#x27;언어 × 비교 방식&#x27;으로 곱해진다는 것이 드러났다.
 코드랩 팀은 &quot;특수 저지(답이 여러 개인 문제)&quot;까지 예고했다. 변이의 축이 둘(언어, 비교 방식)이 된 것이다.
 
@@ -1298,7 +1298,7 @@ class Toolchain:
     &quot;&quot;&quot;[Strategy: 언어 축] 언어별 단계 묶음. 클래스 계층 대신 &#x27;값&#x27;으로 언어를 표현한다.
 
     기본값 없는 필드(name, filename, run)가 템플릿 메서드의 &#x27;추상 단계&#x27;에 대응한다. dataclass라서
-    빠뜨리면 생성 시점에 TypeError가 난다 — 02의 abstractmethod가 인스턴스화 시점에 잡는 것과 같다.
+    빠뜨리면 생성 시점에 TypeError가 난다 — 패턴 코드의 abstractmethod가 인스턴스화 시점에 잡는 것과 같다.
     validate/compile에 None을 허용한 것이 &#x27;훅 기본값&#x27;에 대응한다. 상속 버전에서는 기본 구현이
     상위 클래스에 숨어 있었지만, 여기서는 생성 코드에 드러난다.
     &quot;&quot;&quot;
@@ -1355,7 +1355,7 @@ JAVA = Toolchain(&quot;java&quot;, &quot;Main.java&quot;, simulate, validate=_ne
 class Judge:
     &quot;&quot;&quot;[Context] 골격을 가진 구체 클래스. 상속받을 일이 없으므로 &#x27;닫혀 있음&#x27;이 구조로 보장된다.
 
-    02와 비교하면 judge() 본문은 거의 같다. 다른 점은 self.compile(...) 같은 자기 호출이
+    패턴 코드와 비교하면 judge() 본문은 거의 같다. 다른 점은 self.compile(...) 같은 자기 호출이
     self.toolchain.compile(...) 같은 협력 객체 호출로 바뀐 것뿐이다. 그 작은 차이 덕분에
     언어와 체커를 독립적으로 조합할 수 있다(3 × 3 = 9가지 채점기를 클래스 0개로).
     &quot;&quot;&quot;
@@ -1366,7 +1366,7 @@ class Judge:
         self.checker = checker
 
     def judge(self, sub: Submission, tests: Tests) -&gt; str:
-        &quot;&quot;&quot;[골격] 02의 Judge.judge와 같은 순서. 바뀌는 것은 &#x27;누구에게 묻는가&#x27;뿐이다.&quot;&quot;&quot;
+        &quot;&quot;&quot;[골격] 패턴 코드의 Judge.judge와 같은 순서. 바뀌는 것은 &#x27;누구에게 묻는가&#x27;뿐이다.&quot;&quot;&quot;
         tc = self.toolchain                            # 지역 별칭: 골격이 &#x27;언어 축&#x27;에게 묻는 곳이 한눈에 보이게
         sandbox = Path(tempfile.mkdtemp(prefix=f&quot;judge-{tc.name}-&quot;))
         try:
@@ -1406,7 +1406,7 @@ if __name__ == &quot;__main__&quot;:
          Submission(&quot;java&quot;, java_src, pair), &quot;3 7&quot;),
     ]
     print(&quot;[1] 언어 축과 비교 축을 자유롭게 조합한다 — 추가 클래스 없음&quot;)
-    # 각 채점기는 Judge 하나에 (Toolchain, Checker) 조합만 다르다. 02라면 클래스 네 개가 필요했다.
+    # 각 채점기는 Judge 하나에 (Toolchain, Checker) 조합만 다르다. 패턴 코드라면 클래스 네 개가 필요했다.
     for label, judge, sub, expected in cases:
         print(f&quot;    {label:&lt;24}: {judge.judge(sub, [(&#x27;in&#x27;, expected)])}&quot;)
 
@@ -1417,8 +1417,8 @@ if __name__ == &quot;__main__&quot;:
     print(&quot;    &quot;, Judge(PYTHON, checker).judge(Submission(&quot;py&quot;, &quot;...&quot;, lambda s: &quot;3.1416&quot;),
                                               [(&quot;pi&quot;, &quot;3.14159&quot;)]))
 
-    print(&quot;[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 02 데모 [7]과 대응)&quot;)
-    # (a) 필수 단계 누락: run을 빼면 dataclass가 생성 시점에 거부한다(02의 abstractmethod와 같은 효과).
+    print(&quot;[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 패턴 코드의 데모 [7]과 대응)&quot;)
+    # (a) 필수 단계 누락: run을 빼면 dataclass가 생성 시점에 거부한다(패턴 코드의 abstractmethod와 같은 효과).
     try:
         Toolchain(&quot;go&quot;, &quot;main.go&quot;)  # type: ignore[call-arg]
     except TypeError as e:
@@ -1578,7 +1578,7 @@ def sandbox(language: str) -&gt; Iterator[Path]:
 
     yield 앞뒤가 템플릿 메서드의 고정 단계이고, with 블록 본문이 &#x27;가변 단계&#x27;다.
     가변 단계를 하위 클래스 메서드가 아니라 호출자의 코드 블록으로 받는다는 점이 다르다.
-    try/finally 덕분에 본문이 예외로 끝나도 정리가 보장된다 — 01의 JavaJudge 버그가 불가능하다.
+    try/finally 덕분에 본문이 예외로 끝나도 정리가 보장된다 — 순진한 코드(01_naive.py)의 JavaJudge 버그가 불가능하다.
     &quot;&quot;&quot;
     path = Path(tempfile.mkdtemp(prefix=f&quot;judge-{language}-&quot;))
     print(f&quot;    [준비] {language} 샌드박스 생성&quot;)  # 임시 이름은 실행마다 달라 출력하지 않는다
@@ -1915,7 +1915,7 @@ if __name__ == &quot;__main__&quot;:
       <figure class="code"><figcaption>src/14_template_method/solutions/ex4_memory_limit.py</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 연습문제 4 해설] 모든 언어에 메모리 제한을 추가한다 — 골격 한 곳만 고치면 끝나는가?
 
 상황: 코드랩에 &quot;리스트에 10만 개를 쌓는 풀이가 채점 서버를 죽였다&quot;는 장애가 났다.
-모든 언어에 메모리 제한(MLE 판정)을 넣어야 한다. 01의 복붙 구조였다면 세 파일을 고치고
+모든 언어에 메모리 제한(MLE 판정)을 넣어야 한다. 순진한 코드(01_naive.py)의 복붙 구조였다면 세 파일을 고치고
 그중 하나를 빠뜨렸을 것이다. 템플릿 메서드에서는 골격의 테스트 루프만 고친다.
 
 메모리 측정은 `tracemalloc`으로 제출물(solve 함수)의 파이썬 할당 최대치를 잰다.
@@ -1929,11 +1929,11 @@ import time
 from typing import Callable, final
 
 MEMORY_LIMIT = 1_000_000   # 바이트. 데모용으로 작게.
-TIME_LIMIT = 0.5           # 초. tracemalloc이 실행을 느리게 하므로 02보다 넉넉히.
+TIME_LIMIT = 0.5           # 초. tracemalloc이 실행을 느리게 하므로 패턴 코드(02_template_method.py)보다 넉넉히.
 
 
 class Judge:
-    &quot;&quot;&quot;[Abstract Class] 02의 골격을 축약하고 메모리 검사를 추가했다.
+    &quot;&quot;&quot;[Abstract Class] 패턴 코드의 골격을 축약하고 메모리 검사를 추가했다.
 
     축약판이라 추상 단계(언어·파일명)는 생략했다. 남은 가변 단계는 모두 기본값이 있는 훅이다.
     &quot;&quot;&quot;
@@ -1972,7 +1972,7 @@ class Judge:
         return out, peak
 
     def compile(self) -&gt; None:
-        &quot;&quot;&quot;훅: 기본은 컴파일 없음(02와 같다). 인터프리터 언어는 재정의하지 않는다.&quot;&quot;&quot;
+        &quot;&quot;&quot;훅: 기본은 컴파일 없음(패턴 코드와 같다). 인터프리터 언어는 재정의하지 않는다.&quot;&quot;&quot;
 
 
 class PythonJudge(Judge):

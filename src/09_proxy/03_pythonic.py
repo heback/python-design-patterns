@@ -90,7 +90,7 @@ class LandCoverScene:
 def fetch_tile(tile_id: str) -> bytes:
     """원격 타일 다운로드(흉내). 같은 인자면 캐시에서 돌려준다.
 
-    02의 CachingArchiveProxy와 하는 일이 같다. 차이: 인터페이스가 '함수 하나'면 이걸로 충분하고,
+    패턴 코드(02_proxy.py)의 CachingArchiveProxy와 하는 일이 같다. 차이: 인터페이스가 '함수 하나'면 이걸로 충분하고,
     캐시 키·적중 통계·무효화 정책을 객체 수준에서 바꾸고 싶으면 클래스 프록시가 낫다.
     """
     LOADS.append(f"tile:{tile_id}")

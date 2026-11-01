@@ -15,7 +15,7 @@ GoF 의도(intent): "복잡한 객체의 생성 과정과 표현 방법을 분�
 - [Concrete Builder]  PostgresRenderer, SummaryRenderer — 각자의 표현을 쌓는다
 - [Product]           SqlStatement, 요약 문자열 — 서로 공통 타입이 없다는 점이 GoF 빌더의 특징
 
-02와의 차이: 02의 '빌더'는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
+패턴 코드(02_builder.py)와의 차이: 패턴 코드의 '빌더'는 Query라는 단일 제품을 유창하게 조립하는 현대적 의미의 빌더이고,
 이 파일의 '빌더'는 GoF 원전의 의미(같은 절차, 다른 표현)다. 둘은 이름만 같고 목적이 다르다.
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ class Condition:
 
 @dataclass(frozen=True)
 class Query:
-    """검증이 끝난 쿼리 정의. 실제로는 02의 QueryBuilder.build()가 만든다."""
+    """검증이 끝난 쿼리 정의. 실제로는 패턴 코드의 QueryBuilder.build()가 만든다."""
 
     table: str
     select: tuple[str, ...]

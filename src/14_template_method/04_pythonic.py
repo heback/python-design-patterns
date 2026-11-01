@@ -30,7 +30,7 @@ def sandbox(language: str) -> Iterator[Path]:
 
     yield 앞뒤가 템플릿 메서드의 고정 단계이고, with 블록 본문이 '가변 단계'다.
     가변 단계를 하위 클래스 메서드가 아니라 호출자의 코드 블록으로 받는다는 점이 다르다.
-    try/finally 덕분에 본문이 예외로 끝나도 정리가 보장된다 — 01의 JavaJudge 버그가 불가능하다.
+    try/finally 덕분에 본문이 예외로 끝나도 정리가 보장된다 — 순진한 코드(01_naive.py)의 JavaJudge 버그가 불가능하다.
     """
     path = Path(tempfile.mkdtemp(prefix=f"judge-{language}-"))
     print(f"    [준비] {language} 샌드박스 생성")  # 임시 이름은 실행마다 달라 출력하지 않는다

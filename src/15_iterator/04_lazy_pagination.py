@@ -1,6 +1,6 @@
 """[15장 반복자 · 지연 평가] 서버의 페이지 API를 '그냥 이터러블'로 보이게 한다.
 
-상황: '좋아요 표시한 곡'은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 01에서는
+상황: '좋아요 표시한 곡'은 수만 곡이고, 서버는 50곡씩 페이지 토큰과 함께 준다. 순진한 코드(01_naive.py)에서는
 첫 곡을 틀기 전에 400번 요청해 2만 곡을 메모리에 올렸다. 사용자는 대개 앞의 몇 곡만 듣는다.
 
 이 파일의 설계:
@@ -43,7 +43,7 @@ class FakeLikedSongsAPI:
 
 
 def pages(api: FakeLikedSongsAPI) -> Iterator[Track]:
-    """페이지 토큰 루프를 감춘 제너레이터. 01의 while 루프와 거의 같은 모양이다.
+    """페이지 토큰 루프를 감춘 제너레이터. 순진한 코드의 while 루프와 거의 같은 모양이다.
 
     차이는 '모으기(extend)' 대신 '흘려보내기(yield from)'라는 한 단어다. 그 한 단어 덕분에
     소비자가 멈추면 생산도 멈춘다 — 다음 페이지 요청은 이전 페이지를 다 소비한 뒤에야 일어난다.
@@ -76,7 +76,7 @@ class LikedSongs:
 def play_first(tracks: Iterable[Track], n: int) -> list[str]:
     """[Client] 이 함수는 tracks가 list인지, 페이지 API인지, 제너레이터인지 모른다.
 
-    타입 힌트가 list가 아니라 Iterable이라는 점이 곧 설계다. 01의 Player가 list에 묶였던 것과 대비.
+    타입 힌트가 list가 아니라 Iterable이라는 점이 곧 설계다. 순진한 코드의 Player가 list에 묶였던 것과 대비.
     """
     return [t.title for t in islice(tracks, n)]
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     print("[1] 지연 평가: 앞의 3곡만 들으면 요청은 1번")
     api = FakeLikedSongsAPI(total=20_000)
     liked = LikedSongs(api)
-    print("    ", play_first(liked, 3), f"/ 요청 {api.requests}번 (01에서는 400번)")
+    print("    ", play_first(liked, 3), f"/ 요청 {api.requests}번 (순진한 코드에서는 400번)")
 
     print("[2] 120곡까지 들으면 그때 필요한 만큼만 더 받는다")
     api.requests = 0

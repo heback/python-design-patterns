@@ -2,7 +2,7 @@
 
 상황: 킥고의 관제팀장 유나가 서진에게 묻는다. "전이 규칙 전체를 한 장으로 볼 수 없어요?
 지금은 상태 클래스 여섯 개를 다 열어 봐야 정비 중에서 어디로 갈 수 있는지 알 수 있잖아요."
-02의 상태 패턴은 전이 규칙을 상태 클래스들에 '분산'시켰다. 이 파일은 정반대로 전이 규칙을
+패턴 코드(02_state.py)의 상태 패턴은 전이 규칙을 상태 클래스들에 '분산'시켰다. 이 파일은 정반대로 전이 규칙을
 하나의 표(데이터)에 '집중'시킨다. 전이의 책임자가 상태 객체에서 Context(표)로 옮겨 간다.
 
 얻는 것: 전이 전체가 한눈에 보이고, 표가 데이터이므로 출력·검증(도달 불가 상태 찾기)·
@@ -22,7 +22,7 @@ LOW_BATTERY = 15
 class Status(Enum):
     """상태 이름의 닫힌 집합. 문자열 status와 달리 오타는 AttributeError로 즉시 드러난다.
 
-    값에 표시 문구를 넣어 01 label()의 상태별 문구 dict를 없앴다.
+    값에 표시 문구를 넣어 순진한 코드(01_naive.py)의 label() 상태별 문구 dict를 없앴다.
     """
 
     AVAILABLE = "대여 가능"
@@ -51,7 +51,7 @@ class Event(Enum):
 S, E = Status, Event   # 표를 한 줄씩 읽히게 하려는 별칭. 이 표 근처에서만 쓴다.
 
 # 전이표: (현재 상태, 사건) → 다음 상태. 표에 없는 조합은 전부 불법 전이다.
-# 02에서 'ScooterState 기본 메서드 = 거부'가 하던 일을, 여기서는 'dict에 키가 없음'이 한다.
+# 패턴 코드에서 'ScooterState 기본 메서드 = 거부'가 하던 일을, 여기서는 'dict에 키가 없음'이 한다.
 TRANSITIONS: dict[tuple[Status, Event], Status] = {
     # --- 대여 가능: 출구가 가장 많은 허브 상태 ---
     (S.AVAILABLE, E.RESERVE): S.RESERVED,
@@ -67,7 +67,7 @@ TRANSITIONS: dict[tuple[Status, Event], Status] = {
     (S.LOW_BATTERY, E.BATTERY_OK): S.AVAILABLE,
     (S.LOW_BATTERY, E.MAINTAIN): S.MAINTENANCE,
     (S.LOW_BATTERY, E.LOSE): S.LOST,
-    # --- 정비 중·분실: 01에서 사고가 난 지점. UNLOCK 행이 없으므로 자동으로 불법 ---
+    # --- 정비 중·분실: 순진한 코드에서 사고가 난 지점. UNLOCK 행이 없으므로 자동으로 불법 ---
     (S.MAINTENANCE, E.REPAIRED): S.AVAILABLE,
     (S.LOST, E.MAINTAIN): S.MAINTENANCE,
 }
@@ -116,9 +116,9 @@ def next_status_match(status: Status, event: Event) -> Status:
 class Scooter:
     """[Context + 전이 책임자] 상태는 Enum 값 하나이고, 행동과 가드는 다시 여기로 돌아왔다.
 
-    02와 비교하면 상태별 데이터(reserved_by, rider ...)가 Context 필드로 돌아왔다는 점이
+    패턴 코드와 비교하면 상태별 데이터(reserved_by, rider ...)가 Context 필드로 돌아왔다는 점이
     가장 큰 후퇴다. 그래서 _enter()에서 '들어가는 상태에 필요 없는 필드는 지운다'는
-    규칙을 한 곳에 모아 01의 찌꺼기 문제를 완화한다.
+    규칙을 한 곳에 모아 순진한 코드의 찌꺼기 문제를 완화한다.
     """
 
     def __init__(self, battery: int = 100) -> None:
@@ -145,7 +145,7 @@ class Scooter:
         if new is not Status.RIDING:
             self.rider = None
 
-    # 아래 공개 메서드들은 '외부 요청 → 사건'으로 번역하는 어댑터 층이다. 02에서는 이 번역과
+    # 아래 공개 메서드들은 '외부 요청 → 사건'으로 번역하는 어댑터 층이다. 패턴 코드에서는 이 번역과
     # 행동이 상태 클래스에 있었고, 여기서는 상태와 무관한 Context 메서드에 있다.
     def reserve(self, user: str, now: int) -> None:
         """표가 허용하면 예약. 데이터 기록은 전이 성공 뒤에 한다(실패 시 오염 방지)."""
@@ -204,7 +204,7 @@ if __name__ == "__main__":
 
     print("[2] 정적 검증: 도달 불가 상태와 출구 없는 상태 찾기")
     # 새 상태를 Enum에 추가하고 표에 들어가는 간선을 깜빡하면 '도달 불가'로 잡힌다.
-    # CI에서 단언(assert)으로 돌리면 01의 '분기 누락'을 기계가 대신 찾아 준다.
+    # CI에서 단언(assert)으로 돌리면 순진한 코드의 '분기 누락'을 기계가 대신 찾아 준다.
     unreachable = set(Status) - reachable_from(Status.AVAILABLE)
     dead_ends = {s for s in Status if not any(src is s for src, _ in TRANSITIONS)}
     print(f"    도달 불가: {unreachable or '없음'} / 출구 없음: {dead_ends or '없음'}")
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     sc.battery = 8
     sc.end_ride()
     sc.send_to_maintenance()
-    # 01의 사고 시나리오: 정비 중 잠금 해제. 표에 (MAINTENANCE, UNLOCK) 행이 없어 거부된다.
+    # 순진한 코드의 사고 시나리오: 정비 중 잠금 해제. 표에 (MAINTENANCE, UNLOCK) 행이 없어 거부된다.
     try:
         sc.unlock("해커")
     except IllegalTransition as e:

@@ -1,6 +1,6 @@
 """[14장 템플릿 메서드 · 합성 버전] 같은 채점 골격을, 상속 대신 단계 객체·함수를 주입해 만든다.
 
-상황: 02에서 부동소수 오차 허용을 훅 재정의로 넣자 FloatTolerantCppJudge가 생겼고,
+상황: 패턴 코드(02_template_method.py)에서 부동소수 오차 허용을 훅 재정의로 넣자 FloatTolerantCppJudge가 생겼고,
 같은 일을 Python·Java에도 하려면 클래스가 '언어 × 비교 방식'으로 곱해진다는 것이 드러났다.
 코드랩 팀은 "특수 저지(답이 여러 개인 문제)"까지 예고했다. 변이의 축이 둘(언어, 비교 방식)이 된 것이다.
 
@@ -47,7 +47,7 @@ class Toolchain:
     """[Strategy: 언어 축] 언어별 단계 묶음. 클래스 계층 대신 '값'으로 언어를 표현한다.
 
     기본값 없는 필드(name, filename, run)가 템플릿 메서드의 '추상 단계'에 대응한다. dataclass라서
-    빠뜨리면 생성 시점에 TypeError가 난다 — 02의 abstractmethod가 인스턴스화 시점에 잡는 것과 같다.
+    빠뜨리면 생성 시점에 TypeError가 난다 — 패턴 코드의 abstractmethod가 인스턴스화 시점에 잡는 것과 같다.
     validate/compile에 None을 허용한 것이 '훅 기본값'에 대응한다. 상속 버전에서는 기본 구현이
     상위 클래스에 숨어 있었지만, 여기서는 생성 코드에 드러난다.
     """
@@ -104,7 +104,7 @@ JAVA = Toolchain("java", "Main.java", simulate, validate=_need("public class Mai
 class Judge:
     """[Context] 골격을 가진 구체 클래스. 상속받을 일이 없으므로 '닫혀 있음'이 구조로 보장된다.
 
-    02와 비교하면 judge() 본문은 거의 같다. 다른 점은 self.compile(...) 같은 자기 호출이
+    패턴 코드와 비교하면 judge() 본문은 거의 같다. 다른 점은 self.compile(...) 같은 자기 호출이
     self.toolchain.compile(...) 같은 협력 객체 호출로 바뀐 것뿐이다. 그 작은 차이 덕분에
     언어와 체커를 독립적으로 조합할 수 있다(3 × 3 = 9가지 채점기를 클래스 0개로).
     """
@@ -115,7 +115,7 @@ class Judge:
         self.checker = checker
 
     def judge(self, sub: Submission, tests: Tests) -> str:
-        """[골격] 02의 Judge.judge와 같은 순서. 바뀌는 것은 '누구에게 묻는가'뿐이다."""
+        """[골격] 패턴 코드의 Judge.judge와 같은 순서. 바뀌는 것은 '누구에게 묻는가'뿐이다."""
         tc = self.toolchain                            # 지역 별칭: 골격이 '언어 축'에게 묻는 곳이 한눈에 보이게
         sandbox = Path(tempfile.mkdtemp(prefix=f"judge-{tc.name}-"))
         try:
@@ -155,7 +155,7 @@ if __name__ == "__main__":
          Submission("java", java_src, pair), "3 7"),
     ]
     print("[1] 언어 축과 비교 축을 자유롭게 조합한다 — 추가 클래스 없음")
-    # 각 채점기는 Judge 하나에 (Toolchain, Checker) 조합만 다르다. 02라면 클래스 네 개가 필요했다.
+    # 각 채점기는 Judge 하나에 (Toolchain, Checker) 조합만 다르다. 패턴 코드라면 클래스 네 개가 필요했다.
     for label, judge, sub, expected in cases:
         print(f"    {label:<24}: {judge.judge(sub, [('in', expected)])}")
 
@@ -166,8 +166,8 @@ if __name__ == "__main__":
     print("    ", Judge(PYTHON, checker).judge(Submission("py", "...", lambda s: "3.1416"),
                                               [("pi", "3.14159")]))
 
-    print("[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 02 데모 [7]과 대응)")
-    # (a) 필수 단계 누락: run을 빼면 dataclass가 생성 시점에 거부한다(02의 abstractmethod와 같은 효과).
+    print("[3] 검사가 어디까지 되는가 — 세 가지 시나리오((a)(b)는 패턴 코드의 데모 [7]과 대응)")
+    # (a) 필수 단계 누락: run을 빼면 dataclass가 생성 시점에 거부한다(패턴 코드의 abstractmethod와 같은 효과).
     try:
         Toolchain("go", "main.go")  # type: ignore[call-arg]
     except TypeError as e:

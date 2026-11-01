@@ -1104,9 +1104,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
-    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    &quot;&quot;&quot;교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     &quot;&quot;&quot;
     stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
@@ -1324,9 +1324,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
-    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    &quot;&quot;&quot;교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     &quot;&quot;&quot;
     stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
@@ -1405,9 +1405,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
-    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    &quot;&quot;&quot;교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     &quot;&quot;&quot;
     stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
@@ -1680,9 +1680,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
-    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    &quot;&quot;&quot;교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     &quot;&quot;&quot;
     stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
@@ -1923,9 +1923,9 @@ Send = Callable[[bytes], None]
 
 
 def toy_encrypt(data: bytes, key: bytes) -&gt; bytes:
-    &quot;&quot;&quot;교육용 스트림 암호(02와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
+    &quot;&quot;&quot;교육용 스트림 암호(패턴 코드 02_decorator.py와 같은 SHA-256 카운터 키스트림 XOR). 실제로는 검증된 암호 라이브러리를 쓴다.
 
-    02와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
+    패턴 코드와 같은 방식을 쓰는 이유: 출력이 무작위처럼 보여야 build_send로 순서를 바꿔 실험할 때
     &quot;암호문은 압축되지 않는다&quot;는 본문의 관찰이 그대로 재현된다. 반복 키 XOR은 출력이 주기적이라 압축된다.
     &quot;&quot;&quot;
     stream = b&quot;&quot;.join(hashlib.sha256(key + i.to_bytes(4, &quot;big&quot;)).digest()
@@ -2344,7 +2344,7 @@ class Batch(Wrapper):
             self._emit()
 
     def _emit(self) -&gt; None:
-        &quot;&quot;&quot;버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. &#x27;내보내기&#x27;만 하고 flush는 전파하지 않는다(02와 같은 구조).&quot;&quot;&quot;
+        &quot;&quot;&quot;버퍼를 한 페이로드로 묶어 안쪽에 넘긴다. &#x27;내보내기&#x27;만 하고 flush는 전파하지 않는다(패턴 코드 02_decorator.py와 같은 구조).&quot;&quot;&quot;
         if self._buf:
             self._inner.send(b&quot;\n&quot;.join(self._buf))
             self._buf.clear()
