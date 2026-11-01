@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `textbook/`은 빌드 산출물이라 매번 삭제 후 재생성된다. 직접 수정하지 말고 `chapters/`, `src/`, `.claude/skills/html-textbook-publishing/assets/`를 고친다.
 - 장 구조·섹션 id·주석 규칙은 `.claude/skills/pattern-chapter-writing/SKILL.md`, 검증 규칙은 `.claude/skills/code-verification/` 이 기준이다.
 - `src/` 예제는 표준 라이브러리만 쓰고, 파일 간 import 없이 단독 실행된다.
+- **코드 폰트 합자는 항상 꺼 둔다.** JetBrains Mono의 합자가 `->`를 `→`로, `!=`를 `≠`로 그려 소스와 화면이 달라진다. `style.css`·`pyrun.css`·`inquiry/templates/style.css`의 `font-variant-ligatures: none !important` 규칙을 지우지 말고, 코드를 보여 주는 CSS를 새로 만들 때도 이 규칙이 적용되는지 확인한다. 소스의 `->`·비교 연산자는 ASCII 그대로 둔다(문자를 `→`·`≠`로 바꾸지 않는다). 이 규칙은 이미 반영되어 있으므로 코드 예제를 보여 줄 때마다 따로 언급하지 않는다.
+- **GitHub Pages는 `docs/`의 사본을 서비스한다.** `textbook/`·`inquiry/`만 고치면 배포 화면은 그대로다. 화면에 보이는 CSS·JS를 고치면 `docs/textbook/assets/`의 같은 파일도 같은 내용으로 패치한다(`docs/`는 배포용 수정이 있어 통째로 덮어쓰지 않는다).
 
 ## 탐구학습 자료 (`inquiry/`)
 
