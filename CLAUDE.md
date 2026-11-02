@@ -65,3 +65,4 @@ open textbook/00-intro.html
 | 2026-11-03 | 학생 JSON 파일 방식 전면 제거(학생 저장·불러오기, 교사 JSON 불러오기·코멘트 내보내기, 예시 JSON 생성). Firebase 설정 없이는 빌드하지 않음 | inquiry/templates, build.py, content/course.py | 학생 파일을 받지 않고 서버 제출만 사용 |
 | 2026-11-03 | 교사 수업 가이드·응답 코멘트·제출 관리 화면, 학생 [제출]·[코멘트 확인], course.py 제거. 서버 규칙·함수(제출·AI 초안)는 남겨 둠(미사용). 두 화면 제목을 '디자인 패턴 학습 관리'로, 학습활동 자료 디자인 시스템·Material Symbols 적용 | inquiry/templates, build.py | 학생 글은 서버로 받지 않고 진도·퀴즈만 관리 |
 | 2026-11-03 | 교재가 주차가 아니라 생성·구조·행위 분류라는 점을 반영: 퀴즈를 교재 분류별(문항마다 교재 장)로 재구성·4문항 추가(19문항), 교재 사본에 읽기 진도·퀴즈 모니터 주입(textbook-monitor.js), 교사 진도 표를 교재 장별로, 퀴즈 팝업을 quiz-ui.js로 공용화, 규칙에 chapters·where 추가 | inquiry/content/quiz.py, inquiry/templates, build.py, firebase/ | 교재 구조에 맞춘 진도·퀴즈 관리 |
+| 2026-11-03 | 학생 교재 상단 바·탭 제목·표지에 과목명 '객체지향프로그래밍.대구과학고등학교.2학기' 표시(build_textbook.py의 COURSE_LABEL) | scripts/build_textbook.py, assets/base.html·style.css, docs/index.html | 과목 구분 표시 |

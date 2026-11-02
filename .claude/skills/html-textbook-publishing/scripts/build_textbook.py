@@ -171,8 +171,12 @@ def render_glossary() -> str:
             f'<tbody>{"".join(rows)}</tbody></table></section>')
 
 
+COURSE_LABEL = "객체지향프로그래밍.대구과학고등학교.2학기"    # 학생 교재의 과목명: 상단 바와 브라우저 탭 제목에 표시한다
+
+
 def fill(template: str, **kw: str) -> str:
     """{{key}} 치환. 값이 없으면 빈 문자열."""
+    kw.setdefault("course", COURSE_LABEL)
     return re.sub(r"\{\{(\w+)\}\}", lambda m: kw.get(m.group(1), ""), template)
 
 
@@ -204,7 +208,7 @@ def build() -> int:
         hero = (f'<header class="hero"><span class="part">{chapter_label(ch)}'
                 f'{" · " + ch.part if ch.part else ""}</span><h1>{ch.title}</h1>'
                 f'<p class="subtitle">{ch.subtitle}</p></header>')
-        page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)} — 파이썬 디자인 패턴",
+        page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)} — 파이썬 디자인 패턴 · {COURSE_LABEL}",
                     body_class="chapter", part=ch.part, crumb=f"{chapter_label(ch)} · {ch.title}",
                     toc=toc, hero=hero, content=body, pager=pager)
         (OUT / ch.out_name).write_text(page, encoding="utf-8")
@@ -212,7 +216,7 @@ def build() -> int:
 
     # ---- 용어집 ----
     if TERMS:
-        glossary = fill(template, page_title="용어집 — 파이썬 디자인 패턴", body_class="index", crumb="용어집",
+        glossary = fill(template, page_title=f"용어집 — 파이썬 디자인 패턴 · {COURSE_LABEL}", body_class="index", crumb="용어집",
                         hero='<header class="cover"><h1>용어집</h1></header>',
                         content=re.sub(r"(<table\b.*?</table>)", r'<div class="table-wrap">\1</div>',
                                        render_glossary(), flags=re.S))

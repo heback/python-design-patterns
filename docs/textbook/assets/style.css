@@ -71,6 +71,7 @@ code { font-family: var(--font-code); font-size: .9em; }
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
 }
 .brand { font-weight: 700; text-decoration: none; color: var(--text); white-space: nowrap; }
+.course { color: var(--muted); font-size: .82em; border: 1px solid var(--border); border-radius: 999px; padding: 1px 10px; white-space: nowrap; }
 .crumb { color: var(--muted); font-size: .9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .theme-toggle {
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
@@ -88,6 +89,7 @@ body.index .layout { grid-template-columns: minmax(0, 1fr); }
 body.index .side-toc { display: none; }
 body.index .content { max-width: 980px; margin: 0 auto; }
 
+@media (max-width: 640px) { .topbar { flex-wrap: wrap; row-gap: 4px; } .course { order: 3; } .crumb { order: 4; flex-basis: 100%; } }
 @media (max-width: 900px) {
   .layout { grid-template-columns: minmax(0, 1fr); padding: 0 16px; }
   .side-toc { display: none; }
