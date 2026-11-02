@@ -1907,7 +1907,7 @@ if __name__ == &quot;__main__&quot;:
     var btn = document.createElement("button");
     btn.className = "copy"; btn.type = "button"; btn.textContent = "복사";
     btn.addEventListener("click", function () {
-      navigator.clipboard.writeText(fig.querySelector("code").innerText).then(function () {
+      navigator.clipboard.writeText(fig.querySelector("code.language-python").innerText).then(function () {
         btn.textContent = "복사됨"; setTimeout(function () { btn.textContent = "복사"; }, 1200);
       });
     });

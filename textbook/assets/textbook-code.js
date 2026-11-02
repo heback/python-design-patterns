@@ -5,9 +5,21 @@
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
   /* 1) 예제 코드 블록: 고칠 필요가 없으므로 코드는 그대로 두고 [▶ 실행]만 둔다. 결과는 코드 아래에 나타난다.
-        일부 행만 보이는 블록(data-full)은 파일 전체를 실행한다. */
+        일부 행만 보이는 블록(data-full)은 파일 전체를 실행한다.
+        편집기와 같은 모양이 되도록 왼쪽에 행 번호 칸을 붙인다(줄 사이 점선은 CSS). 번호는 보이는 코드의 첫 줄이 1이다. */
   $$("figure.code").forEach(fig => {
-    const cap = fig.querySelector("figcaption"), code = fig.dataset.full || fig.querySelector("code").textContent;
+    const pre = fig.querySelector("pre");
+    if (pre && !pre.parentElement.classList.contains("pr-static")) {
+      const n = pre.querySelector("code.language-python").textContent.split("\n").length;
+      const gNum = document.createElement("code");
+      gNum.textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
+      const gPre = document.createElement("pre"); gPre.className = "pr-gutter-pre"; gPre.append(gNum);
+      const gutter = document.createElement("div"); gutter.className = "pr-gutter"; gutter.setAttribute("aria-hidden", "true");
+      gutter.style.width = "calc(" + Math.max(2, String(n).length) + "ch + 24px)"; gutter.append(gPre);
+      const wrap = document.createElement("div"); wrap.className = "pr-edit pr-static";
+      pre.replaceWith(wrap); wrap.append(gutter, pre);
+    }
+    const cap = fig.querySelector("figcaption"), code = fig.dataset.full || fig.querySelector("code.language-python").textContent;
     const rn = PyRun.makeRunner(() => code);
     rn.bRun.title = fig.dataset.full ? "이 장면은 파일의 일부입니다. 파일 전체를 실행합니다." : "이 코드를 실행합니다.";
     const cp = cap.querySelector(".copy");
@@ -19,7 +31,7 @@
   $$(".exercise").forEach(ex => {
     const sol = ex.querySelector("details.solution");
     const solFig = sol && sol.querySelector("figure.code");
-    const solCode = solFig ? (solFig.dataset.full || solFig.querySelector("code").textContent)
+    const solCode = solFig ? (solFig.dataset.full || solFig.querySelector("code.language-python").textContent)
       : (sol && sol.querySelector("pre code") ? sol.querySelector("pre code").textContent : null);
     const title = (ex.querySelector("h3") || {}).textContent || "연습문제";
     $$("pre", ex).filter(p => !p.closest("details") && !p.closest("figure") && p.querySelector("code.language-python")).forEach(pre => {
