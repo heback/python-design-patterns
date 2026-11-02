@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 필수다(없으면 `build.py`가 멈춘다). `build.py`가 `templates/fb.js`를 합쳐 진도 전달·돌발 퀴즈와 교사 로그인을 켠다. 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
 
-**진도 자동 전달·돌발 퀴즈**: 교사가 `config/monitor`를 켠 동안 학생 화면(`inquiry/templates/monitor.js`)이 완료 문항 수·ID·활동 시간·마지막 활동 시각만 `progress/{id}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 [📊 진도·퀴즈] 탭이 실시간 표와 퀴즈 제어를 보여 준다. 퀴즈 문항 풀은 `inquiry/content/quiz.py`이고 채점은 `answerQuiz` 함수(서버)가 한다 — 학생 빌드에서는 정답·풀이가 `strip()`으로 빠지므로 퀴즈를 고칠 때 이 경계를 지킨다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
+**진도 자동 전달·돌발 퀴즈**: 교사가 `config/monitor`를 켠 동안 학습지(`inquiry/templates/monitor.js`)와 호스팅된 교재 사본(`textbook-monitor.js`, `build.py`가 `firebase/public/textbook/` 각 장에만 주입)이 완료 문항·읽은 절·활동 시간·마지막 활동 시각만 `progress/{id}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 화면이 **교재 장별(분류: 생성·구조·행위) 읽기 진도** 실시간 표와 퀴즈 제어를 보여 준다. **돌발 퀴즈는 교재 분류별**로 묶고(`inquiry/content/quiz.py`, 문항마다 교재 장), 팝업은 `templates/quiz-ui.js`를 학습지와 교재 사본이 함께 쓰며, 채점은 `answerQuiz` 함수(서버)가 한다 — 학생 빌드에서는 정답·풀이가 `strip()`으로 빠지므로 퀴즈를 고칠 때 이 경계를 지킨다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
 
 ## 명령
 
@@ -64,3 +64,4 @@ open textbook/00-intro.html
 | 2026-11-03 | 진도 자동 전달(교사가 켠 동안, 학생 화면에 고지)·돌발 퀴즈(1문항 팝업, 서버 채점)·교사 진도 탭 추가. student.js의 `let SET` 선언을 boot 앞으로 옮겨 Firebase 모드에서 제출 버튼이 안 뜨던 오류 수정 | inquiry/templates/monitor.js·fb.js·teacher.js·student.js, inquiry/content/quiz.py, firebase/ | 수업 중 진도 파악 요청. 규칙·함수 테스트 추가 |
 | 2026-11-03 | 학생 JSON 파일 방식 전면 제거(학생 저장·불러오기, 교사 JSON 불러오기·코멘트 내보내기, 예시 JSON 생성). Firebase 설정 없이는 빌드하지 않음 | inquiry/templates, build.py, content/course.py | 학생 파일을 받지 않고 서버 제출만 사용 |
 | 2026-11-03 | 교사 수업 가이드·응답 코멘트·제출 관리 화면, 학생 [제출]·[코멘트 확인], course.py 제거. 서버 규칙·함수(제출·AI 초안)는 남겨 둠(미사용). 두 화면 제목을 '디자인 패턴 학습 관리'로, 학습활동 자료 디자인 시스템·Material Symbols 적용 | inquiry/templates, build.py | 학생 글은 서버로 받지 않고 진도·퀴즈만 관리 |
+| 2026-11-03 | 교재가 주차가 아니라 생성·구조·행위 분류라는 점을 반영: 퀴즈를 교재 분류별(문항마다 교재 장)로 재구성·4문항 추가(19문항), 교재 사본에 읽기 진도·퀴즈 모니터 주입(textbook-monitor.js), 교사 진도 표를 교재 장별로, 퀴즈 팝업을 quiz-ui.js로 공용화, 규칙에 chapters·where 추가 | inquiry/content/quiz.py, inquiry/templates, build.py, firebase/ | 교재 구조에 맞춘 진도·퀴즈 관리 |

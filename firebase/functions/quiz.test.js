@@ -3,24 +3,25 @@ const test = require("node:test");
 const assert = require("node:assert");
 const { findQuiz, isOpen, validChoice, applyAnswer } = require("./quiz");
 
-const quiz = { id: "w2-q1", options: ["가", "나", "다"], answer: { sel: 1 }, explain: "풀이" };
-const content = { weeks: [{ n: 1, quiz: [] }, { n: 2, quiz: [quiz] }] };
+const quiz = { id: "create-q1", options: ["가", "나", "다"], answer: { sel: 1 }, explain: "풀이" };
+const content = { quizzes: [{ key: "intro", name: "서론·종합", items: [] }, { key: "create", name: "생성 패턴", items: [quiz] }] };
 
 test("findQuiz: 있는 id만 찾고 형식이 틀리면 null", () => {
-  assert.equal(findQuiz(content, "w2-q1").week.n, 2);
-  assert.equal(findQuiz(content, "w2-q9"), null);
-  assert.equal(findQuiz(content, "../w2-q1"), null);
+  assert.equal(findQuiz(content, "create-q1").group.key, "create");
+  assert.equal(findQuiz(content, "create-q9"), null);
+  assert.equal(findQuiz(content, "w2-q1"), null);          // 옛 주차별 id 는 더 이상 없다
+  assert.equal(findQuiz(content, "../create-q1"), null);
   assert.equal(findQuiz(content, 5), null);
-  assert.equal(findQuiz(null, "w2-q1"), null);
+  assert.equal(findQuiz(null, "create-q1"), null);
 });
 
-test("isOpen: 즉시 출제 id 또는 주차 자동 모드", () => {
-  const f = findQuiz(content, "w2-q1");
+test("isOpen: 즉시 출제 id 또는 분류 자동 모드", () => {
+  const f = findQuiz(content, "create-q1");
   assert.equal(isOpen(null, f), false);
-  assert.equal(isOpen({ liveId: "w1-q1" }, f), false);
-  assert.equal(isOpen({ liveId: "w2-q1" }, f), true);
-  assert.equal(isOpen({ auto: { 2: true } }, f), true);
-  assert.equal(isOpen({ auto: { 1: true } }, f), false);
+  assert.equal(isOpen({ liveId: "struct-q1" }, f), false);
+  assert.equal(isOpen({ liveId: "create-q1" }, f), true);
+  assert.equal(isOpen({ auto: { create: true } }, f), true);
+  assert.equal(isOpen({ auto: { struct: true } }, f), false);
 });
 
 test("validChoice: 범위 밖·소수·문자열 거부", () => {

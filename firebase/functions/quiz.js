@@ -1,22 +1,22 @@
 "use strict";
 // 돌발 퀴즈 채점. Firestore·Firebase 없이 단위 테스트할 수 있도록 순수 함수로 분리했다.
 const MAX_ATTEMPTS = 2;                       // 처음 시도 + 다시 생각해 보기 1회
-const QUIZ_ID = /^w[1-9]-q\d{1,2}$/;
+const QUIZ_ID = /^(intro|create|struct|behave)-q\d{1,2}$/;       // {교재 분류}-q{번호}
 
-/** teacher-content.json 에서 퀴즈를 찾는다. {week, quiz} 또는 null. */
+/** teacher-content.json 의 quizzes(교재 분류별 묶음)에서 퀴즈를 찾는다. {group, quiz} 또는 null. */
 function findQuiz(content, id) {
   if (typeof id !== "string" || !QUIZ_ID.test(id)) return null;
-  for (const week of (content && content.weeks) || []) {
-    const quiz = (week.quiz || []).find(q => q.id === id);
-    if (quiz) return { week, quiz };
+  for (const group of (content && content.quizzes) || []) {
+    const quiz = (group.items || []).find(q => q.id === id);
+    if (quiz) return { group, quiz };
   }
   return null;
 }
 
-/** 지금 이 퀴즈를 받을 수 있는가: 교사가 즉시 출제로 열었거나, 그 주차의 자동 퀴즈가 켜져 있을 때. */
+/** 지금 이 퀴즈를 받을 수 있는가: 교사가 즉시 출제로 열었거나, 그 분류(생성·구조·행위·서론종합)의 자동 퀴즈가 켜져 있을 때. */
 function isOpen(cfg, found) {
   cfg = cfg || {};
-  return cfg.liveId === found.quiz.id || !!(cfg.auto && cfg.auto[found.week.n]);
+  return cfg.liveId === found.quiz.id || !!(cfg.auto && cfg.auto[found.group.key]);
 }
 
 /** 선택지 번호가 범위 안의 정수인가 */

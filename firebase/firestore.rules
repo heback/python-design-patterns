@@ -45,9 +45,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/monitor).data.get('on', false) == true;
     }
     function progressOk(d) {
-      return d.keys().hasOnly(['student', 'uid', 'weeks', 'activeMs', 'lastActiveAt', 'updatedAt'])
-        && d.weeks is map && d.activeMs is number && d.student is map
-        && request.resource.size() < 40000;
+      return d.keys().hasOnly(['student', 'uid', 'weeks', 'chapters', 'where', 'activeMs', 'lastActiveAt', 'updatedAt'])
+        && (!('weeks' in d) || d.weeks is map)           // 학습지 진도(주차별 완료 문항)
+        && (!('chapters' in d) || d.chapters is map)     // 교재 읽기 진도(장별 읽은 절)
+        && (!('where' in d) || (d.where is string && d.where.size() <= 80))
+        && d.activeMs is number && d.student is map
+        && request.resource.size() < 60000;
     }
 
     // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.

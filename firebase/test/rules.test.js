@@ -125,6 +125,16 @@ test("진도: 남의 문서·uid 위조·허용 밖 필드·타입 오류 거부
   await assertFails(setDoc(doc(student("a"), "progress/s4"), prog("a", { activeMs: "많이" })));
   await assertFails(setDoc(doc(student("a"), "progress/s5"), prog("a", { weeks: [1, 2] })));
 });
+test("진도: 교재 읽기 진도(chapters·where)도 쓸 수 있고, 형식이 틀리면 거부", async () => {
+  await monitor(true);
+  const a = student("a"), ch = { "10-strategy": { n: 3, total: 8, last: "naive" } };
+  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a", { chapters: ch, where: "교재 전략" })));
+  await assertSucceeds(setDoc(doc(a, "progress/s2"), { student: { name: "홍" }, uid: "a", chapters: ch, activeMs: 10, lastActiveAt: Timestamp.now(), updatedAt: Timestamp.now() }));   // 학습지 없이 교재만
+  await assertFails(setDoc(doc(a, "progress/s3"), prog("a", { chapters: "전부" })));
+  await assertFails(setDoc(doc(a, "progress/s4"), prog("a", { where: 7 })));
+  await assertFails(setDoc(doc(a, "progress/s5"), prog("a", { where: "가".repeat(81) })));
+  await assertFails(setDoc(doc(student("b"), "progress/s1"), prog("b", { chapters: ch })));      // 남의 문서
+});
 test("진도: 읽기·삭제는 교사만, 학생은 본인 것도 읽지 못한다", async () => {
   await monitor(true);
   await assertSucceeds(setDoc(doc(student("a"), "progress/s1"), prog("a")));

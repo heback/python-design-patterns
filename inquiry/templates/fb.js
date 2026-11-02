@@ -33,12 +33,16 @@ const FB = (() => {
   }
   const watchMonitor = cb => watchDoc("config", "monitor", cb);
   const watchQuiz = cb => watchDoc("config", "quiz", cb);
-  /* 진도 한 번 전송. p = {weeks, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다. */
+  /* 진도 한 번 전송. p = {weeks?, chapters?, where?, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다.
+     학습지는 weeks 를, 교재 페이지는 chapters 를 보낸다. merge 로 쓰므로 서로의 필드를 덮어쓰지 않는다. */
   async function reportProgress(student, p) {
     const user = await anon(), m = await load(), { doc, setDoc, serverTimestamp, Timestamp } = m.fs;
-    await setDoc(doc(m.db, "progress", sid(student)), {
-      student: { klass: student.klass || "", number: student.number || "", name: student.name },
-      uid: user.uid, weeks: p.weeks, activeMs: Math.round(p.activeMs), lastActiveAt: Timestamp.fromMillis(p.lastActiveAt), updatedAt: serverTimestamp() });
+    const d = { student: { klass: student.klass || "", number: student.number || "", name: student.name },
+      uid: user.uid, activeMs: Math.round(p.activeMs), lastActiveAt: Timestamp.fromMillis(p.lastActiveAt), updatedAt: serverTimestamp() };
+    if (p.weeks) d.weeks = p.weeks;
+    if (p.chapters) d.chapters = p.chapters;
+    if (p.where) d.where = String(p.where).slice(0, 80);
+    await setDoc(doc(m.db, "progress", sid(student)), d, { merge: true });
   }
   const answerQuiz = (student, quizId, choice) => call("answerQuiz", { quizId, sid: sid(student), choice });
 

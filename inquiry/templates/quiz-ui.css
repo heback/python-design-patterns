@@ -1,0 +1,39 @@
+/* 아이콘(Google Material Symbols)·진도 전달 고지·돌발 퀴즈 팝업. 학습지와 호스팅된 교재 페이지가 함께 쓴다.
+   색은 두 곳이 공통으로 가진 변수(--surface, --text, --muted, --border, --accent, --ok …)만 쓰고, 없을 때를 위한 기본값을 둔다. */
+.ms {
+  font-family: "Material Symbols Outlined"; font-weight: 400; font-style: normal; font-size: 1.3em; line-height: 1;
+  display: inline-block; vertical-align: -.26em; letter-spacing: normal; text-transform: none; white-space: nowrap;
+  word-wrap: normal; direction: ltr; -webkit-font-smoothing: antialiased; flex: none;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-variant-ligatures: normal !important; font-feature-settings: "liga" 1 !important;
+}
+.ms.fill { font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24; }
+.monbar { max-width: 1052px; margin: 12px auto 0; padding: 9px 16px; font-size: 13.5px; line-height: 1.65; color: var(--text, #1a2332); background: var(--accent-soft, #e8eff5); border: 1px solid var(--accent-line, var(--border, #b9cde0)); border-radius: 12px; }
+.monbar b { color: var(--accent, #1f4f78); }
+.monbar .ms { margin-right: 6px; color: var(--accent, #1f4f78); }
+.monbar.err { background: var(--gold-soft, var(--warn-soft, #f6ecd6)); border-color: var(--gold-line, var(--border, #e4d2a4)); }
+.monbar .monst { margin-left: 6px; font-weight: 600; color: var(--ok, #1d6a47); white-space: nowrap; }
+.monbar .monst .ms { color: inherit; margin-right: 3px; }
+.monbar.err .monst { color: var(--warn, #7f5a12); }
+.monbar .monid { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; }
+.monbar .monid input { width: 96px; padding: 3px 8px; font: inherit; font-size: 13px; color: var(--text, #1a2332); background: var(--surface, #fff); border: 1px solid var(--line-control, var(--border, #8c8372)); border-radius: 6px; }
+.qbtn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; border-radius: 8px; border: 1px solid var(--line-control, var(--border, #8c8372)); background: var(--surface, #fff); color: var(--text, #1a2332); font: 600 13.5px/1.4 inherit; cursor: pointer; }
+.qbtn:hover:not(:disabled) { background: var(--accent-soft, #e8eff5); border-color: var(--accent, #1f4f78); color: var(--accent, #1f4f78); }
+.qbtn:disabled { opacity: .5; cursor: default; }
+.qbtn.primary { background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-color: var(--accent, #1f4f78); }
+.qbtn.primary:hover:not(:disabled) { background: var(--accent-strong, var(--accent, #163a5a)); color: var(--on-accent, var(--accent-text, #fff)); }
+.qbtn:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
+.qz-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(22, 32, 46, .62); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 16px; }
+.qz-panel { background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; width: min(580px, 100%); max-height: 90vh; overflow: auto; padding: 22px 26px; box-shadow: 0 18px 36px -16px rgba(0, 0, 0, .45); font-size: 16px; line-height: 1.7; }
+.qz-kicker { font-weight: 700; color: var(--accent, #1f4f78); } .qz-kicker small { display: block; font-weight: 400; color: var(--muted, #5a6372); font-size: 13px; margin-top: 2px; }
+.qz-q { font-size: 17px; margin: 12px 0; }
+.qz-opts { display: grid; gap: 8px; }
+.qz-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid var(--line-control, var(--border, #8c8372)); border-radius: 8px; cursor: pointer; background: var(--surface, #fff); }
+.qz-opt:hover { border-color: var(--accent, #1f4f78); background: var(--accent-soft, #e8eff5); }
+.qz-opt.right { border-color: var(--ok, #1d6a47); background: var(--ok-soft, #e6f1ea); }
+.qz-opt input { margin-top: 5px; accent-color: var(--accent, #1f4f78); }
+.qz-msg { margin: 12px 0 0; min-height: 1.4em; } .qz-msg.ok { color: var(--ok, #1d6a47); } .qz-msg.bad { color: var(--bad, #a03a1c); }
+.qz-msg b { display: inline-flex; align-items: center; gap: 2px; }
+.qz-ex { color: var(--text, #1a2332); margin-top: 6px; }
+.qz-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+@media print { .monbar, .qz-overlay { display: none !important; } }
