@@ -1,6 +1,6 @@
 "use strict";
 /* 학생용·교사용이 공유하는 엔진: 문항 렌더링, 응답 판정, 파일 입출력.
-   응답 값의 모양(JSON에 그대로 저장된다)
+   응답 값의 모양(브라우저 저장소와 서버 제출 문서에 JSON 문자열로 저장된다)
    text: string | choice: {sel, why} | multi: {sel:[], why} | table: string[][] | sort: {카드번호: 칸번호}
    triples: string[][3] | list: string[] | scales: (number|null)[] | code: string */
 
@@ -21,6 +21,9 @@ function el(tag, props, ...kids) {
   return e;
 }
 
+/* 머티리얼 아이콘(Google Material Symbols). 이모지 대신 쓴다. name 은 아이콘 이름(예: "send"). */
+function ico(name, cls) { return el("span", { class: "ms" + (cls ? " " + cls : ""), "aria-hidden": "true" }, name); }
+const icoHtml = (name, cls) => `<span class="ms${cls ? " " + cls : ""}" aria-hidden="true">${name}</span>`;
 function autosize(t) { if (t.classList.contains("code")) return; t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
 function toast(msg) {
   let t = $(".toast"); if (!t) { t = el("div", { class: "toast" }); document.body.append(t); }
@@ -199,7 +202,7 @@ function renderValue(it, v, key) {
     case "code": return nonEmpty(v) ? PyRun.mountEditor({ code: v, resettable: false, label: "학생 코드(실행해 볼 수 있음)" }).el : empty();
     case "choice": case "multi": {
       const sel = it.type === "multi" ? v.sel : [v.sel], keys = key ? (it.type === "multi" ? key.sel : [key.sel]) : [];
-      const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on" : "") + (key && keys.includes(i) && key === it.answer && v === it.answer ? " key" : "") }, el("span", { html: (sel.includes(i) ? "● " : "○ ") + o }))));
+      const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on" : "") + (key && keys.includes(i) && key === it.answer && v === it.answer ? " key" : "") }, el("span", { html: icoHtml(it.type === "multi" ? (sel.includes(i) ? "check_box" : "check_box_outline_blank") : (sel.includes(i) ? "radio_button_checked" : "radio_button_unchecked")) + " " + o }))));
       if (v.why && nonEmpty(v.why)) box.append(el("div", { class: "val" }, el("b", {}, "이유: "), v.why));
       return box;
     }
@@ -218,32 +221,16 @@ function renderSample(it) {
   if (a == null) return null;
   if (it.type === "choice" || it.type === "multi") {
     const sel = it.type === "multi" ? a.sel : [a.sel];
-    const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on key" : "") }, el("span", { html: (sel.includes(i) ? "● " : "○ ") + o }))));
+    const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on key" : "") }, el("span", { html: icoHtml(it.type === "multi" ? (sel.includes(i) ? "check_box" : "check_box_outline_blank") : (sel.includes(i) ? "radio_button_checked" : "radio_button_unchecked")) + " " + o }))));
     if (a.why) box.append(el("div", { class: "val" }, el("b", {}, "근거: "), a.why));
     return box;
   }
   return renderValue(Object.assign({}, it, { type: it.type }), a);
 }
 
-/* ---------- 파일 ---------- */
+/* ---------- 상태 ---------- */
 function newState() { return { app: APP, schema: SCHEMA, student: { name: "", number: "", klass: "" }, answers: {}, feedback: {}, saved: null }; }
 function validState(d) { return d && d.app === APP && d.answers && typeof d.answers === "object"; }
-function readJsonFile(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => { try { res(JSON.parse(r.result)); } catch (e) { rej(new Error(file.name + ": JSON 형식이 올바르지 않습니다.")); } };
-    r.onerror = () => rej(new Error(file.name + ": 읽을 수 없습니다."));
-    r.readAsText(file);
-  });
-}
-function bindDrop(onFiles) {
-  const dz = el("div", { class: "dropzone" }, "JSON 파일을 여기에 놓으세요"); document.body.append(dz);
-  let n = 0;
-  addEventListener("dragenter", e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { n++; dz.classList.add("on"); } });
-  addEventListener("dragleave", () => { if (--n <= 0) { n = 0; dz.classList.remove("on"); } });
-  addEventListener("dragover", e => e.preventDefault());
-  addEventListener("drop", e => { e.preventDefault(); n = 0; dz.classList.remove("on"); if (e.dataTransfer.files.length) onFiles([...e.dataTransfer.files]); });
-}
 function initTheme() {
   const t = lsGet("dp-theme"); if (t) document.documentElement.dataset.theme = t;
   const b = $(".theme-toggle"); if (!b) return;

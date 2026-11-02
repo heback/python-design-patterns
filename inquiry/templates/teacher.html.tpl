@@ -3,33 +3,37 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>디자인 패턴 탐구 학습 · 교사용 가이드</title>
+<title>디자인 패턴 학습 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block">
 <style>/*@STYLE@*/</style>
 <style>/*@PYRUN_CSS@*/</style>
 </head>
 <body>
 <div id="gate" class="gate" hidden>
-  <h1>🧑‍🏫 탐구 학습 교사용</h1>
+  <h1><span class="ms" aria-hidden="true">school</span>디자인 패턴 학습 관리</h1>
   <p class="lead">학교 Google 계정으로 로그인한 교사만 사용할 수 있어요.</p>
   <button class="btn primary" id="btn-google" style="font-size:16px;padding:10px 18px">학교 Google 계정으로 로그인</button>
   <p class="err" id="gate-msg" role="alert"></p>
 </div>
 <div id="app">
 <header class="topbar">
-  <h1>🧑‍🏫 탐구 학습 교사용 가이드 · 코멘트</h1>
+  <h1><span class="ms" aria-hidden="true">school</span>디자인 패턴 학습 관리</h1>
   <span class="grow"></span>
   <span class="lead" id="who" hidden></span>
-  <button class="btn" id="btn-sync" hidden title="Firebase에 제출된 학생 응답·코멘트 가져오기">☁ 제출 불러오기</button>
-  <button class="btn primary" id="btn-load">📂 학생 JSON 불러오기 (여러 개 선택 가능)</button>
-  <button class="btn ghost" id="btn-print">🖨</button>
-  <button class="btn ghost danger" id="btn-clear">불러온 데이터 지우기</button>
-  <button class="btn ghost" id="btn-logout" hidden>로그아웃</button>
-  <button class="btn ghost theme-toggle" title="밝게/어둡게">◐</button>
-  <input type="file" id="file-in" accept=".json,application/json" multiple hidden>
+  <button class="btn primary" id="btn-sync" hidden title="Firebase에 제출된 학생 응답·코멘트 가져오기"><span class="ms" aria-hidden="true">cloud_download</span>제출 불러오기</button>
+  <a class="btn ghost" href="https://heback.github.io/python-design-patterns/" target="_blank" rel="noopener" title="교재(GitHub Pages)를 새 창으로 열기"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
+  <button class="btn ghost" id="btn-print" title="인쇄" aria-label="인쇄"><span class="ms" aria-hidden="true">print</span></button>
+  <button class="btn ghost danger" id="btn-clear"><span class="ms" aria-hidden="true">delete</span>불러온 데이터 지우기</button>
+  <button class="btn ghost" id="btn-logout" hidden><span class="ms" aria-hidden="true">logout</span>로그아웃</button>
+  <button class="btn ghost theme-toggle" title="밝게/어둡게" aria-label="밝게/어둡게"><span class="ms" aria-hidden="true">contrast</span></button>
 </header>
 <nav class="tabs" id="views" role="tablist"></nav>
 <main id="main"></main>
 </div>
+<script>window.PYRUN_ICONS = true;</script>
 <script>/*@PYHL@*/</script>
 <script>/*@PYRUN@*/</script>
 <script>/*@FB@*/</script>

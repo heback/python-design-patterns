@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""탐구학습 자료 빌드: content/*.py + templates/ → student.html, teacher.html (+ sample/*.json).
+"""탐구학습 자료 빌드: content/*.py + templates/ → student.html, teacher.html (+ firebase/public, teacher-content.json).
 
 학생용에는 정답·교사 메모·도달 목표 일반화가 들어가지 않는다(키를 빌드 때 제거).
 사용: python3 inquiry/build.py
+학생 응답은 Firebase 제출로만 받는다(학생 JSON 파일 방식은 없다). inquiry/firebase-config.js 가 없으면 빌드를 멈춘다.
 """
 import copy
 import json
@@ -24,7 +25,7 @@ for _w in WEEKS:
 TEACHER_ONLY_QUIZ = {"answer", "explain"}
 TEACHER_ONLY_ITEM = {"answer", "note"}
 FB_DIR = ROOT.parent / "firebase"
-FB_CONFIG = ROOT / "firebase-config.js"      # 있을 때만 Firebase 기능을 넣는다(없으면 기존 JSON 방식 그대로)
+FB_CONFIG = ROOT / "firebase-config.js"      # 필수: 학생 제출·교사 로그인이 모두 Firebase 로 동작한다(gitignore)
 PYRUN = ROOT.parent / ".claude" / "skills" / "html-textbook-publishing" / "assets"   # 교재와 공용인 파이썬 실행기
 TEACHER_ONLY_STAGE = {"tnote"}
 TEACHER_ONLY_WEEK = {"teacher", "target"}
@@ -135,81 +136,31 @@ def render(tpl_name, content_js, app_js):
                 .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))
 
 
-def make_samples():
-    """교사용 화면을 체험·시험할 수 있는 예시 학생 JSON 두 개와, 5주 전체 정답 예시를 담은 모범답안 JSON."""
-    out = ROOT / "sample"
-    out.mkdir(exist_ok=True)
-
-    def answers(through, flip=False):
-        a = {}
-        for w in WEEKS[:through]:
-            for st in w["stages"]:
-                for it in st["items"]:
-                    ans, t = it.get("answer"), it["type"]
-                    if t == "info":
-                        continue
-                    if ans is None and t != "scales":
-                        continue
-                    if t == "scales":
-                        a[it["id"]] = [4 if not flip else 2] * len(it["items"])
-                    elif t == "choice":
-                        a[it["id"]] = {"sel": (ans["sel"] + (1 if flip else 0)) % len(it["options"]),
-                                       "why": ans["why"] if not flip else "더 자연스러워 보여서요."}
-                    elif t == "multi":
-                        a[it["id"]] = {"sel": ans["sel"] if not flip else ans["sel"][:1] + [len(it["options"]) - 1], "why": ans["why"] if not flip else ""}
-                    elif t == "sort":
-                        a[it["id"]] = {k: (v if not (flip and int(k) % 3 == 0) else (v + 1) % len(it["buckets"])) for k, v in ans.items()}
-                    elif t == "table":
-                        a[it["id"]] = [row[:] for row in ans] if not flip else [[(c.split(".")[0][:24] if j == 0 else "") for j, c in enumerate(row)] for row in ans]
-                    elif t == "list":
-                        a[it["id"]] = ans[: (len(ans) if not flip else 2)]
-                    elif t == "triples":
-                        a[it["id"]] = [r[:] for r in ans] if not flip else [r[:] for r in ans[:2]]
-                    elif t in ("text", "code"):
-                        if flip and t == "code":
-                            continue
-                        a[it["id"]] = ans if not flip else ans.split(".")[0][:60] + "."
-        return a
-
-    scale_ids = {it["id"] for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] == "scales"}   # 자기 평가 문항은 정답이 없다
-    model = {"app": "dp-inquiry", "schema": 1, "student": {"klass": "교사", "number": "0", "name": "모범답안"},
-             "saved": "2026-10-21T05:00:00.000Z", "answers": {k: v for k, v in answers(len(WEEKS), False).items() if k not in scale_ids}, "feedback": {}}
-    (out / "모범답안_탐구학습.json").write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    samples = [("2-3", "17", "김하늘", answers(2, False)), ("2-3", "18", "박도윤", answers(3, True))]
-    for klass, num, name, ans in samples:
-        d = {"app": "dp-inquiry", "schema": 1, "student": {"klass": klass, "number": num, "name": name},
-             "saved": "2026-10-21T05:00:00.000Z", "answers": ans, "feedback": {}}
-        (out / f"{klass}_{num}_{name}_탐구학습.json").write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
 def main():
     errs = validate()
     if errs:
         print("콘텐츠 오류:\n  " + "\n  ".join(errs))
         sys.exit(1)
-    gated = FB_CONFIG.exists()
+    if not FB_CONFIG.exists():
+        print("inquiry/firebase-config.js 가 없습니다. 학생 제출과 교사 로그인이 Firebase 로 동작하므로 필요합니다.\n"
+              "  cp inquiry/firebase-config.example.js inquiry/firebase-config.js 후 값을 채우세요(firebase/README.md 1회 설정).")
+        sys.exit(1)
     student = render("student.html.tpl", "const CONTENT = " + js({"weeks": strip(WEEKS)}) + ";", "student.js")
-    if gated:
-        # 로그인 게이트 모드: 호스팅되는 파일에는 정답·교사 메모·운영 안내를 넣지 않는다. 로그인 후 getTeacherContent()가 내려준다.
-        teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False)}) + ";\nlet COURSE = null;\nconst GATED = true;", "teacher.js")
-        (FB_DIR / "public").mkdir(parents=True, exist_ok=True)
-        (FB_DIR / "public" / "index.html").write_text(teacher, encoding="utf-8")
-        # 학생용도 같은 사이트의 /inquiry/ 에 둔다(교재 링크 ../textbook/ 가 열리도록 textbook도 복사). 교재가 빌드돼 있을 때만.
-        (FB_DIR / "public" / "inquiry").mkdir(parents=True, exist_ok=True)
-        (FB_DIR / "public" / "inquiry" / "index.html").write_text(student, encoding="utf-8")
-        if (ROOT.parent / "textbook").exists():
-            shutil.rmtree(FB_DIR / "public" / "textbook", ignore_errors=True)
-            shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
-    else:
-        teacher = render("teacher.html.tpl", "const CONTENT = " + js({"weeks": WEEKS}) + ";\nconst COURSE = " + js(COURSE) + ";\nconst GATED = false;", "teacher.js")
+    # 호스팅되는 교사 화면에는 정답·교사 메모·운영 안내를 넣지 않는다. 로그인 후 getTeacherContent()가 내려준다.
+    teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False)}) + ";\nlet COURSE = null;\nconst GATED = true;", "teacher.js")
+    (FB_DIR / "public").mkdir(parents=True, exist_ok=True)
+    (FB_DIR / "public" / "index.html").write_text(teacher, encoding="utf-8")
+    # 학생용도 같은 사이트의 /inquiry/ 에 둔다(교재 링크 ../textbook/ 가 열리도록 textbook도 복사). 교재가 빌드돼 있을 때만.
+    (FB_DIR / "public" / "inquiry").mkdir(parents=True, exist_ok=True)
+    (FB_DIR / "public" / "inquiry" / "index.html").write_text(student, encoding="utf-8")
+    if (ROOT.parent / "textbook").exists():
+        shutil.rmtree(FB_DIR / "public" / "textbook", ignore_errors=True)
+        shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
     (FB_DIR / "functions").mkdir(parents=True, exist_ok=True)
     (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "course": COURSE}, ensure_ascii=False), encoding="utf-8")
     (ROOT / "student.html").write_text(student, encoding="utf-8")
     (ROOT / "teacher.html").write_text(teacher, encoding="utf-8")
-    make_samples()
     n_items = sum(1 for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] != "info")
-    print(f"Firebase: {'켜짐(교사 화면 로그인 게이트)' if gated else '꺼짐(firebase-config.js 없음)'}")
     print(f"완료: student.html({len(student)//1024}KB), teacher.html({len(teacher)//1024}KB) · 주차 {len(WEEKS)} · 응답 문항 {n_items}")
 
 

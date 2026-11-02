@@ -93,6 +93,12 @@ const PyRun = (function () {
   function stop() { if (cur) { const c = cur; reset(); cur = null; c.resolve({ ok: false, stopped: true }); } }
 
   /* ---------- UI ---------- */
+  /* 탐구 학습지는 window.PYRUN_ICONS = true 로 머티리얼 아이콘 글꼴(Material Symbols)을 쓰고, 이모지·도형 글자를 버튼과 상태에 쓰지 않는다.
+     교재는 이 값이 없으므로 기존 글자("▶ 실행" 등)를 그대로 쓴다. */
+  const ICONS = !!window.PYRUN_ICONS;
+  const NOTE = ICONS ? "참고: " : "ℹ️ ";
+  const ms = name => { const s = document.createElement("span"); s.className = "ms"; s.setAttribute("aria-hidden", "true"); s.textContent = name; return s; };
+  const lab = (icon, text, glyph) => ICONS ? [ms(icon), text] : glyph + text;
   function h(tag, props, ...kids) {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(props || {})) {
@@ -111,21 +117,21 @@ const PyRun = (function () {
       try { document.execCommand("copy") ? res() : rej(); } catch (e) { rej(e); } t.remove();
     });
   }
-  function flash(btn, text) { const old = btn.dataset.label || btn.textContent; btn.dataset.label = old; btn.textContent = text; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = old; }, 1300); }
+  function flash(btn, text) { if (!btn._orig) btn._orig = Array.from(btn.childNodes).map(n => n.cloneNode(true)); btn.textContent = text; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.replaceChildren(...btn._orig.map(n => n.cloneNode(true))); }, 1300); }   // 아이콘이 든 버튼도 원래 모양으로 되돌린다
   /* 높이를 내용에 맞춘다. 가로 스크롤바가 생기면 그만큼 더 키워야 세로 스크롤바가 덩달아 생기지 않는다. */
   function fit(t) { t.style.height = "auto"; const bar = t.offsetHeight - t.clientHeight; t.style.height = Math.min(t.scrollHeight + bar + 2, 560) + "px"; }
 
   const NOTES = [
-    [/\bthreading\b/, "ℹ️ 브라우저에서는 스레드를 만들 수 없어, 스레드를 차례대로 실행하는 방식으로 대신합니다. (경쟁 상태는 재현되지 않습니다)"],
-    [/\bsubprocess\b/, "ℹ️ 브라우저에서는 다른 프로그램(subprocess)을 실행할 수 없어 오류가 날 수 있습니다."],
+    [/\bthreading\b/, NOTE + "브라우저에서는 스레드를 만들 수 없어, 스레드를 차례대로 실행하는 방식으로 대신합니다. (경쟁 상태는 재현되지 않습니다)"],
+    [/\bsubprocess\b/, NOTE + "브라우저에서는 다른 프로그램(subprocess)을 실행할 수 없어 오류가 날 수 있습니다."],
   ];
 
   /* 실행 버튼·중지 버튼·상태 표시·출력 칸 한 벌. 편집기(mountEditor)와 읽기 전용 코드 블록(교재의 예제 코드)이 함께 쓴다.
      getCode() 가 돌려주는 코드를 실행하고, 결과는 outBox 에 쌓는다. outBox 는 호출한 쪽이 원하는 자리에 붙인다. */
   function makeRunner(getCode) {
     const status = h("span", { class: "pr-status" });
-    const bRun = h("button", { class: "pr-btn run", type: "button", title: "실행 (Ctrl/⌘ + Enter)" }, "▶ 실행");
-    const bStop = h("button", { class: "pr-btn stop", type: "button", hidden: true }, "■ 중지");
+    const bRun = h("button", { class: "pr-btn run", type: "button", title: "실행 (Ctrl/⌘ + Enter)" }, lab("play_arrow", "실행", "▶ "));
+    const bStop = h("button", { class: "pr-btn stop", type: "button", hidden: true }, lab("stop", "중지", "■ "));
     const outPre = h("pre", { class: "pr-pre" });
     const outBox = h("div", { class: "pr-out", hidden: true }, h("div", { class: "pr-outhead" }, h("span", {}, "출력"),
       h("button", { class: "pr-btn small", type: "button", onclick: () => { outBox.hidden = true; outPre.textContent = ""; } }, "지우기")), outPre);
@@ -142,10 +148,10 @@ const PyRun = (function () {
         st => { status.textContent = st === "loading" ? "파이썬을 불러오는 중… (처음 한 번, 몇 초 걸려요)" : "실행 중…"; })
         .then(res => {
           setBusy(false);
-          if (res.stopped) { outPre.append(h("span", { class: "pr-err" }, "■ 사용자가 중지했습니다.\n")); status.textContent = ""; return; }
+          if (res.stopped) { outPre.append(h("span", { class: "pr-err" }, (ICONS ? "" : "■ ") + "사용자가 중지했습니다.\n")); status.textContent = ""; return; }
           if (!res.ok) outPre.append(h("span", { class: "pr-err" }, res.err + "\n"));
-          else if (!outPre.textContent.replace(/^ℹ️.*\n/, "").trim()) outPre.append(h("span", { class: "pr-dim" }, "(출력 없음 — print() 로 결과를 찍어 보세요)\n"));
-          status.textContent = (res.ok ? "✔ 끝남 " : "✖ 오류 ") + Math.round(performance.now() - t0) + "ms";
+          else if (!outPre.textContent.replace(new RegExp("^" + NOTE + ".*\n"), "").trim()) outPre.append(h("span", { class: "pr-dim" }, "(출력 없음 — print() 로 결과를 찍어 보세요)\n"));
+          status.textContent = (ICONS ? (res.ok ? "끝남 " : "오류 ") : (res.ok ? "✔ 끝남 " : "✖ 오류 ")) + Math.round(performance.now() - t0) + "ms";
         });
     }
     bRun.addEventListener("click", go);
@@ -160,9 +166,9 @@ const PyRun = (function () {
     const ta = h("textarea", { class: "pr-ta", spellcheck: "false", autocapitalize: "off", autocomplete: "off", "aria-label": opts.label || "파이썬 코드 편집기", rows: opts.minRows || 6 });
     ta.value = opts.code == null ? starter : opts.code;
     const { bRun, bStop, status, outBox, go } = makeRunner(() => ta.value);
-    const bReset = h("button", { class: "pr-btn", type: "button", title: "처음 코드로 되돌리기" }, "↺ 처음 코드");
+    const bReset = h("button", { class: "pr-btn", type: "button", title: "처음 코드로 되돌리기" }, lab("restart_alt", "처음 코드", "↺ "));
     const bCopy = h("button", { class: "pr-btn", type: "button", title: "내 코드 복사" }, "복사");
-    const bEx = opts.example ? h("button", { class: "pr-btn ex", type: "button", title: "정답 예시 코드를 팝업으로 보기" }, "💡 예시 코드") : null;
+    const bEx = opts.example ? h("button", { class: "pr-btn ex", type: "button", title: "정답 예시 코드를 팝업으로 보기" }, lab("lightbulb", "예시 코드", "💡 ")) : null;
     /* 문법 강조: 글자를 투명하게 만든 textarea 뒤에 같은 글꼴의 색칠된 <pre> 를 깔고 스크롤을 맞춘다. */
     const hlCode = h("code", {}), hl = h("pre", { class: "pr-hl", "aria-hidden": "true" }, hlCode);
     const stack = h("div", { class: "pr-stack" }, hl, ta);
@@ -249,7 +255,7 @@ const PyRun = (function () {
     const prev = o.opener || document.activeElement;
     const pre = h("pre", { class: "pr-modal-code", tabindex: "0" }, h("code", { class: "language-python" }, o.code));
     if (typeof PyHL !== "undefined") PyHL.apply(pre);
-    const bCopy = h("button", { class: "pr-btn", type: "button" }, "📋 복사");
+    const bCopy = h("button", { class: "pr-btn", type: "button" }, lab("content_copy", "복사", "📋 "));
     const bClose = h("button", { class: "pr-btn primary", type: "button" }, "닫기");
     const title = h("h3", { id: "pr-modal-title" }, o.title || "예시 코드");
     const panel = h("div", { class: "pr-modal-panel", role: "dialog", "aria-modal": "true", "aria-labelledby": "pr-modal-title" },
@@ -259,7 +265,7 @@ const PyRun = (function () {
     const close = () => closeExample(prev);
     back.addEventListener("mousedown", e => { if (e.target === back) close(); });
     bClose.addEventListener("click", close);
-    bCopy.addEventListener("click", () => copyText(o.code).then(() => flash(bCopy, "✔ 복사됨"), () => flash(bCopy, "복사 실패 — 직접 선택해 복사하세요")));
+    bCopy.addEventListener("click", () => copyText(o.code).then(() => flash(bCopy, ICONS ? "복사됨" : "✔ 복사됨"), () => flash(bCopy, "복사 실패 — 직접 선택해 복사하세요")));
     const onKey = e => {
       if (e.key === "Escape") { e.preventDefault(); close(); }
       else if (e.key === "Tab") {             // 팝업 안에서만 포커스 이동

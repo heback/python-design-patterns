@@ -21,11 +21,12 @@ const Mon = (() => {
     const show = typeof FB !== "undefined" && monOn; b.hidden = !show; if (!show) return;
     b.className = "monbar" + (barState === "err" ? " err" : "");
     const st = !hasId() ? " 학번과 성명을 입력하면 시작돼요."
-      : barState === "err" ? " ⚠ 지금은 전달하지 못했어요(인터넷 연결이나 학번·성명을 확인해 주세요. 공부에는 영향이 없어요)."
-      : lastSentAt ? " ✔ 전달됨 " + stamp(new Date(lastSentAt)) : "";
-    b.replaceChildren(el("b", {}, "📡 진행 상황이 선생님께 자동으로 전달돼요. "),
+      : barState === "err" ? "지금은 전달하지 못했어요(인터넷 연결이나 학번·성명을 확인해 주세요. 공부에는 영향이 없어요)."
+      : lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
+    const stIco = barState === "err" ? ico("warning") : lastSentAt && hasId() ? ico("check_circle", "fill") : null;
+    b.replaceChildren(ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
       "어느 문항을 마쳤는지·지금 어느 문항을 하고 있는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)이 학번·성명과 함께 전달되고, 돌발 퀴즈에서 고른 답도 기록돼요. "
-      + "쓴 글의 내용은 [제출]을 눌러야만 전달되고, 키 입력 내용이나 화면은 보내지 않아요.", el("span", { class: "monst" }, st));
+      + "쓴 글의 내용은 [제출]을 눌러야만 전달되고, 키 입력 내용이나 화면은 보내지 않아요.", el("span", { class: "monst" }, stIco, st));
   }
 
   /* ---------- 진도 ---------- */
@@ -125,7 +126,7 @@ const Mon = (() => {
           finished = true; opts.forEach(l => { $("input", l).disabled = true; });
           labels.forEach((l, i) => l.classList.toggle("right", i === r.answer));
           msg.className = "qz-msg " + (r.correct ? "ok" : "bad");
-          msg.replaceChildren(el("b", {}, r.correct ? (r.attempts === 1 ? "정답이에요! 🎉" : "정답이에요. 다시 생각해 맞혔네요 👍") : `아쉬워요. 정답은 ${r.answer + 1}번이에요.`), el("div", { class: "qz-ex", html: r.explain }));
+          msg.replaceChildren(el("b", {}, ico(r.correct ? "check_circle" : "info", "fill"), r.correct ? (r.attempts === 1 ? "정답이에요!" : "정답이에요. 다시 생각해 맞혔네요.") : `아쉬워요. 정답은 ${r.answer + 1}번이에요.`), el("div", { class: "qz-ex", html: r.explain }));
           bOk.hidden = true; bClose.textContent = "닫기"; bClose.focus();
         } else {
           msg.className = "qz-msg bad"; msg.textContent = "아쉬워요. 한 번 더 골라 보세요. 다시 고르고 나면 맞든 틀리든 풀이를 보여 줘요.";
