@@ -1,6 +1,6 @@
 "use strict";
 /* 학생용·교사용이 공유하는 엔진: 문항 렌더링, 응답 판정, 파일 입출력.
-   응답 값의 모양(브라우저 저장소와 서버 제출 문서에 JSON 문자열로 저장된다)
+   응답 값의 모양(학생 브라우저의 localStorage에 JSON 문자열로 저장된다)
    text: string | choice: {sel, why} | multi: {sel:[], why} | table: string[][] | sort: {카드번호: 칸번호}
    triples: string[][3] | list: string[] | scales: (number|null)[] | code: string */
 
@@ -31,14 +31,10 @@ function toast(msg) {
 }
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
-function download(name, text, mime) {
-  const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: mime || "application/json" })), download: name });
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
 function safeName(s) { return String(s || "").trim().replace(/[\\/:*?"<>|\s]+/g, "_"); }
 function stamp(d) { d = d || new Date(); const p = n => String(n).padStart(2, "0"); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 
-/* ---------- 응답 여부·자동 판정 ---------- */
+/* ---------- 응답 여부 ---------- */
 const nonEmpty = s => typeof s === "string" && s.trim() !== "";
 function isAnswered(it, v) {
   if (v == null) return false;
@@ -61,23 +57,6 @@ function weekProgress(week, answers) {
   for (const st of week.stages) for (const it of st.items) if (ANSWERABLE(it) && !it.optional) { total++; if (isAnswered(it, answers[it.id])) done++; }
   return { total, done };
 }
-/* 선택형만 자동 판정. 반환: null | {state:"ok"|"part"|"bad", text} */
-function autoCheck(it, v) {
-  const a = it.answer;
-  if (!a || !isAnswered(it, v)) return null;
-  if (it.type === "choice") return v.sel === a.sel ? { state: "ok", text: "정답" } : { state: "bad", text: "오답" };
-  if (it.type === "multi") {
-    const A = new Set(a.sel), S = new Set(v.sel), hit = [...S].filter(x => A.has(x)).length, wrong = S.size - hit;
-    if (hit === A.size && wrong === 0) return { state: "ok", text: "정답" };
-    return { state: hit ? "part" : "bad", text: `${hit}/${A.size} 맞음${wrong ? `, 잘못 고른 ${wrong}` : ""}` };
-  }
-  if (it.type === "sort") {
-    const keys = Object.keys(a), hit = keys.filter(k => String(v[k]) === String(a[k])).length;
-    return { state: hit === keys.length ? "ok" : hit ? "part" : "bad", text: `${hit}/${keys.length} 일치` };
-  }
-  return null;
-}
-
 /* ---------- 입력 위젯 ---------- */
 function taInput(val, onChange, o) {
   o = o || {};
@@ -193,41 +172,6 @@ function renderInput(it, val, set) {
   return el("div", {}, "(지원하지 않는 문항 유형)");
 }
 
-/* ---------- 읽기 전용 표시 (교사용 화면·예시 정답) ---------- */
-function renderValue(it, v, key) {
-  const empty = () => el("div", { class: "val empty" }, "(미응답)");
-  if (v == null || (it.type !== "scales" && !isAnswered(it, v) && it.type !== "code")) return empty();
-  switch (it.type) {
-    case "text": return el("div", { class: "val" }, v);
-    case "code": return nonEmpty(v) ? PyRun.mountEditor({ code: v, resettable: false, label: "학생 코드(실행해 볼 수 있음)" }).el : empty();
-    case "choice": case "multi": {
-      const sel = it.type === "multi" ? v.sel : [v.sel], keys = key ? (it.type === "multi" ? key.sel : [key.sel]) : [];
-      const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on" : "") + (key && keys.includes(i) && key === it.answer && v === it.answer ? " key" : "") }, el("span", { html: icoHtml(it.type === "multi" ? (sel.includes(i) ? "check_box" : "check_box_outline_blank") : (sel.includes(i) ? "radio_button_checked" : "radio_button_unchecked")) + " " + o }))));
-      if (v.why && nonEmpty(v.why)) box.append(el("div", { class: "val" }, el("b", {}, "이유: "), v.why));
-      return box;
-    }
-    case "table": return el("div", { class: "tbl-wrap" }, el("table", { class: "ro" },
-      el("thead", {}, el("tr", {}, el("th", {}, it.corner || ""), it.cols.map(c => el("th", {}, c)))),
-      el("tbody", {}, it.rows.map((rl, r) => el("tr", {}, el("th", { html: rl }), it.cols.map((_, c) => el("td", {}, (v[r] && v[r][c]) || "")))))));
-    case "sort": return el("table", { class: "ro" }, el("tbody", {}, it.cards.map((c, i) => el("tr", {}, el("td", { html: c }), el("td", {}, v[i] == null ? "—" : it.buckets[v[i]])))));
-    case "triples": return el("div", {}, v.filter(r => r.some(nonEmpty)).map(r => el("div", { class: "val" }, `${r[0] || "?"}  —[${r[1] || "?"}]→  ${r[2] || "?"}`)));
-    case "list": return el("ol", { class: "val" }, v.filter(nonEmpty).map(x => el("li", {}, x)));
-    case "scales": return el("div", {}, it.items.map((s, i) => el("div", { class: "val" }, el("span", { html: s }), `  →  ${v[i] == null ? "—" : v[i] + "/5"}`)));
-  }
-  return empty();
-}
-function renderSample(it) {
-  const a = it.answer;
-  if (a == null) return null;
-  if (it.type === "choice" || it.type === "multi") {
-    const sel = it.type === "multi" ? a.sel : [a.sel];
-    const box = el("div", {}, it.options.map((o, i) => el("div", { class: "ro-opt" + (sel.includes(i) ? " on key" : "") }, el("span", { html: icoHtml(it.type === "multi" ? (sel.includes(i) ? "check_box" : "check_box_outline_blank") : (sel.includes(i) ? "radio_button_checked" : "radio_button_unchecked")) + " " + o }))));
-    if (a.why) box.append(el("div", { class: "val" }, el("b", {}, "근거: "), a.why));
-    return box;
-  }
-  return renderValue(Object.assign({}, it, { type: it.type }), a);
-}
-
 /* ---------- 상태 ---------- */
 function newState() { return { app: APP, schema: SCHEMA, student: { name: "", number: "", klass: "" }, answers: {}, feedback: {}, saved: null }; }
 function validState(d) { return d && d.app === APP && d.answers && typeof d.answers === "object"; }
@@ -239,5 +183,4 @@ function initTheme() {
     r.dataset.theme = dark ? "light" : "dark"; lsSet("dp-theme", r.dataset.theme);
   });
 }
-const MARKS = { 3: ["◎", "우수"], 2: ["○", "적절"], 1: ["△", "보완 필요"] };
 const STAGE_NO = { engage: 1, find: 2, sort: 3, general: 4, transfer: 5, reflect: 6 };

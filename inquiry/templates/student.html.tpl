@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>디자인 패턴 탐구 학습지</title>
+<title>디자인 패턴 학습 관리</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+KR:wght@600;700&display=swap">
@@ -13,14 +13,11 @@
 </head>
 <body>
 <header class="topbar">
-  <h1><span class="ms" aria-hidden="true">menu_book</span>디자인 패턴 탐구 학습지</h1>
+  <h1><span class="ms" aria-hidden="true">menu_book</span>디자인 패턴 학습 관리</h1>
   <input class="id" id="f-num" placeholder="학번" aria-label="학번" inputmode="numeric">
   <input class="id" id="f-name" placeholder="성명" aria-label="성명">
   <span class="grow"></span>
   <span class="savestate" id="savestate"></span>
-  <input class="id" id="f-code" placeholder="제출 코드" aria-label="제출 코드" autocomplete="off" hidden>
-  <button class="btn primary" id="btn-submit" hidden title="이번 주차 응답을 선생님께 제출"><span class="ms" aria-hidden="true">send</span>제출</button>
-  <button class="btn" id="btn-getfb" hidden title="선생님이 공개한 코멘트 가져오기"><span class="ms" aria-hidden="true">mark_email_unread</span>코멘트 확인</button>
   <a class="btn ghost" href="https://heback.github.io/python-design-patterns/" target="_blank" rel="noopener" title="교재(GitHub Pages)를 새 창으로 열기"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
   <button class="btn ghost" id="btn-print" title="인쇄" aria-label="인쇄"><span class="ms" aria-hidden="true">print</span></button>
   <button class="btn ghost danger" id="btn-reset"><span class="ms" aria-hidden="true">restart_alt</span>초기화</button>

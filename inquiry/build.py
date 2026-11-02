@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "content"))
 
 import week1, week2, week3, week4, week5  # noqa: E401
-from course import COURSE
 from quiz import QUIZ
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
@@ -147,7 +146,7 @@ def main():
         sys.exit(1)
     student = render("student.html.tpl", "const CONTENT = " + js({"weeks": strip(WEEKS)}) + ";", "student.js")
     # 호스팅되는 교사 화면에는 정답·교사 메모·운영 안내를 넣지 않는다. 로그인 후 getTeacherContent()가 내려준다.
-    teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False)}) + ";\nlet COURSE = null;\nconst GATED = true;", "teacher.js")
+    teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False)}) + ";\nconst GATED = true;", "teacher.js")
     (FB_DIR / "public").mkdir(parents=True, exist_ok=True)
     (FB_DIR / "public" / "index.html").write_text(teacher, encoding="utf-8")
     # 학생용도 같은 사이트의 /inquiry/ 에 둔다(교재 링크 ../textbook/ 가 열리도록 textbook도 복사). 교재가 빌드돼 있을 때만.
@@ -157,7 +156,7 @@ def main():
         shutil.rmtree(FB_DIR / "public" / "textbook", ignore_errors=True)
         shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
     (FB_DIR / "functions").mkdir(parents=True, exist_ok=True)
-    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "course": COURSE}, ensure_ascii=False), encoding="utf-8")
+    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS}, ensure_ascii=False), encoding="utf-8")
     (ROOT / "student.html").write_text(student, encoding="utf-8")
     (ROOT / "teacher.html").write_text(teacher, encoding="utf-8")
     n_items = sum(1 for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] != "info")

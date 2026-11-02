@@ -1,4 +1,8 @@
-# 탐구학습지 피드백 생성기 (Firebase + Gemini)
+# 탐구학습 진도·퀴즈 서버 (Firebase)
+
+> 현재 화면(학생·교사)은 진도 전달과 돌발 퀴즈만 쓴다. 아래 '제출 → Gemini 초안 → 교사 검수 → 공개' 기능의 서버 쪽(`submissions` 규칙, `generateFeedback` 함수)은 남아 있지만 화면에서는 쓰지 않는다.
+
+## (보류) 피드백 생성기 (Firebase + Gemini)
 
 학생 제출 → Gemini 초안 → 교사 검수 → 공개. 교사 화면은 학교 Google 계정(@ts.hs.kr) 로그인이 필요하고, 제출 가능 여부는 교사 화면 [📮 제출 관리]에서 정한다(기본 닫힘). 접근 통제는 모두 서버(`firestore.rules`, `functions`)가 강제한다.
 

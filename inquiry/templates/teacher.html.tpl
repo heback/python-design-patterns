@@ -23,14 +23,11 @@
   <h1><span class="ms" aria-hidden="true">school</span>디자인 패턴 학습 관리</h1>
   <span class="grow"></span>
   <span class="lead" id="who" hidden></span>
-  <button class="btn primary" id="btn-sync" hidden title="Firebase에 제출된 학생 응답·코멘트 가져오기"><span class="ms" aria-hidden="true">cloud_download</span>제출 불러오기</button>
   <a class="btn ghost" href="https://heback.github.io/python-design-patterns/" target="_blank" rel="noopener" title="교재(GitHub Pages)를 새 창으로 열기"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
   <button class="btn ghost" id="btn-print" title="인쇄" aria-label="인쇄"><span class="ms" aria-hidden="true">print</span></button>
-  <button class="btn ghost danger" id="btn-clear"><span class="ms" aria-hidden="true">delete</span>불러온 데이터 지우기</button>
   <button class="btn ghost" id="btn-logout" hidden><span class="ms" aria-hidden="true">logout</span>로그아웃</button>
   <button class="btn ghost theme-toggle" title="밝게/어둡게" aria-label="밝게/어둡게"><span class="ms" aria-hidden="true">contrast</span></button>
 </header>
-<nav class="tabs" id="views" role="tablist"></nav>
 <main id="main"></main>
 </div>
 <script>window.PYRUN_ICONS = true;</script>

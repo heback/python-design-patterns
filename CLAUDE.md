@@ -18,13 +18,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 탐구학습 자료 (`inquiry/`)
 
-개념기반 탐구학습 5주 과정. `inquiry/content/week{1-5}.py`(문항·예시 정답·교사 메모)와 `templates/`를 `python3 inquiry/build.py`로 합쳐 `student.html`(정답 제거)과 `teacher.html`(가이드·제출 불러와 코멘트)을 만든다. 산출물 HTML은 직접 수정하지 말고 content/templates를 고친다. **학생 응답은 Firebase 제출로만 받는다. 학생 JSON 저장·불러오기·내보내기 기능은 없다**(쓴 내용은 그 브라우저의 localStorage에 자동 저장).
+개념기반 탐구학습 5주 과정. `inquiry/content/week{1-5}.py`(문항·예시 정답·교사 메모)와 `templates/`를 `python3 inquiry/build.py`로 합쳐 `student.html`(정답 제거)과 `teacher.html`(교사용 진도·퀴즈 화면)을 만든다. 산출물 HTML은 직접 수정하지 말고 content/templates를 고친다. **학생이 쓴 글은 서버로 받지 않는다.** JSON 저장·불러오기·내보내기도, 학생 [제출]·[코멘트 확인]도, 교사용 수업 가이드·예시 정답·응답 코멘트·제출 관리 화면도 없다(쓴 내용은 그 브라우저의 localStorage에만 저장). 서버로 가는 것은 진도와 퀴즈 응답뿐이다.
 
 탐구학습지를 점검·개선할 때는 `inquiry-review` 스킬(개념기반 탐구수업 8개 렌즈)을 따르고, 수정 후 `inquiry-reviewer` 에이전트로 독립 재점검한다. 학생 화면의 `optional`(선택, 진행률 제외)·`recall`(앞서 쓴 글 표시)·`compare`(이전 척도 응답 표시) 문항 필드는 `inquiry/templates/`가 처리한다. 코드 실행·편집은 `.claude/skills/html-textbook-publishing/assets/pyrun.js`(교재·학습지 공용, Pyodide)가 맡는다.
 
-### 피드백 생성기 (`firebase/`)
+### 진도·퀴즈 서버 (`firebase/`)
 
-`inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 필수다(없으면 `build.py`가 멈춘다). `build.py`가 `templates/fb.js`를 합쳐 학생 [제출]·교사 [제출 관리/AI 초안/공개]를 켠다. 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
+`inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 필수다(없으면 `build.py`가 멈춘다). `build.py`가 `templates/fb.js`를 합쳐 진도 전달·돌발 퀴즈와 교사 로그인을 켠다. 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
 
 **진도 자동 전달·돌발 퀴즈**: 교사가 `config/monitor`를 켠 동안 학생 화면(`inquiry/templates/monitor.js`)이 완료 문항 수·ID·활동 시간·마지막 활동 시각만 `progress/{id}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 [📊 진도·퀴즈] 탭이 실시간 표와 퀴즈 제어를 보여 준다. 퀴즈 문항 풀은 `inquiry/content/quiz.py`이고 채점은 `answerQuiz` 함수(서버)가 한다 — 학생 빌드에서는 정답·풀이가 `strip()`으로 빠지므로 퀴즈를 고칠 때 이 경계를 지킨다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
 
@@ -63,3 +63,4 @@ open textbook/00-intro.html
 | 2026-10-27 | Firebase 피드백 생성기 추가: 학생 제출, 교사 학교 계정 로그인 게이트, 제출 가능 설정, Gemini AI 초안→교사 검수→공개 | firebase/, inquiry/templates/fb.js, build.py | 교사의 수동 코멘트 부담 완화 |
 | 2026-11-03 | 진도 자동 전달(교사가 켠 동안, 학생 화면에 고지)·돌발 퀴즈(1문항 팝업, 서버 채점)·교사 진도 탭 추가. student.js의 `let SET` 선언을 boot 앞으로 옮겨 Firebase 모드에서 제출 버튼이 안 뜨던 오류 수정 | inquiry/templates/monitor.js·fb.js·teacher.js·student.js, inquiry/content/quiz.py, firebase/ | 수업 중 진도 파악 요청. 규칙·함수 테스트 추가 |
 | 2026-11-03 | 학생 JSON 파일 방식 전면 제거(학생 저장·불러오기, 교사 JSON 불러오기·코멘트 내보내기, 예시 JSON 생성). Firebase 설정 없이는 빌드하지 않음 | inquiry/templates, build.py, content/course.py | 학생 파일을 받지 않고 서버 제출만 사용 |
+| 2026-11-03 | 교사 수업 가이드·응답 코멘트·제출 관리 화면, 학생 [제출]·[코멘트 확인], course.py 제거. 서버 규칙·함수(제출·AI 초안)는 남겨 둠(미사용). 두 화면 제목을 '디자인 패턴 학습 관리'로, 학습활동 자료 디자인 시스템·Material Symbols 적용 | inquiry/templates, build.py | 학생 글은 서버로 받지 않고 진도·퀴즈만 관리 |

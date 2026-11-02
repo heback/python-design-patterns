@@ -3,7 +3,6 @@
 const LS_KEY = "dp-inquiry-student";
 let S = newState(), curWeek = 0, saveTimer = null;
 let lsFailed = false;   // 브라우저 저장소가 막혔는가(boot 보다 먼저 선언)
-let SET;   // 제출 설정: undefined=확인 중/불러오기 실패, null=설정 없음(닫힘), 객체=교사 설정. boot() 가 render()로 이를 읽으므로 boot 보다 먼저 선언해야 한다.
 
 (function boot() {
   const raw = lsGet(LS_KEY);
@@ -24,7 +23,7 @@ function bindTop() {
   [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); if (typeof Mon !== "undefined") Mon.refresh(); }));
   $("#btn-print").addEventListener("click", () => print());
   $("#btn-reset").addEventListener("click", () => {
-    if (!confirm("이 브라우저에 있는 작성 내용을 모두 지우고 처음부터 시작합니다. 제출하지 않은 내용은 복구할 수 없습니다. 계속할까요?")) return;
+    if (!confirm("이 브라우저에 있는 작성 내용을 모두 지우고 처음부터 시작합니다. 지운 내용은 복구할 수 없습니다. 계속할까요?")) return;
     S = newState(); persist(); render(); toast("초기화했습니다");
   });
 }
@@ -41,54 +40,15 @@ function persist() {
 function updateSaveState(lsOk) {
   if (lsOk === false) lsFailed = true; else if (lsOk === true) lsFailed = false;
   const e = $("#savestate");
-  if (lsFailed) { e.className = "savestate dirty"; e.replaceChildren(ico("warning"), "자동 저장이 막혀 있어요. 창을 닫으면 사라지니 제출하세요"); e.title = "브라우저가 저장소 사용을 막고 있습니다(사생활 보호 모드 등)."; }
+  if (lsFailed) { e.className = "savestate dirty"; e.replaceChildren(ico("warning"), "자동 저장이 막혀 있어요. 창을 닫으면 작성한 내용이 사라져요"); e.title = "브라우저가 저장소 사용을 막고 있습니다(사생활 보호 모드 등)."; }
   else if (!hasAnswers()) { e.className = "savestate"; e.textContent = "아직 작성한 내용이 없어요"; e.title = ""; }
-  else { e.className = "savestate clean"; e.replaceChildren(ico("check_circle", "fill"), "이 브라우저에 자동 저장됨 " + stamp(S.saved ? new Date(S.saved) : new Date())); e.title = "같은 기기·브라우저에서만 이어 쓸 수 있어요. 선생님께 전달하려면 [제출]을 누르세요."; }
+  else { e.className = "savestate clean"; e.replaceChildren(ico("check_circle", "fill"), "이 브라우저에 자동 저장됨 " + stamp(S.saved ? new Date(S.saved) : new Date())); e.title = "같은 기기·브라우저에서만 이어 쓸 수 있어요. 쓴 글은 선생님께 전달되지 않고 이 브라우저에만 남아요."; }
 }
 
-/* ---------- 제출(Firebase) ---------- */
+/* ---------- 진도 전달·돌발 퀴즈(Firebase) ---------- */
 function initFb() {
   if (typeof FB === "undefined") return;
-  ["#btn-submit", "#btn-getfb"].forEach(q => { $(q).hidden = false; });
-  $("#btn-submit").addEventListener("click", submitCurrent);
-  $("#btn-getfb").addEventListener("click", getFeedback);
-  FB.watchSettings(s => { SET = s; updateSubmitUi(); }).catch(() => { SET = undefined; updateSubmitUi(); });
   if (typeof Mon !== "undefined") Mon.init();
-}
-function weekStatus(n) {
-  if (SET === undefined) return { ok: false, msg: "제출 설정을 확인하는 중이에요(인터넷 연결 확인). 파일 저장은 언제든 할 수 있어요." };
-  if (!SET || !SET.open || !(SET.weeks || {})[n]) return { ok: false, msg: `${n}주차는 지금 제출할 수 없어요. 선생님이 열어 주면 제출할 수 있어요. 쓴 내용은 이 브라우저에 자동 저장돼요.` };
-  const now = Date.now(), t = x => x && x.toMillis ? x.toMillis() : null;
-  if (t(SET.opensAt) && now < t(SET.opensAt)) return { ok: false, msg: `${n}주차 제출은 ${stamp(new Date(t(SET.opensAt)))}부터예요.` };
-  if (t(SET.closesAt) && now >= t(SET.closesAt)) return { ok: false, msg: `${n}주차 제출이 ${stamp(new Date(t(SET.closesAt)))}에 마감됐어요.` };
-  return { ok: true, msg: `${n}주차 제출이 열려 있어요` + (t(SET.closesAt) ? ` · 마감 ${stamp(new Date(t(SET.closesAt)))}` : "") + ". 마감 전에는 다시 제출해 덮어쓸 수 있어요." };
-}
-function updateSubmitUi() {
-  if (typeof FB === "undefined") return;
-  const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
-  $("#btn-submit").disabled = !st.ok; $("#btn-submit").title = st.msg;
-  $("#f-code").hidden = !(SET && SET.hasCode);
-  const note = $("#submit-note"); if (note) { note.textContent = st.msg; note.style.opacity = st.ok ? "1" : ".8"; }
-}
-const fbMsg = e => /permission|denied/i.test(e.code + e.message) ? "제출할 수 없어요. 열린 주차인지, 제출 코드가 맞는지, 같은 학번·성명으로 다른 기기에서 이미 제출하지 않았는지 확인하세요." : "오류: " + FB.fbErr(e);
-async function submitCurrent() {
-  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
-  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
-  const n = CONTENT.weeks[curWeek].n, st = weekStatus(n);
-  if (!st.ok) { toast(st.msg); return; }
-  if (SET.hasCode && !$("#f-code").value.trim()) { toast("선생님이 알려 준 제출 코드를 입력해 주세요"); $("#f-code").focus(); return; }
-  if (!confirm(`${n}주차 응답을 선생님께 제출할까요? 마감 전에는 다시 제출할 수 있어요.`)) return;
-  try { const c = await FB.submitWeek(S, n, $("#f-code").value.trim()); toast(`${n}주차 제출 완료 (응답 ${c}개)`); }
-  catch (e) { alert(fbMsg(e)); }
-}
-async function getFeedback() {
-  if (!S.student.number.trim()) { toast("먼저 학번을 입력해 주세요"); $("#f-num").focus(); return; }
-  if (!S.student.name.trim()) { toast("먼저 성명을 입력해 주세요"); $("#f-name").focus(); return; }
-  try {
-    const fb = await FB.fetchPublished(S.student);
-    if (!Object.keys(fb).length) { toast("아직 공개된 코멘트가 없어요"); return; }
-    S.feedback = Object.assign({}, S.feedback, fb); persist(); render(); toast("선생님 코멘트를 가져왔어요");
-  } catch (e) { alert(/permission|denied/i.test(e.code + e.message) ? "이 브라우저에서 제출한 기록이 없어요. 제출한 같은 기기·브라우저에서 눌러 주세요." : "오류: " + FB.fbErr(e)); }
 }
 
 /* ---------- 화면 ---------- */
@@ -116,10 +76,6 @@ function refreshProgress() {
 
 function renderWeek() {
   const w = CONTENT.weeks[curWeek], main = $("#week"); main.replaceChildren();
-  const hasFb = Object.values(S.feedback || {}).some(f => f && (f.comment || f.mark));
-  if (typeof FB !== "undefined") main.append(el("div", { class: "banner", id: "submit-note" }));
-  if (hasFb) main.append(el("div", { class: "banner" }, el("b", {}, "선생님 코멘트가 도착했어요. "), "각 문항 아래 보라색 상자와 주차 마지막의 총평을 읽어 보고, 고쳐 쓴 뒤 다시 저장해서 제출하세요."));
-  const fbWeek = (S.feedback || {})["week-" + w.n];
   main.append(el("section", { class: "hero" },
     el("div", { class: "kicker" }, `${w.n}주차 / ${CONTENT.weeks.length}주`),
     el("h2", {}, `${w.title}`),
@@ -140,13 +96,8 @@ function renderWeek() {
     st.items.forEach(it => sec.append(renderItem(it, ANSWERABLE(it) ? ++no : 0)));
     main.append(sec);
   });
-  if (fbWeek && fbWeek.comment) main.append(el("div", { class: "fb" }, el("b", {}, `${w.n}주차 총평`), el("div", { class: "val" }, fbWeek.comment)));
-  const ov = (S.feedback || {})._overall;
-  if (curWeek === CONTENT.weeks.length - 1 && ov && ov.comment) main.append(el("div", { class: "fb" }, el("b", {}, "선생님 종합 코멘트"), el("div", { class: "val" }, ov.comment)));
   main.append(el("div", { class: "no-print", style: "margin-top:24px;display:flex;gap:8px;flex-wrap:wrap" },
-    typeof FB !== "undefined" && el("button", { class: "btn primary", onclick: submitCurrent }, ico("send"), "이번 주차 제출"),
     curWeek < CONTENT.weeks.length - 1 && el("button", { class: "btn", onclick: () => { curWeek++; lsSet(LS_KEY + "-week", curWeek); renderTabs(); renderWeek(); scrollTo(0, 0); } }, "다음 주차 →")));
-  updateSubmitUi();
 }
 
 function renderItem(it, no) {
@@ -164,8 +115,6 @@ function renderItem(it, no) {
     refreshProgress();
     if (typeof Mon !== "undefined") Mon.note(it.id);
   }));
-  const fb = (S.feedback || {})[it.id];
-  if (fb && (fb.comment || fb.mark)) card.append(el("div", { class: "fb" }, el("b", {}, "선생님 코멘트 "), fb.mark && MARKS[fb.mark] ? el("span", { class: "mk" }, MARKS[fb.mark][0] + " " + MARKS[fb.mark][1]) : null, fb.comment ? el("div", { class: "val" }, fb.comment) : null));
   return card;
 }
 
