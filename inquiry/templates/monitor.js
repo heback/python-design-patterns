@@ -11,6 +11,13 @@ const Mon = (() => {
   let activeMs = 0, doneStages = null, started = false, idKey = "", idSince = 0;
   const lastByWeek = {};
   const K_AMS = () => LS_KEY + "-activeMs";
+  const loggedIn = () => !!StudentAuth.get();
+  /* 로그인 안내: 로그인 전에는 버튼, 후에는 계정과 로그아웃(공용 컴퓨터용) */
+  function accountBits() {
+    const u = StudentAuth.get(), msg = el("span", { class: "monmsg" });
+    if (!u) return [msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인")];
+    return [el("span", { class: "monacct" }, u.email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃")];
+  }
   const hasId = () => !!(S.student.number || "").trim() && !!(S.student.name || "").trim();
   const ID_SETTLE_MS = 4000;     // 학번·성명을 한 글자씩 치는 중간 값으로 진도 문서가 여러 개 생기지 않도록, 입력이 멈춘 뒤에 보낸다
   const wkOf = id => { const m = /^w(\d+)-/.exec(id); return m ? Number(m[1]) : 0; };
@@ -20,13 +27,14 @@ const Mon = (() => {
     const b = $("#monbar"); if (!b) return;
     const show = typeof FB !== "undefined" && monOn; b.hidden = !show; if (!show) return;
     b.className = "monbar" + (barState === "err" ? " err" : "");
-    const st = !hasId() ? " 학번과 성명을 입력하면 시작돼요."
+    const st = !loggedIn() ? ""
+      : !hasId() ? " 위쪽에 학번과 성명을 입력하면 시작돼요."
       : barState === "err" ? "지금은 전달하지 못했어요(인터넷 연결이나 학번·성명을 확인해 주세요. 공부에는 영향이 없어요)."
       : lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
-    const stIco = barState === "err" ? ico("warning") : lastSentAt && hasId() ? ico("check_circle", "fill") : null;
+    const stIco = barState === "err" ? ico("warning") : lastSentAt && hasId() && loggedIn() ? ico("check_circle", "fill") : null;
     b.replaceChildren(ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
       "어느 문항을 마쳤는지·지금 어느 문항을 하고 있는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)이 학번·성명과 함께 전달되고, 돌발 퀴즈에서 고른 답도 기록돼요. "
-      + "쓴 글의 내용과 키 입력, 화면은 보내지 않아요.", el("span", { class: "monst" }, stIco, st));
+      + "쓴 글의 내용과 키 입력, 화면은 보내지 않아요. ", ...accountBits(), el("span", { class: "monst" }, stIco, st));
   }
 
   /* ---------- 진도 ---------- */
@@ -40,7 +48,7 @@ const Mon = (() => {
     return weeks;
   }
   async function send(force) {
-    if (!monOn || !hasId() || typeof FB === "undefined" || sending || Date.now() - idSince < ID_SETTLE_MS) return;
+    if (!monOn || !loggedIn() || !hasId() || typeof FB === "undefined" || sending || Date.now() - idSince < ID_SETTLE_MS) return;
     const weeks = snapshot(), sig = JSON.stringify(weeks) + "|" + S.student.number + "|" + S.student.name, now = Date.now();
     if (!force && now - lastSentAt < MIN_GAP_MS) return;
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
@@ -62,7 +70,7 @@ const Mon = (() => {
   }
 
   /* ---------- 돌발 퀴즈: 팝업·채점은 QuizUI(quiz-ui.js), 여기서는 언제 물을지만 정한다 ---------- */
-  const canAsk = () => monOn && ready && hasId() && typeof FB !== "undefined";
+  const canAsk = () => monOn && ready && loggedIn() && hasId() && typeof FB !== "undefined";
   const slugsOf = w => (w.patterns || []).map(p => (/\/textbook\/([\w-]+)\.html/.exec(p.href) || [])[1]).filter(Boolean);
   const groupOf = slug => ((CONTENT.chapters || []).find(c => c.slug === slug) || {}).group;
 
@@ -91,6 +99,8 @@ const Mon = (() => {
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
     FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) { rebase(); send(true); } updateBar(); }).catch(() => {});
     QuizUI.init({ groups: CONTENT.quizzes || [], getStudent: () => S.student, allowed: canAsk });
+    StudentAuth.onChange(() => { ready = false; lastSig = ""; updateBar(); send(true); });
+    StudentAuth.init();
   }
   /* 문항을 만질 때마다(student.js renderItem) */
   function note(id) {

@@ -31,6 +31,11 @@ CHAPTERS_DIR = ROOT.parent / "chapters"
 TEXTBOOK_DIR = ROOT.parent / "textbook"
 
 
+def _unwrap(t):
+    """머리말 값 전체가 같은 따옴표로 감싸여 있을 때만 그 따옴표를 벗긴다('…'는 부제의 일부일 수 있다)."""
+    return t[1:-1] if len(t) > 1 and t[0] == t[-1] and t[0] in "'\"" else t
+
+
 def load_chapters():
     """교재 원고(chapters/*.html)의 머리말(title·part)을 읽어 장 목록을 만든다. 서론·종합은 part 가 비어 있다."""
     out = []
@@ -38,7 +43,8 @@ def load_chapters():
         head = f.read_text(encoding="utf-8").split("-->", 1)[0]
         meta = dict(re.findall(r"^(\w+):[ \t]*(.*)$", head, re.M))
         title = re.sub(r"\s*\(.*?\)\s*$", "", meta.get("title", f.stem)).split(":")[0].strip()    # 영문 병기와 ': 부제' 를 뗀다
-        out.append({"slug": f.stem, "title": title, "part": meta.get("part", "").strip(), "group": PART_KEY.get(meta.get("part", "").strip(), "intro")})
+        out.append({"slug": f.stem, "title": title, "full": meta.get("title", f.stem), "subtitle": _unwrap(meta.get("subtitle", "").strip()),
+                    "part": meta.get("part", "").strip(), "group": PART_KEY.get(meta.get("part", "").strip(), "intro")})
     return out
 
 
@@ -169,6 +175,34 @@ GF_ICONS = ('<link rel="preconnect" href="https://fonts.googleapis.com"><link re
             '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block">')
 
 
+def render_textbook_index():
+    """호스팅 교재 사본의 목차 페이지(전체 장을 분류별로). GitHub Pages 표지(docs/index.html)가 없는 사본의 첫 화면이다."""
+    import html as H
+    course = "객체지향프로그래밍.대구과학고등학교.2학기"
+    groups = [("intro", "시작과 정리"), ("create", "생성 패턴"), ("struct", "구조 패턴"), ("behave", "행위 패턴")]
+    secs = []
+    for key, name in groups:
+        items = "".join(
+            f'<li><a href="{c["slug"]}.html"><b>{H.escape(c["full"])}</b>'
+            + (f'<small>{H.escape(c["subtitle"])}</small>' if c["subtitle"] else "") + "</a></li>"
+            for c in CHAPTERS if c["group"] == key)
+        if items:
+            secs.append(f'<section><h2>{name}</h2><ul class="toc-list">{items}</ul></section>')
+    return f"""<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>목차 — 파이썬 디자인 패턴 · {course}</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>.toc-list{{list-style:none;margin:0;padding:0}}.toc-list li{{border-bottom:1px dashed var(--border)}}.toc-list a{{display:block;padding:10px 4px;text-decoration:none;color:var(--text)}}
+.toc-list a:hover b{{color:var(--accent)}}.toc-list small{{display:block;color:var(--muted);font-size:.85em;line-height:1.5}}.toc-groups{{columns:2 320px;column-gap:40px}}.toc-groups section{{break-inside:avoid;margin-bottom:24px}}.toc-groups h2{{font-size:1.1em;margin:0 0 6px}}
+.start{{display:inline-block;margin:6px 0 22px;padding:8px 18px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:700}}</style>
+<script>try{{var t=localStorage.getItem("dp-theme");if(t)document.documentElement.dataset.theme=t;}}catch(e){{}}</script></head>
+<body class="index"><header class="topbar"><a class="brand" href="index.html">파이썬 디자인 패턴</a><span class="course">{course}</span><span class="crumb">목차</span>
+<a class="glossary-link" href="glossary.html">용어집</a></header>
+<div class="layout"><main class="content"><header class="cover"><h1>파이썬으로 배우는 디자인 패턴</h1><p class="subtitle">객체지향 원리를 이미 아는 학생을 위한 교재입니다. 서론 → 생성 → 구조 → 행위 → 종합 순서로 읽습니다.</p></header>
+<a class="start" href="00-intro.html">서론부터 읽기</a><div class="toc-groups">{"".join(secs)}</div></main></div></body></html>
+"""
+
+
 def inject_textbook_monitor(dest):
     """Firebase 호스팅에 올리는 교재 사본(각 장 페이지)에만 진도·퀴즈 모니터를 넣는다. GitHub Pages 의 docs/textbook 은 건드리지 않는다.
     학번·성명은 학습지와 같은 저장소를 쓰므로 학습지와 같은 주소(origin)의 사본이어야 한다."""
@@ -181,10 +215,16 @@ def inject_textbook_monitor(dest):
             "<script>" + (t / "quiz-ui.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
-    for f in sorted(dest.glob("[0-9][0-9]-*.html")):
+    (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")
+    for f in sorted(dest.glob("[0-9][0-9]-*.html")) + [dest / "glossary.html"]:
         h = f.read_text(encoding="utf-8")
+        if f.name == "glossary.html":
+            f.write_text(h.replace("https://heback.github.io/python-design-patterns/", "index.html"), encoding="utf-8")
+            continue
         if "</body>" not in h or "TB_DATA" in h:
             continue
+        # 이 사본에서는 '파이썬 디자인 패턴' 로고가 GitHub Pages 표지가 아니라 이 사본의 목차로 간다(진도가 집계되는 곳에 머물도록)
+        h = h.replace("https://heback.github.io/python-design-patterns/", "index.html")
         h = h.replace("</head>", GF_ICONS + "</head>", 1).replace("</body>", tail + "</body>", 1)
         f.write_text(h, encoding="utf-8"); n += 1
     return n

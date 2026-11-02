@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `src/` 예제는 표준 라이브러리만 쓰고, 파일 간 import 없이 단독 실행된다.
 - **코드 폰트 합자는 항상 꺼 둔다.** JetBrains Mono의 합자가 `->`를 `→`로, `!=`를 `≠`로 그려 소스와 화면이 달라진다. `style.css`·`pyrun.css`·`inquiry/templates/style.css`의 `font-variant-ligatures: none !important` 규칙을 지우지 말고, 코드를 보여 주는 CSS를 새로 만들 때도 이 규칙이 적용되는지 확인한다. 소스의 `->`·비교 연산자는 ASCII 그대로 둔다(문자를 `→`·`≠`로 바꾸지 않는다). 이 규칙은 이미 반영되어 있으므로 코드 예제를 보여 줄 때마다 따로 언급하지 않는다.
 - **학생에게 코드 저장소를 드러내지 않는다.** 학생은 `src/`나 파일 이름을 모른다. 코드는 화면의 코드 블록(▶ 실행)으로만 본다. 원고·코드 주석·SVG·캡션에 `01_naive.py`, `src/…`, "저장소에 있다", "파일 앞부분" 같은 말을 쓰지 않고 역할 이름(순진한 코드·패턴 코드·파이썬다운 변형 등)만 쓴다. 세부 규칙은 `pattern-chapter-writing` 스킬.
-- **GitHub Pages는 `docs/`의 사본을 서비스한다.** `textbook/`만 고치면 배포 화면은 그대로다. 교재를 재빌드한 뒤 배포하려면 `rsync -a --delete textbook/ docs/textbook/`로 동기화한다(`docs/textbook/`은 `textbook/`의 순수 복사본이다). `docs/index.html`(표지, `https://heback.github.io/python-design-patterns/`)이 교재의 첫 화면이며 별도 파일이라 빌드가 건드리지 않는다. `textbook/index.html`(목차)은 만들지 않고 쓰지 않는다. 교재의 상단 바 링크는 위 주소로 간다. 탐구 학습지(`inquiry/`)는 배포하지 않는다.
+- **GitHub Pages는 `docs/`의 사본을 서비스한다.** `textbook/`만 고치면 배포 화면은 그대로다. 교재를 재빌드한 뒤 배포하려면 `rsync -a --delete textbook/ docs/textbook/`로 동기화한다(`docs/textbook/`은 `textbook/`의 순수 복사본이다). `docs/index.html`(표지, `https://heback.github.io/python-design-patterns/`)이 교재의 첫 화면이며 별도 파일이라 빌드가 건드리지 않는다. `textbook/index.html`(목차)은 만들지 않고 쓰지 않는다(Firebase 호스팅용 교재 사본에만 `build.py`가 `index.html` 목차를 만들어 넣는다). 교재의 상단 바 링크는 위 주소로 간다. 탐구 학습지(`inquiry/`)는 배포하지 않는다.
 
 ## 탐구학습 자료 (`inquiry/`)
 
@@ -66,3 +66,4 @@ open textbook/00-intro.html
 | 2026-11-03 | 교사 수업 가이드·응답 코멘트·제출 관리 화면, 학생 [제출]·[코멘트 확인], course.py 제거. 서버 규칙·함수(제출·AI 초안)는 남겨 둠(미사용). 두 화면 제목을 '디자인 패턴 학습 관리'로, 학습활동 자료 디자인 시스템·Material Symbols 적용 | inquiry/templates, build.py | 학생 글은 서버로 받지 않고 진도·퀴즈만 관리 |
 | 2026-11-03 | 교재가 주차가 아니라 생성·구조·행위 분류라는 점을 반영: 퀴즈를 교재 분류별(문항마다 교재 장)로 재구성·4문항 추가(19문항), 교재 사본에 읽기 진도·퀴즈 모니터 주입(textbook-monitor.js), 교사 진도 표를 교재 장별로, 퀴즈 팝업을 quiz-ui.js로 공용화, 규칙에 chapters·where 추가 | inquiry/content/quiz.py, inquiry/templates, build.py, firebase/ | 교재 구조에 맞춘 진도·퀴즈 관리 |
 | 2026-11-03 | 학생 교재 상단 바·탭 제목·표지에 과목명 '객체지향프로그래밍.대구과학고등학교.2학기' 표시(build_textbook.py의 COURSE_LABEL) | scripts/build_textbook.py, assets/base.html·style.css, docs/index.html | 과목 구분 표시 |
+| 2026-11-03 | 학생도 학교 Google 계정(@ts.hs.kr)으로 로그인(익명 로그인 폐지). 교사 판정을 config/teachers 허용 목록 필수(없으면 닫힘)로 변경 — 학생과 같은 도메인이므로. 학번·성명은 학생이 직접 입력 | firebase/firestore.rules·functions, inquiry/templates(quiz-ui.js의 StudentAuth, fb.js, monitor.js, textbook-monitor.js) | 익명 로그인 설정 오류(auth/admin-restricted-operation)와 기기·이름 도용 방지 |

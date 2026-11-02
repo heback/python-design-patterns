@@ -18,7 +18,7 @@
   <input class="id" id="f-name" placeholder="성명" aria-label="성명">
   <span class="grow"></span>
   <span class="savestate" id="savestate"></span>
-  <a class="btn ghost" href="../textbook/00-intro.html" target="_blank" rel="noopener" title="교재를 새 창으로 열기(같은 학번·성명으로 읽은 진도가 기록돼요)"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
+  <a class="btn ghost" href="../textbook/index.html" target="_blank" rel="noopener" title="교재를 새 창으로 열기(같은 학번·성명으로 읽은 진도가 기록돼요)"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
   <button class="btn ghost" id="btn-print" title="인쇄" aria-label="인쇄"><span class="ms" aria-hidden="true">print</span></button>
   <button class="btn ghost danger" id="btn-reset"><span class="ms" aria-hidden="true">restart_alt</span>초기화</button>
   <button class="btn ghost theme-toggle" title="밝게/어둡게" aria-label="밝게/어둡게"><span class="ms" aria-hidden="true">contrast</span></button>

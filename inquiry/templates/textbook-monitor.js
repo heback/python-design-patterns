@@ -3,6 +3,7 @@
    교사가 [진도 수집]을 켜 두었고 학번·성명이 있을 때만 보내며, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
    전달하는 것: 학번·성명, 이 장에서 읽은 절 수·마지막 절, 활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각.
    퀴즈를 풀면 고른 답과 시도 횟수가 서버에 기록된다. 이 목록과 고지 줄(updateBar)의 문구는 항상 같게 유지한다.
+   보내려면 학교 Google 계정으로 로그인해야 한다(StudentAuth, quiz-ui.js). 서버 규칙이 도메인과 uid 를 다시 확인한다.
    전달하지 않는 것: 키 입력, 화면, 탭 전환.
    학번·성명은 학습지와 같은 브라우저 저장소(dp-inquiry-student)에서 읽는다. 학습지와 같은 주소(origin)의 교재 사본에서만 공유된다.
    필요한 전역: core.js(el, ico, $, $$, lsGet, lsSet, stamp), fb.js(FB), quiz-ui.js(QuizUI), 빌드가 넣는 TB_DATA = {chapters, quizzes}. */
@@ -20,6 +21,7 @@
   const readStu = () => { try { return JSON.parse(lsGet(KEY_STU) || "{}"); } catch (e) { return {}; } };
   const student = () => Object.assign({ klass: "", number: "", name: "" }, readStu().student);
   const hasId = () => !!(student().number || "").trim() && !!(student().name || "").trim();
+  const loggedIn = () => !!StudentAuth.get();
   function saveId(number, name) {
     const d = readStu(); d.app = d.app || "dp-inquiry"; d.schema = d.schema || 1; d.answers = d.answers || {}; d.feedback = d.feedback || {};
     d.student = Object.assign({ klass: "", number: "", name: "" }, d.student, { number: number.trim(), name: name.trim() });
@@ -56,14 +58,20 @@
     const b = ensureBar(), show = monOn; b.hidden = !show; if (!show) return;
     b.className = "monbar" + (barState === "err" ? " err" : "");
     const st = barState === "err" ? "지금은 전달하지 못했어요(인터넷 연결이나 학번·성명을 확인해 주세요. 공부에는 영향이 없어요)."
-      : hasId() && lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
-    const stIco = barState === "err" ? ico("warning") : hasId() && lastSentAt ? ico("check_circle", "fill") : null;
+      : loggedIn() && hasId() && lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
+    const stIco = barState === "err" ? ico("warning") : loggedIn() && hasId() && lastSentAt ? ico("check_circle", "fill") : null;
     const kids = [ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
       "어느 장의 어느 절까지 읽었는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)이 학번·성명과 함께 전달되고, 돌발 퀴즈에서 고른 답도 기록돼요. 키 입력 내용이나 화면은 보내지 않아요. "];
-    if (!hasId()) {
+    if (!loggedIn()) {
+      const msg = el("span", { class: "monmsg" });
+      kids.push(msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인"));
+    } else {
+      kids.push(el("span", { class: "monacct" }, StudentAuth.get().email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃"), " ");
+    }
+    if (loggedIn() && !hasId()) {
       const n = el("input", { type: "text", placeholder: "학번", "aria-label": "학번", inputmode: "numeric" }), m = el("input", { type: "text", placeholder: "성명", "aria-label": "성명" });
       const ok = el("button", { class: "qbtn", type: "button", onclick: () => { if (!n.value.trim() || !m.value.trim()) return; saveId(n.value, m.value); lastSig = ""; updateBar(); send(true); } }, "시작");
-      kids.push("학번과 성명을 입력하면 시작돼요.", el("span", { class: "monid" }, n, m, ok));
+      kids.push("학번과 성명을 입력하면 시작돼요. ", el("span", { class: "monid" }, n, m, ok));
     }
     kids.push(el("span", { class: "monst" }, stIco, st));
     b.replaceChildren(...kids);
@@ -72,7 +80,7 @@
   /* ---------- 전송 ---------- */
   const snapshot = () => ({ [SLUG]: { n: read.size, total, last: lastSec } });
   async function send(force) {
-    if (!monOn || !hasId() || sending) return;
+    if (!monOn || !loggedIn() || !hasId() || sending) return;
     const chapters = snapshot(), sig = JSON.stringify(chapters) + "|" + student().number + "|" + student().name, now = Date.now();
     if (!force && now - lastSentAt < MIN_GAP_MS) return;
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
@@ -109,5 +117,7 @@
   addEventListener("pagehide", () => send(true));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
   FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
-  QuizUI.init({ groups: TB_DATA.quizzes || [], getStudent: student, allowed: () => monOn && ready && hasId() });
+  QuizUI.init({ groups: TB_DATA.quizzes || [], getStudent: student, allowed: () => monOn && ready && loggedIn() && hasId() });
+  StudentAuth.onChange(() => { ready = false; lastSig = ""; updateBar(); send(true); });
+  StudentAuth.init();
 })();

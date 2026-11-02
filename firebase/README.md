@@ -8,18 +8,19 @@
 
 ## 1회 설정 (사용자 작업)
 1. Firebase 콘솔에서 프로젝트 생성 → 웹 앱 등록 → 설정값을 `inquiry/firebase-config.example.js`를 복사한 `inquiry/firebase-config.js`에 입력
-2. Authentication: **익명**과 **Google** 로그인 사용. 설정 > 승인된 도메인에 호스팅 도메인 확인
+2. Authentication: **Google** 로그인 사용(학생·교사 모두 학교 Google 계정으로 로그인한다. 익명 로그인은 쓰지 않는다). 설정 > 승인된 도메인에 호스팅 도메인 확인
 3. Firestore 생성(`asia-northeast3`), 요금제 **Blaze**로 전환(Functions·Secret Manager 필요)
 4. `cp firebase/.firebaserc.example firebase/.firebaserc` 후 프로젝트 ID 기입
 5. `python3 inquiry/build.py` (정답이 든 `functions/teacher-content.json`, 로그인 게이트 교사 화면 `public/index.html` 생성)
 6. `cd firebase && (cd functions && npm install) && firebase functions:secrets:set GEMINI_API_KEY`
 7. `firebase deploy --only firestore:rules,functions,hosting`
-8. (권장) Firestore에 `config/teachers` 문서 `{emails: ["본인@ts.hs.kr", ...]}` 생성 — 없으면 같은 도메인의 모든 계정(학생 포함)이 교사 권한을 갖는다.
+8. **(필수) 교사 허용 목록**: Firestore 콘솔에서 컬렉션 `config`, 문서 ID `teachers`, 필드 `emails`(배열)에 교사 이메일(`본인@ts.hs.kr` …)을 넣는다. 학생도 같은 도메인의 학교 계정이므로, 목록이 없거나 비어 있으면 **아무도 교사가 아니다**(규칙·함수 모두 닫힘). 규칙으로는 이 문서를 만들 수 없고(교사만 쓸 수 있으므로) 콘솔에서만 만든다. **배포하기 전에** 먼저 만들어 두지 않으면 교사 화면에 들어갈 수 없다.
 9. 학생용 `inquiry/student.html`은 기존처럼 배포(`python3 inquiry/publish.py`)
 
 ## 진도 자동 전달 · 돌발 퀴즈
 교사 화면(한 화면: 진도 수집·학생 진도 표·돌발 퀴즈)에서 쓴다. 규칙·함수를 바꿨으므로 배포는 `firebase deploy --only firestore:rules,functions,hosting`(먼저 `python3 inquiry/build.py`로 `teacher-content.json`과 호스팅 파일을 새로 만든다. 퀴즈 정답이 `teacher-content.json`에 들어 있다).
 
+- **로그인**: 학생은 학습지·교재 화면 위쪽 안내 줄에서 [로그인]을 눌러 학교 Google 계정(@ts.hs.kr)으로 로그인한다. 학습지와 교재 사본이 같은 주소라 한 번 로그인하면 둘 다 쓰고, 기기를 바꿔도 같은 계정으로 같은 진도 문서(uid)를 잇는다. 학번·성명은 로그인과 별개로 학생이 직접 입력한다(교사 표에 나오는 이름은 입력값이다). 서버 규칙은 학교 Google 계정(확인된 이메일)만 진도를 쓰게 하고, `answerQuiz`도 같은 조건이다.
 - **진도 수집**: 교사가 [수집 시작](`config/monitor.on`)을 켜 둔 동안, 학번·성명을 입력한 학생의 화면이 `progress/{학급_학번_성명}`에 아래를 보낸다. **쓴 글의 내용은 보내지 않고**(`hasOnly` 규칙으로 강제, 학습지 글은 학생 브라우저에만 남는다) 키 입력·화면·탭 전환도 수집하지 않는다. 켜져 있는 동안 학습지와 교재 화면 위쪽에 고지 줄이 항상 보이고, 학생이 끄는 스위치는 없다. 전달 항목은 `monitor.js`·`textbook-monitor.js`의 `updateBar`와 이 목록을 같게 유지한다.
   - **교재 읽기 진도**(`chapters`): 장별로 읽은 절 수·전체 절 수·마지막 절. 절이 화면 가운데 40% 띠에 2초 이상 머물면(화면이 보이고 최근 60초 안에 입력·스크롤이 있을 때) 읽은 것으로 센다.
   - **학습지 진도**(`weeks`): 주차별 완료 문항 수·ID·마지막 문항.

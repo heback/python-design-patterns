@@ -17,10 +17,15 @@ const FB = (() => {
   }
 
   /* ---------- 공통 ---------- */
-  async function anon() {
+  /* 지금 로그인한 학교 Google 계정(없으면 null). 학생·교사 모두 같은 로그인을 쓴다. */
+  async function currentUser() {
     const m = await load(); await m.au.authStateReady();
-    if (!m.au.currentUser) await m.auth.signInAnonymously(m.au);
-    return m.au.currentUser;
+    const u = m.au.currentUser; return u && !u.isAnonymous ? u : null;
+  }
+  async function schoolUser() {
+    const u = await currentUser();
+    if (!u) { const e = new Error("학교 Google 계정으로 로그인해야 합니다."); e.code = "auth/login-required"; throw e; }
+    return u;
   }
   const call = async (name, data) => { const m = await load(); return (await m.fn.httpsCallable(m.fx, name)(data)).data; };
   const fbErr = e => (e && (e.message || e.code)) || String(e);
@@ -36,7 +41,7 @@ const FB = (() => {
   /* 진도 한 번 전송. p = {weeks?, chapters?, where?, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다.
      학습지는 weeks 를, 교재 페이지는 chapters 를 보낸다. merge 로 쓰므로 서로의 필드를 덮어쓰지 않는다. */
   async function reportProgress(student, p) {
-    const user = await anon(), m = await load(), { doc, setDoc, serverTimestamp, Timestamp } = m.fs;
+    const user = await schoolUser(), m = await load(), { doc, setDoc, serverTimestamp, Timestamp } = m.fs;
     const d = { student: { klass: student.klass || "", number: student.number || "", name: student.name },
       uid: user.uid, activeMs: Math.round(p.activeMs), lastActiveAt: Timestamp.fromMillis(p.lastActiveAt), updatedAt: serverTimestamp() };
     if (p.weeks) d.weeks = p.weeks;
@@ -92,7 +97,7 @@ const FB = (() => {
   async function signOut() { const m = await load(); return m.auth.signOut(m.au); }
   const teacherContent = () => call("getTeacherContent", {});
 
-  return { sid, domain: DOMAIN, fbErr,
+  return { sid, domain: DOMAIN, fbErr, currentUser,
            watchMonitor, watchQuiz, reportProgress, answerQuiz,
            watchProgress, watchQuizAnswers, saveMonitor, saveQuizCfg, loadQuizCfg, resetQuizAnswers, clearProgress,
            signIn, onAuth, signOut, teacherContent };

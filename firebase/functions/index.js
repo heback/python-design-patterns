@@ -12,15 +12,20 @@ admin.initializeApp();
 const db = admin.firestore();
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
-/** 학교 Google 계정 + (있으면) 허용 목록. firestore.rules의 isTeacher()와 같은 조건. */
-async function assertTeacher(auth) {
+/** 학교 Google 계정인가(학생·교사 공통). firestore.rules의 isSchoolAccount()와 같은 조건. */
+function isSchoolAccount(auth) {
   const t = auth && auth.token;
-  const ok = t && t.email && t.email_verified === true && t.firebase && t.firebase.sign_in_provider === "google.com"
-    && t.email.toLowerCase().endsWith("@" + TEACHER_DOMAIN);
-  if (!ok) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
+  return !!(t && t.email && t.email_verified === true && t.firebase && t.firebase.sign_in_provider === "google.com"
+    && t.email.toLowerCase().endsWith("@" + TEACHER_DOMAIN));
+}
+
+/** 교사 = 학교 계정 + config/teachers 허용 목록. 학생도 같은 도메인이므로 목록이 없거나 비어 있으면 아무도 교사가 아니다(닫힘). */
+async function assertTeacher(auth) {
+  if (!isSchoolAccount(auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
   const snap = await db.doc("config/teachers").get();
   const emails = snap.exists ? (snap.data().emails || []) : [];
-  if (emails.length && !emails.includes(t.email)) throw new HttpsError("permission-denied", "교사 허용 목록에 없는 계정입니다.");
+  if (!emails.length) throw new HttpsError("failed-precondition", "교사 허용 목록(config/teachers)이 비어 있습니다. Firebase 콘솔에서 교사 이메일을 등록하세요.");
+  if (!emails.includes(auth.token.email)) throw new HttpsError("permission-denied", "교사 허용 목록에 없는 계정입니다.");
 }
 
 function loadContent() {
@@ -109,9 +114,10 @@ exports.generateFeedback = onCall({ region: REGION, secrets: [GEMINI_API_KEY], m
   return { drafts };
 });
 
-/** 돌발 퀴즈 채점. 학생(익명 로그인)이 부르고, 정답은 서버에만 있다. 응답 문서는 이 함수(관리자 권한)만 쓴다. */
+/** 돌발 퀴즈 채점. 학생(학교 Google 계정 로그인)이 부르고, 정답은 서버에만 있다. 응답 문서는 이 함수(관리자 권한)만 쓴다. */
 exports.answerQuiz = onCall({ region: REGION, maxInstances: 10 }, async req => {
   if (!req.auth) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
   const { quizId, sid, choice } = req.data || {};
   if (typeof sid !== "string" || !sid || sid.length > 120 || sid.includes("/")) throw new HttpsError("invalid-argument", "학생 정보가 올바르지 않습니다.");
   const found = findQuiz(loadContent(), quizId);
@@ -132,4 +138,4 @@ exports.answerQuiz = onCall({ region: REGION, maxInstances: 10 }, async req => {
   });
 });
 
-exports._test = { sanitize };
+exports._test = { sanitize, isSchoolAccount };
