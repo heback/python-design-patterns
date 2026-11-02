@@ -2,6 +2,7 @@
 /* 학생용 앱. CONTENT(문항)는 빌드 때 주입된다. 정답·교사 메모는 학생용 빌드에 들어 있지 않다. */
 const LS_KEY = "dp-inquiry-student";
 let S = newState(), dirty = false, curWeek = 0, saveTimer = null;
+let SET;   // 제출 설정: undefined=확인 중/불러오기 실패, null=설정 없음(닫힘), 객체=교사 설정. boot() 가 render()로 이를 읽으므로 boot 보다 먼저 선언해야 한다.
 
 (function boot() {
   const raw = lsGet(LS_KEY);
@@ -21,7 +22,7 @@ function hasAnswers() { return Object.keys(S.answers).length > 0; }
 
 function bindTop() {
   const f = $("#f-name"), n = $("#f-num");
-  [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); }));
+  [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); if (typeof Mon !== "undefined") Mon.refresh(); }));
   $("#btn-save").addEventListener("click", saveFile);
   $("#btn-load").addEventListener("click", () => $("#file-in").click());
   $("#file-in").addEventListener("change", e => { if (e.target.files[0]) importFile(e.target.files[0]); e.target.value = ""; });
@@ -71,13 +72,13 @@ async function importFile(file) {
 }
 
 /* ---------- 제출(Firebase) ---------- */
-let SET;   // 제출 설정: undefined=확인 중/불러오기 실패, null=설정 없음(닫힘), 객체=교사 설정
 function initFb() {
   if (typeof FB === "undefined") return;
   ["#btn-submit", "#btn-getfb"].forEach(q => { $(q).hidden = false; });
   $("#btn-submit").addEventListener("click", submitCurrent);
   $("#btn-getfb").addEventListener("click", getFeedback);
   FB.watchSettings(s => { SET = s; updateSubmitUi(); }).catch(() => { SET = undefined; updateSubmitUi(); });
+  if (typeof Mon !== "undefined") Mon.init();
 }
 function weekStatus(n) {
   if (SET === undefined) return { ok: false, msg: "제출 설정을 확인하는 중이에요(인터넷 연결 확인). 파일 저장은 언제든 할 수 있어요." };
@@ -119,6 +120,7 @@ async function getFeedback() {
 function render() {
   $("#f-name").value = S.student.name; $("#f-num").value = S.student.number;
   renderTabs(); renderWeek(); updateSaveState();
+  if (typeof Mon !== "undefined") { Mon.rebase(); Mon.refresh(); }
 }
 
 function renderTabs() {
@@ -186,6 +188,7 @@ function renderItem(it, no) {
     S.answers[it.id] = v; touch();
     const d = isAnswered(it, v); card.classList.toggle("done", d); $(".filled-mark", card).textContent = d ? "✔ 작성함" : "";
     refreshProgress();
+    if (typeof Mon !== "undefined") Mon.note(it.id);
   }));
   const fb = (S.feedback || {})[it.id];
   if (fb && (fb.comment || fb.mark)) card.append(el("div", { class: "fb" }, el("b", {}, "선생님 코멘트 "), fb.mark && MARKS[fb.mark] ? el("span", { class: "mk" }, MARKS[fb.mark][0] + " " + MARKS[fb.mark][1]) : null, fb.comment ? el("div", { class: "val" }, fb.comment) : null));

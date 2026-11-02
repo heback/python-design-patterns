@@ -2,9 +2,11 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const { Timestamp } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
 const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS } = require("./config");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
+const { findQuiz, isOpen, validChoice, applyAnswer } = require("./quiz");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -105,6 +107,29 @@ exports.generateFeedback = onCall({ region: REGION, secrets: [GEMINI_API_KEY], m
   }
   await batch.commit();
   return { drafts };
+});
+
+/** 돌발 퀴즈 채점. 학생(익명 로그인)이 부르고, 정답은 서버에만 있다. 응답 문서는 이 함수(관리자 권한)만 쓴다. */
+exports.answerQuiz = onCall({ region: REGION, maxInstances: 10 }, async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  const { quizId, sid, choice } = req.data || {};
+  if (typeof sid !== "string" || !sid || sid.length > 120 || sid.includes("/")) throw new HttpsError("invalid-argument", "학생 정보가 올바르지 않습니다.");
+  const found = findQuiz(loadContent(), quizId);
+  if (!found) throw new HttpsError("invalid-argument", "없는 퀴즈입니다.");
+  if (!validChoice(found.quiz, choice)) throw new HttpsError("invalid-argument", "선택지가 올바르지 않습니다.");
+
+  const prog = await db.doc(`progress/${sid}`).get();      // 같은 uid 가 만든 진도 문서가 있어야 그 학생으로 인정한다(사칭 방지)
+  if (!prog.exists || prog.data().uid !== req.auth.uid) throw new HttpsError("permission-denied", "이 학생으로 답할 수 없습니다. 학번·성명을 확인해 주세요.");
+  const cfg = (await db.doc("config/quiz").get()).data();
+  if (!isOpen(cfg, found)) throw new HttpsError("failed-precondition", "지금은 열려 있지 않은 퀴즈입니다.");
+
+  const ref = db.doc(`quizResponses/${found.quiz.id}/answers/${sid}`);
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const { state, result } = applyAnswer(found.quiz, snap.exists ? snap.data() : null, choice, Timestamp.now());
+    if (!snap.exists || state.attempts !== snap.data().attempts) tx.set(ref, Object.assign({ student: prog.data().student, uid: req.auth.uid }, state));
+    return result;
+  });
 });
 
 exports._test = { sanitize };

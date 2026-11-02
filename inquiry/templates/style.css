@@ -229,6 +229,24 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .wk-toggles label { display: flex; gap: 6px; align-items: center; }
 .status-open { color: var(--ok); font-weight: 700; } .status-closed { color: var(--bad); font-weight: 700; }
 
+/* ---- 진도 자동 전달 고지 · 돌발 퀴즈 팝업(학생) ---- */
+.monbar { max-width: 1100px; margin: 8px auto 0; padding: 6px 14px; font-size: 13px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+.monbar b { color: var(--text); }
+.monbar.err { border-color: var(--warn); }
+.monbar .monst { margin-left: 4px; }
+.qz-overlay { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .5); display: grid; place-items: center; padding: 16px; }
+.qz-panel { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; width: min(560px, 100%); max-height: 90vh; overflow: auto; padding: 16px 20px 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+.qz-kicker { font-weight: 700; color: var(--accent); } .qz-kicker small { font-weight: 400; color: var(--muted); }
+.qz-q { font-size: 17px; margin: 10px 0; }
+.qz-opts { display: grid; gap: 6px; }
+.qz-opt { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.qz-opt:hover { border-color: var(--accent); }
+.qz-opt.right { border-color: var(--ok); background: var(--ok-soft); }
+.qz-msg { margin: 10px 0 0; min-height: 1.4em; } .qz-msg.ok { color: var(--ok); } .qz-msg.bad { color: var(--bad); }
+.qz-ex { color: var(--text); margin-top: 6px; }
+.qz-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+@media print { .monbar, .qz-overlay { display: none !important; } }
+
 /* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
    font 단축 속성이 font-variant-ligatures를 초기화하므로 !important로 고정한다. */
 *, *::before, *::after { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }

@@ -6,6 +6,7 @@
 """
 import copy
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -15,8 +16,12 @@ sys.path.insert(0, str(ROOT / "content"))
 
 import week1, week2, week3, week4, week5  # noqa: E401
 from course import COURSE
+from quiz import QUIZ
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
+for _w in WEEKS:
+    _w["quiz"] = QUIZ.get(_w["n"], [])          # 돌발 퀴즈 풀(학생용 빌드에서는 정답·풀이를 제거한다)
+TEACHER_ONLY_QUIZ = {"answer", "explain"}
 TEACHER_ONLY_ITEM = {"answer", "note"}
 FB_DIR = ROOT.parent / "firebase"
 FB_CONFIG = ROOT / "firebase-config.js"      # 있을 때만 Firebase 기능을 넣는다(없으면 기존 JSON 방식 그대로)
@@ -25,9 +30,29 @@ TEACHER_ONLY_STAGE = {"tnote"}
 TEACHER_ONLY_WEEK = {"teacher", "target"}
 
 
+def validate_quiz(seen, errs):
+    """돌발 퀴즈: id 모양·중복, 선택지 개수, 정답 범위, 풀이 누락."""
+    for w in WEEKS:
+        for q in w["quiz"]:
+            i = q["id"]
+            if i in seen:
+                errs.append(f"id 중복: {i}")
+            seen.add(i)
+            if not re.fullmatch(rf"w{w['n']}-q\d+", i):
+                errs.append(f"{i}: 퀴즈 id 형식은 w{w['n']}-q번호")
+            if not 2 <= len(q.get("options", [])) <= 5:
+                errs.append(f"{i}: 선택지는 2~5개")
+            elif not (isinstance(q.get("answer", {}).get("sel"), int) and 0 <= q["answer"]["sel"] < len(q["options"])):
+                errs.append(f"{i}: 퀴즈 정답 범위 오류")
+            for k in ("q", "explain", "concept"):
+                if not q.get(k):
+                    errs.append(f"{i}: {k} 누락")
+
+
 def validate():
     """문항 id 중복, 정답의 모양, 선택지 범위를 검사한다."""
     seen, errs = set(), []
+    validate_quiz(seen, errs)
     for w in WEEKS:
         for st in w["stages"]:
             for it in st["items"]:
@@ -70,6 +95,9 @@ def strip(weeks, keep_code_answer=True):
     for w in out:
         for k in TEACHER_ONLY_WEEK:
             w.pop(k, None)
+        for q in w.get("quiz", []):
+            for k in TEACHER_ONLY_QUIZ:
+                q.pop(k, None)           # 퀴즈 채점은 서버(answerQuiz)가 한다
         for st in w["stages"]:
             for k in TEACHER_ONLY_STAGE:
                 st.pop(k, None)
@@ -101,6 +129,7 @@ def render(tpl_name, content_js, app_js):
                 .replace("/*@PYHL@*/", (PYRUN / "pyhl.js").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
                 .replace("/*@FB@*/", fb_snippet())
+                .replace("/*@MONITOR@*/", (t / "monitor.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
                 .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))

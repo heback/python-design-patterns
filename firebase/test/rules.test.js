@@ -100,3 +100,53 @@ test("허용 목록이 있으면 목록 밖 학교 계정은 거부", async () =
   await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "config/teachers"), { emails: ["teacher@ts.hs.kr"] }));
   await assertSucceeds(setDoc(doc(teacher(), "config/submission"), { open: true, weeks: {} }));
 });
+
+/* ---------- 진도 수집(progress) · 돌발 퀴즈(quizResponses) ---------- */
+const monitor = (on = true) => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "config/monitor"), { on }));
+const prog = (uid, extra = {}) => Object.assign({ student: { name: "홍" }, uid, weeks: { 1: { n: 2, total: 9, ids: ["w1-e1"], last: "w1-e1" } }, activeMs: 1000, lastActiveAt: Timestamp.now(), updatedAt: Timestamp.now() }, extra);
+
+test("진도: 수집 스위치가 없거나 꺼져 있으면 학생 쓰기 거부", async () => {
+  await assertFails(setDoc(doc(student("a"), "progress/s1"), prog("a")));
+  await monitor(false);
+  await assertFails(setDoc(doc(student("a"), "progress/s1"), prog("a")));
+});
+test("진도: 켜져 있으면 본인 문서를 쓰고 고칠 수 있다(제출이 닫혀 있어도)", async () => {
+  await monitor(true);
+  const a = student("a");
+  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a")));
+  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a", { activeMs: 5000 })));
+});
+test("진도: 남의 문서·uid 위조·허용 밖 필드·타입 오류 거부", async () => {
+  await monitor(true);
+  await assertSucceeds(setDoc(doc(student("a"), "progress/s1"), prog("a")));
+  await assertFails(setDoc(doc(student("b"), "progress/s1"), prog("b")));                   // 남의 문서 덮어쓰기
+  await assertFails(setDoc(doc(student("b"), "progress/s2"), prog("a")));                   // uid 위조
+  await assertFails(setDoc(doc(student("a"), "progress/s3"), prog("a", { answers: "본문" }))); // 응답 본문 같은 추가 필드
+  await assertFails(setDoc(doc(student("a"), "progress/s4"), prog("a", { activeMs: "많이" })));
+  await assertFails(setDoc(doc(student("a"), "progress/s5"), prog("a", { weeks: [1, 2] })));
+});
+test("진도: 읽기·삭제는 교사만, 학생은 본인 것도 읽지 못한다", async () => {
+  await monitor(true);
+  await assertSucceeds(setDoc(doc(student("a"), "progress/s1"), prog("a")));
+  await assertFails(getDoc(doc(student("a"), "progress/s1")));
+  await assertFails(getDocs(collection(student("a"), "progress")));
+  await assertSucceeds(getDocs(collection(teacher(), "progress")));
+  await assertFails(deleteDoc(doc(student("a"), "progress/s1")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "progress/s1")));
+});
+test("설정 문서(monitor·quiz): 누구나 읽고 교사만 쓴다", async () => {
+  await assertFails(setDoc(doc(student("a"), "config/monitor"), { on: true }));
+  await assertFails(setDoc(doc(student("a"), "config/quiz"), { liveId: "w1-q1" }));
+  await assertSucceeds(setDoc(doc(teacher(), "config/monitor"), { on: true }));
+  await assertSucceeds(setDoc(doc(teacher(), "config/quiz"), { liveId: "w1-q1", auto: { 1: true } }));
+  await assertSucceeds(getDoc(doc(student("a"), "config/monitor")));
+  await assertSucceeds(getDoc(doc(student("a"), "config/quiz")));
+});
+test("퀴즈 응답: 학생은 쓰기·읽기 모두 불가(정답·점수 위조 방지), 교사는 읽기·삭제 가능", async () => {
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "quizResponses/w1-q1/answers/s1"), { correct: false, attempts: 1 }));
+  await assertFails(setDoc(doc(student("a"), "quizResponses/w1-q1/answers/s1"), { correct: true, attempts: 1 }));
+  await assertFails(getDoc(doc(student("a"), "quizResponses/w1-q1/answers/s1")));
+  await assertSucceeds(getDocs(collection(teacher(), "quizResponses/w1-q1/answers")));
+  await assertFails(setDoc(doc(teacher(), "quizResponses/w1-q1/answers/s1"), { correct: true }));   // 교사도 직접 쓰지 않는다(삭제만)
+  await assertSucceeds(deleteDoc(doc(teacher(), "quizResponses/w1-q1/answers/s1")));
+});

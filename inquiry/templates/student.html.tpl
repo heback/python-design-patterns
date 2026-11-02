@@ -25,6 +25,7 @@
   <input type="file" id="file-in" accept=".json,application/json" hidden>
 </header>
 <nav class="tabs" id="tabs" role="tablist"></nav>
+<div class="monbar" id="monbar" hidden></div>
 <main>
   <noscript>이 학습지는 JavaScript가 필요합니다.</noscript>
   <section id="week"></section>
@@ -34,6 +35,7 @@
 <script>/*@FB@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>
+<script>/*@MONITOR@*/</script>
 <script>/*@APP@*/</script>
 </body>
 </html>

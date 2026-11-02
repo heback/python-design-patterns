@@ -26,6 +26,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 있을 때만 `build.py`가 `templates/fb.js`를 합쳐 학생 [제출]·교사 [제출 관리/AI 초안/공개]를 켠다. 없으면 기존 JSON 방식 그대로다. 이 모드의 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
 
+**진도 자동 전달·돌발 퀴즈**: 교사가 `config/monitor`를 켠 동안 학생 화면(`inquiry/templates/monitor.js`)이 완료 문항 수·ID·활동 시간·마지막 활동 시각만 `progress/{id}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 [📊 진도·퀴즈] 탭이 실시간 표와 퀴즈 제어를 보여 준다. 퀴즈 문항 풀은 `inquiry/content/quiz.py`이고 채점은 `answerQuiz` 함수(서버)가 한다 — 학생 빌드에서는 정답·풀이가 `strip()`으로 빠지므로 퀴즈를 고칠 때 이 경계를 지킨다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
+
 ## 명령
 
 ```bash
@@ -59,3 +61,4 @@ open textbook/00-intro.html
 | 2026-10-25 | 파이썬 문법 강조 추가: Prism 대신 자체 pyhl.js, 편집기 오버레이·예시 팝업·학습지 적용, syntax-highlighting 스킬 | assets/pyhl.js, pyrun.*, inquiry/templates, skills/syntax-highlighting | 편집기·팝업·학습지 코드에 색이 없었음 |
 | 2026-10-30 | 교재: 연습문제 편집기에 행 번호·점선·Tab/Shift+Tab, 예제 코드는 실행 전용(미리 실린 출력 `data-run` 삭제), 내 코드 저장/불러오기 제거(평가 문제는 별도 제작 예정) | assets/pyrun.*, textbook-code.js, base.html, build_textbook.py, chapters | 편집이 필요 없는 코드는 실행만, 결과는 학생이 직접 확인 |
 | 2026-10-27 | Firebase 피드백 생성기 추가: 학생 제출, 교사 학교 계정 로그인 게이트, 제출 가능 설정, Gemini AI 초안→교사 검수→공개 | firebase/, inquiry/templates/fb.js, build.py | 교사의 수동 코멘트 부담 완화 |
+| 2026-11-03 | 진도 자동 전달(교사가 켠 동안, 학생 화면에 고지)·돌발 퀴즈(1문항 팝업, 서버 채점)·교사 진도 탭 추가. student.js의 `let SET` 선언을 boot 앞으로 옮겨 Firebase 모드에서 제출 버튼이 안 뜨던 오류 수정 | inquiry/templates/monitor.js·fb.js·teacher.js·student.js, inquiry/content/quiz.py, firebase/ | 수업 중 진도 파악 요청. 규칙·함수 테스트 추가 |

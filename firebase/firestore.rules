@@ -39,10 +39,37 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/submissions/$(sid)).data.uid == request.auth.uid;
     }
 
+    // 진도 수집 스위치. 꺼져 있거나 문서가 없으면 학생은 진도를 쓸 수 없다(제출 설정과는 별개).
+    function monitorOn() {
+      return exists(/databases/$(database)/documents/config/monitor)
+        && get(/databases/$(database)/documents/config/monitor).data.get('on', false) == true;
+    }
+    function progressOk(d) {
+      return d.keys().hasOnly(['student', 'uid', 'weeks', 'activeMs', 'lastActiveAt', 'updatedAt'])
+        && d.weeks is map && d.activeMs is number && d.student is map
+        && request.resource.size() < 40000;
+    }
+
     // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.
     match /config/submission { allow read: if true; allow write: if isTeacher(); }
+    match /config/monitor { allow read: if true; allow write: if isTeacher(); }
+    match /config/quiz { allow read: if true; allow write: if isTeacher(); }
     match /config/submissionSecret { allow read, write: if isTeacher(); }
     match /config/teachers { allow read, write: if isTeacher(); }
+
+    // 진도(완료 문항 수·ID, 활동 시간, 마지막 활동 시각). 응답 본문은 담지 않는다. 학생은 본인 문서만 쓰고 읽지는 못한다.
+    match /progress/{sid} {
+      allow get, list, delete: if isTeacher();
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid
+                    && monitorOn() && progressOk(request.resource.data);
+      allow update: if isTeacher()
+                    || (request.auth != null && resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == resource.data.uid
+                        && monitorOn() && progressOk(request.resource.data));
+    }
+
+    // 퀴즈 응답: 쓰기는 Cloud Function(관리자 권한)만 한다. 학생은 읽지도 쓰지도 못하므로 정답·점수를 위조할 수 없다.
+    match /quizResponses/{qid}/answers/{sid} { allow read, delete: if isTeacher(); }
 
     match /submissions/{sid} {
       allow get: if isTeacher() || (request.auth != null && resource.data.uid == request.auth.uid);
