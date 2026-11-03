@@ -55,8 +55,8 @@ const Assistant = (() => {
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
     try {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
-      wait.remove(); addMsg("bot", r.reply);
-      history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6);
+      wait.remove(); addMsg(r.refused ? "bot refused" : "bot", r.reply);
+      if (!r.refused) { history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6); }      // 범위 밖 질문은 대화 기록에 남기지 않는다
       leftEl.textContent = `오늘 남은 질문 ${r.left}번`;
     } catch (e) {
       wait.remove();

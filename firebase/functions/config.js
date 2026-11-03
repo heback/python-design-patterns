@@ -8,5 +8,5 @@ module.exports = {
   // 학생 AI 도우미(askAssistant) 한도: 비용·남용 방지. 학생 한 명(uid)당 하루·1분 안의 질문 수.
   ASSISTANT_DAILY_LIMIT: 40,
   ASSISTANT_MINUTE_LIMIT: 6,
-  ASSISTANT_MAX_TOKENS: 800,
+  ASSISTANT_MAX_TOKENS: 1500,
 };

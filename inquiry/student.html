@@ -352,6 +352,7 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .ai-txt { white-space: pre-wrap; }
 .ai-msg.me { align-self: flex-end; background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-bottom-right-radius: 4px; }
 .ai-msg.bot { align-self: flex-start; background: var(--surface-2, #f1ede5); border-bottom-left-radius: 4px; }
+.ai-msg.refused { background: var(--gold-soft, #f6ecd6); border: 1px solid var(--gold-line, #e4d2a4); }
 .ai-msg.wait { color: var(--muted, #5a6372); font-style: italic; }
 .ai-msg.err { align-self: stretch; max-width: 100%; background: var(--bad-soft, #f8e7e0); color: var(--bad, #a03a1c); border: 1px solid var(--bad, #a03a1c); font-size: 13.5px; }
 .ai-login { padding: 8px 14px; font-size: 13.5px; background: var(--gold-soft, #f6ecd6); border-top: 1px solid var(--gold-line, var(--border, #e4d2a4)); }
@@ -1277,8 +1278,8 @@ const Assistant = (() => {
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
     try {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
-      wait.remove(); addMsg("bot", r.reply);
-      history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6);
+      wait.remove(); addMsg(r.refused ? "bot refused" : "bot", r.reply);
+      if (!r.refused) { history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6); }      // 범위 밖 질문은 대화 기록에 남기지 않는다
       leftEl.textContent = `오늘 남은 질문 ${r.left}번`;
     } catch (e) {
       wait.remove();

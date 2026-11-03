@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert");
-const { validate, buildContents, checkLimit, cleanReply, LIMITS } = require("./assistant");
+const { validate, buildContents, checkLimit, cleanReply, finalize, REFUSAL, SYSTEM, LIMITS } = require("./assistant");
 
 test("validate: 질문도 사진도 없으면 거부, 사진만 있으면 허용", () => {
   assert.match(validate({}).error, /질문/);
@@ -45,4 +45,24 @@ test("checkLimit: 분당·일일 한도, 날짜가 바뀌면 초기화", () => {
 test("cleanReply: 마크다운 기호 제거", () => {
   assert.equal(cleanReply("## 제목\n**중요** 내용\n```python\nx = 1\n```"), "제목\n중요 내용\nx = 1");
   assert.equal(cleanReply(null), "");
+});
+
+test("finalize: 범위 안이면 모델의 답을, 범위 밖이면 모델의 reply 를 버리고 정해진 안내문만", () => {
+  const ok = finalize(JSON.stringify({ onTopic: true, reply: "## 전략\n**알고리즘**을 갈아 끼웁니다." }));
+  assert.deepEqual(ok, { ok: true, reply: "전략\n알고리즘을 갈아 끼웁니다.", refused: false });
+  // 범위 밖: 모델이 reply 에 무엇을 써 두었든(심지어 범위 밖 내용이 길게 있어도) 학생에게는 안내문만 나간다
+  const off = finalize(JSON.stringify({ onTopic: false, reply: "이차방정식의 근은 x = (-b ± √(b²-4ac)) / 2a 입니다. 오늘 급식은..." }));
+  assert.deepEqual(off, { ok: true, reply: REFUSAL, refused: true });
+  assert.ok(!off.reply.includes("이차방정식"));
+});
+test("finalize: onTopic 이 true 가 아니면(없음·문자열·null) 모두 거절로 처리, 형식이 깨졌으면 실패", () => {
+  for (const bad of [{ reply: "답" }, { onTopic: "true", reply: "답" }, { onTopic: null, reply: "답" }, { onTopic: 1, reply: "답" }])
+    assert.equal(finalize(JSON.stringify(bad)).refused === true || finalize(JSON.stringify(bad)).ok === false, true, JSON.stringify(bad));
+  assert.equal(finalize("그냥 글입니다").ok, false);
+  assert.equal(finalize("").ok, false);
+  assert.equal(finalize(JSON.stringify({ onTopic: true, reply: "   " })).ok, false);            // 빈 답
+  assert.deepEqual(finalize("```json\n" + JSON.stringify({ onTopic: true, reply: "코드블록으로 감싼 JSON" }) + "\n```"), { ok: true, reply: "코드블록으로 감싼 JSON", refused: false });
+});
+test("시스템 프롬프트: 허용 범위 세 가지와 범위 밖 예시, 주입 방어가 명시돼 있다", () => {
+  for (const w of ["파이썬", "객체지향프로그래밍", "디자인 패턴", "onTopic", "이전 지시를 무시해", "다른 과목", "사진이 범위 밖"]) assert.ok(SYSTEM.includes(w), w);
 });
