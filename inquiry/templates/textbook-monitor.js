@@ -96,7 +96,7 @@
     if (sending) { if (force) again = true; return; }                  // 앞 전송이 끝나면 최신 상태로 한 번 더 보낸다(버리면 서버가 옛 상태에 머문다)
     const chapters = snapshot(), sig = keyOf(chapters) + "|" + FocusTrack.snapshot().view, now = Date.now();      // 화면 상태가 바뀐 것도 '바뀐 것'이다
     if (!force && now - lastSentAt < MIN_GAP_MS) return;
-    if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
+    if (!force && sig === lastSig && now - lastSentAt < BEAT_MS) return;   // 바뀐 게 없어도 1분마다 하트비트(조작이 없어도 보낸다 — 교사 화면이 '이 화면을 아직 열어 둔 상태'를 믿으려면 신호가 계속 와야 한다. 탭을 닫으면 끊긴다)
     sending = true;
     try {
       await FB.reportProgress({ chapters, activeMs, lastActiveAt: lastActiveAt || now, where: "교재 " + CH.title + (LONG ? " (긴 버전)" : ""), focus: FocusTrack.snapshot() });

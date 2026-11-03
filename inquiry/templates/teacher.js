@@ -99,10 +99,17 @@ function openDetail(r, c) {
 }
 
 /* 학생이 이 화면을 보고 있는지: 보내온 view(on·hidden·blur)와 그 상태가 된 시각, 벗어난 횟수·시간.
-   마지막으로 보낸 값이므로, 학생이 오래 아무것도 하지 않으면(상태 '멈춤') 실제와 다를 수 있다. */
+   마지막으로 보낸 값이므로, 보고(updatedAt)가 VIEW_STALE_MS 넘게 끊기면 '신호 없음'으로 바꿔 그린다. */
 const VIEW = { on: ["ok", "check_circle", "보는 중"], hidden: ["bad", "tab_unselected", "다른 탭"], blur: ["part", "open_in_new", "다른 창"] };
+const VIEW_STALE_MS = 3 * 60000;   // 하트비트는 1분마다 오므로 3분 넘게 보고가 없으면 탭을 닫았거나 접속이 끊긴 것으로 본다
 function viewCell(r) {
   const v = VIEW[r.view]; if (!v) return "—";
+  const rep = tsMs(r.updatedAt), lag = rep ? Date.now() - rep : Infinity;
+  if (lag > VIEW_STALE_MS) {      // 마지막으로 보낸 값('보는 중' 등)을 그대로 그리면 실제와 다르다
+    const away = (r.leaves || 0) ? ` · 벗어남 ${r.leaves}회 · ${Math.round((r.awayMs || 0) / 60000)}분` : "";
+    return el("span", {}, el("span", { class: "pill none", title: "최근 3분 넘게 학생 화면에서 보고가 없습니다(탭을 닫았거나 접속이 끊김). 아래는 마지막으로 받은 값입니다." }, ico("signal_disconnected", "fill"), "신호 없음"),
+      el("small", { style: "color:var(--dim)" }, ` · 마지막 보고 ${rep ? Math.floor(lag / 60000) + "분 전" : "없음"} (${v[2]})${away}`));
+  }
   const since = tsMs(r.viewAt), mins = since ? Math.floor((Date.now() - since) / 60000) : 0;
   const away = (r.leaves || 0) ? ` · 벗어남 ${r.leaves}회 · ${Math.round((r.awayMs || 0) / 60000)}분` : "";
   return el("span", {}, el("span", { class: "pill " + v[0] }, ico(v[1], "fill"), v[2] + (r.view !== "on" && mins >= 1 ? ` ${mins}분째` : "")), el("small", { style: "color:var(--dim)" }, away));
