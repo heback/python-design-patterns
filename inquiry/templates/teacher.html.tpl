@@ -28,7 +28,7 @@
   <button class="btn ghost" id="btn-logout" hidden><span class="ms" aria-hidden="true">logout</span>로그아웃</button>
   <button class="btn ghost theme-toggle" title="밝게/어둡게" aria-label="밝게/어둡게"><span class="ms" aria-hidden="true">contrast</span></button>
 </header>
-<main id="main"></main>
+<main id="main" class="wide"></main>
 </div>
 <script>window.PYRUN_ICONS = true;</script>
 <script>/*@PYHL@*/</script>

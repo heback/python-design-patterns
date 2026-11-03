@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", logStu: "", logFilter: "all", group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+const M = { view: "", prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", logStu: "", logFilter: "all", group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -63,6 +63,12 @@ function ago(ms) {
   return m < 1 ? "방금" : m < 60 ? `${m}분 전` : `${Math.floor(m / 60)}시간 ${m % 60}분 전`;
 }
 /* 초를 "N분 M초" 로 */
+const nf = n => (Number(n) || 0).toLocaleString("ko-KR");
+const stuName = l => `${(l.student || {}).name || "(이름 없음)"}${(l.student || {}).email ? " · " + l.student.email.split("@")[0] : ""}`;
+const todayKst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const recentChatErr = () => (M.logs || []).find(l => l.error && tsMs(l.at) > Date.now() - 30 * 60000);     // 최근 30분 안의 AI 호출 오류
+const errBox = l => el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "최근 30분 안에 AI 호출 오류가 있었습니다."), el("div", {}, `${stamp(new Date(tsMs(l.at)))} · ${stuName(l)} — ${l.error}`),
+  /credit|billing|prepay|402|quota/i.test(l.error) ? el("div", {}, "Gemini API의 크레딧(요금) 한도 문제로 보입니다. Google AI Studio의 결제 설정에서 크레딧을 충전하거나 한도를 확인하세요.") : null);
 const fmtDur = sec => { sec = Math.max(0, Math.round(Number(sec) || 0)); const m = Math.floor(sec / 60), s = sec % 60; return m ? (s ? `${m}분 ${s}초` : `${m}분`) : `${s}초`; };
 
 /* 학생 한 명의 한 장 세부 정보: 읽은 절과 절별·장 체류 시간 */
@@ -109,14 +115,31 @@ function liveState(ms) {
 
 function renderMonitor(main) {
   const tok = T.liveTok = {};
-  const ctl = el("div", { class: "panel" }), ai = el("div", { class: "panel" }), chat = el("div", { class: "panel" }), tbl = el("div", { class: "panel" });
-  main.append(ctl, ai, chat, tbl);
+  /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
+  /* 메뉴: 환경설정 · 진도표 · 대화기록 · 토큰 사용량 */
+  const ctl = el("div", { class: "setrow" }), vAi = el("div", { class: "setrow" }), tbl = el("div", {});
+  const vSet = el("section", { class: "panel", id: "v-settings" }, el("h3", {}, "환경설정"), ctl, vAi), vProg = el("section", { class: "panel", id: "v-progress" }, tbl),
+    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" });
+  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok]];
+  const known = k => VIEWS.some(v => v[0] === k);
+  if (!known(M.view)) { const h = location.hash.slice(1), saved = lsGet("dp-teacher-view"); M.view = known(h) ? h : known(saved) ? saved : "progress"; }
+  const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
+  const paintNav = () => {
+    const act = (M.prog || []).filter(r => liveState(tsMs(r.lastActiveAt))[0] === "ok").length, aiOn = !!(M.ai && M.ai.on), monOn = !!(M.mon && M.mon.on), err = !!recentChatErr();
+    const badge = k => k === "progress" ? el("span", { class: "nb " + (monOn ? "ok" : "off"), title: monOn ? "수집 중(활동 중인 학생 수)" : "진도 수집이 꺼져 있어요" }, monOn ? `${act}명` : "수집 꺼짐")
+      : k === "settings" ? (err ? el("span", { class: "nb bad", title: "최근 AI 호출 오류" }, "오류") : null)
+      : k === "logs" ? (M.logs && M.logs.length ? el("span", { class: "nb" }, String(M.logs.length)) : null) : null;
+    fill(nav, VIEWS.map(([k, ic, lab]) => el("button", { type: "button", class: "side-item", "aria-current": M.view === k ? "page" : null, onclick: () => go(k) }, ico(ic, M.view === k ? "fill" : ""), el("span", { class: "side-lab" }, lab), badge(k))));
+  };
+  const go = k => { M.view = k; lsSet("dp-teacher-view", k); try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); paintNav(); scrollTo(0, 0); };
+  main.append(el("div", { class: "shell" }, nav, el("div", { class: "view" }, VIEWS.map(v => v[3]))));
+  VIEWS.forEach(v => { v[3].hidden = v[0] !== M.view; });
 
-  /* --- 수집 스위치 --- */
+  /* --- 환경설정 1: 진도 수집 --- */
   const paintCtl = () => {
     const on = !!(M.mon && M.mon.on);
-    fill(ctl, el("h3", {}, "진도 수집"),
-      el("p", { class: "lead" }, "켜 두면 학생의 학습지와 교재 화면에 ‘진행 상황이 선생님께 자동으로 전달된다’는 고지가 뜨고, 교재 각 장에서 읽은 절·학습지에서 마친 문항·지금 있는 곳·마지막 활동 시각·활동 시간·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)가 계정의 이름·이메일과 함께 아래 표에 실시간으로 나타납니다. 쓴 글의 내용은 전달되지 않습니다(학생 브라우저에만 저장됩니다). 수업이 끝나면 꺼 두세요."),
+    fill(ctl, el("h4", {}, "진도 수집"),
+      el("p", { class: "lead" }, "켜 두면 학생의 학습지와 교재 화면에 ‘진행 상황이 선생님께 자동으로 전달된다’는 고지가 뜨고, 교재 각 장에서 읽은 절·학습지에서 마친 문항·지금 있는 곳·마지막 활동 시각·활동 시간·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)가 계정의 이름·이메일과 함께 [진도표]에 실시간으로 나타납니다. 쓴 글의 내용은 전달되지 않습니다(학생 브라우저에만 저장됩니다). 수업이 끝나면 꺼 두세요."),
       M.mon === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "수집 중 — 학생에게 고지가 표시됩니다" : "꺼짐 — 학생은 진도를 보내지 않습니다"),
       el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" },
         el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveMonitor(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "수집 중지"] : [ico("play_arrow"), "수집 시작"]),
@@ -129,40 +152,50 @@ function renderMonitor(main) {
   /* --- 학생 AI 도우미 스위치 --- */
   const paintAi = () => {
     const on = !!(M.ai && M.ai.on);
-    fill(ai, el("h3", {}, "학생 AI 도우미"),
-      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 학생 한 명당 하루 40번·1분에 6번까지이며, 학생과 AI가 주고받은 질문·답은 아래에 기록되고 토큰 사용량이 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
+    const re = recentChatErr();
+    fill(vAi, el("h4", {}, "학생 AI 도우미"),
+      re ? errBox(re) : null,
+      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 학생 한 명당 하루 40번·1분에 6번까지이며, 학생과 AI가 주고받은 질문·답은 [대화기록] 메뉴에 기록되고 [토큰 사용량] 메뉴에 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
       M.ai === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "켜짐 — 학생 화면에 AI 아이콘이 보입니다" : "꺼짐 — 학생 화면에 AI 아이콘이 없습니다"),
       el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveAssistant(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "AI 도우미 끄기"] : [ico("play_arrow"), "AI 도우미 켜기"]));
   };
 
-  /* --- AI 대화 기록과 토큰 사용량 --- */
-  const nf = n => (Number(n) || 0).toLocaleString("ko-KR");
-  const paintChat = () => {
-    const st = M.stats || {}, today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), td = (st.byDay || {})[today] || {};
-    const logs = M.logs || [], usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
-    const recentErr = logs.find(l => l.error && tsMs(l.at) > Date.now() - 30 * 60000);
-    const stuName = l => `${(l.student || {}).name || "(이름 없음)"}${(l.student || {}).email ? " · " + l.student.email.split("@")[0] : ""}`;
-    const shown = logs.filter(l => (!M.logStu || l.uid === M.logStu) && (M.logFilter === "all" || (M.logFilter === "refused" ? l.refused : M.logFilter === "error" ? l.error : l.hasImage)));
-    const stuSel = el("select", { onchange: e => { M.logStu = e.target.value; paintChat(); } }, el("option", { value: "" }, "전체 학생"),
-      usage.map(u => el("option", { value: u.id, ...(u.id === M.logStu ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
-    const fltSel = el("select", { onchange: e => { M.logFilter = e.target.value; paintChat(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === M.logFilter ? { selected: "" } : {}) }, l)));
-    fill(chat, el("h3", {}, "AI 대화 기록 · 토큰 사용량"),
-      M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "기록을 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
-      recentErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "최근 30분 안에 AI 호출 오류가 있었습니다."), el("div", {}, `${stamp(new Date(tsMs(recentErr.at)))} · ${stuName(recentErr)} — ${recentErr.error}`),
-        /credit|billing|prepay|402|quota/i.test(recentErr.error) ? el("div", {}, "Gemini API의 크레딧(요금) 한도 문제로 보입니다. Google AI Studio의 결제 설정에서 크레딧을 충전하거나 한도를 확인하세요.") : null) : null,
+  /* --- 토큰 사용량 화면: 반 전체·오늘·날짜별·학생별 --- */
+  const paintTok = () => {
+    const st = M.stats || {}, today = todayKst(), td = (st.byDay || {})[today] || {};
+    const usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
+    const days = Object.entries(st.byDay || {}).sort((a, b) => b[0].localeCompare(a[0]));
+    fill(vTok, el("h3", {}, "토큰 사용량"),
+      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 요금은 모델과 시점마다 달라 토큰 수만 보여 줍니다."),
+      M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "집계를 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
       el("div", { class: "dlg-sum" },
         el("div", {}, el("b", {}, "전체 질문"), `${nf(st.count)}건 (거절 ${nf(st.refused)} · 오류 ${nf(st.errors)} · 사진 ${nf(st.images)})`),
         el("div", {}, el("b", {}, "전체 토큰"), `${nf(st.totalTokens)} (입력 ${nf(st.promptTokens)} · 출력 ${nf(st.outputTokens)} · 생각 ${nf(st.thoughtTokens)})`),
         el("div", {}, el("b", {}, `오늘(${today.slice(5)})`), `${nf(td.count)}건 · ${nf(td.totalTokens)} 토큰`)),
+      el("h4", {}, "날짜별"),
+      days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "입력 토큰", "출력 토큰", "합계 토큰"].map(h => el("th", {}, h)))),
+        el("tbody", {}, days.map(([d, v]) => el("tr", {}, el("td", {}, d), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens))))))) : el("p", { class: "lead" }, "아직 기록이 없습니다."),
+      el("h4", {}, "학생별"),
       usage.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "마지막 사용"].map(h => el("th", {}, h)))),
         el("tbody", {}, usage.map(u => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(u.total_count)), el("td", {}, nf(u.total_refused)),
-          el("td", {}, nf(u.total_promptTokens)), el("td", {}, nf(u.total_outputTokens)), el("td", {}, nf(u.total_totalTokens)), el("td", {}, ago(tsMs(u.lastAt)))))))) : el("p", { class: "lead" }, "아직 AI 도우미를 쓴 학생이 없습니다."),
-      el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:12px 0 6px" }, el("b", {}, "대화 기록"), el("label", {}, "학생 ", stuSel), el("label", {}, "보기 ", fltSel),
+          el("td", {}, nf(u.total_promptTokens)), el("td", {}, nf(u.total_outputTokens)), el("td", {}, nf(u.total_totalTokens)), el("td", {}, ago(tsMs(u.lastAt)))))))) : el("p", { class: "lead" }, "아직 AI 도우미를 쓴 학생이 없습니다."));
+  };
+
+  /* --- 대화 기록 화면: 학생·거절·오류·사진으로 걸러 보기 --- */
+  const paintLog = () => {
+    const logs = M.logs || [], usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
+    const shown = logs.filter(l => (!M.logStu || l.uid === M.logStu) && (M.logFilter === "all" || (M.logFilter === "refused" ? l.refused : M.logFilter === "error" ? l.error : l.hasImage)));
+    const stuSel = el("select", { onchange: e => { M.logStu = e.target.value; paintLog(); } }, el("option", { value: "" }, "전체 학생"),
+      usage.map(u => el("option", { value: u.id, ...(u.id === M.logStu ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
+    const fltSel = el("select", { onchange: e => { M.logFilter = e.target.value; paintLog(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === M.logFilter ? { selected: "" } : {}) }, l)));
+    fill(vLog, el("h3", {}, "대화기록"),
+      M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "기록을 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
+      el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0 10px" }, el("label", {}, "학생 ", stuSel), el("label", {}, "보기 ", fltSel),
         el("small", { class: "lead" }, `최근 ${logs.length}건 중 ${shown.length}건`),
         el("button", { class: "btn small danger", style: "margin-left:auto", onclick: async () => {
           if (!confirm("서버에 저장된 모든 AI 대화 기록을 삭제합니다(토큰 집계는 그대로 남습니다). 계속할까요?")) return;
           try { toast(`대화 기록 ${await FB.clearChatLogs()}건을 삭제했습니다`); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
-        } }, ico("delete"), "대화 기록 삭제")),
+        } }, ico("delete"), "대화기록 삭제")),
       shown.length ? shown.slice(0, 60).map(l => el("details", { class: "chatlog" + (l.error ? " bad" : "") },
         el("summary", {}, el("span", { class: "cl-time" }, stamp(new Date(tsMs(l.at)))), el("b", {}, stuName(l)), el("span", { class: "cl-q" }, l.question),
           l.refused ? el("span", { class: "pill part" }, "범위 밖") : null, l.error ? el("span", { class: "pill bad" }, "오류") : null, l.hasImage ? el("span", { class: "pill none" }, ico("image"), "사진") : null,
@@ -173,6 +206,7 @@ function renderMonitor(main) {
           l.error ? el("div", { class: "cl-row err" }, el("b", {}, "오류 "), l.error) : el("div", { class: "cl-row" }, el("b", {}, "AI "), l.reply)))) : el("p", { class: "lead" }, logs.length ? "조건에 맞는 기록이 없습니다." : "아직 기록이 없습니다."),
       shown.length > 60 ? el("p", { class: "lead" }, `최근 60건만 표시합니다(필터로 좁혀 보세요).`) : null);
   };
+  const paintChat = () => { paintTok(); paintLog(); paintAi(); paintNav(); };
 
   /* --- 진도 표: 교재 장별 읽기 진도(분류별로 묶음) + 학습지 진행 --- */
   const paintTbl = () => {
@@ -190,7 +224,8 @@ function renderMonitor(main) {
     const sortSel = el("select", { onchange: e => { M.sort = e.target.value; paintTbl(); } }, [["num", "번호순"], ["slow", "교재 진도 느린 순"], ["idle", "활동 오래된 순"]].map(([v, l]) => el("option", { value: v, ...(v === M.sort ? { selected: "" } : {}) }, l)));
     // 분류 머리줄: 같은 분류의 장을 한 칸으로 묶는다
     const groupHead = []; chs.forEach(c => { const last = groupHead[groupHead.length - 1]; if (last && last.g === c.group) last.n++; else groupHead.push({ g: c.group, n: 1 }); });
-    fill(tbl, el("h3", {}, "학생 진도 (실시간)"),
+    fill(tbl, el("h3", {}, "진도표"),
+      M.mon !== undefined && !(M.mon && M.mon.on) ? el("div", { class: "note-box" }, ico("info"), "진도 수집이 꺼져 있어 새 진도는 들어오지 않습니다. ", el("button", { type: "button", class: "btn small", onclick: () => go("settings") }, "환경설정으로 가기")) : null,
       M.progErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "진도를 읽지 못했습니다."), el("div", {}, M.progErr),
         /permission|insufficient/i.test(M.progErr) ? el("div", {}, "Firestore 규칙이 이 계정을 교사로 인정하지 않는 경우입니다. 콘솔에서 config/teachers 문서의 emails 가 ‘배열(array)’ 유형인지, 지금 로그인한 이메일이 소문자·공백 없이 들어 있는지 확인하세요.") : null) : null,
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
@@ -215,13 +250,13 @@ function renderMonitor(main) {
           })))));
   };
 
-  paintCtl(); paintAi(); paintChat(); paintTbl();
-  liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); }), tok);
-  liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); }), tok);
+  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintNav();
+  liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); paintNav(); }), tok);
+  liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); paintNav(); }), tok);
   liveSub(FB.watchStats((s, err) => { M.stats = s; if (err) M.logErr = errText(err); paintChat(); }), tok);
   liveSub(FB.watchChatUsage((rows, err) => { M.usage = rows || []; if (err) M.logErr = errText(err); paintChat(); }), tok);
   liveSub(FB.watchChatLogs((rows, err) => { M.logs = rows || []; M.logErr = err ? errText(err) : ""; paintChat(); }, 200), tok);
-  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); }), tok);
+  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); paintNav(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }
 
