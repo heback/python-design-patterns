@@ -163,7 +163,7 @@ def render_textbook_index():
 <script>try{{var t=localStorage.getItem("dp-theme");if(t)document.documentElement.dataset.theme=t;}}catch(e){{}}</script></head>
 <body class="index"><header class="topbar"><a class="brand" href="index.html">파이썬 디자인 패턴</a><span class="course">{course}</span><span class="crumb">목차</span>
 <a class="glossary-link" href="glossary.html">용어집</a></header>
-<div class="layout"><main class="content"><header class="cover"><h1>파이썬으로 배우는 디자인 패턴</h1><p class="subtitle">객체지향 원리를 이미 아는 학생을 위한 교재입니다. 서론 → 생성 → 구조 → 행위 → 종합 순서로 읽습니다.</p></header>
+<div class="layout"><main class="content"><header class="cover"><h1>파이썬으로 배우는 디자인 패턴</h1><p class="subtitle">객체지향 원리를 이미 아는 학생을 위한 교재입니다. 서론 → 생성 → 구조 → 행위 → 종합 순서로 읽습니다. 각 장은 핵심만 간추린 요약 판이 기본이고, 장 첫머리의 링크로 참고용 긴 버전을 볼 수 있습니다.</p></header>
 <a class="start" href="00-intro.html">서론부터 읽기</a><div class="toc-groups">{"".join(secs)}</div></main></div></body></html>
 """
 

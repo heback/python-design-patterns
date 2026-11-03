@@ -7,525 +7,140 @@ part: 생성 패턴
 <section id="goals">
   <h2>학습 목표</h2>
   <ol>
-    <li>상위 클래스(프레임워크)가 객체를 <strong>언제</strong> 만들지 결정하고 하위 클래스가 <strong>무엇을</strong> 만들지 결정하는 역할 분담을 설명할 수 있다.</li>
-    <li>단순 팩토리(Simple Factory, 조건문으로 고르는 함수)와 팩토리 메서드(상속 기반 생성 훅)를 구별하고, 각각에서 "새 종류 추가"의 비용을 누가 치르는지 비교할 수 있다.</li>
-    <li>파이썬에서 생성 함수 주입, <code>classmethod</code> 대체 생성자, <code>__init_subclass__</code> 자동 등록으로 같은 의도를 구현하고, 각각이 GoF 의도에서 얼마나 멀어지는지 판단할 수 있다.</li>
+    <li>상위 클래스가 객체를 <strong>언제</strong> 만들지 정하고, 하위 클래스가 <strong>무엇을</strong> 만들지 정하는 역할 분담을 설명할 수 있다.</li>
+    <li>단순 팩토리(조건문으로 고르는 함수)와 팩토리 메서드(하위 클래스가 오버라이드하는 생성 메서드)를 구별하고, 새 종류를 추가할 때 누가 코드를 고치는지 비교할 수 있다.</li>
+    <li>파이썬의 생성 함수 넘기기, <code>classmethod</code> 대체 생성자, <code>__init_subclass__</code> 자동 등록으로 같은 목적을 이루고, 각각이 GoF 원래 의도와 얼마나 다른지 판단할 수 있다.</li>
   </ol>
+  <div class="callout"><strong>핵심 한 줄</strong> 새 제품을 추가할 때 기존 클래스를 고쳐야 한다면 아직 패턴이 아니다. 하위 클래스를 <em>추가</em>하는 것만으로 끝나야 팩토리 메서드다.</div>
 </section>
 
 <section id="context">
   <h2>1. 상황</h2>
-  <p>한빛대학교 화학과 분석화학 연구실의 박사과정생 서윤은 실험 자동화를 맡았다. 첫 과제는 단순했다. 연구실의 <dfn data-term="uv-vis-spectrophotometer">UV-Vis 분광광도계</dfn>(자외선·가시광선을 시료에 비춰 파장별 흡광도를 재는 분석 장비)는 측정이 끝나면 <dfn data-term="comma-separated-values">CSV</dfn>(쉼표로 필드를 구분하고 한 줄에 한 레코드를 적는 텍스트 표 형식) 파일을 내보내는데, 그것을 읽어 세기를 <dfn data-term="normalization">정규화</dfn>하고(장비마다 다른 세기 단위를 비교할 수 있게 최댓값을 1.0에 맞추는 것) 연구실 데이터 아카이브에 저장하는 작업을 매번 손으로 하고 있었다. 서윤은 <code>AcquisitionJob</code>이라는 클래스를 만들고, <code>run()</code> 하나에 "장비 연결 → 측정 데이터 읽기 → 정규화 → 저장"을 순서대로 넣었다. 읽기는 <code>run()</code> 안에서 <code>CsvSpectrumReader()</code>를 직접 만들어 처리했다. 장비가 하나뿐이니 이것으로 충분했다.</p>
-  <p>석 달 뒤 공동 연구를 하는 생화학 연구실에서 <dfn data-term="mass-spectrometer">질량분석기</dfn>(시료를 이온화해 질량 대 전하비 m/z별 세기를 재는 장비)를 들여왔다. 이 장비는 CSV가 아니라 제조사 고유의 바이너리 포맷을 쓴다. 같은 시기에 새로 산 장비는 <dfn data-term="serial-port">시리얼 포트</dfn>(장비를 연결해 데이터를 한 비트씩 차례로 주고받는 단자)로 <dfn data-term="javascript-object-notation">JSON</dfn>(키와 값의 쌍으로 된 객체와 배열을 텍스트로 적는 데이터 형식) 프레임을 흘려보낸다. 서윤은 가장 빠른 길을 택했다. <code>run()</code> 안에 <code>if device == "uv-vis"</code> / <code>elif device == "mass-spec"</code> / <code>elif device == "serial-json"</code> 분기를 넣었고, 시리얼 장비에만 필요한 <code>port</code> 인자를 <code>AcquisitionJob</code>의 생성자에 추가했다.</p>
-  <p>문제는 그다음에 왔다. 학과가 이 코드를 공용 저장소로 옮겨 다섯 개 연구실이 함께 쓰기로 한 것이다. 재료공학 연구실은 <dfn data-term="x-ray-diffractometer">X선 회절계(XRD)</dfn>(X선을 쏘아 회절 각도별 세기로 결정 구조를 분석하는 장비)를 붙이고 싶어 했지만, 그러려면 공용 <dfn data-term="framework">프레임워크</dfn>(전체 흐름을 쥐고 각 연구실의 코드를 정해진 자리에서 불러 주는 공용 골격 코드)의 <code>run()</code>을 고치는 <dfn data-term="pull-request">PR</dfn>(pull request: 공유 저장소에 변경을 합쳐 달라고 리뷰와 함께 요청하는 단위)을 보내야 했다. 다른 연구실의 장비 분기와 같은 메서드를 건드리니 리뷰는 늘 늦었고, 한 번은 다른 연구실의 PR이 분기 조건 문자열을 잘못 고쳐, 질량분석 작업이 <code>else</code>로 떨어져 야간 측정 전체가 멈추는 사고도 났다. 게다가 정규화 로직에 대한 <dfn data-term="unit-test">단위 테스트</dfn>(함수·클래스 같은 작은 단위를 실제 장비 없이 따로 검증하는 테스트)를 쓰려던 학부 연구생은 <code>run()</code>이 실제 리더를 이름으로 직접 만드는 탓에, 모듈 전역 이름을 <dfn data-term="monkeypatch">바꿔치기(monkeypatch)</dfn>하는 것 외에는 가짜 리더를 끼울 방법을 찾지 못했다. 몽키패치는 실행 중에 모듈이나 클래스의 이름이 가리키는 대상을 다른 것으로 갈아 끼우는 기법으로, 테스트에서 의존 대상을 바꾸는 데 쓰이지만 같은 이름을 쓰는 다른 코드까지 영향을 받는다.</p>
-  <p>정리하면 아픈 곳은 세 군데다. 측정 <em>흐름</em>과 리더 <em>생성</em>이 한 메서드에 엉켜 있어서 (1) 새 장비마다 공용 코드를 수정해야 하고, (2) 장비별 생성 인자가 모든 작업의 생성자로 새어 나오며, (3) 테스트가 끼어들 <dfn data-term="seam">이음새(seam)</dfn>, 곧 코드를 고치지 않고도 다른 구현을 끼워 넣을 수 있는 지점이 없다. 흐름은 모든 장비에 공통이고 변하지 않는다. 변하는 것은 "어떤 리더를 만드는가" 단 하나다.</p>
+  <p>화학과 박사과정생 서윤은 실험 자동화를 맡았다. 연구실의 <dfn data-term="uv-vis-spectrophotometer">UV-Vis 분광광도계</dfn>(빛으로 시료를 재는 장비)가 측정을 마치면 결과 파일이 나온다. 서윤은 <code>AcquisitionJob</code> 클래스를 만들고 <code>run()</code> 하나에 "읽기 → <dfn data-term="normalization">정규화</dfn> → 저장"을 넣었다. 정규화는 장비마다 다른 세기 단위를 비교하려고 최댓값을 1.0에 맞추는 일이다.</p>
+  <p><dfn data-term="mass-spectrometer">질량분석기</dfn>(또 다른 분석 장비)가 들어왔고, 케이블 포트로 연결하는 신형 장비도 왔다. 장비마다 출력 형식이 다르다. 서윤은 <code>run()</code> 안에 <code>if device == …</code> 분기를 붙였다. 신형 장비에만 필요한 <code>port</code> 인자는 모든 작업의 생성자에 붙었다.</p>
+  <p>그다음 학과가 이 코드를 다섯 연구실의 공용 <dfn data-term="framework">프레임워크</dfn>로 삼았다. 프레임워크는 전체 흐름을 쥐고, 각 연구실의 코드를 정해진 자리에서 불러 주는 공용 골격이다. 옆 연구실이 새 장비를 붙이려 하자 공용 <code>run()</code>의 분기를 고쳐 달라고 요청해야 했다. 정규화 로직만 <dfn data-term="unit-test">단위 테스트</dfn>(작은 단위를 실제 장비 없이 따로 검증하는 테스트)하려던 학생은 가짜 리더를 끼울 자리를 찾지 못했다.</p>
+  <p>흐름은 모든 장비에 같다. 변하는 것은 "어떤 리더를 만드는가" 하나뿐인데, 그 결정이 흐름 한가운데 박혀 있다.</p>
 </section>
 
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
-  <p class="lead-in">서윤이 분기를 추가한 직후의 코드다. 리더 클래스들 자체는 멀쩡하다. 주목할 곳은 <code>AcquisitionJob.__init__</code>의 <code>port</code>와 <code>run()</code> 맨 앞의 분기, 그리고 데모 [3]에서 테스트가 전역 이름을 바꿔치기하는 대목이다. 코드에 처음 나오는 표준 라이브러리 도구 몇 가지를 짚어 둔다. <code><dfn data-term="io-stringio">io.StringIO</dfn></code>는 문자열을 파일처럼 읽고 쓰게 해 주는 메모리 버퍼이고, <code><dfn data-term="struct">struct.pack</dfn></code>은 파이썬 값을 형식 문자열(예: <code>"&lt;6d"</code>)에 따라 바이트열로 바꾸는 <code>struct</code> 모듈의 함수다. 질량분석기 포맷의 <dfn data-term="little-endian">리틀엔디언</dfn>은 여러 바이트로 된 수를 낮은 자리 바이트부터 저장하는 순서(아래 상자에서 반대 순서와 견줘 본다)이고, <dfn data-term="double-precision-float">float64</dfn>는 8바이트 배정밀도 부동소수점 수다. 데모의 <code><dfn data-term="globals">globals()</dfn></code>는 현재 모듈의 전역 이름공간을 딕셔너리로 돌려주는 내장 함수로, 여기에 대입하면 모듈 전역 이름을 바꿔치기할 수 있다.</p>
-  <div class="callout">
-    <span class="label">바이트 순서</span>
-    수 하나가 여러 바이트를 차지하면 어느 쪽 바이트를 먼저 적을지 정해야 한다. 낮은 자리 바이트부터 적는 쪽이 리틀엔디언이고, 높은 자리 바이트부터 적는 쪽이 빅엔디언이다. 빅엔디언은 우리가 숫자를 쓰는 순서와 같다. <code>struct</code>의 형식 문자열은 맨 앞 글자로 이를 고른다. <code>&lt;</code>는 리틀엔디언, <code>&gt;</code>는 빅엔디언이다.
-    <table>
-      <thead>
-        <tr><th>값</th><th>형식</th><th>저장된 바이트(16진수)</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>정수 258 (<code>0x0102</code>, 2바이트)</td><td><code>"&lt;H"</code> 리틀엔디언</td><td><code>02 01</code></td></tr>
-        <tr><td>정수 258 (<code>0x0102</code>, 2바이트)</td><td><code>"&gt;H"</code> 빅엔디언</td><td><code>01 02</code></td></tr>
-        <tr><td>18.0 (float64, 8바이트)</td><td><code>"&lt;d"</code> 리틀엔디언</td><td><code>00 00 00 00 00 00 32 40</code></td></tr>
-        <tr><td>18.0 (float64, 8바이트)</td><td><code>"&gt;d"</code> 빅엔디언</td><td><code>40 32 00 00 00 00 00 00</code></td></tr>
-      </tbody>
-    </table>
-    같은 값이 두 순서에서 정반대 바이트 배열이 된다. 순서가 엇갈려도 오류는 나지 않고 값만 조용히 달라진다. 리틀엔디언으로 쓴 258을 <code>"&gt;H"</code>로 읽으면 513이 나오고, 18.0을 <code>"&gt;d"</code>로 읽으면 0에 가까운 엉뚱한 수가 나온다. 그래서 바이너리 포맷을 읽는 코드는 형식 문자열의 첫 글자를 제조사가 정한 포맷 계약의 일부로 다뤄야 한다. 질량분석기는 리틀엔디언을 쓰므로 이 장의 리더는 <code>"&lt;"</code>로 시작한다. 첫 글자를 생략하면 기본값은 실행 중인 컴퓨터의 순서와 정렬 방식이라, 컴퓨터마다 결과가 달라질 수 있다.
-  </div>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 520" role="img" aria-label="순진한 코드의 문제 지점: AcquisitionJob의 생성자에 port가 붙어 있고, run() 안의 if 사슬이 세 리더를 이름으로 직접 만들며, 새 장비는 else의 ValueError로 막히고, 테스트는 전역 이름을 바꿔치기해야 한다">
-      <text class="uml-note" x="20" y="22">AcquisitionJob · 공용 프레임워크(모든 연구실이 함께 고친다)</text>
-      <g class="uml-group" transform="translate(20,34)">
-        <rect width="300" height="290"/>
-      </g>
-      <g class="uml-func warn" transform="translate(36,50)">
-        <rect width="268" height="56"/>
-        <text class="uml-name" x="134" y="22">__init__(…, device, port)</text>
-        <text class="uml-member" x="10" y="44">⚠ port는 시리얼 장비만 쓴다</text>
-      </g>
-      <g class="uml-func warn" transform="translate(36,122)">
-        <rect width="268" height="104"/>
-        <text class="uml-name" x="134" y="22">run()</text>
-        <text class="uml-member" x="10" y="44">if device == "uv-vis": …</text>
-        <text class="uml-member" x="10" y="62">elif "mass-spec" / "serial-json"</text>
-        <text class="uml-member" x="10" y="80">else: raise ValueError</text>
-        <text class="uml-member" x="10" y="96">⚠ 흐름과 생성이 한 메서드에</text>
-      </g>
-      <g class="uml-func" transform="translate(36,242)">
-        <rect width="268" height="66"/>
-        <text class="uml-name" x="134" y="22">normalize() · save()</text>
-        <text class="uml-member" x="10" y="44">연결 → 읽기 → 정규화 → 저장</text>
-        <text class="uml-member" x="10" y="60">모든 장비에 공통인 흐름</text>
-      </g>
-
-      <text class="uml-note" x="430" y="22">장비별 리더 — 문제 아님</text>
-      <g class="uml-class" transform="translate(430,40)">
-        <rect width="190" height="64"/>
-        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">CSV 텍스트</text>
-      </g>
-      <g class="uml-class" transform="translate(430,120)">
-        <rect width="190" height="64"/>
-        <text class="uml-name" x="95" y="22">MassSpecBinaryReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">float64 바이너리</text>
-      </g>
-      <g class="uml-class" transform="translate(430,200)">
-        <rect width="190" height="64"/>
-        <text class="uml-name" x="95" y="22">SerialJsonReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">JSON · __init__(port)</text>
-      </g>
-      <g class="uml-func warn" transform="translate(430,290)">
-        <rect width="190" height="56"/>
-        <text class="uml-name" x="95" y="22">"xrd" → 실패</text>
-        <text class="uml-member" x="10" y="44">PR 말고는 길이 없다</text>
-      </g>
-
-      <path class="uml-dep" d="M304 160 H360 V72 H430" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M360 160 V152 H430" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M360 160 V232 H430" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="368" y="116">직접 생성</text>
-      <path class="uml-dep" d="M304 212 H340 V318 H430" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="350" y="310">else</text>
-
-      <g class="uml-func warn" transform="translate(20,350)">
-        <rect width="300" height="56"/>
-        <text class="uml-name" x="150" y="22">데모 [3]의 테스트</text>
-        <text class="uml-member" x="10" y="44">globals()[…] = FakeReader</text>
-      </g>
-      <text class="uml-note" x="332" y="374">⚠ 가짜 리더를 끼울 자리가 없어</text>
-      <text class="uml-note" x="332" y="392">CsvSpectrumReader라는 이름 자체를 교체</text>
-
-      <g class="uml-step"><circle cx="36" cy="50" r="9"/><text x="36" y="54">1</text></g>
-      <g class="uml-step"><circle cx="36" cy="122" r="9"/><text x="36" y="126">2</text></g>
-      <g class="uml-step"><circle cx="430" cy="290" r="9"/><text x="430" y="294">3</text></g>
-      <g class="uml-step"><circle cx="20" cy="350" r="9"/><text x="20" y="354">4</text></g>
-
-      <text class="uml-note" x="20" y="444"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
-      <text class="uml-note" x="20" y="466">① 생성자: 장비별 인자가 모든 작업에 붙는다 → ② run(): 흐름 속 if 사슬이 리더 셋을 직접 만든다</text>
-      <text class="uml-note" x="20" y="488">③ else: 새 장비는 공용 코드를 고쳐야 한다(데모 [2]) → ④ 데모 [3]: 테스트가 전역 이름을 바꿔치기</text>
-      <text class="uml-note" x="20" y="510">데모 [1]은 세 장비가 '일단은' 잘 돌아감을 보인다.</text>
-    </svg>
-    <figcaption>코드 지도 · 순진한 코드. 점선 화살표는 "만든다/넘어간다". 리더들은 멀쩡하고, 문제는 모두 그것을 만드는 쪽에 있다.</figcaption>
-  </figure>
-  <pre data-src="01_factory_method/01_naive.py" data-title="순진한 코드"></pre>
-  <p>데모 [1]만 보면 아무 문제가 없다. 이 설계가 "틀린" 것이 아니라 <strong>변경에 대해 닫혀 있지 않다</strong>는 점이 핵심이다. [2]의 실패 메시지는 확장의 주체가 누구인지를 드러낸다. 재료공학 연구실은 자기 장비를 붙이는 데 필요한 모든 지식(포맷, 연결 방식)을 갖고 있지만, 그 지식을 꽂을 자리가 공용 코드의 <code>if</code> 사슬 안에만 있다. 확장할 능력이 있는 쪽과 확장할 권한이 있는 쪽이 어긋난 것이다.</p>
-  <p>[3]은 더 은밀한 문제다. 테스트는 통과했지만 <code>globals()</code>를 직접 고쳐야 했다. <code>run()</code>이 <code>CsvSpectrumReader</code>라는 <em>이름</em>에 정적으로 묶여 있으므로, 다른 리더를 쓰게 하려면 그 이름이 가리키는 대상을 바꾸는 수밖에 없다. DIP 관점에서 보면 상위 정책(측정 흐름)이 하위 세부(CSV <dfn data-term="parser">파싱</dfn> 클래스, 곧 텍스트를 해석해 구조화된 데이터로 바꾸는 코드)에 직접 의존하고 있다.</p>
+  <p class="lead-in">서윤이 분기를 붙인 직후의 코드다. 리더는 장비의 출력 형식을 해석하는 코드, 곧 <dfn data-term="parser">파서</dfn>다. 리더들은 멀쩡하다. <code>__init__</code>의 <code>port</code>, <code>run()</code> 맨 앞의 <code>if</code> 사슬, 데모 [3]을 보라. 데모 [3]의 <code><dfn data-term="globals">globals()</dfn></code>는 모듈의 전역 이름을 딕셔너리로 돌려주는 내장 함수다. 여기에 대입하면 이름이 가리키는 대상이 바뀐다. 이렇게 실행 중에 이름을 다른 대상으로 갈아 끼우는 기법을 <dfn data-term="monkeypatch">몽키패치</dfn>라 한다.</p>
+  <pre data-src="01_factory_method/easy/e1_naive.py" data-title="순진한 코드"></pre>
+  <p>데모 [1]은 잘 돈다. 문제는 변경 때 드러난다.</p>
+  <ul>
+    <li><strong>확장할 자리가 공용 코드 안에만 있다.</strong> 데모 [2]처럼 옆 연구실은 자기 장비인 <dfn data-term="x-ray-diffractometer">X선 회절계(XRD)</dfn>(결정 구조를 재는 장비)를 다 알지만, 그 지식을 꽂을 곳이 남의 <code>if</code> 사슬뿐이다.</li>
+    <li><strong>장비별 인자가 새어 나온다.</strong> 신형 장비만 쓰는 <code>port</code>가 모든 작업에 붙었다.</li>
+    <li><strong>테스트할 <dfn data-term="seam">이음새</dfn>가 없다.</strong> 이음새는 코드를 고치지 않고 다른 구현을 끼울 수 있는 지점이다. <code>run()</code>이 <code>CsvSpectrumReader</code>라는 이름에 묶여 있어, 데모 [3]은 전역 이름을 몽키패치해야 했다.</li>
+  </ul>
   <div class="callout warn">
-    <span class="label">흔한 첫 시도와 그 한계</span>
-    분기를 <code>make_reader(device)</code>라는 별도 함수로 빼내는 것은 좋은 첫걸음이다. 이것을 <strong><dfn data-term="simple-factory">단순 팩토리(Simple Factory)</dfn></strong>라 부른다. 생성 지식이 한곳에 모이고 <code>run()</code>은 깨끗해진다. 그러나 새 장비를 추가하려면 여전히 그 함수를 고쳐야 한다. 생성 코드를 <em>옮겼을</em> 뿐, 확장의 주도권은 여전히 프레임워크 소유자에게 있다.
+    <span class="label">흔한 첫 시도</span>
+    분기를 <code>make_reader(device)</code> 함수로 빼면 <code>run()</code>은 깔끔해진다. 이것을 <strong><dfn data-term="simple-factory">단순 팩토리(Simple Factory)</dfn></strong>라 한다. 그러나 새 장비를 넣으려면 여전히 그 함수를 고쳐야 한다. 생성 코드를 옮겼을 뿐, 고칠 권한은 여전히 공용 코드 주인에게 있다.
   </div>
 </section>
 
 <section id="structure">
   <h2>3. 패턴의 구조</h2>
-  <p>GoF는 팩토리 메서드의 의도를 이렇게 쓴다. "객체를 생성하기 위한 인터페이스를 정의하되, 어떤 클래스의 인스턴스를 만들지는 서브클래스가 결정하게 한다. 팩토리 메서드는 클래스의 인스턴스화를 서브클래스로 미룬다." 여기서 눈여겨볼 단어는 <em>미룬다(defer)</em>이다. 생성 자체는 여전히 상위 클래스의 흐름 안에서 일어난다. 상위 클래스는 생성이 필요한 <em>시점</em>을 알고, 하위 클래스는 만들 <em>대상</em>을 안다. 아래 그림에 나오는 <dfn data-term="uml-stereotype">UML 스테레오타입</dfn>, 곧 «create»처럼 꺾쇠로 붙인 꼬리표는 관계나 요소의 의미를 덧붙여 표시한다(«create»는 "이 클래스가 저 클래스를 생성한다").</p>
+  <p>GoF가 쓴 의도는 이렇다. "객체를 생성하기 위한 인터페이스를 정의하되, 어떤 클래스의 인스턴스를 만들지는 서브클래스가 결정하게 한다. 팩토리 메서드는 클래스의 인스턴스화를 서브클래스로 미룬다." 핵심은 <em>미룬다</em>이다. 생성은 여전히 상위 클래스의 흐름 안에서 일어난다. 상위 클래스는 만드는 <em>시점</em>을, 하위 클래스는 만들 <em>대상</em>을 안다.</p>
   <figure class="diagram">
-    <svg viewBox="0 0 760 340" role="img" aria-label="측정 프레임워크에 적용한 팩토리 메서드 구조">
+    <svg viewBox="0 0 640 270" role="img" aria-label="팩토리 메서드 구조: AcquisitionJob이 run 안에서 create_reader를 부르고, UvVisJob이 create_reader를 오버라이드해 CsvSpectrumReader를 만든다">
       <text class="uml-note" x="20" y="22">[Creator]</text>
       <g class="uml-class" transform="translate(20,30)">
-        <rect width="240" height="92"/>
-        <text class="uml-name uml-abstract" x="120" y="22">AcquisitionJob</text>
-        <line x1="0" y1="32" x2="240" y2="32"/>
-        <text class="uml-member" x="10" y="52">+ run(): list[Sample]</text>
+        <rect width="230" height="76"/>
+        <text class="uml-name uml-abstract" x="115" y="22">AcquisitionJob</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="52">+ run()</text>
         <text class="uml-member uml-abstract" x="10" y="70">+ create_reader(): Reader</text>
-        <text class="uml-member" x="10" y="86">+ normalize(), save()</text>
       </g>
-      <text class="uml-note" x="450" y="22">[Product]</text>
-      <g class="uml-class" transform="translate(450,30)">
-        <rect width="240" height="92"/>
-        <text class="uml-name uml-abstract" x="120" y="22">Reader</text>
-        <line x1="0" y1="32" x2="240" y2="32"/>
-        <text class="uml-member uml-abstract" x="10" y="52">+ connect(): str</text>
-        <text class="uml-member uml-abstract" x="10" y="70">+ read_samples(): list[Sample]</text>
+      <text class="uml-note" x="390" y="22">[Product]</text>
+      <g class="uml-class" transform="translate(390,30)">
+        <rect width="230" height="60"/>
+        <text class="uml-name uml-abstract" x="115" y="22">Reader</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member uml-abstract" x="10" y="52">+ read_samples()</text>
       </g>
-      <path class="uml-dep" d="M260 76 H450" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="300" y="68">run()이 사용</text>
+      <path class="uml-dep" d="M250 60 H390" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="275" y="52">run()이 사용</text>
 
-      <g class="uml-class highlight" transform="translate(20,220)">
-        <rect width="110" height="56"/>
-        <text class="uml-name" x="55" y="22">UvVisJob</text>
-        <line x1="0" y1="32" x2="110" y2="32"/>
-        <text class="uml-member" x="8" y="48">+ create_reader()</text>
+      <g class="uml-class highlight" transform="translate(20,170)">
+        <rect width="230" height="56"/>
+        <text class="uml-name" x="115" y="22">UvVisJob</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="48">+ create_reader()</text>
       </g>
-      <g class="uml-class highlight" transform="translate(150,220)">
-        <rect width="110" height="56"/>
-        <text class="uml-name" x="55" y="22">MassSpecJob</text>
-        <line x1="0" y1="32" x2="110" y2="32"/>
-        <text class="uml-member" x="8" y="48">+ create_reader()</text>
+      <text class="uml-note" x="20" y="250">[Concrete Creator] SerialJsonJob·XrdJob도 같은 모양</text>
+      <g class="uml-class" transform="translate(390,170)">
+        <rect width="230" height="56"/>
+        <text class="uml-name" x="115" y="22">CsvSpectrumReader</text>
+        <line x1="0" y1="32" x2="230" y2="32"/>
+        <text class="uml-member" x="10" y="48">+ read_samples()</text>
       </g>
-      <text class="uml-note" x="270" y="248">[Concrete Creator]</text>
-      <path class="uml-inherit" d="M75 220 V175 H140 V122" marker-end="url(#triangle)"/>
-      <path class="uml-inherit" d="M205 220 V175 H140 V122" marker-end="url(#triangle)"/>
-
-      <g class="uml-class" transform="translate(395,220)">
-        <rect width="165" height="56"/>
-        <text class="uml-name" x="82" y="22">CsvSpectrumReader</text>
-        <line x1="0" y1="32" x2="165" y2="32"/>
-        <text class="uml-member" x="8" y="48">+ read_samples()</text>
-      </g>
-      <g class="uml-class" transform="translate(575,220)">
-        <rect width="180" height="56"/>
-        <text class="uml-name" x="90" y="22">MassSpecBinaryReader</text>
-        <line x1="0" y1="32" x2="180" y2="32"/>
-        <text class="uml-member" x="8" y="48">+ read_samples()</text>
-      </g>
-      <path class="uml-inherit" d="M477 220 V175 H570 V122" marker-end="url(#triangle)"/>
-      <path class="uml-inherit" d="M665 220 V175 H570 V122" marker-end="url(#triangle)"/>
-      <text class="uml-note" x="590" y="168">[Concrete Product]</text>
-
-      <path class="uml-dep" d="M75 276 V300 H477 V276" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="250" y="294">«create»</text>
-      <path class="uml-dep" d="M205 276 V322 H665 V276" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="420" y="316">«create»</text>
+      <text class="uml-note" x="390" y="250">[Concrete Product]</text>
+      <path class="uml-inherit" d="M135 170 V106" marker-end="url(#triangle)"/>
+      <path class="uml-inherit" d="M505 170 V90" marker-end="url(#triangle)"/>
+      <path class="uml-dep" d="M250 198 H390" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="290" y="190">만든다</text>
     </svg>
-    <figcaption>그림 1-1. 측정 프레임워크의 팩토리 메서드. 강조된 Concrete Creator만 구체 리더를 안다.</figcaption>
+    <figcaption>그림 1-1. 팩토리 메서드의 참여자. 강조된 Concrete Creator만 구체 리더의 이름을 안다.</figcaption>
   </figure>
   <table>
-    <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+    <thead><tr><th>역할</th><th>이 장의 클래스</th><th>하는 일</th></tr></thead>
     <tbody>
-      <tr><td>제품(Product)</td><td><code>Reader</code></td><td>흐름이 의존하는 추상. 장비 고유 포맷을 공통 <code>Sample</code>로 번역하는 계약.</td></tr>
-      <tr><td>구체 제품(Concrete Product)</td><td><code>CsvSpectrumReader</code> 등</td><td>장비 하나의 포맷 지식.</td></tr>
-      <tr><td>생성자(Creator)</td><td><code>AcquisitionJob</code></td><td>흐름(<code>run()</code>)을 소유하고, 그 안에서 팩토리 메서드 <code>create_reader()</code>를 호출한다.</td></tr>
-      <tr><td>구체 생성자(Concrete Creator)</td><td><code>UvVisJob</code>, <code>MassSpecJob</code> 등</td><td><code>create_reader()</code>를 오버라이드해 어느 구체 제품을 만들지 결정한다.</td></tr>
+      <tr><td>제품(Product)</td><td><code>Reader</code></td><td>흐름이 의존하는 추상 타입</td></tr>
+      <tr><td>구체 제품(Concrete Product)</td><td><code>CsvSpectrumReader</code> 등</td><td>장비 하나의 형식을 읽는다</td></tr>
+      <tr><td>생성자(Creator)</td><td><code>AcquisitionJob</code></td><td>흐름 <code>run()</code>을 갖고, 그 안에서 <code>create_reader()</code>를 부른다</td></tr>
+      <tr><td>구체 생성자(Concrete Creator)</td><td><code>UvVisJob</code> 등</td><td><code>create_reader()</code>를 오버라이드해 무엇을 만들지 정한다</td></tr>
     </tbody>
   </table>
-  <p>그림에서 두 계층이 평행하게 자라는 것을 볼 수 있다. Creator 계층과 Product 계층이 같은 축(장비 종류)을 따라 나란히 늘어나는 이 모양을 <strong><dfn data-term="parallel-class-hierarchies">평행 클래스 계층(parallel class hierarchies)</dfn></strong>이라 부르며, 팩토리 메서드의 대표적인 결과이자 비용이다. 또 하나 짚을 점: <code>run()</code>은 구조적으로 템플릿 메서드(14장)다. 고정된 알고리즘의 한 단계를 하위 클래스에 맡기는데, 그 단계가 마침 "생성"인 경우가 팩토리 메서드다.</p>
+  <p>장비가 하나 늘면 작업 클래스와 리더 클래스가 하나씩 함께 는다. 두 계층이 나란히 자라는 이 모양을 <dfn data-term="parallel-class-hierarchies">평행 클래스 계층</dfn>이라 부른다. 팩토리 메서드의 대표적인 결과이자 비용이다.</p>
 </section>
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">이제 <code>run()</code>에서 분기를 걷어 내고 "리더를 만든다"는 단계를 추상 메서드 <code>create_reader()</code>로 떼어 낸다. 읽을 때 세 가지를 확인하라. <code>run()</code> 본문에 구체 리더 이름이 하나라도 남아 있는가? <code>port</code>는 어디로 옮겨 갔는가? 코드 아래쪽 "다른 연구실의 코드" 구획이 위쪽 프레임워크를 한 줄이라도 고치는가? <code>Sample</code> docstring의 "<dfn data-term="immutable-object">불변</dfn>"은 생성된 뒤 상태를 바꿀 수 없다는 뜻이다(<code>frozen=True</code>가 그것을 보장한다). 데모 [3]의 <code><dfn data-term="assert-python-o">assert</dfn></code>는 조건이 거짓이면 <code>AssertionError</code>를 내는 개발용 확인 문장인데, <code>python -O</code>로 실행하면 통째로 제거되므로 테스트 확인에는 쓰되 입력 검증에는 쓰지 않는다.</p>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 590" role="img" aria-label="패턴 코드의 배치: 위쪽 공용 프레임워크에는 Reader와 AcquisitionJob이 있고 run()의 흐름 첫 단계가 create_reader()다. 그 아래 장비별 작업 클래스가 각자 리더를 만들고, 맨 아래 다른 연구실 구획이 XrdJob과 XrdReader를 추가한다">
-      <text class="uml-note" x="20" y="26">공용 프레임워크 — Product와 Creator</text>
-      <g class="uml-group" transform="translate(20,34)"><rect width="600" height="172"/></g>
-      <g class="uml-class" transform="translate(36,50)">
-        <rect width="170" height="72"/>
-        <text class="uml-name uml-abstract" x="85" y="22">Reader</text>
-        <line x1="0" y1="32" x2="170" y2="32"/>
-        <text class="uml-member" x="10" y="50">+ connect()</text>
-        <text class="uml-member" x="10" y="66">+ read_samples()</text>
-      </g>
-      <g class="uml-class highlight" transform="translate(300,50)">
-        <rect width="304" height="72"/>
-        <text class="uml-name uml-abstract" x="152" y="22">AcquisitionJob</text>
-        <line x1="0" y1="32" x2="304" y2="32"/>
-        <text class="uml-member" x="10" y="50">+ create_reader() → Reader</text>
-        <text class="uml-member" x="10" y="66">+ run() · normalize() · save()</text>
-      </g>
-      <path class="uml-dep" d="M300 86 H206" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="220" y="78">run()이 사용</text>
-      <text class="uml-note" x="36" y="146">run()의 흐름 — 구체 리더 이름이 하나도 없다</text>
-      <g class="uml-func highlight" transform="translate(36,156)">
-        <rect width="128" height="36"/>
-        <text class="uml-member" x="64" y="22" text-anchor="middle">create_reader()</text>
-      </g>
-      <g class="uml-func" transform="translate(190,156)">
-        <rect width="84" height="36"/>
-        <text class="uml-member" x="42" y="22" text-anchor="middle">connect()</text>
-      </g>
-      <g class="uml-func" transform="translate(300,156)">
-        <rect width="116" height="36"/>
-        <text class="uml-member" x="58" y="22" text-anchor="middle">read_samples()</text>
-      </g>
-      <g class="uml-func" transform="translate(442,156)">
-        <rect width="160" height="36"/>
-        <text class="uml-member" x="80" y="22" text-anchor="middle">normalize() → save()</text>
-      </g>
-      <path class="uml-dep" d="M164 174 H190" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M274 174 H300" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M416 174 H442" marker-end="url(#arrow)"/>
-
-      <text class="uml-note" x="20" y="226">장비별 Concrete Creator → 만드는 Concrete Product</text>
-      <g class="uml-group" transform="translate(20,234)"><rect width="600" height="152"/></g>
-      <g class="uml-class" transform="translate(36,250)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">UvVisJob</text>
-      </g>
-      <path class="uml-dep" d="M256 266 H384" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="264" y="260">create_reader()</text>
-      <g class="uml-class" transform="translate(384,250)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">CsvSpectrumReader</text>
-      </g>
-      <g class="uml-class" transform="translate(36,294)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">MassSpecJob</text>
-      </g>
-      <path class="uml-dep" d="M256 310 H384" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="264" y="304">create_reader()</text>
-      <g class="uml-class" transform="translate(384,294)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">MassSpecBinaryReader</text>
-      </g>
-      <g class="uml-class" transform="translate(36,338)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">SerialJsonJob(…, port)</text>
-      </g>
-      <path class="uml-dep" d="M256 354 H384" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="264" y="348">create_reader()</text>
-      <g class="uml-class" transform="translate(384,338)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">SerialJsonReader(port)</text>
-      </g>
-
-      <text class="uml-note" x="20" y="406">다른 연구실의 코드 — 위를 한 줄도 고치지 않고 추가만</text>
-      <g class="uml-group" transform="translate(20,414)"><rect width="600" height="64"/></g>
-      <g class="uml-class" transform="translate(36,430)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">XrdJob</text>
-      </g>
-      <path class="uml-dep" d="M256 446 H384" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="264" y="440">create_reader()</text>
-      <g class="uml-class" transform="translate(384,430)">
-        <rect width="220" height="32"/>
-        <text class="uml-name" x="110" y="21">XrdReader</text>
-      </g>
-
-      <g class="uml-step"><circle cx="36" cy="50" r="9"/><text x="36" y="54">1</text></g>
-      <g class="uml-step"><circle cx="300" cy="50" r="9"/><text x="300" y="54">2</text></g>
-      <g class="uml-step"><circle cx="36" cy="250" r="9"/><text x="36" y="254">3</text></g>
-      <g class="uml-step"><circle cx="36" cy="430" r="9"/><text x="36" y="434">4</text></g>
-
-      <text class="uml-note" x="20" y="512"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 팩토리 메서드와 그것을 부르는 Creator</text>
-      <text class="uml-note" x="20" y="534">① Reader와 구체 리더 → ② AcquisitionJob.run(): create_reader()가 끼는 자리</text>
-      <text class="uml-note" x="20" y="556">③ 장비별 Job: create_reader() 한 줄, port의 새 자리 → ④ 다른 연구실 구획</text>
-      <text class="uml-note" x="20" y="578">데모 [1] 세 작업 실행 · [2] XrdJob 추가 · [3] FakeJob으로 테스트 · [4] 구현 누락은 생성 시 TypeError</text>
-    </svg>
-    <figcaption>코드 지도 · 패턴 코드. 그림 1-1의 클래스들이 코드 안에서 놓인 자리다. 점선 화살표는 "사용한다/만든다", 점선 테두리는 코드의 구획이다.</figcaption>
-  </figure>
-  <pre data-src="01_factory_method/02_factory_method.py" data-title="패턴 코드"></pre>
-  <p>[1]에서 호출자는 <code>job.run()</code>만 부른다. 장비를 고르는 결정은 "어떤 작업 클래스를 인스턴스화하는가"로 한 번, 맨 바깥에서 내려졌고, 그 뒤로는 다형성이 일을 한다. naive 버전의 <code>if</code> 사슬은 사라진 것이 아니라 <strong>클래스 선택으로 대체</strong>되었다. 이 차이가 중요하다. <code>if</code> 사슬은 닫힌 목록이지만 하위 클래스 집합은 열린 목록이다.</p>
-  <p>[2]가 이 장의 요점이다. 재료공학 연구실은 <code>XrdReader</code>와 <code>XrdJob</code>을 <em>추가</em>했을 뿐 공용 프레임워크는 그대로다. 확장할 지식을 가진 쪽이 자기 코드 안에서 확장을 끝낸다. 동시에 <code>port</code>는 그것이 필요한 유일한 곳인 <code>SerialJsonJob</code>으로 옮겨 갔다. 생성 지식이 제자리를 찾으면 생성 인자도 함께 제자리를 찾는다.</p>
-  <p>[3]의 테스트는 naive 버전의 전역 바꿔치기와 비교해 보라. 테스트는 프레임워크가 공식적으로 열어 둔 확장 지점, 즉 <code>create_reader()</code>를 통해 들어온다. 이음새가 설계의 일부가 된 것이다. [4]는 <code>ABC</code>를 고른 이유를 보여준다. 팩토리 메서드 구현을 잊은 Concrete Creator는 첫 측정 때가 아니라 인스턴스를 만드는 순간 실패한다.</p>
-  <div class="callout ok">
-    <span class="label">핵심 정리</span>
-    팩토리 메서드는 "생성 코드를 어딘가로 옮기는" 기법이 아니다. <strong>생성 결정을 상속 계층의 확장 지점으로 만드는</strong> 기법이다. 그래서 판별 질문은 하나다. "새 제품을 추가할 때, 기존 클래스를 수정하는가, 하위 클래스를 추가하는가?"
-  </div>
+  <p class="lead-in"><code>run()</code>에서 "리더를 만든다"는 한 단계만 떼어 추상 메서드 <code>create_reader()</code>로 만들었다. 이 메서드가 팩토리 메서드다. 장비별 작업 클래스가 이것을 오버라이드한다. 아래쪽 "옆 연구실의 코드" 구획이 위쪽 공용 코드를 한 줄이라도 고치는지 확인하며 읽어라. 데모 [3]의 <code><dfn data-term="assert-python-o">assert</dfn></code>는 조건이 거짓이면 <code>AssertionError</code>를 내는 확인 문장이다. <code>python -O</code>로 실행하면 통째로 사라지므로 테스트 확인에만 쓰고 입력 검사에는 쓰지 않는다.</p>
+  <pre data-src="01_factory_method/easy/e2_pattern.py" data-title="패턴 코드"></pre>
+  <p>어디를 보면 되는가.</p>
+  <ul>
+    <li><code>run()</code> 본문에 구체 리더 이름이 하나도 없다. <code>if</code> 사슬은 "어떤 작업 클래스를 만드는가"라는 선택으로 바뀌었다. <code>if</code> 사슬은 닫힌 목록이지만 하위 클래스는 열린 목록이다.</li>
+    <li><code>port</code>는 그것이 필요한 <code>SerialJsonJob</code>으로 옮겨 갔다. <code>super().__init__()</code>을 부른 <em>뒤에</em> 직접 보관한다.</li>
+    <li>데모 [2]의 <code>XrdJob</code>은 추가만으로 생겼다. 확장할 지식을 가진 쪽이 자기 코드 안에서 확장을 끝낸다(OCP).</li>
+    <li>데모 [3]의 <code>FakeJob</code>은 공식으로 열린 자리 <code>create_reader()</code>로 들어온다. 이음새가 설계의 일부가 되었다.</li>
+  </ul>
 </section>
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
-  <p>패턴 코드의 Concrete Creator들을 다시 보면 하는 일이 <code>create_reader()</code> 한 줄뿐이다. Java 같은 언어에서는 "생성 방법"을 값으로 넘기기가 번거로웠기 때문에 메서드 하나를 바꾸려고 클래스를 하나 만드는 것이 자연스러웠다. 파이썬에서는 클래스 자체가 호출 가능한 객체이고, 함수도 일급 값이다. 그렇다면 하위 클래스 계층 없이 같은 분담을 얻을 수 있지 않을까?</p>
-  <h3>생성 함수 주입과 <dfn data-term="alternative-constructor">대체 생성자</dfn></h3>
-  <p class="lead-in">대체 생성자는 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점이다. 생성자 오버로딩이 없는 파이썬에서는 흔히 <code><dfn data-term="classmethod">@classmethod</dfn></code>로 만든다. <code>@classmethod</code>를 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받으므로, 하위 클래스에서 부르면 <code>cls</code>가 그 하위 클래스가 된다. 아래 코드는 <code>create_reader()</code> 오버라이드를 생성자 인자 <code>reader_factory</code>로 바꾼다. 리더 인스턴스가 아니라 <em>만드는 방법</em>을 받는다는 점, <code>Reader</code>가 <code>Protocol</code>이 되어 리더들이 아무것도 상속하지 않는다는 점, 그리고 <code>from_config()</code>의 docstring이 그것을 "GoF 팩토리 메서드가 아니다"라고 말하는 이유에 주목하라. 새로 나오는 도구도 있다. <code><dfn data-term="functools-partial">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 호출 가능 객체를 만든다. 타입 힌트의 <code><dfn data-term="typing-classvar">ClassVar</dfn></code>는 그 속성이 인스턴스가 아니라 클래스 전체에 속한다고 표시하고, <code><dfn data-term="typing-any">Any</dfn></code>는 어떤 타입이든 허용한다는 표시로 그 자리의 타입 검사를 사실상 끈다. docstring의 "<dfn data-term="runtime">런타임</dfn>"은 프로그램이 실제로 실행되는 시점을 말하며, 코드를 실행하지 않고 검사하는 정적 검사 시점과 대비된다.</p>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 520" role="img" aria-label="파이썬다운 변형의 구조: 클래스, partial, 평범한 함수가 모두 ReaderFactory로서 AcquisitionJob의 reader_factory 인자로 들어가고, run()이 그것을 불러 Reader 프로토콜을 만족하는 리더를 얻는다. from_config()는 DEVICES 표를 조회하는 대체 생성자다">
-      <text class="uml-note" x="20" y="22">"리더를 만드는 방법" 세 가지 — 패턴 코드의 Concrete Creator 하위 클래스를 대신한다</text>
-      <g class="uml-func" transform="translate(20,40)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
-        <text class="uml-member" x="10" y="44">() → 리더</text>
-        <text class="uml-member" x="10" y="62">클래스 자체 · [1]</text>
-      </g>
-      <g class="uml-func" transform="translate(225,40)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">partial(…)</text>
-        <text class="uml-member" x="10" y="44">SerialJsonReader</text>
-        <text class="uml-member" x="10" y="62">port를 미리 묶음 · [2]</text>
-      </g>
-      <g class="uml-func" transform="translate(430,40)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">spying_factory</text>
-        <text class="uml-member" x="10" y="44">def … → FakeReader()</text>
-        <text class="uml-member" x="10" y="62">평범한 함수 · [3]</text>
-      </g>
-      <path class="uml-dep" d="M115 116 V136 H320"/>
-      <path class="uml-dep" d="M525 116 V136 H320"/>
-      <path class="uml-dep" d="M320 116 V156" marker-end="url(#arrow)"/>
-
-      <g class="uml-func" transform="translate(200,156)">
-        <rect width="240" height="56"/>
-        <text class="uml-name" x="120" y="22">ReaderFactory</text>
-        <text class="uml-member" x="10" y="44">= Callable[[], Reader]</text>
-      </g>
-      <path class="uml-dep" d="M320 212 V240" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="328" y="231">reader_factory 인자로</text>
-
-      <g class="uml-class" transform="translate(20,240)">
-        <rect width="130" height="92"/>
-        <text class="uml-name" x="65" y="22">Reader</text>
-        <text class="uml-stereo" x="65" y="38">Protocol</text>
-        <line x1="0" y1="46" x2="130" y2="46"/>
-        <text class="uml-member" x="10" y="64">connect()</text>
-        <text class="uml-member" x="10" y="82">read_samples()</text>
-      </g>
-      <g class="uml-class highlight" transform="translate(200,240)">
-        <rect width="240" height="128"/>
-        <text class="uml-name" x="120" y="22">AcquisitionJob</text>
-        <line x1="0" y1="32" x2="240" y2="32"/>
-        <text class="uml-member" x="10" y="52">DEVICES: ClassVar[dict]</text>
-        <text class="uml-member" x="10" y="70">_reader_factory</text>
-        <line x1="0" y1="80" x2="240" y2="80"/>
-        <text class="uml-member" x="10" y="100">+ from_config(config)</text>
-        <text class="uml-member" x="10" y="118">+ run(): 이때 비로소 생성</text>
-      </g>
-      <path class="uml-dep" d="M200 286 H150" marker-end="url(#arrow)"/>
-
-      <text class="uml-note" x="460" y="250">from_config()의 안</text>
-      <g class="uml-func" transform="translate(460,262)">
-        <rect width="160" height="30"/>
-        <text class="uml-member" x="80" y="20" text-anchor="middle">config dict</text>
-      </g>
-      <g class="uml-func warn" transform="translate(460,308)">
-        <rect width="160" height="30"/>
-        <text class="uml-member" x="80" y="20" text-anchor="middle">DEVICES[device]</text>
-      </g>
-      <g class="uml-func" transform="translate(460,354)">
-        <rect width="160" height="30"/>
-        <text class="uml-member" x="80" y="20" text-anchor="middle">cls(id, partial)</text>
-      </g>
-      <path class="uml-dep" d="M540 292 V308" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M540 338 V354" marker-end="url(#arrow)"/>
-      <text class="uml-note" x="300" y="402">[4] 표에 없는 "xrd"는 KeyError — 결국 DEVICES를 고쳐야 한다</text>
-
-      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">1</text></g>
-      <g class="uml-step"><circle cx="200" cy="156" r="9"/><text x="200" y="160">2</text></g>
-      <g class="uml-step"><circle cx="200" cy="240" r="9"/><text x="200" y="244">3</text></g>
-      <g class="uml-step"><circle cx="460" cy="262" r="9"/><text x="460" y="266">4</text></g>
-
-      <text class="uml-note" x="20" y="440"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 흐름을 소유하는 쪽, 주황 테두리가 단순 팩토리로 되돌아간 곳</text>
-      <text class="uml-note" x="20" y="462">① 세 생성 방법 → ② ReaderFactory: 모두 "인자 없이 부르면 리더가 나온다"</text>
-      <text class="uml-note" x="20" y="484">③ AcquisitionJob: 방법만 받아 두고 run()에서 부른다 → ④ from_config(): 표 조회</text>
-      <text class="uml-note" x="20" y="506">리더들은 Reader를 상속하지 않는다. 모양만 맞으면 된다.</text>
-    </svg>
-    <figcaption>코드 지도 · 파이썬다운 변형. 둥근 상자는 함수·값, 점선 화살표는 "넘겨진다/사용한다".</figcaption>
-  </figure>
-  <pre data-src="01_factory_method/03_pythonic.py" data-title="파이썬다운 변형"></pre>
-  <p>[1]과 [2]에서 클래스 <code>CsvSpectrumReader</code>와 <code>partial(SerialJsonReader, port=...)</code>가 똑같이 "인자 없이 호출하면 리더가 나오는 것"으로 취급된다. [3]의 생성 기록은 이 변형이 팩토리 메서드의 본질 하나를 지킨다는 것을 보여준다. 리더가 만들어지는 <em>시점</em>은 여전히 <code>run()</code>이 결정한다. 인스턴스를 바로 넘기게 했다면 이 통제가 호출자에게 넘어갔을 것이다(장비 연결처럼 생성이 비싸거나 <dfn data-term="side-effect">부수 효과</dfn>, 곧 값을 돌려주는 것 외에 바깥 상태를 바꾸는 일이 있을 때 결정적인 차이다).</p>
-  <p>이것은 구조적으로 전략 패턴(10장)이다. 상속으로 변이를 다루던 것을 합성으로 바꿨고, 변이의 내용이 "생성"일 뿐이다. 그렇다면 패턴 코드의 하위 클래스 방식은 언제 여전히 필요한가? Concrete Creator가 <code>create_reader()</code> 말고도 <code>normalize()</code>나 <code>save()</code> 같은 다른 단계도 함께 바꿔야 할 때다. 여러 훅을 일관되게 묶어 바꾸는 단위로는 클래스가 함수 여러 개를 따로 넘기는 것보다 낫다. 또 프레임워크 사용자가 "<code>XrdJob</code>"이라는 이름 붙은 개념을 문서·<dfn data-term="integrated-development-environment">IDE</dfn>(편집·실행·디버깅·자동 완성을 한데 묶은 통합 개발 환경)에서 발견할 수 있다는 점도 가치다.</p>
-  <p>[4]의 <code>from_config()</code>는 이름 때문에 혼동이 잦다. 파이썬 커뮤니티에서는 <code>@classmethod</code> 대체 생성자를 흔히 "팩토리 메서드"라 부르지만, 무엇을 만들지 결정하는 것이 하위 클래스가 아니라 <em>데이터(설정의 <code>device</code> 키)</em>이고, 내부는 표를 조회하는 단순 팩토리다. 그래서 <code>"xrd"</code>를 지원하려면 결국 <code>DEVICES</code> 표를 고쳐야 한다. 확장의 주도권 문제로 되돌아온 것이다.</p>
-
+  <p>패턴 코드의 <code>UvVisJob</code>은 <code>create_reader()</code> 한 줄만 한다. 파이썬에서는 클래스도 함수처럼 부를 수 있다. 그렇다면 하위 클래스 대신 "만드는 방법"을 값으로 넘기면 된다.</p>
+  <h3>생성 함수 넘기기와 <dfn data-term="alternative-constructor">대체 생성자</dfn></h3>
+  <p class="lead-in">아래 코드는 <code>reader_factory</code> 인자로 만드는 방법을 받는다. 두 가지 도구가 새로 나온다. <code><dfn data-term="functools-partial">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 함수를 만든다. 대체 생성자는 같은 클래스를 다른 입력(예: 설정 dict)에서 만드는 이름 붙은 생성 진입점이다. 파이썬에서는 보통 <code><dfn data-term="classmethod">@classmethod</dfn></code>로 만든다. 이 장식을 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받는다. 데모 [3]에서 리더가 <em>언제</em> 만들어지는지 보라.</p>
+  <pre data-src="01_factory_method/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
+  <p>데모 [3]이 중요하다. 리더는 <code>run()</code>이 불릴 때 비로소 만들어진다. 인스턴스를 바로 넘겼다면 만드는 시점을 호출자가 정해 버렸을 것이다. 모양은 10장의 전략 패턴과 같다. 상속 대신 합성을 쓴 것이다.</p>
+  <p>데모 [4]의 <code>from_config()</code>는 흔히 "팩토리 메서드"라 불리지만 GoF의 팩토리 메서드가 아니다. 무엇을 만들지 정하는 것이 하위 클래스가 아니라 설정 데이터이고, 속은 표를 찾는 단순 팩토리다. 그래서 새 장비 <code>"xrd"</code>를 붙이려면 결국 <code>DEVICES</code> 표를 고쳐야 한다.</p>
   <h3>정의하는 순간 등록되는 <dfn data-term="registry">레지스트리</dfn></h3>
-  <p class="lead-in">레지스트리는 이름(키)과 클래스·함수를 짝지어 둔 표다. 호출자는 분기 대신 표를 조회하고, 새 항목은 표에 등록만 하면 추가된다. 설정 문자열로 장비를 고르고 싶으면서도 "추가만으로 확장"을 지키려면, 표를 프레임워크가 쥐고 있지 않으면 된다. 다음 코드는 <code>__init_subclass__</code>로 <code>Reader</code> 하위 클래스가 <code>class XrdReader(TextColumnReader, device="xrd")</code>처럼 정의되는 순간 스스로 등록되게 한다. <code>device</code> 없이 상속한 중간 클래스 <code>TextColumnReader</code>가 등록되지 않는 것, 중복 키를 정의 시점에 거부하는 것, 그리고 마지막 [5]의 함정을 눈여겨보라.</p>
-  <div class="callout">
-    <span class="label">용어</span>
-    코드 주석에 처음 나오는 말들이다. <dfn data-term="metaclass">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 생성되고 호출되는 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다. <dfn data-term="keyword-only-argument">키워드 전용</dfn> 인자는 매개변수 목록의 <code>*</code> 뒤에 두어 반드시 <code>이름=값</code>으로만 넘길 수 있게 한 인자다. <dfn data-term="declarative">선언적</dfn>이라는 말은 "어떻게"의 절차 대신 "무엇"을 원하는지를 적는 방식을 뜻한다. <dfn data-term="cooperative-multiple-inheritance">협력적 다중 상속</dfn>은 계층의 각 클래스가 <code>super()</code>로 다음 클래스에 호출을 넘겨, 여러 부모의 같은 메서드가 빠짐없이 차례로 실행되게 하는 관례다. <code>raise … <dfn data-term="exception-chaining">from None</dfn></code>은 예외 연쇄 문법의 한 형태다. <code>raise 새예외 from e</code>는 원인 예외 <code>e</code>를 새 예외에 기록하고, <code>from None</code>은 원인 표시를 숨겨 사용자에게 필요한 메시지만 남긴다. 마지막 데모의 <dfn data-term="entry-points">진입점(entry points)</dfn>은 설치된 패키지가 "이 이름으로 이 객체를 제공한다"고 메타데이터에 선언해, 다른 프로그램이 직접 import하지 않고도 플러그인을 찾게 하는 파이썬 패키징 장치다.
-  </div>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 500" role="img" aria-label="레지스트리 변형의 구조: Reader가 _registry와 __init_subclass__를 가지고, device 인자를 준 하위 클래스는 정의되는 순간 등록된다. device 없는 TextColumnReader는 등록되지 않고, 같은 키를 다시 쓰면 ValueError가 난다. AcquisitionJob은 Reader.for_device()로 이름을 조회한다">
-      <text class="uml-note" x="20" y="22">[Client] 장비 목록을 모른다</text>
-      <g class="uml-class" transform="translate(20,40)">
-        <rect width="200" height="76"/>
-        <text class="uml-name" x="100" y="22">AcquisitionJob</text>
-        <line x1="0" y1="32" x2="200" y2="32"/>
-        <text class="uml-member" x="10" y="52">device · options</text>
-        <text class="uml-member" x="10" y="68">+ run()</text>
-      </g>
-      <text class="uml-note" x="300" y="22">[Product] 이자 등록부의 주인 · ABC</text>
-      <g class="uml-class highlight" transform="translate(300,40)">
-        <rect width="320" height="128"/>
-        <text class="uml-name uml-abstract" x="160" y="22">Reader</text>
-        <line x1="0" y1="32" x2="320" y2="32"/>
-        <text class="uml-member" x="10" y="52">_registry: ClassVar[dict]</text>
-        <line x1="0" y1="62" x2="320" y2="62"/>
-        <text class="uml-member" x="10" y="82">__init_subclass__(*, device)</text>
-        <text class="uml-member" x="10" y="100">+ for_device(device, **options)</text>
-        <text class="uml-member" x="10" y="118">+ connect() · read_samples()</text>
-      </g>
-      <g class="uml-func" transform="translate(20,160)">
-        <rect width="220" height="70"/>
-        <text class="uml-name" x="110" y="22">Reader._registry</text>
-        <text class="uml-member" x="10" y="44">uv-vis → CsvSpectrumReader</text>
-        <text class="uml-member" x="10" y="60">xrd → XrdReader ([3] 이후)</text>
-      </g>
-      <path class="uml-dep" d="M120 116 V160" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="128" y="142">Reader.for_device()</text>
-      <path class="marker-fill" d="M300 100 L290 93 L280 100 L290 107 Z"/>
-      <path class="uml-compose" d="M280 100 H266 V195 H240"/>
-
-      <g class="uml-class" transform="translate(360,200)">
-        <rect width="200" height="60"/>
-        <text class="uml-name uml-abstract" x="100" y="22">TextColumnReader</text>
-        <line x1="0" y1="32" x2="200" y2="32"/>
-        <text class="uml-member" x="10" y="50">device 없음 → 등록 안 됨</text>
-      </g>
-      <path class="uml-inherit" d="M460 200 V168" marker-end="url(#triangle)"/>
-
-      <g class="uml-class" transform="translate(20,310)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">CsvSpectrumReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">device="uv-vis"</text>
-        <text class="uml-member" x="10" y="68">import 때 등록</text>
-      </g>
-      <g class="uml-class" transform="translate(225,310)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">XrdReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">device="xrd"</text>
-        <text class="uml-member" x="10" y="68">데모 [3]에서 정의</text>
-      </g>
-      <g class="uml-class warn" transform="translate(430,310)">
-        <rect width="190" height="76"/>
-        <text class="uml-name" x="95" y="22">AnotherXrdReader</text>
-        <line x1="0" y1="32" x2="190" y2="32"/>
-        <text class="uml-member" x="10" y="52">device="xrd"</text>
-        <text class="uml-member" x="10" y="68">[4] 중복 → ValueError</text>
-      </g>
-      <path class="uml-inherit" d="M115 310 V290 H460"/>
-      <path class="uml-inherit" d="M320 310 V290"/>
-      <path class="uml-inherit" d="M525 310 V290 H460"/>
-      <path class="uml-inherit" d="M460 290 V260" marker-end="url(#triangle)"/>
-      <path class="uml-dep" d="M50 310 V230" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="58" y="268">정의되는 순간 등록</text>
-
-      <g class="uml-step"><circle cx="300" cy="40" r="9"/><text x="300" y="44">1</text></g>
-      <g class="uml-step"><circle cx="360" cy="200" r="9"/><text x="360" y="204">2</text></g>
-      <g class="uml-step"><circle cx="20" cy="310" r="9"/><text x="20" y="314">3</text></g>
-      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">4</text></g>
-
-      <text class="uml-note" x="20" y="420"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 등록을 맡는 클래스</text>
-      <text class="uml-note" x="20" y="442">① Reader: _registry와 __init_subclass__ → ② TextColumnReader: device 없는 중간 클래스</text>
-      <text class="uml-note" x="20" y="464">③ 구체 리더: class 문 한 줄이 곧 등록 → ④ AcquisitionJob.run(): 이름으로 조회</text>
-      <text class="uml-note" x="20" y="486">데모 [1] 등록 목록 · [2] 정의 전 LookupError · [3] 정의 후 성공 · [4] 중복 거부 · [5] import 함정</text>
-    </svg>
-    <figcaption>코드 지도 · 레지스트리 변형. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "등록한다/조회한다".</figcaption>
-  </figure>
-  <pre data-src="01_factory_method/04_registry.py" data-title="레지스트리 변형"></pre>
-  <p>[2]와 [3]을 나란히 보면 레지스트리의 성격이 드러난다. 프레임워크 코드는 한 글자도 바뀌지 않았는데, 클래스 정의가 실행되자 장비 목록이 늘었다. <code>__init_subclass__</code>는 파이썬 3.6에서 들어온 훅으로, 예전에는 메타클래스로 하던 일을 훨씬 가볍게 해 준다. 특히 <code>Reader</code>가 이미 <code>ABCMeta</code>를 쓰고 있어서 별도 메타클래스를 섞으면 충돌을 해결해야 하는데, <code>__init_subclass__</code>는 그 문제가 없다.</p>
-  <p>엄밀히 말해 이것은 더 이상 GoF 팩토리 메서드가 아니다. Creator의 하위 클래스가 생성을 결정하지 않고, <code>AcquisitionJob</code>은 상속 계층조차 갖지 않는다. 남은 것은 팩토리 메서드가 노리던 <em>결과</em>, 즉 "새 제품은 추가만으로"다. [5]가 대가다. 등록이 import라는 부수 효과에 기대므로, 누군가 그 모듈을 import하지 않으면 코드가 분명히 있는데도 장비가 "없다". 명시적 상속 계층에서는 생길 수 없는 종류의 버그다.</p>
-  <table>
-    <thead><tr><th>방식</th><th>무엇을 만들지 결정하는 주체</th><th>새 장비 추가 비용</th><th>GoF 의도와의 거리</th></tr></thead>
-    <tbody>
-      <tr><td>naive / 단순 팩토리</td><td>프레임워크의 조건문</td><td>공용 코드 수정</td><td>패턴 아님</td></tr>
-      <tr><td>팩토리 메서드</td><td>Concrete Creator(하위 클래스)</td><td>하위 클래스 2개 추가</td><td>정확히 일치</td></tr>
-      <tr><td>생성 함수 주입</td><td>작업을 조립하는 호출자</td><td>리더 클래스 1개 추가</td><td>의도는 같고 수단이 합성</td></tr>
-      <tr><td><code>from_config</code></td><td>설정 데이터 + 프레임워크의 표</td><td>표 수정</td><td>이름만 같음</td></tr>
-      <tr><td>레지스트리</td><td>등록부(정의 시점에 채워짐)</td><td>리더 클래스 1개 추가 + import 보장</td><td>결과(OCP)만 계승</td></tr>
-    </tbody>
-  </table>
+  <p class="lead-in">레지스트리는 이름과 클래스를 짝지어 둔 등록부다. 호출자는 분기 대신 이 표를 찾는다. 표를 공용 코드가 쥐지 않게 하려면, 클래스가 스스로 등록하면 된다. 아래 코드는 <code>__init_subclass__</code>로 <code>class XrdReader(Reader, device="xrd")</code>가 정의되는 순간 등록되게 한다. 등록부에 오르는 것이 리더(제품)라는 점을 기억하라. 타입 힌트의 <code><dfn data-term="typing-classvar">ClassVar</dfn></code>는 그 속성이 인스턴스가 아니라 클래스 전체에 속한다는 표시이고, <code><dfn data-term="typing-any">Any</dfn></code>는 어떤 타입이든 허용한다는 표시다.</p>
+  <pre data-src="01_factory_method/easy/e4_registry.py" data-title="레지스트리 변형"></pre>
+  <p>데모 [2]와 [3]을 비교하라. 공용 코드는 한 글자도 안 바뀌었는데 장비 목록이 늘었다. 대가는 데모 [4]다. 등록은 모듈을 import할 때 일어나는 <dfn data-term="side-effect">부수 효과</dfn>, 곧 값을 돌려주는 것 말고 바깥 상태를 바꾸는 일에 기댄다. 아무도 그 모듈을 import하지 않으면 코드가 있는데도 장비가 "없다".</p>
 </section>
 
 <section id="tradeoffs">
   <h2>6. 트레이드오프와 관련 패턴</h2>
-  <p><strong>얻는 것.</strong> 흐름을 가진 코드가 구체 클래스를 모르게 된다(DIP). 새 제품은 하위 클래스 추가로 끝난다(OCP). 생성 인자가 그것을 아는 클래스로 모인다. 테스트용 이음새가 설계의 일부로 생긴다.</p>
-  <p><strong>치르는 것.</strong> 제품 하나를 위해 Creator 하위 클래스가 하나 더 생긴다(평행 계층). 상속은 정적이므로 실행 중에 생성 방식을 바꿀 수 없다. 그리고 "이 작업은 무엇을 만드는가"를 알려면 하위 클래스를 따라 내려가야 하므로 코드 추적이 한 단계 간접적이 된다.</p>
+  <p><strong>얻는 것.</strong></p>
+  <ul>
+    <li>흐름을 가진 코드가 구체 클래스를 모른다(DIP).</li>
+    <li>새 제품은 하위 클래스 추가로 끝난다(OCP). 생성 인자도 그것을 아는 클래스로 모인다.</li>
+    <li>테스트용 이음새가 설계의 일부로 생긴다.</li>
+  </ul>
   <div class="callout warn">
     <span class="label">이 패턴을 쓰지 말아야 할 때</span>
     <ul>
-      <li><strong>제품 종류가 닫혀 있고 확장 주체가 내부 팀뿐일 때.</strong> 장비가 두 종류이고 앞으로 늘 계획이 없다면 단순 팩토리 함수 하나가 더 읽기 쉽다. 평행 계층은 "제3자가 확장한다"는 전제가 있을 때 값을 한다.</li>
-      <li><strong>변하는 것이 생성 하나뿐이고 흐름을 상속할 이유가 없을 때.</strong> 파이썬에서는 생성 함수를 주입하는 편(파이썬다운 변형)이 싸다. 하위 클래스 하나가 메서드 한 줄을 위해 존재한다면 설계가 언어를 거스르고 있다는 신호다.</li>
-      <li><strong>생성 흐름을 소유한 상위 클래스가 없을 때.</strong> 그냥 "객체를 만들어 주는 함수"가 필요하다면 그것은 팩토리 함수이지 팩토리 메서드가 아니다. 패턴 이름을 붙이려고 추상 클래스를 만들지 않는다.</li>
-      <li><strong>테스트 때문에만 도입하려 할 때.</strong> 테스트 이음새가 유일한 동기라면 생성자 주입이 더 직접적이다.</li>
+      <li><strong>종류가 닫혀 있고 고치는 사람이 내부 팀뿐일 때.</strong> 장비가 둘뿐이고 늘 계획이 없다면 단순 팩토리 함수가 더 읽기 쉽다.</li>
+      <li><strong>변하는 것이 생성 하나뿐일 때.</strong> 메서드 한 줄을 위해 하위 클래스를 만든다면, 파이썬에서는 생성 함수를 넘기는 편이 싸다.</li>
+      <li><strong>흐름을 가진 상위 클래스가 없을 때.</strong> 그냥 객체를 만들어 주는 함수가 필요하다면 그것은 팩토리 함수다. 패턴 이름을 붙이려고 추상 클래스를 만들지 않는다.</li>
     </ul>
   </div>
-  <p><strong>관련 패턴.</strong></p>
+  <p><strong>헷갈리는 패턴과의 차이.</strong></p>
   <ul>
-    <li><strong>추상 팩토리(2장)</strong>: 팩토리 메서드가 "제품 하나"의 생성을 미룬다면, 추상 팩토리는 함께 쓰여야 하는 제품 <em>여러 개</em>의 생성 메서드를 한 객체에 묶는다. 추상 팩토리의 각 <code>create_*</code>는 대개 팩토리 메서드로 구현된다.</li>
-    <li><strong>템플릿 메서드(14장)</strong>: <code>run()</code>은 템플릿 메서드이고, <code>create_reader()</code>는 그 단계 중 하나다. 팩토리 메서드는 "단계가 생성인 템플릿 메서드"의 특수 사례로 볼 수 있다.</li>
-    <li><strong>전략(10장)</strong>: 파이썬다운 변형의 생성 함수 주입은 "생성 전략"이다. 상속(템플릿 메서드·팩토리 메서드)과 합성(전략)이라는 두 축은 이 교재에서 반복해서 등장한다.</li>
+    <li><strong>추상 팩토리(2장)</strong>: 팩토리 메서드는 제품 하나의 생성을 미루고, 추상 팩토리는 함께 쓰는 제품 여러 개의 생성을 한 객체에 묶는다.</li>
+    <li><strong>템플릿 메서드(14장)</strong>: <code>run()</code>은 템플릿 메서드이고, 그 한 단계가 마침 "생성"인 경우가 팩토리 메서드다.</li>
   </ul>
 </section>
 
@@ -589,10 +204,3 @@ class LogCollector:
     </details>
   </div>
 </section>
-
-<!--
-설계서 대비 변경 사항:
-- 파이썬다운 변형을 파이썬다운 변형(생성 함수 주입 + from_config)와 레지스트리 변형(__init_subclass__)로 나눴다.
-  한 파일에 넣으면 Reader를 ABC(레지스트리 소유)와 Protocol(주입) 두 방식으로 동시에 정의해야 해 혼란스럽기 때문이다.
-- 연습문제 2 해설에서는 본문(Product 등록)과 대비되도록 Concrete Creator를 등록하는 레지스트리를 보였다.
--->

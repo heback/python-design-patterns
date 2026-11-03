@@ -125,6 +125,9 @@ p, li { max-width: 72ch; }
 .callout.ok { background: var(--ok-soft); border-color: transparent; }
 .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
 .callout .label { font-weight: 700; display: block; margin-bottom: 4px; }
+/* 요약 판 ↔ 참고용 긴 버전 안내 줄 */
+.callout.full-ref { background: var(--accent-soft); border-color: transparent; font-size: .95em; padding: 10px 16px; }
+.callout.full-ref a { font-weight: 700; }
 .principles { margin: 24px 0; padding: 16px 22px 18px; background: var(--surface); border: 2px solid var(--accent); border-radius: var(--radius); }
 .principles .label { display: block; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
 .principles ol { margin: 0; padding-left: 1.5em; }

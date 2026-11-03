@@ -48,7 +48,7 @@ class Segment:
 
 
 def chapter_files() -> list[Path]:
-    """읽기 순서대로 정렬된 원고 목록. 00 → 01…15 → 99 는 파일명 정렬과 같다."""
+    """읽기 순서대로 정렬된 원고 목록(요약 판). 00 → 01…15 → 99 는 파일명 정렬과 같다. 참고용 긴 버전(chapters/full/)은 검사하지 않는다."""
     return sorted(CHAPTERS.glob("[0-9][0-9]-*.html"))
 
 
@@ -169,6 +169,8 @@ def main(argv: list[str]) -> int:
             continue
         if not in_scope(first, *dfn_positions):
             continue
+        if not dfn_positions and first < 0:
+            continue    # 요약 판에 전혀 나오지 않는 용어(긴 버전에만 있음). 용어집은 긴 버전의 정의로 잇는다
         if len(dfn_positions) != 1:
             problems.append(f"[{t['id']}] <dfn data-term> 가 {len(dfn_positions)}개 (정확히 1개여야 함)"
                             + (f" — 첫 등장: {locate(stream, segments, first)}" if first >= 0 else ""))

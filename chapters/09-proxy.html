@@ -7,253 +7,134 @@ part: 구조 패턴
 <section id="goals">
 <h2>학습 목표</h2>
 <ol>
-  <li>실제 객체와 같은 인터페이스를 가진 대리자로 접근을 통제하는 프록시의 종류(가상/지연, 보호, 캐싱, 원격)를 구분할 수 있다.</li>
-  <li>가상 프록시와 보호 프록시를 구현하고, 실제 객체의 생성·생명주기를 프록시가 통제한다는 점에서 데코레이터와 구별할 수 있다.</li>
-  <li>파이썬의 <code>__getattr__</code>, <code>functools.cached_property</code>, <code>weakref.proxy</code>를 활용한 프록시 구현과 그 한계를 설명할 수 있다.</li>
+  <li>실제 객체와 같은 인터페이스를 가진 대리인으로 접근을 통제하는 프록시의 종류(가상, 보호, 캐싱, 원격)를 구분할 수 있다.</li>
+  <li>가상 프록시와 보호 프록시를 구현하고, 프록시가 실제 객체의 생성을 쥔다는 점에서 데코레이터와 구별할 수 있다.</li>
+  <li>파이썬의 <code>cached_property</code>, <code>lru_cache</code>로 프록시 없이 같은 효과를 내는 방법과 그 조건을 설명할 수 있다.</li>
 </ol>
+<div class="callout"><strong>핵심 한 줄</strong> 고칠 수 없는 객체에 "언제 만들지, 누구에게 보여 줄지, 무엇을 재사용할지"를 정해야 하는데 그 검사가 쓰는 곳마다 흩어진다면 프록시를 떠올린다.</div>
 </section>
 
 <section id="context">
 <h2>1. 상황</h2>
-<p>국토 관측 기관의 <dfn data-term="geographic-information-system">GIS</dfn>(지리 정보를 저장·분석·표시하는 시스템) 개발자 수아는 위성 영상 아카이브 뷰어를 맡았다. 위성이 찍은 장면 하나는 수백 MB짜리 <dfn data-term="tile">원본 타일</dfn>(큰 위성 영상을 사각형 조각 단위로 나눈 원본 데이터)이고, 아카이브에는 수만 장이 쌓여 있다. 기존 라이브러리의 <code>SatelliteImage</code> 객체는 생성될 때 원본을 원격 저장소에서 내려받는다. 영상 하나를 다룰 때는 자연스러운 설계였다. 만들었으면 쓸 것이니까.</p>
-<p>문제는 카탈로그 화면이었다. 분석관들은 "지난달 한반도 동해안 장면"을 검색해 수천 장의 목록을 훑고, 그중 몇 장만 확대해 본다. 목록을 그리려고 영상 객체를 만드는 순간 모든 원본이 다운로드되었다. 첫 시험에서 목록 화면은 몇 시간이 지나도 열리지 않았다.</p>
-<p>요구는 더 있었다. 일부 장면에는 군사 보안 구역이 찍혀 있어, <dfn data-term="security-clearance">인가 등급</dfn>(사용자가 열람할 수 있는 기밀 수준)이 있는 사용자만 원본을 볼 수 있어야 한다. 목록의 제목과 촬영일은 누구에게나 보여도 되지만 확대는 안 된다. 또 분석관들은 같은 장면을 여러 화면(카탈로그, 비교 뷰, 보고서 내보내기)에서 반복해 연다. 같은 400MB를 매번 받을 수는 없다.</p>
-<p>수아의 첫 해결책은 카탈로그 화면 코드에 검사를 넣는 것이었다. "권한 있나? 캐시에 있나? 없으면 그때 만들자." 동작은 했다. 그러나 비교 뷰 담당자는 권한 검사를 복사하는 것을 잊었고, 보고서 내보내기 화면은 자기만의 캐시를 따로 만들었다. <strong><code>SatelliteImage</code>를 쓰는 모든 곳이 "언제 만들고, 누구에게 보여 주고, 무엇을 재사용할지"를 알아야 했다.</strong></p>
+<p>개발자 수아는 위성 사진 뷰어를 맡았다. 사진 한 장의 원본은 400MB이고 저장소에는 수만 장이 있다. 외부 라이브러리의 <code>SatelliteImage</code>는 만들어지는 순간 원본을 내려받는다.</p>
+<p>문제는 목록 화면이었다. 분석관은 수천 장의 제목을 훑고 그중 몇 장만 확대한다. 그런데 목록을 그리려고 사진 객체를 만드는 순간 모든 원본이 다운로드되었다. 요구도 더 있었다. 보안 시설이 찍힌 사진은 허가받은 사람만 확대할 수 있어야 하고, 같은 사진을 여러 화면에서 열 때마다 400MB를 다시 받을 수는 없었다.</p>
+<p>수아는 목록 화면에 "권한 있나? 이미 받았나?" 검사를 넣었다. 그러나 비교 화면 담당자는 권한 검사를 복사하는 것을 잊었고, 내보내기 화면은 자기 <dfn data-term="cache">캐시</dfn>(다시 받지 않으려고 결과를 가까이에 저장해 둔 것)를 따로 만들었다.</p>
 </section>
 
 <section id="naive">
 <h2>2. 순진한 설계와 그 한계</h2>
-<p>수아의 첫 시도를 재현한다. 실제 다운로드는 하지 않고, 받은 MB를 누적해 비용을 숫자로 드러낸다.</p>
-<p class="lead-in"><code>SatelliteImage.__init__</code>의 <code>archive.fetch()</code> 한 줄이 데모 [1]에서 어떤 숫자가 되는지 보라. 그리고 <code>CatalogScreen.open()</code>에 섞인 두 검사(권한, 캐시)가 이 화면에만 있다는 점에 주목하라. 코드의 <dfn data-term="raster">raster</dfn>(래스터)는 영상을 격자(픽셀) 값의 배열로 표현한 데이터이고, 주석의 <dfn data-term="cache-hit">캐시 적중</dfn>은 요청한 값이 이미 캐시에 있어 다시 받지 않고 돌려준 경우를 말한다.</p>
-<pre data-src="09_proxy/01_naive.py" data-title="순진한 코드"></pre>
-<p>출력 [1]의 800,000MB는 목록을 그리려고 만든 객체 2,000개의 대가다. [2]는 화면 코드가 직접 검사를 떠안아 문제를 '해결'한 모습이다. 동작은 맞지만 구조적으로 세 가지가 잘못되었다.</p>
+<p class="lead-in">수아의 첫 시도다. 실제로 내려받지는 않고 받은 MB를 더해 비용을 숫자로 보인다. <code>SatelliteImage.__init__</code>의 <code>archive.fetch()</code> 한 줄이 데모 [1]에서 어떤 숫자가 되는지, 그리고 <code>CatalogScreen.open()</code>의 검사가 이 화면에만 있다는 점을 보라.</p>
+<pre data-src="09_proxy/easy/e1_naive.py" data-title="순진한 코드"></pre>
+<p>데모 [1]의 800,000MB는 제목을 보여 주려고 만든 객체 2,000개의 대가다.</p>
 <ul>
-  <li><strong>생성과 사용이 붙어 있다.</strong> 객체를 갖는 것(목록에 올리기)과 무거운 데이터를 쓰는 것(확대)은 다른 시점의 일인데, 생성자가 둘을 묶어 버렸다.</li>
-  <li><strong>접근 정책이 클라이언트에 흩어진다.</strong> 권한 검사는 영상을 여는 모든 경로에 있어야 하는데, 지금은 이 화면에만 있다. 보안 정책은 "빠뜨린 한 곳"에서 무너진다.</li>
-  <li><strong>캐시가 잘못된 층에 있다.</strong> 화면 객체의 필드로 둔 캐시는 다른 화면과 공유되지 않는다.</li>
+  <li><strong>만드는 것과 쓰는 것이 붙어 있다.</strong> 목록에 올리는 일과 확대하는 일은 시점이 다른데, 생성자가 둘을 묶었다.</li>
+  <li><strong>접근 규칙이 화면에 흩어진다.</strong> 권한 검사는 사진을 여는 모든 길에 있어야 한다. 한 곳만 빠져도 무너진다.</li>
+  <li><strong>캐시가 잘못된 층에 있다.</strong> 화면의 필드인 캐시는 다른 화면과 나눠 쓰지 못한다.</li>
 </ul>
-<p>그리고 <code>SatelliteImage</code>는 외부 라이브러리 클래스이므로 생성자를 고칠 수 없다고 가정하자. 그렇다면 필요한 것은 <code>SatelliteImage</code>와 <strong>똑같이 보이면서</strong>, 실제 객체로 가는 길목에서 "아직 만들지 않기", "권한 없으면 막기", "있으면 재사용하기"를 처리하는 대리인이다.</p>
+<p><code>SatelliteImage</code>는 고칠 수 없으니, 사진과 <strong>똑같이 보이면서</strong> 길목에서 이 일들을 맡는 대리인이 필요하다.</p>
 </section>
 
 <section id="structure">
 <h2>3. 패턴의 구조</h2>
-<p>GoF의 의도: <em>"다른 객체에 대한 접근을 통제하기 위해 대리자(surrogate) 또는 자리표시자(placeholder)를 제공한다."</em> 핵심 단어는 '접근 통제'다. GoF는 통제의 이유에 따라 프록시를 네 가지로 분류한다.</p>
-<table>
-  <thead><tr><th>종류</th><th>통제하는 것</th><th>이 장의 예</th></tr></thead>
-  <tbody>
-    <tr><td>가상 프록시(virtual)</td><td><strong>생성 시점</strong>: 비싼 객체를 정말 필요할 때까지 만들지 않는다</td><td><code>LazyImageProxy</code></td></tr>
-    <tr><td>보호 프록시(protection)</td><td><strong>접근 권한</strong>: 호출자에 따라 허용·거부</td><td><code>ProtectedImageProxy</code></td></tr>
-    <tr><td><dfn data-term="caching-proxy">캐싱 프록시</dfn>(caching, GoF의 <dfn data-term="smart-reference">smart reference</dfn> 계열. 스마트 참조는 실제 객체에 접근할 때 참조 횟수 세기·잠금·캐시 같은 부가 동작을 함께 하는 프록시를 GoF가 묶어 부른 이름이다)</td><td><strong>반복 비용</strong>: 결과를 재사용</td><td><code>CachingArchiveProxy</code></td></tr>
-    <tr><td><dfn data-term="remote-proxy">원격 프록시</dfn>(remote)</td><td><strong>위치</strong>: 다른 프로세스·머신의 객체를 로컬처럼</td><td>파이썬 <dfn data-term="xmlrpc-client-serverproxy"><code>xmlrpc.client.ServerProxy</code></dfn>(원격 서버의 메서드를 로컬 메서드처럼 부르게 해 주는 표준 라이브러리 클래스, 본문 5절)</td></tr>
-  </tbody>
-</table>
+<p>GoF의 의도: <em>"다른 객체에 대한 접근을 통제하기 위해 대리자를 제공한다."</em> 연예인의 매니저처럼, 연락은 대리인이 받고 만날지 말지를 정한다. 통제하는 이유에 따라 종류가 나뉜다. 아래 그림에서 <dfn data-term="unified-modeling-language">UML</dfn>(클래스 관계를 그림으로 그리는 표기법)의 <dfn data-term="uml-stereotype">스테레오타입</dfn>은 상자나 선에 꺾쇠로 붙이는 꼬리표로, 그 종류나 관계를 알려 준다(예: 생성 관계를 나타내는 «create»).</p>
+<ul>
+  <li><strong><dfn data-term="virtual-proxy">가상 프록시</dfn>:</strong> 비싼 객체를 정말 필요할 때까지 만들지 않는다(<code>LazyImageProxy</code>).</li>
+  <li><strong>보호 프록시:</strong> 호출자에 따라 허용하거나 막는다(<code>ProtectedImageProxy</code>).</li>
+  <li><strong><dfn data-term="caching-proxy">캐싱 프록시</dfn>:</strong> 한 번 얻은 결과를 기억해 두었다가 재사용한다(<code>CachingArchiveProxy</code>).</li>
+  <li><strong><dfn data-term="remote-proxy">원격 프록시</dfn>:</strong> 다른 컴퓨터에 있는 객체를 내 컴퓨터의 객체처럼 부르게 해 준다.</li>
+</ul>
 <figure class="diagram">
-  <svg viewBox="0 0 760 390" role="img" aria-label="위성 영상 프록시 구조">
-    <g class="uml-class" transform="translate(20,30)">
-      <rect width="140" height="44"/>
-      <text class="uml-name" x="70" y="28">CatalogScreen</text>
-    </g>
-    <g class="uml-class highlight" transform="translate(260,15)">
-      <rect width="230" height="74"/>
-      <text class="uml-name uml-abstract" x="115" y="24">SatelliteImage</text>
-      <line x1="0" y1="34" x2="230" y2="34"/>
-      <text class="uml-member" x="10" y="52">+ meta: ImageMeta</text>
-      <text class="uml-member" x="10" y="68">+ zoom(region, user)</text>
-    </g>
-    <path class="uml-dep" d="M160 52 H260" marker-end="url(#arrow)"/>
-
-    <g class="uml-class" transform="translate(20,170)">
-      <rect width="200" height="60"/>
-      <text class="uml-name" x="100" y="24">RealSatelliteImage</text>
+  <svg viewBox="0 0 640 260" role="img" aria-label="프록시 구조: RealSatelliteImage, LazyImageProxy, ProtectedImageProxy가 SatelliteImage를 구현한다. LazyImageProxy는 RealSatelliteImage를 직접 만들고, ProtectedImageProxy는 SatelliteImage 하나를 감싼다">
+    <g class="uml-class" transform="translate(20,30)"><rect width="140" height="44"/><text class="uml-name" x="70" y="28">CatalogScreen</text></g>
+    <g class="uml-class highlight" transform="translate(240,15)">
+      <rect width="200" height="70"/>
+      <text class="uml-name uml-abstract" x="100" y="24">SatelliteImage</text>
       <line x1="0" y1="34" x2="200" y2="34"/>
-      <text class="uml-member" x="10" y="52">- _raster (생성 시 다운로드)</text>
+      <text class="uml-member" x="10" y="52">+ title</text>
+      <text class="uml-member" x="10" y="66">+ zoom(region, user)</text>
     </g>
-    <g class="uml-class" transform="translate(270,170)">
-      <rect width="210" height="60"/>
-      <text class="uml-name" x="105" y="24">LazyImageProxy</text>
-      <line x1="0" y1="34" x2="210" y2="34"/>
-      <text class="uml-member" x="10" y="52">- _real: Real… | None</text>
+    <path class="uml-dep" d="M160 52 H240" marker-end="url(#arrow)"/>
+    <g class="uml-class" transform="translate(20,170)"><rect width="180" height="50"/><text class="uml-name" x="90" y="30">RealSatelliteImage</text></g>
+    <g class="uml-class" transform="translate(240,170)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">LazyImageProxy</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
+      <text class="uml-member" x="10" y="52">- _real: … | None</text>
     </g>
-    <g class="uml-class" transform="translate(530,170)">
-      <rect width="210" height="60"/>
-      <text class="uml-name" x="105" y="24">ProtectedImageProxy</text>
-      <line x1="0" y1="34" x2="210" y2="34"/>
+    <g class="uml-class" transform="translate(450,170)">
+      <rect width="180" height="60"/>
+      <text class="uml-name" x="90" y="24">ProtectedImageProxy</text>
+      <line x1="0" y1="34" x2="180" y2="34"/>
       <text class="uml-member" x="10" y="52">- _inner: SatelliteImage</text>
     </g>
-    <path class="uml-inherit" d="M120 170 V130 H375 V89" marker-end="url(#triangle)"/>
-    <path class="uml-inherit" d="M375 170 V130"/>
-    <path class="uml-inherit" d="M635 170 V130 H375"/>
-    <path class="uml-dep" d="M270 200 H220" marker-end="url(#arrow)"/>
-    <text class="uml-label" x="226" y="192">«create»</text>
-    <path class="uml-assoc" d="M740 200 H752 V52 H490" marker-end="url(#arrow)"/>
-    <text class="uml-label" x="600" y="45">_inner</text>
-
-    <g class="uml-class" transform="translate(20,300)">
-      <rect width="170" height="50"/>
-      <text class="uml-name uml-abstract" x="85" y="30">Archive</text>
-    </g>
-    <g class="uml-class" transform="translate(260,300)">
-      <rect width="170" height="50"/>
-      <text class="uml-name" x="85" y="30">RemoteArchive</text>
-    </g>
-    <g class="uml-class" transform="translate(500,300)">
-      <rect width="200" height="50"/>
-      <text class="uml-name" x="100" y="30">CachingArchiveProxy</text>
-    </g>
-    <path class="uml-inherit" d="M345 300 V280 H140 V300" marker-end="url(#triangle)"/>
-    <path class="uml-inherit" d="M600 300 V280 H345"/>
-    <path class="uml-assoc" d="M500 325 H430" marker-end="url(#arrow)"/>
-    <text class="uml-label" x="440" y="318">_real</text>
-    <path class="uml-dep" d="M60 230 V300" marker-end="url(#arrow)"/>
-    <text class="uml-label" x="66" y="268">fetch()</text>
-
+    <path class="uml-inherit" d="M110 170 V125 H340 V85" marker-end="url(#triangle)"/>
+    <path class="uml-inherit" d="M330 170 V125"/>
+    <path class="uml-inherit" d="M540 170 V125 H340"/>
+    <path class="uml-dep" d="M240 195 H200" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="196" y="250">«create» 직접 만든다</text>
+    <path class="uml-assoc" d="M630 200 H636 V50 H440" marker-end="url(#arrow)"/>
+    <text class="uml-label" x="520" y="42">_inner</text>
     <text class="uml-note" x="20" y="22">Client</text>
-    <text class="uml-note" x="500" y="30">Subject</text>
-    <text class="uml-note" x="20" y="162">Real Subject</text>
-    <text class="uml-note" x="270" y="162">Proxy (가상)</text>
-    <text class="uml-note" x="530" y="162">Proxy (보호)</text>
-    <text class="uml-note" x="20" y="380">두 번째 Subject 계층: Archive ← RemoteArchive(Real) / CachingArchiveProxy(Proxy)</text>
+    <text class="uml-note" x="450" y="100">Subject</text>
+    <text class="uml-note" x="20" y="160">Real Subject</text>
+    <text class="uml-note" x="300" y="160">Proxy</text>
   </svg>
-  <figcaption>그림 9-1. 영상 계층과 저장소 계층에 각각 프록시를 둔다. LazyImageProxy는 RealSatelliteImage를 직접 생성한다(«create»).</figcaption>
+  <figcaption>그림 9-1. 사진 층의 프록시들. LazyImageProxy는 RealSatelliteImage를 스스로 만든다. 저장소 층(Archive, RemoteArchive, CachingArchiveProxy)도 같은 모양이다.</figcaption>
 </figure>
 <table>
-  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>책임</th></tr></thead>
+  <thead><tr><th>역할</th><th>이 장의 클래스</th><th>하는 일</th></tr></thead>
   <tbody>
-    <tr><td>Subject</td><td><code>SatelliteImage</code>, <code>Archive</code></td><td>실제 객체와 프록시가 공유하는 인터페이스. 그래서 서로 교환 가능하다(LSP).</td></tr>
-    <tr><td>Real Subject</td><td><code>RealSatelliteImage</code>, <code>RemoteArchive</code></td><td>실제 일을 한다. 지연·권한·캐시를 모른다.</td></tr>
-    <tr><td>Proxy</td><td><code>LazyImageProxy</code>, <code>ProtectedImageProxy</code>, <code>CachingArchiveProxy</code></td><td>실제 객체로 가는 접근을 통제하고, 필요하면 실제 객체를 만들고 관리한다.</td></tr>
+    <tr><td>Subject</td><td><code>SatelliteImage</code>, <code>Archive</code></td><td>진짜 객체와 프록시가 함께 지키는 인터페이스. 그래서 바꿔 끼울 수 있다.</td></tr>
+    <tr><td>Real Subject</td><td><code>RealSatelliteImage</code>, <code>RemoteArchive</code></td><td>진짜 일을 한다. 지연·권한·캐시를 모른다.</td></tr>
+    <tr><td>Proxy</td><td><code>LazyImageProxy</code>, <code>ProtectedImageProxy</code>, <code>CachingArchiveProxy</code></td><td>진짜 객체로 가는 길을 통제하고, 필요하면 진짜 객체를 만든다.</td></tr>
   </tbody>
 </table>
-<p>그림을 6장의 데코레이터 그림과 나란히 놓으면 거의 같다. 같은 인터페이스를 구현하고, 같은 인터페이스의 다른 객체에 위임한다. 차이는 그림의 «create» 화살표 하나에 있다. <strong>데코레이터는 이미 만들어진 객체를 받아 감싸고, 프록시는 흔히 실제 객체를 스스로 만들고 그 생명주기를 소유한다.</strong> 클라이언트는 <code>RealSatelliteImage</code>에 대한 참조를 한 번도 갖지 않는다. 이 차이는 4절에서 코드로 확인한다.</p>
+<p>이 그림은 6장 데코레이터 그림과 거의 같다. 차이는 «create» 화살표 하나다. <strong>데코레이터는 이미 만들어진 객체를 받아 감싸고, 프록시는 흔히 진짜 객체를 스스로 만든다.</strong></p>
 </section>
 
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
-<p>수아는 프록시를 두 층에 두었다. 영상 객체 층에는 "언제 만드나"(가상)와 "누구에게 허용하나"(보호)를, 저장소 층에는 "이미 받은 것을 재사용하나"(캐싱)를 맡겼다. 캐싱을 영상 층이 아니라 저장소 층에 둔 이유는 코드 주석에 있다.</p>
-<p class="lead-in">먼저 저장소 층이다. <code>CachingArchiveProxy</code>는 <code>RemoteArchive</code>와 같은 <code>Archive</code> 인터페이스를 구현하므로, 영상 쪽 코드는 자신이 캐시를 통해 받는지 모른다. <dfn data-term="collections-ordereddict"><code>OrderedDict</code></dfn>(삽입 순서를 다루는 <code>move_to_end</code>, <code>popitem(last=False)</code>를 제공하는 딕셔너리)로 <dfn data-term="least-recently-used">LRU</dfn>(용량이 차면 가장 오래 쓰이지 않은 항목부터 버리는 캐시 교체 정책)를 구현한 부분과 용량을 작게 잡은 이유를 docstring에서 확인하라.</p>
-<pre data-src="09_proxy/02_proxy.py" data-lines="18-71" data-title="패턴 코드"></pre>
-<p>캐시가 저장소 앞에 있으므로 카탈로그, 비교 뷰, 내보내기 등 영상을 여는 모든 경로가 자동으로 같은 캐시를 쓴다. 순진한 코드에서 화면마다 따로 있던 캐시 문제가 사라진다.</p>
-<p class="lead-in">다음은 영상의 Subject와 Real Subject다. <code>RealSatelliteImage</code>는 순진한 코드와 똑같이 생성자에서 원본을 받는 '무거운' 객체이며, 우리는 이것을 고치지 않았다. <code>SatelliteImage.zoom()</code>이 <code>user</code>를 인자로 받는 이유에 대한 docstring을 읽어 보라.</p>
-<pre data-src="09_proxy/02_proxy.py" data-lines="72-131" data-title="패턴 코드"></pre>
-<p><code>zoom(region, user)</code>의 <code>user</code>는 실제 영상에게는 필요 없는 인자다. 그런데도 Subject에 넣은 것은 보호 프록시가 판단 근거를 받아야 하고, 프록시와 실제 객체가 같은 시그니처여야 교환 가능하기 때문이다. 대안은 프록시가 생성 시점에 사용자를 받아 두는 것(세션마다 프록시 생성)이다. 어느 쪽이든 "접근 통제에 필요한 정보가 어떤 경로로 프록시에 도달하는가"는 프록시 설계의 실제 쟁점이다.</p>
-<p class="lead-in">이제 두 프록시와 조립 함수다. <code>LazyImageProxy</code>가 실제 객체 대신 '만드는 데 필요한 재료'(메타데이터와 저장소)를 들고 있다는 점, <code>ProtectedImageProxy</code>가 왜 가상 프록시의 <em>바깥</em>에 있어야 하는지, 그리고 <code>open_image()</code>가 왜 존재하는지에 주목하라.</p>
-<pre data-src="09_proxy/02_proxy.py" data-lines="132-188" data-title="패턴 코드"></pre>
-<p>세 가지를 짚는다.</p>
+<p class="lead-in">수아는 프록시를 두 층에 두었다. 저장소 층의 <code>CachingArchiveProxy</code>가 재사용을, 사진 층의 두 프록시가 지연과 권한을 맡는다. 데모 [3]의 <dfn data-term="cache-hit">캐시 적중</dfn>은 요청한 원본이 이미 캐시에 있어 다시 받지 않은 경우다. <code>open_image()</code>가 왜 있는지도 보라.</p>
+<pre data-src="09_proxy/easy/e2_pattern.py" data-title="패턴 코드"></pre>
+<p>어디를 보면 되는가.</p>
 <ul>
-  <li><strong>생성 책임:</strong> <code>LazyImageProxy</code>는 <code>RealSatelliteImage</code>를 생성자 인자로 받지 않는다. 받는다면 이미 다운로드가 끝난 뒤일 것이다. 실제 객체를 언제 만들지 결정하려면 그 생성 자체가 프록시 안에 있어야 한다. 이것이 학습 목표 2의 "생명주기를 통제한다"이며, 이미 만들어진 객체를 받는 데코레이터로는 할 수 없는 일이다.</li>
-  <li><strong>프록시 중첩 순서:</strong> 보호 프록시가 바깥이라 권한 검사가 먼저다. 거꾸로 감싸도 접근 자체는 막히지만, 그때는 권한 없는 사용자의 요청에도 400MB를 먼저 받은 뒤에 거부하게 된다. 데코레이터 장의 압축/암호화처럼, 같은 구성 요소라도 순서가 비용과 의미를 바꾼다.</li>
-  <li><strong>생성 경로의 단일화:</strong> 클라이언트가 <code>RealSatelliteImage</code>나 <code>LazyImageProxy</code>를 직접 만들 수 있으면 보호 프록시를 우회할 수 있다. <code>open_image()</code>가 영상을 얻는 유일한 통로여야 보호 프록시가 실제로 보호한다. 6장의 데코레이터 함정 상자에서 말한 "원본 참조가 새어 나가지 않는가"에 대한 프록시 쪽 답이다.</li>
+  <li><code>LazyImageProxy</code>: 진짜 객체 대신 만드는 데 필요한 재료(번호, 제목, 저장소)를 들고 있다. 진짜 객체를 생성자 인자로 받으면 이미 다운로드가 끝난 뒤이므로, 만드는 일 자체가 프록시 안에 있어야 한다. 데모 [1]의 목록은 0MB로 그려진다.</li>
+  <li><code>ProtectedImageProxy</code>가 가상 프록시의 <strong>바깥</strong>에 있다: 데모 [2]에서 인턴의 요청은 다운로드 <em>전에</em> 막힌다. 순서를 뒤집으면 400MB를 받은 뒤에 거부한다.</li>
+  <li><code>CachingArchiveProxy</code>가 저장소 앞에 있다: 데모 [3]에서 다른 화면이 새 프록시로 열어도 원격 다운로드는 늘지 않는다.</li>
+  <li><code>open_image()</code>: 사진을 얻는 유일한 통로다. 화면이 <code>RealSatelliteImage</code>를 직접 만들 수 있으면 보호 프록시를 우회할 수 있다.</li>
 </ul>
-<p class="lead-in">마지막으로 클라이언트와 데모다. <code>CatalogScreen</code>에는 지연·권한·캐시 검사가 하나도 없다. 데모 [3]에서는 다른 화면이 같은 영상을 <em>새</em> 프록시로 연다.</p>
-<pre data-src="09_proxy/02_proxy.py" data-lines="189-222" data-title="패턴 코드"></pre>
-<p>출력 [1]에서 2,000장의 목록이 다운로드 0MB로 그려졌다. 목록에 필요한 메타데이터는 프록시가 실제 객체 없이 답한다. [2]의 첫 확대에서 비로소 400MB를 받았고, 같은 프록시의 두 번째 확대는 이미 만든 실제 객체를 썼다. 인턴의 요청은 보호 프록시가 다운로드 <em>전에</em> 거부했다. [3]에서는 비교 뷰가 새 프록시를 만들었으니 새 <code>RealSatelliteImage</code>가 생성되었지만, 그 생성자가 부른 <code>fetch()</code>를 캐싱 프록시가 받아 원격 다운로드 없이 끝났다. 원격 다운로드 총량은 400MB, 캐시 적중 1회다.</p>
-<div class="callout ok">
-  <span class="label">프록시와 데코레이터, 한 줄 구분</span>
-  <p>구조는 같다. 물어야 할 것은 <strong>"누가 실제 객체를 만들고, 클라이언트는 실제 객체를 아는가?"</strong>이다. 클라이언트가 실제 객체를 만들어 넘기고 그 위에 기능을 쌓는다면 데코레이터, 대리인이 실제 객체로 가는 길(생성·권한·위치·재사용)을 쥐고 클라이언트는 실제 객체를 모른다면 프록시다. 의도의 차이는 결국 '조합의 주도권'으로 나타난다. 데코레이터 체인은 클라이언트가 조립하고, 프록시는 보통 시스템이 조립해 건넨다(<code>open_image()</code>).</p>
-</div>
 </section>
 
 <section id="pythonic">
 <h2>5. 파이썬다운 변형</h2>
-<p>패턴 코드의 <code>LazyImageProxy</code>는 <code>SatelliteImage</code> 전용이다. 수아의 팀에는 지연 로딩이 필요한 대형 객체가 더 있다(<dfn data-term="digital-elevation-model">수치표고모델</dfn>(DEM: 지표면의 고도를 격자 값으로 나타낸 데이터), <dfn data-term="land-cover">토지피복</dfn>(지표가 농경지·산림·수계 등 무엇으로 덮여 있는지) 분류 래스터). 팀원 건우가 제안했다. "<code>__getattr__</code>으로 아무 객체나 감싸는 범용 지연 프록시를 만들면 클래스마다 프록시를 안 써도 되잖아."</p>
-<p class="lead-in">아래 코드는 (1) 그 범용 <code>LazyProxy</code>를 만들어 한계를 확인하고, (2) 프록시 없이 객체 내부에서 지연시키는 <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>(첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 이후에는 일반 속성처럼 읽히게 하는 도구), (3) 캐싱 프록시의 함수 버전인 <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>(함수 인자를 키로 결과를 기억하는 LRU 캐시), (4) 표준 라이브러리의 프록시인 <dfn data-term="weak-reference"><code>weakref</code></dfn><code>.proxy</code>를 차례로 본다. <code>weakref</code>는 약한 참조, 즉 대상 객체를 살려 두지 않는 참조를 만드는 모듈이다. 데모 [1]과 [4]에서 <code>len()</code>의 결과가 어떻게 다른지 비교하라.</p>
-<div class="callout"><span class="label">용어</span><p><dfn data-term="sentinel">센티널</dfn>: <code>None</code> 같은 정상 값과 구별되도록 <code>object()</code>로 만든 표시용 고유 객체. 코드의 <code>_UNSET</code>이 '아직 안 만듦'을 나타낸다. <dfn data-term="reference-counting">참조 카운트</dfn>: 객체를 가리키는 참조 수를 세어 0이 되는 즉시 회수하는 CPython의 메모리 관리 방식. <dfn data-term="garbage-collection">가비지 컬렉션</dfn>(GC): 더 이상 쓰이지 않는 객체의 메모리를 자동으로 회수하는 기능. <code>gc.collect()</code>는 서로를 참조하는 고리까지 찾아 회수하도록 강제한다.</p></div>
-<figure class="diagram code-map">
-  <svg viewBox="0 0 640 450" role="img" aria-label="파이썬다운 변형의 구조: LazyProxy와 weakref.proxy가 같은 DemRaster를 바깥에서 감싸되 LazyProxy는 len·isinstance·==에서 새고, LandCoverScene의 cached_property와 fetch_tile의 lru_cache는 프록시 객체 없이 같은 효과를 낸다">
-    <text class="uml-note" x="20" y="24">바깥에서 감싸는 프록시 — 같은 DemRaster를 감싼다</text>
-    <g class="uml-class warn" transform="translate(20,36)">
-      <rect width="210" height="112"/>
-      <text class="uml-name" x="105" y="22">LazyProxy</text>
-      <line x1="0" y1="32" x2="210" y2="32"/>
-      <text class="uml-member" x="10" y="52">_factory · _obj</text>
-      <text class="uml-member" x="10" y="70">__getattr__ → _target()</text>
-      <line x1="0" y1="82" x2="210" y2="82"/>
-      <text class="uml-member" x="10" y="102">⚠ len · isinstance · ==</text>
-    </g>
-    <g class="uml-class" transform="translate(255,52)">
-      <rect width="130" height="80"/>
-      <text class="uml-name" x="65" y="22">DemRaster</text>
-      <line x1="0" y1="32" x2="130" y2="32"/>
-      <text class="uml-member" x="10" y="52">max_elevation()</text>
-      <text class="uml-member" x="10" y="70">__len__()</text>
-    </g>
-    <g class="uml-func highlight" transform="translate(410,36)">
-      <rect width="210" height="112"/>
-      <text class="uml-name" x="105" y="24">weakref.proxy(real)</text>
-      <text class="uml-member" x="12" y="50">특수 메서드도 위임</text>
-      <text class="uml-member" x="12" y="70">원본을 살려 두지 않음</text>
-      <text class="uml-member" x="12" y="90">원본 소멸 → ReferenceError</text>
-    </g>
-    <path class="uml-dep" d="M230 92 H255" marker-end="url(#arrow)"/>
-    <path class="uml-dep" d="M410 92 H385" marker-end="url(#arrow)"/>
-    <text class="uml-label" x="200" y="170">len(): [1]은 TypeError, [4]는 정상</text>
-
-    <text class="uml-note" x="20" y="200">프록시 객체 없이 같은 효과</text>
-    <g class="uml-class highlight" transform="translate(20,212)">
-      <rect width="290" height="104"/>
-      <text class="uml-name" x="145" y="22">LandCoverScene</text>
-      <line x1="0" y1="32" x2="290" y2="32"/>
-      <text class="uml-member" x="10" y="52">scene_id (가벼움)</text>
-      <text class="uml-member" x="10" y="70">@cached_property</text>
-      <text class="uml-member" x="10" y="88">raster: 첫 접근 때 한 번 로딩</text>
-    </g>
-    <g class="uml-func highlight" transform="translate(330,212)">
-      <rect width="290" height="104"/>
-      <text class="uml-name" x="145" y="24">fetch_tile(tile_id)</text>
-      <text class="uml-member" x="12" y="48">@lru_cache(maxsize=2)</text>
-      <text class="uml-member" x="12" y="68">패턴 코드의 CachingArchiveProxy</text>
-      <text class="uml-member" x="12" y="88">역할을 함수 하나로</text>
-    </g>
-    <text class="uml-label" x="20" y="340">LOADS 리스트: 무거운 로딩이 언제 일어났는지 기록한다. 모든 데모가 이것을 출력한다</text>
-
-    <g class="uml-step"><circle cx="20" cy="36" r="9"/><text x="20" y="40">1</text></g>
-    <g class="uml-step"><circle cx="20" cy="212" r="9"/><text x="20" y="216">2</text></g>
-    <g class="uml-step"><circle cx="330" cy="212" r="9"/><text x="330" y="216">3</text></g>
-    <g class="uml-step"><circle cx="410" cy="36" r="9"/><text x="410" y="40">4</text></g>
-
-    <text class="uml-note" x="20" y="378"><tspan font-weight="700">읽는 순서</tspan> · 번호는 데모 번호와 같다. 주황은 구멍이 있는 곳</text>
-    <text class="uml-note" x="20" y="400">① LazyProxy: 위임되는 것과 새는 것 → ② cached_property → ③ lru_cache</text>
-    <text class="uml-note" x="20" y="422">→ ④ weakref.proxy: [1]과 len() 결과를 비교</text>
-  </svg>
-  <figcaption>코드 지도 · 파이썬다운 변형. 점선 화살표는 "감싸서 위임한다". 위는 바깥 프록시 두 가지, 아래는 프록시가 필요 없는 두 가지다.</figcaption>
-</figure>
-<pre data-src="09_proxy/03_pythonic.py" data-title="파이썬다운 변형"></pre>
-<h3><code>__getattr__</code> 범용 프록시와 그 구멍</h3>
-<p>출력 [1]에서 <code>dem.max_elevation()</code>은 잘 위임되었고, 그 순간에야 로딩이 일어났다. 지연은 성공이다. 그러나 <code>len(dem)</code>은 <code>TypeError</code>, <code>isinstance(dem, DemRaster)</code>는 거짓이다. 6장에서 본 것과 같은 원인이다. 파이썬은 <code>__len__</code>, <code>__eq__</code>, <code>__iter__</code>, <code>__enter__</code> 같은 특수 메서드를 인스턴스가 아니라 타입에서 직접 찾으므로 <code>__getattr__</code>을 거치지 않는다. 범용 프록시가 정말 투명하려면 특수 메서드를 하나하나 정의해야 하고, <code>isinstance</code>까지 속이려면 <dfn data-term="class"><code>__class__</code></dfn>(객체가 속한 클래스를 가리키는 속성)를 프로퍼티로 재정의하는 기교가 필요하다(표준 테스트 프레임워크 <dfn data-term="unittest"><code>unittest</code></dfn>에 딸린 <dfn data-term="unittest-mock"><code>unittest.mock</code></dfn>이 그렇게 한다. 어떤 속성 접근에도 응답하는 가짜 객체를 만드는 모듈이다). 프록시는 "실제 객체와 교환 가능"해야 하는데(LSP), 범용 프록시는 그 약속을 부분적으로만 지킨다. 그래서 교재의 권장은 이렇다. <strong>인터페이스가 명확하면 패턴 코드처럼 Subject를 구현한 명시적 프록시를, 범용 프록시는 그 한계를 문서화한 경우에만.</strong></p>
-<h3><code>cached_property</code>: 프록시가 필요 없는 경우</h3>
-<p>출력 [2]에서 <code>LandCoverScene</code>은 생성 시 아무것도 로딩하지 않았고, <code>raster</code>에 처음 접근할 때 한 번 로딩한 뒤 결과를 인스턴스 <code>__dict__</code>에 저장했다. 이후 접근은 일반 속성 조회다. 가상 프록시와 같은 효과를 별도 객체 없이 얻었고, <code>isinstance</code>·특수 메서드 문제도 없다. 조건은 하나다. <strong>그 클래스를 우리가 설계할 수 있어야 한다.</strong> 이 장의 <code>SatelliteImage</code>처럼 생성자가 이미 다운로드하는 외부 클래스라면 내부를 바꿀 수 없으므로 프록시가 필요하다. 바꿀 수 있다면 <code>cached_property</code>가 먼저다. 덧붙여, <code>cached_property</code>는 잠금 없이 동작하므로(파이썬 3.12부터 내부 잠금이 제거되었다) 여러 스레드가 동시에 처음 접근하면 로딩이 중복될 수 있다.</p>
-<h3><code>lru_cache</code>: 캐싱 프록시의 가장 가벼운 형태</h3>
-<p>출력 [3]은 용량 2짜리 LRU 캐시에 A B A C A B를 요청한 결과다. A는 두 번 적중했고, C가 들어오며 B가 밀려나 마지막 B는 다시 받았다. 패턴 코드의 <code>CachingArchiveProxy</code>와 같은 동작을 데코레이터 한 줄로 얻었다. 인터페이스가 함수 하나라면 이걸로 충분하다. 반대로 캐시 키를 직접 정하거나(예: 해상도 무시), 적중 통계를 화면에 보이거나, 특정 영상만 무효화해야 한다면 객체로 된 캐싱 프록시가 낫다. 덧붙여 <code>@lru_cache</code>는 문법상으로는 '데코레이터'지만 의도상으로는 캐싱 프록시에 가깝다. 6장에서 말한 "<code>@</code> 문법과 GoF 패턴은 다른 범주"의 또 다른 예다.</p>
-<h3><code>weakref.proxy</code>: 생명주기를 소유하지 않는 프록시</h3>
-<p>출력 [4]의 <code>weakref.proxy</code>는 C 수준에서 구현되어 <code>len()</code> 같은 특수 메서드까지 위임한다. 그러나 실제 객체를 <em>살려 두지 않는다</em>. 원래 참조가 사라지면 실제 객체가 회수되고, 그 뒤의 접근은 <code>ReferenceError</code>가 된다. 가상 프록시가 실제 객체의 생성을 통제한다면, 약한 참조 프록시는 반대로 "나는 생명주기에 관여하지 않는다"를 보장한다. 캐시나 옵저버 목록(11장)이 객체를 붙잡아 <dfn data-term="memory-leak">메모리 누수</dfn>(쓰지 않는 객체가 참조에 붙잡혀 회수되지 않고 메모리를 계속 차지하는 것)를 일으키지 않게 할 때 쓴다.</p>
-<h3>원격 프록시</h3>
-<p>표준 라이브러리의 <code>xmlrpc.client.ServerProxy("http://host:8000")</code>는 원격 프록시의 교과서적 예다. <code>proxy.get_scene("K3-0002")</code>처럼 로컬 메서드를 부르듯 쓰면 <code>__getattr__</code>이 메서드 이름을 받아 HTTP 요청으로 직렬화한다. 편리하지만, <dfn data-term="remote-procedure-call">원격 호출</dfn>(다른 프로세스·머신의 함수를 네트워크를 거쳐 호출하는 것)을 로컬 호출처럼 보이게 하는 것 자체가 위험이기도 하다. 지연, <dfn data-term="partial-failure">부분 실패</dfn>(일부 구성 요소나 요청만 실패하는 상황), 네트워크 예외가 로컬 메서드 호출의 겉모습 뒤에 숨는다. 원격 프록시를 설계할 때는 "투명성"보다 "실패가 드러나는 방식"을 먼저 정해야 한다.</p>
+<p>프록시는 고칠 수 없는 객체 앞에 서는 해법이다. 클래스를 우리가 직접 설계한다면 바깥에 대리인을 세우지 않아도 된다.</p>
+<p class="lead-in"><dfn data-term="lazy-initialization">지연 로딩</dfn>은 비싼 데이터를 미리 만들지 않고 처음 필요할 때 불러오는 방식이다. 프록시 없이도 이것을 얻을 수 있다. 아래 코드는 두 도구를 보인다. <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>는 첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 두고 이후에는 보통 속성처럼 읽히게 하는 도구다. <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>는 함수의 인자를 열쇠로 결과를 기억하고, 가득 차면 가장 오래 쓰이지 않은 것부터 버리는 도구다. <code>LOADS</code> 목록이 무거운 로딩이 언제 일어났는지 보여 준다.</p>
+<pre data-src="09_proxy/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
+<ul>
+  <li><strong><code>cached_property</code>는 가상 프록시를 대신한다.</strong> 데모 [1]에서 만든 직후에는 아무것도 로딩하지 않고, <code>data</code>에 처음 접근할 때 한 번만 로딩한다. 별도 객체가 없으니 타입도 그대로다. 조건은 하나, <strong>그 클래스를 우리가 고칠 수 있어야 한다.</strong> <code>SatelliteImage</code>처럼 생성자가 이미 다운로드하는 외부 클래스라면 프록시가 필요하다.</li>
+  <li><strong><code>lru_cache</code>는 함수 하나짜리 캐싱 프록시다.</strong> 데모 [2]에서 A는 재사용되고, C가 들어오며 B가 밀려나 마지막 B는 다시 받는다. 특정 사진만 지우는 등 세밀한 관리가 필요하면 객체로 된 캐싱 프록시가 낫다.</li>
+</ul>
 </section>
 
 <section id="tradeoffs">
 <h2>6. 트레이드오프와 관련 패턴</h2>
-<h3>얻는 것과 치르는 것</h3>
+<h3>얻는 것</h3>
 <ul>
-  <li><strong>얻는 것:</strong> 접근 정책(지연·권한·캐시·위치)을 실제 객체와 클라이언트 양쪽에서 분리(SRP), 실제 객체를 고치지 않고 정책 추가(OCP), 클라이언트 코드의 단순화.</li>
-  <li><strong>치르는 것:</strong> 간접 층이 하나 늘고, 동작이 '보이지 않게' 바뀐다. 가상 프록시는 첫 호출의 지연을 예측하기 어렵게 만든다(목록은 빨라졌지만 첫 확대가 느리다). 캐싱 프록시는 오래된 데이터와 무효화 문제를 끌어온다. 보호 프록시는 생성 경로를 단일화하지 않으면 쉽게 우회된다.</li>
+  <li>지연·권한·캐시 같은 접근 규칙을 진짜 객체와 화면 양쪽에서 떼어 낸다.</li>
 </ul>
 <h3>쓰지 말아야 할 때</h3>
 <ul>
-  <li><strong>실제 객체를 고칠 수 있을 때의 지연 로딩.</strong> <code>cached_property</code>나 생성자 분리가 더 단순하고 투명하다.</li>
-  <li><strong>객체가 가벼울 때.</strong> 생성 비용이 작으면 가상 프록시는 복잡도만 더한다.</li>
-  <li><strong>투명성이 오히려 해로울 때.</strong> 원격 호출이나 수 초가 걸리는 로딩을 평범한 메서드 호출처럼 보이게 하면 호출자가 비용을 모르고 루프 안에서 부른다. 이럴 때는 <code>load()</code>, <code>fetch_async()</code>처럼 비용을 이름에 드러내는 명시적 API가 낫다.</li>
-  <li><strong><dfn data-term="security-boundary">보안 경계</dfn>가 프로세스 안에 있을 때.</strong> 보안 경계란 신뢰할 수 없는 코드가 넘을 수 없도록 강제되는 경계(프로세스·서비스 경계 등)다. 같은 프로세스의 파이썬 코드는 <code>proxy._inner</code>로 실제 객체에 닿을 수 있다. 보호 프록시는 '실수 방지' 장치이지 악의적 코드에 대한 보안 경계가 아니다. 진짜 보안 경계는 서비스·프로세스 경계에 두어야 한다.</li>
+  <li><strong>클래스를 고칠 수 있을 때.</strong> 지연 로딩이라면 <code>cached_property</code>가 더 단순하다.</li>
+  <li><strong>객체가 가벼울 때.</strong> 만드는 비용이 작으면 가상 프록시는 복잡함만 더한다.</li>
+  <li><strong>비용을 숨기면 해로울 때.</strong> 몇 초 걸리는 네트워크 요청을 평범한 메서드처럼 보이게 하면 호출자가 반복문 안에서 부른다. 이럴 때는 <code>load()</code>처럼 비용이 이름에 드러나는 API가 낫다.</li>
 </ul>
-<h3>관련 패턴</h3>
-<table>
-  <thead><tr><th>패턴</th><th>관계</th></tr></thead>
-  <tbody>
-    <tr><td>데코레이터(6장)</td><td>구조가 같다. 의도(책임 추가 vs 접근 통제)와 생성·생명주기의 소유(클라이언트 vs 프록시)로 구분한다.</td></tr>
-    <tr><td>어댑터(5장)</td><td>어댑터는 인터페이스를 바꾸고, 프록시는 같은 인터페이스를 유지한다.</td></tr>
-    <tr><td>싱글턴(4장)</td><td>둘 다 지연 초기화를 다룬다. 싱글턴은 "하나만, 처음 필요할 때", 가상 프록시는 "이 객체를, 처음 필요할 때".</td></tr>
-    <tr><td>퍼사드(8장)</td><td>퍼사드는 다른 길을 막지 않는다. 길을 막아야 한다면 보호 프록시(와 생성 경로 단일화)가 필요하다.</td></tr>
-  </tbody>
-</table>
+<p>또 같은 프로그램 안의 코드는 <code>proxy._inner</code>로 진짜 객체에 닿을 수 있다. 보호 프록시는 실수를 막는 장치이지, 악의적인 코드를 막는 벽이 아니다.</p>
+<h3>헷갈리는 패턴</h3>
+<ul>
+  <li>데코레이터(6장)는 구조가 같지만 목적이 <strong>기능 덧붙이기</strong>이고, 쓰는 쪽이 객체를 만들어 넘긴다. 프록시는 <strong>접근 통제</strong>가 목적이고, 흔히 진짜 객체를 스스로 만든다.</li>
+  <li>어댑터(5장)는 인터페이스를 바꾸고, 프록시는 같은 인터페이스를 지킨다.</li>
+  <li>퍼사드(8장)는 다른 길을 막지 않는다. 길을 막아야 한다면 보호 프록시와 하나뿐인 생성 통로가 필요하다.</li>
+</ul>
 </section>
 
 <section id="exercises">
@@ -331,4 +212,3 @@ part: 구조 패턴
   </details>
 </div>
 </section>
-<!-- 설계서 대비 변경: 연습문제 1(개념)은 서술형 해설로 완결되어 해설 코드를 두지 않았다. 캐싱 프록시는 설계서의 '캐시' 요구를 영상 층이 아니라 저장소(Archive) 층에 두는 쪽으로 구체화했다(모든 화면이 캐시를 공유하게 하기 위함). -->

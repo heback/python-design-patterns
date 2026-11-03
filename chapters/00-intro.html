@@ -5,369 +5,93 @@ part:
 -->
 
 <section id="goals">
-  <h2>학습 목표</h2>
-  <ol>
-    <li>디자인 패턴을 "OOP 원리가 반복되는 설계 문제에서 굳어진 해법"으로 설명하고, GoF의 의도(intent)·동기·참여자·결과(consequences) 틀로 패턴을 읽을 수 있다.</li>
-    <li>"변하는 것을 찾아 캡슐화하라", "구현이 아닌 인터페이스에 프로그래밍하라", "상속보다 합성" 세 원칙이 이후 15개 패턴의 공통 뿌리임을 사례로 보일 수 있다.</li>
-    <li>파이썬의 언어 기능(덕 타이핑, <code>ABC</code>와 <code>Protocol</code>, 일급 함수, 모듈, 던더 프로토콜)이 일부 패턴을 단순화하거나 소거한다는 관점을 갖고, 이 교재의 장 구성과 사용법을 이해한다.</li>
-  </ol>
+<h2>학습 목표</h2>
+<ol>
+  <li>디자인 패턴을 "원리가 반복되는 문제에서 굳어진 해법의 모양"으로 설명하고, 의도·동기·구조·결과로 읽을 수 있다.</li>
+  <li>세 원칙(변하는 것의 분리, 인터페이스에 프로그래밍, 합성 우선)으로 코드를 고칠 수 있다.</li>
+  <li>파이썬의 언어 기능이 패턴을 가볍게 만든다는 관점을 갖는다.</li>
+</ol>
+<div class="callout"><strong>핵심 한 줄</strong> 패턴은 새 원리가 아니라 원리를 적용한 결과의 이름이다. "언제 쓰지 않는가"까지 알아야 쓸 수 있다.</div>
 </section>
 
 <section id="why-patterns">
-  <h2>1. 왜 패턴인가</h2>
-  <p>구립 새솔도서관의 사서 지민은 파이썬을 독학해 업무 자동화 스크립트를 몇 개 만들었다. 그중 하나가 연체료 계산이다. 반납일을 넘긴 날수에 100원을 곱하는 한 줄짜리 함수였다. 일 년쯤 지나 규정이 바뀌었다. 아동 회원은 50% 감면, DVD는 일당 500원, 시험 기간에 반납한 대학생은 면제. 지민은 <code>if</code>를 세 개 더했다. 여기까지는 괜찮았다.</p>
-  <p>올해 초 시청이 구립 도서관 세 곳(새솔, 하늘, 바다)의 연체료 정책을 지점 자율로 바꾸었다. 하늘 지점은 DVD 요율을 700원으로 올리고 시험 기간 면제를 없앴고, 바다 지점은 아동 감면을 없앴다. 지민의 함수는 자료 유형 × 회원 유형 × 기간 × 지점의 조합을 모두 담은 <code>if/elif</code> 덩어리가 되었다. 하늘 지점이 상한 3,000원을 도입하겠다고 하자, 지민은 그 줄을 어디에 끼워야 할지 몰라 하루를 보냈다. 상한을 감면 앞에 두느냐 뒤에 두느냐에 따라 아동 회원의 금액이 달라진다는 것을 그때서야 깨달았다.</p>
-  <p>이 교재의 독자는 지민보다 훨씬 많이 안다. 캡슐화, 다형성, SOLID, 합성과 상속의 차이를 이미 설명할 수 있다. 그런데도 비슷한 함수 앞에서 손이 멈추는 경험이 있을 것이다. 원리는 "무엇이 좋은 설계인가"를 말해 주지만 "<em>이</em> 상황에서 무엇을 어디로 옮겨야 하는가"는 말해 주지 않는다. 원리와 코드 사이에 한 층이 빠져 있다.</p>
-  <p>디자인 패턴이 그 층이다. 패턴은 새로운 원리가 아니다. 같은 원리를 같은 종류의 문제에 적용했을 때 사람들이 반복해서 도달한 <strong>해법의 모양</strong>에 이름을 붙인 것이다. 그래서 패턴은 두 가지를 준다. 첫째, <strong>판단의 지름길</strong>이다. "규칙이 지점별로 조합되고 순서가 의미를 가진다"는 <dfn data-term="code-smell">냄새</dfn>(코드 냄새: 당장 버그는 아니지만 설계 문제가 숨어 있음을 알리는 코드의 징후)를 맡으면 처음부터 다시 추론하지 않고 "전략을 목록으로 조립하는 구조"를 떠올린다. 둘째, <strong>공유 어휘</strong>다. 코드 리뷰에서 "이 부분은 데코레이터로 감싸자"라는 한 마디는 클래스 구조, 인터페이스 일치, 중첩 가능성, 대안(상속)과의 비교까지 함께 전달한다. 패턴 이름은 설계 토론의 압축 형식이다.</p>
-  <div class="callout warn">
-    <span class="label">이 교재가 경계하는 것</span>
-    패턴을 알게 된 학생의 대표적 실수는 과잉 적용이다. 모든 클래스 앞에 인터페이스를 만들고, 모든 조건문을 상태 패턴으로 바꾸고, 모든 "하나뿐인" 객체를 싱글턴으로 만든다. 그래서 각 장의 트레이드오프 절은 반드시 "이 패턴을 쓰지 말아야 할 때"를 다룬다. 장을 덮을 때 남아야 할 것은 <dfn data-term="unified-modeling-language">UML</dfn>(클래스와 그 관계를 그림으로 나타내는 표준 표기법. 각 장 3절의 구조 다이어그램이 이 표기를 따른다) 모양이 아니라 <strong>"이런 냄새가 나면 이 패턴을 떠올리고, 이런 조건이면 쓰지 않는다"</strong>는 판단력이다.
-  </div>
+<h2>1. 왜 패턴인가</h2>
+<p>새솔도서관 사서 지민의 연체료 함수는 "일수 × 100원" 한 줄이었다. 아동 감면, DVD 요율, 시험 기간 면제가 붙을 때마다 <code>if</code>가 늘었다. 지점 세 곳이 정책을 따로 정하게 되자, 상한 3,000원 한 줄을 어디에 끼울지 몰라 하루를 보냈다. 감면 앞이냐 뒤냐에 따라 금액이 달라졌다.</p>
+<p>원리는 좋은 설계가 무엇인지 말해 주지만, <em>이</em> 상황에서 무엇을 어디로 옮길지는 말해 주지 않는다. 그 틈을 채우는 것이 패턴이다. 패턴은 사람들이 거듭 도달한 해법의 모양에 붙인 이름이다. 패턴을 알면 <dfn data-term="code-smell">냄새</dfn>(코드 냄새: 당장 버그는 아니지만 설계 문제가 숨어 있다는 징후)를 맡는 순간 해법을 떠올리고, "데코레이터로 감싸자" 한 마디로 구조를 전할 수 있다.</p>
+<div class="callout warn">패턴을 막 배운 사람의 흔한 실수는 과잉 적용이다. 그래서 각 장은 "쓰지 말아야 할 때"를 반드시 다룬다.</div>
 </section>
 
 <section id="principles-revisited">
-  <h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
-  <p><dfn data-term="gang-of-four">GoF</dfn>는 Gamma·Helm·Johnson·Vlissides 네 저자(Gang of Four)와 그들이 1994년에 낸 『Design Patterns』를 함께 부르는 이름으로, 이 교재가 다루는 패턴들의 출처다. GoF 책은 서론에서 패턴들의 공통 뿌리로 두 원칙을 명시한다. "구현이 아닌 <dfn data-term="program-to-an-interface">인터페이스에 프로그래밍</dfn>하라", "클래스 상속보다 객체 합성을 선호하라". 앞의 것은 구체 클래스가 아니라 추상 타입에 의존하도록 코드를 쓰라는 뜻이다. 여기에 거의 모든 패턴의 출발점인 "변하는 것을 찾아 변하지 않는 것으로부터 분리하라"를 더하면, 이 교재의 15개 패턴은 대부분 이 세 문장을 특정 문제에 적용한 결과로 읽을 수 있다. 지민의 함수로 그 과정을 직접 따라가 본다.</p>
-  <div class="principles">
-    <span class="label">이 교재 전체를 관통하는 세 원칙</span>
-    <ol>
-      <li>변하는 것을 찾아, 변하지 않는 것으로부터 분리하라.</li>
-      <li>구현이 아닌 인터페이스에 프로그래밍하라.</li>
-      <li>클래스 상속보다 객체 합성을 선호하라.</li>
-    </ol>
-  </div>
-  <p class="lead-in">먼저 지민의 현재 코드다. 함수가 짧아서 문제가 작아 보일 수 있다. 코드 첫머리의 <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트를 정의 시점에 평가하지 않고 미뤄 두게 하는 선언으로, 아직 정의되지 않은 클래스 이름도 힌트에 쓸 수 있게 한다(이후 모든 예제에 있다). <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자, <code>__repr__</code>, <code>__eq__</code> 같은 메서드를 자동으로 만들어 주는 표준 라이브러리 도구이고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>를 주면 생성 후 필드에 대입할 수 없는 객체가 된다. 그래서 여러 곳에서 공유해도 안전하고 딕셔너리 키로도 쓸 수 있다. <code>material</code>·<code>member</code>·<code>branch</code>는 문자열이 아니라 <dfn data-term="enum-enum"><code>Enum</code></dfn>의 한 종류인 <code>StrEnum</code>으로 선언했다. <code>Enum</code>은 이름 붙은 상수들의 닫힌 집합을 만드는 표준 라이브러리 클래스로, 없는 이름(<code>Member.UNIVERCITY</code>)을 쓰면 실행 즉시 <code>AttributeError</code>가 난다. <code>StrEnum</code> 멤버는 <code>str</code>이기도 해서 출력에는 값(<code>"child"</code>)이 그대로 찍힌다. <code># ⚠ 문제:</code> 주석이 가리키는 세 지점, 즉 지점 분기 안에 복제된 요율, 지점 조건과 뒤엉킨 감면 규칙, 그리고 아무 데도 적혀 있지 않은 "적용 순서"에 주목하라.</p>
-  <pre data-src="00_intro/01_naive.py" data-title="순진한 코드"></pre>
-  <p>데모 [1]의 표는 지금은 정확하다. 문제는 데모 [2]다. 이 함수가 바뀌어야 할 이유가 여섯 가지이고 서로 무관하다. SRP 위반을 이보다 구체적으로 보여 주기는 어렵다. 새 규칙은 항상 이 함수의 수정이므로 OCP도 지켜지지 않는다. 그러나 원칙 위반을 지적하는 것만으로는 무엇을 해야 할지가 나오지 않는다. 필요한 것은 다음 세 질문을 순서대로 던지는 습관이다.</p>
+<h2>2. 세 원칙의 재해석: 원칙에서 패턴으로</h2>
+<p><dfn data-term="gang-of-four">GoF</dfn>는 1994년 『Design Patterns』를 쓴 네 저자(Gang of Four)와 그 책을 부르는 이름이다. 이 교재의 패턴은 모두 그 책에서 왔고, 세 원칙이 그 뿌리다. <dfn data-term="program-to-an-interface">인터페이스에 프로그래밍</dfn>한다는 것은 구체 클래스가 아니라 추상 타입에 기대어 코드를 쓴다는 뜻이다.</p>
+<div class="principles">
+  <span class="label">세 원칙</span>
   <ol>
-    <li><strong>무엇이 변하고 무엇이 변하지 않는가?</strong> 변하지 않는 것은 "일수 × 요율을 구하고 조정 규칙을 차례로 적용한다"는 절차다. 변하는 것은 요율표와, 어떤 조정 규칙을 어떤 순서로 쓰는가다.</li>
-    <li><strong>변하는 것을 어떤 인터페이스 뒤에 숨길 것인가?</strong> "대출과 현재 금액을 받아 조정된 금액을 돌려준다"는 <dfn data-term="contract">계약</dfn> 하나면 감면·면제·상한이 모두 들어간다. 계약이란 인터페이스가 호출자에게 약속하는 입력·출력·실패 방식의 총체이고, 구현은 시그니처뿐 아니라 이 약속까지 지켜야 서로 바꿔 끼울 수 있다.</li>
-    <li><strong>그것들을 상속으로 엮을 것인가, 합성으로 조립할 것인가?</strong> 지점의 차이는 행동이 아니라 조합이다. 지점마다 하위 클래스를 만들면 <dfn data-term="combinatorial-explosion">조합의 수만큼 클래스가 생긴다</dfn>. 독립적인 선택지가 늘 때마다 클래스 수가 곱으로 불어나는 이 현상을 조합 폭발이라 부른다. 규칙 객체의 목록으로 조립하면 지점 정책은 데이터가 된다.</li>
+    <li>변하는 것을 찾아, 변하지 않는 것으로부터 분리하라.</li>
+    <li>구현이 아닌 인터페이스에 프로그래밍하라.</li>
+    <li>클래스 상속보다 객체 합성을 선호하라.</li>
   </ol>
-  <p class="lead-in">세 질문의 답을 그대로 코드로 옮긴 결과다. <code>FeePolicy.late_fee()</code>에 지점 이름도 회원 유형도 등장하지 않는다는 점, 순진한 코드의 <code>if</code> 사슬이 <code>BRANCH_POLICIES</code> 표 한 장으로 바뀌었다는 점, 그리고 데모 [3]에서 "적용 순서"가 어디에 적혀 있는지를 확인하라. 바깥에서 보이는 동작은 그대로 두고 내부 구조만 고치는 이런 작업을 <dfn data-term="refactoring">리팩터링</dfn>이라 하며, 동작 보존이 첫 조건이다. 코드에 처음 나오는 도구가 셋 있다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 메서드에 <code>@abstractmethod</code>를 붙이면, 그 메서드를 구현하지 않은 하위 클래스는 인스턴스화할 때 <code>TypeError</code>가 난다(메서드 이름만 확인하고 시그니처는 검사하지 않는다). docstring이 비교 대상으로 언급하는 <code><dfn data-term="typing-protocol">typing.Protocol</dfn></code>은 상속 없이 메서드 모양만 맞으면 그 타입으로 인정하는 인터페이스 선언 방식으로, 4절에서 다룬다. <code><dfn data-term="dataclasses-field">field(default_factory=list)</dfn></code>는 인스턴스마다 새 빈 리스트를 기본값으로 만들어, 하나의 가변 기본값을 여러 객체가 공유하는 사고를 막는다.</p>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 490" role="img" aria-label="리팩터링 코드의 구조: FeePolicy가 Adjustment 목록을 담아 순서대로 적용하고, ChildDiscount·ExamWaiver·Cap이 Adjustment를 상속하며, BRANCH_POLICIES가 지점마다 FeePolicy를 조립한다">
-      <text class="uml-note" x="20" y="22">[변하지 않는 절차]</text>
-      <g class="uml-class highlight" transform="translate(20,40)">
-        <rect width="260" height="110"/>
-        <text class="uml-name" x="130" y="22">FeePolicy</text>
-        <line x1="0" y1="32" x2="260" y2="32"/>
-        <text class="uml-member" x="10" y="52">rates: dict[Material, int]</text>
-        <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
-        <line x1="0" y1="80" x2="260" y2="80"/>
-        <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
-      </g>
-      <text class="uml-note" x="390" y="22">[변하는 것] 조정 규칙의 계약 · ABC</text>
-      <g class="uml-class" transform="translate(390,40)">
-        <rect width="230" height="70"/>
-        <text class="uml-name uml-abstract" x="115" y="22">Adjustment</text>
-        <line x1="0" y1="32" x2="230" y2="32"/>
-        <text class="uml-member" x="10" y="54">+ apply(loan, fee) → int</text>
-      </g>
-      <g class="uml-class" transform="translate(440,140)">
-        <rect width="180" height="76"/>
-        <text class="uml-name" x="90" y="22">ChildDiscount</text>
-        <line x1="0" y1="32" x2="180" y2="32"/>
-        <text class="uml-member" x="10" y="52">설정 없음</text>
-        <text class="uml-member" x="10" y="68">아동이면 fee // 2</text>
-      </g>
-      <g class="uml-class" transform="translate(440,232)">
-        <rect width="180" height="76"/>
-        <text class="uml-name" x="90" y="22">ExamWaiver</text>
-        <line x1="0" y1="32" x2="180" y2="32"/>
-        <text class="uml-member" x="10" y="52">start · end</text>
-        <text class="uml-member" x="10" y="68">기간 안 대학생 → 0</text>
-      </g>
-      <g class="uml-class" transform="translate(440,324)">
-        <rect width="180" height="76"/>
-        <text class="uml-name" x="90" y="22">Cap</text>
-        <line x1="0" y1="32" x2="180" y2="32"/>
-        <text class="uml-member" x="10" y="52">limit</text>
-        <text class="uml-member" x="10" y="68">min(fee, limit)</text>
-      </g>
-      <g class="uml-func" transform="translate(20,196)">
-        <rect width="260" height="74"/>
-        <text class="uml-name" x="130" y="22">BRANCH_POLICIES</text>
-        <text class="uml-member" x="10" y="44">새솔 · 하늘 · 바다 →</text>
-        <text class="uml-member" x="10" y="62">FeePolicy(요율표, 규칙 목록)</text>
-      </g>
-      <g class="uml-class" transform="translate(20,324)">
-        <rect width="260" height="76"/>
-        <text class="uml-name" x="130" y="22">Loan</text>
-        <line x1="0" y1="32" x2="260" y2="32"/>
-        <text class="uml-member" x="10" y="52">material · member · due</text>
-        <text class="uml-member" x="10" y="68">returned · branch</text>
-      </g>
-      <text class="uml-note" x="290" y="366">← 모든 규칙의 입력</text>
-
-      <path class="marker-fill" d="M280 75 L290 68 L300 75 L290 82 Z"/>
-      <path class="uml-compose" d="M300 75 H390"/>
-      <text class="uml-label" x="306" y="96">순서대로 적용</text>
-      <path class="uml-inherit" d="M440 178 H420"/>
-      <path class="uml-inherit" d="M440 270 H420"/>
-      <path class="uml-inherit" d="M440 362 H420 V110" marker-end="url(#triangle)"/>
-      <path class="uml-dep" d="M150 196 V150" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="158" y="180">지점마다 조립</text>
-
-      <g class="uml-step"><circle cx="390" cy="40" r="9"/><text x="390" y="44">1</text></g>
-      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">2</text></g>
-      <g class="uml-step"><circle cx="20" cy="196" r="9"/><text x="20" y="200">3</text></g>
-
-      <text class="uml-note" x="20" y="434"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 이 코드의 중심 클래스</text>
-      <text class="uml-note" x="20" y="456">① Adjustment와 세 규칙: 서로를 모른다 → ② FeePolicy.late_fee(): 목록 순서대로 적용</text>
-      <text class="uml-note" x="20" y="478">③ BRANCH_POLICIES: 지점 = 요율표 + 규칙 목록 → ④ 데모 [1] 동작 보존 · [2] 상한 추가 · [3] 순서</text>
-    </svg>
-    <figcaption>코드 지도 · 리팩터링 코드. 빈 삼각형은 "상속한다", 속이 찬 마름모는 "담고 있다", 점선 화살표는 "사용한다".</figcaption>
-  </figure>
-  <pre data-src="00_intro/02_refactored.py" data-title="리팩터링 코드"></pre>
-  <p>데모 [1]은 동작이 보존되었음을 보인다. 리팩터링의 첫 조건이다. 데모 [2]에서 하늘 지점의 상한은 새 규칙 클래스 하나와 조립 한 줄로 들어갔고 기존 클래스는 한 줄도 바뀌지 않았다. 데모 [3]이 가장 중요하다. naive 코드에서 상한과 감면의 순서는 <code>if</code> 문이 놓인 위치라는 우연에 맡겨져 있었다. 이제 그 순서는 리스트에 명시되어 있고, 지민은 시청에 "감면 후 상한인가요, 상한 후 감면인가요?"라고 물을 수 있게 되었다. 좋은 설계는 코드를 고치기 쉽게 할 뿐 아니라 <strong>숨어 있던 정책 결정을 드러낸다</strong>.</p>
-  <p>이 모양에는 이름이 있다. <code>Adjustment</code>는 전략(Strategy, 10장)이고, 규칙을 차례로 적용하는 목록은 책임을 겹겹이 쌓는 데코레이터(6장)나 <dfn data-term="chain-of-responsibility">책임 연쇄</dfn>(요청을 처리할 수 있는 객체들을 사슬로 잇고, 각자 처리하거나 다음으로 넘기게 하는 GoF 패턴. 이 교재의 범위 밖이다)와 친척이다. 지민은 패턴 이름을 몰라도 세 질문만으로 여기까지 왔다. 패턴을 아는 사람은 이 길을 더 빨리, 그리고 다음 함정(예: "규칙 선택 로직은 어디에 둘 것인가")까지 미리 내다보며 간다.</p>
+</div>
+<p class="lead-in">지민의 코드다. <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트 평가를 미루는 선언으로 모든 예제에 있다. <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자·<code>__repr__</code>·<code>__eq__</code>를 만들고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>면 만든 뒤 바꿀 수 없다. 자료 유형은 짧게 문자열로 두었다. 실무라면 이름 붙은 상수의 닫힌 집합인 <dfn data-term="enum-enum"><code>Enum</code></dfn>을 써서 오타를 바로 오류로 만든다. <code># ⚠ 문제:</code> 세 곳을 보라.</p>
+<pre data-src="00_intro/easy/e1_naive.py" data-title="순진한 코드"></pre>
+<p>데모 [2]처럼 이 함수는 바뀔 이유가 여섯이다. 세 질문을 차례로 던진다.</p>
+<ol>
+  <li><strong>무엇이 변하지 않는가?</strong> "일수 × 요율 뒤에 규칙을 차례로 적용"하는 절차. 변하는 것은 요율표와 규칙의 목록·순서다.</li>
+  <li><strong>어떤 인터페이스 뒤에 둘까?</strong> "대출과 금액을 받아 조정된 금액을 돌려준다"는 <dfn data-term="contract">계약</dfn>(인터페이스가 약속하는 입력·출력·실패 방식 전체) 하나면 된다.</li>
+  <li><strong>상속인가, 합성인가?</strong> 지점의 차이는 행동이 아니라 조합이다. 규칙 목록으로 조립한다.</li>
+</ol>
+<p class="lead-in">세 답을 옮긴 코드다. 바깥 동작은 두고 안쪽 구조만 고치는 일을 <dfn data-term="refactoring">리팩터링</dfn>이라 한다. <code><dfn data-term="abstract-base-class">abc.ABC</dfn></code>를 상속하고 <code>@abstractmethod</code>를 붙이면, 그 메서드를 빠뜨린 하위 클래스는 인스턴스를 만들 때 <code>TypeError</code>가 난다. docstring의 <dfn data-term="extension-point">확장 지점</dfn>은 기존 코드를 고치지 않고 새 동작을 끼우도록 열어 둔 자리다.</p>
+<pre data-src="00_intro/easy/e2_refactored.py" data-title="리팩터링 코드"></pre>
+<p>데모 [1]은 결과가 그대로임을, 데모 [2]는 상한이 클래스 하나와 조립 한 줄로 들어감을 보인다. 데모 [3]에서는 적용 순서가 리스트에 적혀 있다. 좋은 설계는 숨은 정책을 드러낸다. 이 모양의 이름은 전략(10장)이다.</p>
 </section>
 
 <section id="gof-anatomy">
-  <h2>3. 패턴을 읽는 법</h2>
-  <p>GoF는 모든 패턴을 같은 틀, 곧 <dfn data-term="pattern-description-template">패턴 기술 항목</dfn>(의도·동기·구조·결과처럼 패턴마다 같은 순서로 채우는 항목들)으로 기술한다. 이 교재의 각 장도 그 틀을 따르되 순서를 학습에 맞게 바꾸었다. 패턴 하나를 읽을 때 다음 네 가지를 찾으면 된다.</p>
-  <table>
-    <thead><tr><th>요소</th><th>묻는 질문</th><th>이 교재에서 찾을 곳</th></tr></thead>
-    <tbody>
-      <tr><td>의도(Intent)</td><td>이 패턴은 한 문장으로 무엇을 하는가?</td><td>각 장 3절 첫 문단. GoF 원문의 의도를 인용 수준으로 옮긴다.</td></tr>
-      <tr><td>동기(Motivation)와 적용 가능성(Applicability)</td><td>어떤 상황에서, 서로 당기는 어떤 요구들 사이에서 이 해법이 나오는가?</td><td>1절 "상황"과 2절 "순진한 설계". 고통이 먼저, 해법은 나중이다.</td></tr>
-      <tr><td>구조와 참여자(Structure, Participants)</td><td>어떤 역할들이 있고 누가 누구를 아는가?</td><td>3절의 클래스 다이어그램과 역할 표, 코드 docstring의 <code><dfn data-term="context">[Context]</dfn></code> 같은 역할 태그. 역할 태그는 그 클래스가 패턴 안에서 맡은 역할의 이름이다. 예컨대 Context는 전략·상태 패턴에서 교체 가능한 객체를 들고 일을 맡기는 쪽이다(10·13장).</td></tr>
-      <tr><td>결과(Consequences)</td><td>무엇을 얻고 무엇을 치르는가? 언제 쓰면 안 되는가?</td><td>6절 "트레이드오프와 관련 패턴".</td></tr>
-    </tbody>
-  </table>
-  <p>GoF의 실제 기술 항목은 이보다 많다(의도, 별칭, 동기, 적용 가능성, 구조, 참여자, 협력, 결과, 구현, 예제 코드, 알려진 사용, 관련 패턴). 위 표는 그중 판단에 직접 쓰이는 넷을 고른 것이다. "서로 당기는 요구들", 즉 <strong><dfn data-term="forces">힘(forces)</dfn></strong>(예: 유연성과 단순성처럼 한 설계 상황에서 서로 반대쪽으로 당기는 요구·제약)이라는 말은 GoF의 항목 이름이 아니라 Christopher Alexander의 건축 패턴에서 비롯해 이후 패턴 문헌이 널리 쓴 개념이다. 이 교재의 "상황" 절이 그리는 것이 바로 그 힘이다.</p>
-  <p>가장 자주 오독되는 것은 의도다. 구조만 보면 구별되지 않는 패턴이 많다. 어댑터·데코레이터·프록시는 모두 "다른 객체를 감싸는 객체"이고, 전략과 상태는 클래스 다이어그램이 사실상 같다. 이들을 가르는 것은 모양이 아니라 의도다. 인터페이스를 <em>바꾸는가</em>, 같은 인터페이스로 책임을 <em>더하는가</em>, 접근을 <em>통제하는가</em>. 알고리즘 교체를 <em>클라이언트가</em> 결정하는가, <em>상태 객체 스스로</em> 결정하는가. 각 장의 코드 리뷰 기준이 "이름만 패턴인 코드"를 가장 큰 결함으로 보는 것도 이 때문이다.</p>
-  <p>GoF는 패턴을 목적에 따라 셋으로 분류한다. <strong><dfn data-term="creational-structural-behavioral-patterns">생성 패턴</dfn></strong>은 객체를 <em>누가, 언제, 무엇으로</em> 만드는지를 클라이언트로부터 떼어 낸다. <strong>구조 패턴</strong>은 클래스와 객체를 <em>어떻게 엮어</em> 더 큰 구조를 만드는지 다룬다. <strong>행위 패턴</strong>은 책임과 알고리즘을 객체들 사이에 <em>어떻게 나누고</em> 그들이 어떻게 소통하는지 다룬다. 이 분류는 목차의 순서이기도 하다(6절).</p>
+<h2>3. 패턴을 읽는 법</h2>
+<p>GoF는 모든 패턴을 같은 <dfn data-term="pattern-description-template">패턴 기술 항목</dfn>으로 쓴다. 그중 넷을 찾으면 된다. <strong>의도</strong>(한 문장으로 무엇을 하나), <strong>동기</strong>(어떤 상황에서 나오나), <strong>구조와 참여자</strong>(누가 누구를 아나), <strong>결과</strong>(무엇을 얻고 치르나). 동기는 유연성과 단순성처럼 반대로 당기는 요구, 곧 <dfn data-term="forces">힘(forces)</dfn>을 그린다. 코드 docstring 첫 줄의 <code><dfn data-term="context">[Context]</dfn></code> 같은 역할 태그는 그 클래스가 맡은 역할 이름이다. Context는 바꿔 끼우는 객체를 들고 일을 맡기는 쪽이다(10·13장).</p>
+<p>가장 많이 틀리는 것은 의도다. 어댑터·데코레이터·프록시는 모두 "감싸는 객체"라 모양으로는 못 가른다. 인터페이스를 바꾸나, 책임을 더하나, 접근을 막나로 가른다. 패턴은 목적에 따라 <dfn data-term="creational-structural-behavioral-patterns">생성 패턴</dfn>(만드는 일), 구조 패턴(엮는 일), 행위 패턴(책임을 나누는 일)으로 나뉜다.</p>
 </section>
 
 <section id="python-lens">
-  <h2>4. 파이썬이라는 렌즈</h2>
-  <p>GoF 책의 예제는 C++와 Smalltalk로 쓰였고, 패턴의 상당수는 그 언어들에 <em>없는</em> 기능을 메우기 위한 것이었다. Peter Norvig는 1996년 Object World 발표 "Design Patterns in Dynamic Programming"에서 23개 패턴 중 16개의 <em>일부 용법</em>이 Lisp와 Dylan의 기능(<dfn data-term="first-class-function">일급 함수</dfn>와 타입, <dfn data-term="multimethod">멀티메서드</dfn>, <dfn data-term="macro">매크로</dfn> 등)으로 단순해지거나 보이지 않게 된다고 주장했다. 일급 함수는 변수에 담고 인자로 넘기고 반환값으로 돌려줄 수 있는 함수(파이썬의 함수가 그렇다), 멀티메서드는 첫 인자 하나가 아니라 여러 인자의 실행 시점 타입 조합으로 호출할 구현을 고르는 함수, 매크로는 코드를 입력받아 새 코드를 만들어 내고 그것이 실행 전에 펼쳐지게 하는 Lisp 계열의 문법 확장 장치다. 이 숫자를 파이썬에 그대로 옮길 수는 없다. 그중 일부는 파이썬에 없는 멀티메서드나 매크로에 기대기 때문이다. 그러나 "언어 기능이 패턴의 일부를 흡수한다"는 일반적인 요지는 파이썬에서도 성립하며, 이 교재가 장마다 확인하는 것이 바로 그 범위다. 이 교재는 장마다 "파이썬다운 변형" 절에서 <strong>언어가 이 패턴을 얼마나 흡수하는가</strong>를 판단하게 한다. 그 판단에 쓰는 도구는 다섯 가지다.</p>
-  <ul>
-    <li><strong><dfn data-term="duck-typing">덕 타이핑</dfn>.</strong> 파이썬에서는 객체의 선언된 타입이 아니라 실제로 가진 메서드·속성이 협력 가능 여부를 정한다("오리처럼 걷고 오리처럼 울면 오리다"). 인터페이스를 선언하지 않아도 다형성이 성립하므로, "인터페이스에 프로그래밍하라"는 원칙의 비용이 거의 0이다.</li>
-    <li><strong><code>abc.ABC</code>와 <code>typing.Protocol</code>.</strong> 그래도 계약을 명시하고 싶을 때 두 선택지가 있다. 이 교재는 다음 기준을 일관되게 쓰고, 이후 장에서 다시 설명하지 않는다. 우리가 정의하고 우리가 구현하는 <dfn data-term="extension-point">확장 지점</dfn>(기존 코드를 고치지 않고 새 동작을 끼워 넣도록 설계가 일부러 열어 둔 자리)이며 구현 누락을 실행 시점(인스턴스화)에 잡고 싶다면 <code>ABC</code>(<dfn data-term="nominal-typing">명목적 타이핑</dfn>: 명시적으로 상속해야 그 타입으로 인정한다). 외부 <dfn data-term="software-development-kit">SDK</dfn>(외부 서비스·장비를 쓰도록 제공되는, 대개 우리가 고칠 수 없는 라이브러리), 함수, <dfn data-term="test-double">테스트 대역</dfn>(테스트에서 실제 협력 객체 대신 끼워 넣는 가짜 객체)처럼 상속 없이 끼어들어야 하는 것이 구현체라면 <code>Protocol</code>(<dfn data-term="structural-typing">구조적 타이핑</dfn>: 상속 관계가 아니라 메서드 모양이 맞는지로 타입을 인정한다. 검사는 <dfn data-term="static-type-checker">mypy</dfn> 같은 정적 검사기, 곧 코드를 실행하지 않고 타입 힌트를 읽어 불일치를 찾는 도구가 한다).</li>
-    <li><strong>일급 함수와 <dfn data-term="closure">클로저</dfn>.</strong> 클로저는 바깥 함수의 지역 변수를 붙잡아 기억하는 안쪽 함수로, 바깥 함수가 끝난 뒤에도 그 값을 쓴다. 메서드 하나짜리 인터페이스는 대개 그냥 함수다. 전략, 커맨드, 팩토리 메서드의 생성 <dfn data-term="hook">훅</dfn>이 함수 하나로 줄어드는 경우가 많다. 훅(hook)이란 흐름을 소유한 쪽(상위 클래스, 우리 코드를 정해진 자리에서 불러 주는 라이브러리, 또는 파이썬 언어 자체)이 정해 둔 시점에 불러 주도록 비워 둔 확장 지점이다. 하위 클래스가 오버라이드하는 메서드, 인자로 넘겨받아 때가 되면 부르는 함수, 하위 클래스가 정의되는 순간 파이썬이 상위 클래스 쪽에서 불러 주는 <code><dfn data-term="init-subclass">__init_subclass__</dfn></code>(1장에서 쓴다) 같은 메서드가 모두 훅이다. 14장 템플릿 메서드는 GoF의 더 좁은 의미인 '훅 연산'(기본 구현이 있어 하위 클래스가 필요할 때만 재정의하는 단계로, 반드시 구현해야 하는 추상 단계와 대비된다)을 쓰므로 그곳에서 둘을 구별한다(<a href="14-template-method.html#structure">14장 3절</a>).
-    <figure class="diagram">
-      <svg viewBox="0 0 640 386" role="img" aria-label="훅의 원리: 일반 호출에서는 내 코드가 라이브러리를 부르지만, 훅에서는 흐름을 소유한 쪽이 정해 둔 시점에 내가 채운 코드를 불러 준다. 훅 자리는 소유자의 흐름 속에 비워 둔 칸이다.">
-        <text class="uml-note" x="20" y="22">① 일반 호출: 내가 부른다</text>
-        <g class="uml-func" transform="translate(40,34)"><rect width="150" height="44"/><text class="uml-name" x="75" y="27">내 코드</text></g>
-        <g class="uml-func" transform="translate(440,34)"><rect width="160" height="44"/><text class="uml-name" x="80" y="27">라이브러리</text></g>
-        <path class="uml-assoc" d="M190 56 H440" marker-end="url(#arrow)"/>
-        <text class="uml-label" x="315" y="48" text-anchor="middle">sorted(rows) 호출</text>
-
-        <text class="uml-note" x="20" y="116">② 훅: 불러 준다</text>
-        <g class="uml-func highlight" transform="translate(40,128)"><rect width="150" height="44"/><text class="uml-name" x="75" y="27">내 코드(훅)</text></g>
-        <g class="uml-func" transform="translate(440,128)"><rect width="160" height="44"/><text class="uml-name" x="80" y="27">흐름 소유자</text></g>
-        <path class="uml-assoc" d="M440 150 H190" marker-end="url(#arrow)"/>
-        <text class="uml-label" x="315" y="142" text-anchor="middle">정해 둔 시점에 호출</text>
-
-        <text class="uml-note" x="20" y="214">③ 훅 자리: 흐름 속에 비워 둔 칸</text>
-        <g class="uml-group" transform="translate(20,224)"><rect width="600" height="84"/><text class="uml-label" x="10" y="16">흐름 소유자 (상위 클래스 · 라이브러리 · 파이썬)</text></g>
-        <g class="uml-func" transform="translate(40,246)"><rect width="100" height="40"/><text class="uml-name" x="50" y="25">① 준비</text></g>
-        <g class="uml-func" transform="translate(190,246)"><rect width="100" height="40"/><text class="uml-name" x="50" y="25">② 검증</text></g>
-        <g class="uml-func highlight" transform="translate(340,246)"><rect width="130" height="40"/><text class="uml-name" x="65" y="25">③ 훅 자리</text></g>
-        <g class="uml-func" transform="translate(520,246)"><rect width="80" height="40"/><text class="uml-name" x="40" y="25">④ 정리</text></g>
-        <path class="uml-assoc" d="M140 266 H190" marker-end="url(#arrow)"/>
-        <path class="uml-assoc" d="M290 266 H340" marker-end="url(#arrow)"/>
-        <path class="uml-assoc" d="M470 266 H520" marker-end="url(#arrow)"/>
-
-        <g class="uml-func highlight" transform="translate(340,330)"><rect width="130" height="40"/><text class="uml-name" x="65" y="25">내가 채운 코드</text></g>
-        <path class="uml-dep" d="M385 286 V330" marker-end="url(#arrow)"/>
-        <path class="uml-dep" d="M425 330 V286" marker-end="url(#arrow)"/>
-        <text class="uml-label" x="377" y="324" text-anchor="end">호출</text>
-        <text class="uml-label" x="433" y="324">복귀</text>
-        <text class="uml-note" x="20" y="354">순서와 시점은 소유자가, 칸의 내용은 내가</text>
-        <text class="uml-note" x="484" y="354">끝나면 흐름으로 복귀</text>
-      </svg>
-      <figcaption>개념도 · 훅. 일반 호출은 내가 라이브러리를 부르지만(①), 훅에서는 흐름을 가진 쪽이 정해 둔 시점에 내가 채운 코드를 부른다(②). 훅 자리는 그 흐름 속에 비워 둔 칸이다(③).</figcaption>
-    </figure>
-    <figure class="diagram">
-      <svg viewBox="0 0 640 182" role="img" aria-label="훅의 세 형태: 오버라이드한 메서드(소유자는 상위 클래스), 넘겨받은 함수(소유자는 라이브러리), __init_subclass__(소유자는 파이썬 언어). 소유자와 불리는 시점만 다르다.">
-        <g class="uml-class" transform="translate(20,12)">
-          <rect width="190" height="130"/>
-          <text class="uml-name" x="95" y="22">오버라이드 메서드</text>
-          <line x1="0" y1="32" x2="190" y2="32"/>
-          <text class="uml-member" x="10" y="52">소유자: 상위 클래스</text>
-          <text class="uml-member" x="10" y="70">시점: 골격이 그 단계에</text>
-          <text class="uml-member" x="46" y="88">이르렀을 때</text>
-          <text class="uml-member" x="10" y="110">예: def compile(self)</text>
-        </g>
-        <g class="uml-class" transform="translate(225,12)">
-          <rect width="190" height="130"/>
-          <text class="uml-name" x="95" y="22">넘겨받은 함수</text>
-          <line x1="0" y1="32" x2="190" y2="32"/>
-          <text class="uml-member" x="10" y="52">소유자: 라이브러리</text>
-          <text class="uml-member" x="10" y="70">시점: 필요할 때마다</text>
-          <text class="uml-member" x="46" y="88">(예: 원소마다)</text>
-          <text class="uml-member" x="10" y="110">예: sorted(rows, key=f)</text>
-        </g>
-        <g class="uml-class" transform="translate(430,12)">
-          <rect width="190" height="130"/>
-          <text class="uml-name" x="95" y="22">__init_subclass__</text>
-          <line x1="0" y1="32" x2="190" y2="32"/>
-          <text class="uml-member" x="10" y="52">소유자: 파이썬 언어</text>
-          <text class="uml-member" x="10" y="70">시점: 하위 클래스가</text>
-          <text class="uml-member" x="46" y="88">정의되는 순간</text>
-          <text class="uml-member" x="10" y="110">예: class A(Base): ...</text>
-        </g>
-        <text class="uml-note" x="320" y="168" text-anchor="middle">세 형태 모두 "주인이 정한 시점에 불러 준다"는 점이 같다</text>
-      </svg>
-      <figcaption>개념도 · 훅의 세 형태. 달라지는 것은 흐름의 소유자와 불리는 시점뿐이다.</figcaption>
-    </figure>
-  </li>
-    <li><strong>모듈.</strong> 모듈은 첫 import 때 한 번 실행되고 <dfn data-term="cache">캐시</dfn>되는(다시 실행하지 않도록 결과가 저장되는) <dfn data-term="namespace">이름공간</dfn>, 곧 이름과 객체의 대응을 담는 공간이다. 싱글턴과 퍼사드의 상당수는 모듈 하나로 충분하다.</li>
-    <li><strong><dfn data-term="dunder-special-method">던더</dfn>(dunder) 프로토콜.</strong> 던더는 double underscore의 줄임말로, 이름 앞뒤에 밑줄 두 개가 붙은 특수 메서드를 가리킨다. 이 메서드들은 언어가 미리 정해 둔 인터페이스(프로토콜)에 참여하는 방법이며, 파이썬은 이를 인스턴스가 아니라 타입에서 찾는다. <code>__iter__</code>/<code><dfn data-term="iterator-protocol">__next__</dfn></code>(반복자 프로토콜: 순회할 반복자를 내주고 다음 값을 꺼내며, 끝나면 <code>StopIteration</code>을 던진다. <code>for</code> 문이 이것을 부른다), <code><dfn data-term="call">__call__</dfn></code>(객체를 함수처럼 <code>()</code>로 부를 수 있게 한다), <code><dfn data-term="getattr">__getattr__</dfn></code>(일반 속성 조회가 실패했을 때만 불린다), <code><dfn data-term="context-manager">__enter__</dfn></code>/<code>__exit__</code>(컨텍스트 매니저: <code>with</code> 블록에 들어갈 때 준비하고, 빠져나올 때 예외가 나도 정리를 보장한다)가 대표적이다. 반복자 패턴은 언어 자체가 되었고(<dfn data-term="generator">제너레이터</dfn>: <code>yield</code>가 든 함수를 부르면 나오는 반복자로, 값을 하나 내고 멈췄다가 다음 요청에서 이어 간다), 프록시와 어댑터는 <code>__getattr__</code> 위임으로 짧아진다.</li>
-  </ul>
-  <p class="lead-in">2절의 리팩터링을 이 렌즈로 다시 쓰면 어떻게 되는가. 아래 코드는 상태 없는 규칙을 함수로, 설정 있는 규칙을 클로저와 <code>__call__</code> 클래스로 바꾸고, 계약을 <code>Protocol</code>로 표현한다. 세 종류의 규칙이 한 목록 안에서 똑같이 호출된다는 점, 그리고 데모 [2]가 "클래스가 필요한 순간"에 대해 무엇을 말하는지 주목하라. docstring이 말하는 "<dfn data-term="callable">호출 가능한</dfn> 것"(callable)은 <code>()</code>로 부를 수 있는 모든 것, 곧 함수·클래스·람다·<code>__call__</code>을 가진 객체이며, 타입 힌트로는 <code>Callable[[인자...], 반환]</code>으로 적는다. <dfn data-term="serialization">직렬화</dfn>는 객체를 저장하거나 전송할 수 있는 문자열·바이트 형식으로 바꾸는 것이다.</p>
-  <figure class="diagram code-map">
-    <svg viewBox="0 0 640 440" role="img" aria-label="파이썬다운 변형의 구조: FeePolicy가 Adjustment 프로토콜 목록을 호출하고, 함수 child_discount, 클로저를 돌려주는 cap, __call__을 가진 ExamWaiver가 상속 없이 그 모양을 맞춘다">
-      <text class="uml-note" x="20" y="22">[변하지 않는 절차] 리팩터링 코드와 같다</text>
-      <g class="uml-class" transform="translate(20,40)">
-        <rect width="260" height="110"/>
-        <text class="uml-name" x="130" y="22">FeePolicy</text>
-        <line x1="0" y1="32" x2="260" y2="32"/>
-        <text class="uml-member" x="10" y="52">rates: dict[Material, int]</text>
-        <text class="uml-member" x="10" y="70">adjustments: list[Adjustment]</text>
-        <line x1="0" y1="80" x2="260" y2="80"/>
-        <text class="uml-member" x="10" y="100">+ late_fee(loan) → int</text>
-      </g>
-      <text class="uml-note" x="390" y="22">[변하는 것] ABC 대신 Protocol</text>
-      <g class="uml-class highlight" transform="translate(390,40)">
-        <rect width="230" height="76"/>
-        <text class="uml-name" x="115" y="22">Adjustment</text>
-        <text class="uml-stereo" x="115" y="38">Protocol</text>
-        <line x1="0" y1="46" x2="230" y2="46"/>
-        <text class="uml-member" x="10" y="66">__call__(loan, fee) → int</text>
-      </g>
-      <g class="uml-func" transform="translate(20,200)">
-        <rect width="190" height="92"/>
-        <text class="uml-name" x="95" y="22">child_discount</text>
-        <text class="uml-stereo" x="95" y="40">함수</text>
-        <text class="uml-member" x="10" y="68">아동이면 fee // 2</text>
-      </g>
-      <g class="uml-func" transform="translate(225,200)">
-        <rect width="190" height="92"/>
-        <text class="uml-name" x="95" y="22">cap(limit)</text>
-        <text class="uml-stereo" x="95" y="40">클로저를 돌려주는 함수</text>
-        <text class="uml-member" x="10" y="68">→ apply(loan, fee)</text>
-        <text class="uml-member" x="10" y="84">  limit을 기억한다</text>
-      </g>
-      <g class="uml-class" transform="translate(430,200)">
-        <rect width="190" height="92"/>
-        <text class="uml-name" x="95" y="22">ExamWaiver</text>
-        <text class="uml-stereo" x="95" y="40">frozen dataclass</text>
-        <line x1="0" y1="50" x2="190" y2="50"/>
-        <text class="uml-member" x="10" y="68">+ __call__(loan, fee)</text>
-        <text class="uml-member" x="10" y="84">+ describe() → str</text>
-      </g>
-      <text class="uml-note" x="20" y="312">← 리팩터링 코드의 ChildDiscount 클래스</text>
-      <text class="uml-note" x="225" y="312">← 리팩터링 코드의 Cap 클래스</text>
-      <text class="uml-note" x="430" y="312">← 리팩터링 코드에서 ABC를 상속하던 것</text>
-
-      <path class="marker-fill" d="M280 75 L290 68 L300 75 L290 82 Z"/>
-      <path class="uml-compose" d="M300 75 H390"/>
-      <text class="uml-label" x="306" y="96">순서대로 호출</text>
-      <path class="uml-impl" d="M115 200 V175 H505"/>
-      <path class="uml-impl" d="M320 200 V175"/>
-      <path class="uml-impl" d="M525 200 V175 H505"/>
-      <path class="uml-impl" d="M505 175 V116" marker-end="url(#triangle)"/>
-      <text class="uml-label" x="128" y="168">상속 없이 모양만 맞춘다</text>
-
-      <g class="uml-step"><circle cx="390" cy="40" r="9"/><text x="390" y="44">1</text></g>
-      <g class="uml-step"><circle cx="20" cy="200" r="9"/><text x="20" y="204">2</text></g>
-      <g class="uml-step"><circle cx="20" cy="40" r="9"/><text x="20" y="44">3</text></g>
-
-      <text class="uml-note" x="20" y="362"><tspan font-weight="700">읽는 순서</tspan> · 파란 테두리가 리팩터링 코드에서 바뀐 중심</text>
-      <text class="uml-note" x="20" y="384">① Adjustment(Protocol): 상속 대신 호출 모양 → ② 세 규칙: 함수 · 클로저 · __call__ 클래스</text>
-      <text class="uml-note" x="20" y="406">③ FeePolicy: 함수든 객체든 똑같이 호출 → ④ 데모 [1] 섞어 쓰기 · [2] 클래스만 자기를 설명</text>
-      <text class="uml-note" x="20" y="428">· [3] 람다 한 줄짜리 테스트 대역</text>
-    </svg>
-    <figcaption>코드 지도 · 파이썬다운 변형. 둥근 상자는 함수, 빈 삼각형 점선은 "모양을 맞춘다", 속이 찬 마름모는 "담고 있다".</figcaption>
-  </figure>
-  <pre data-src="00_intro/03_pythonic.py" data-title="파이썬다운 변형"></pre>
-  <p>데모 [1]에서 함수, 클로저, <code>ExamWaiver</code> 객체가 <code>FeePolicy</code> 안에서 구별 없이 쓰인다. <code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 호출할 뿐이고, <code>__call__</code>이 객체를 함수와 같은 모양으로 만들어 준다. <code>ChildDiscount</code> 클래스는 함수 하나로 줄었다. 데모 [3]의 테스트 대역은 람다 한 줄이다. <code>Protocol</code>이기에 가능한 일이다.</p>
-  <p>그렇다고 클래스가 사라지지는 않는다. 데모 [2]가 그 경계를 보여준다. <code>ExamWaiver</code>는 설정값을 <code>repr</code>로 드러내고, <code>describe()</code>라는 두 번째 행동을 갖는다. 클로저 <code>cap(3000)</code>도 설정값 3000을 들고 있지만(<code>__closure__</code>로 억지로 꺼낼 수는 있다), 그것을 명확한 공개 인터페이스로 드러내지 못한다. 이 교재는 이 질문을 장마다 되풀이한다. <strong>"여기서 클래스가 필요한 순간은 언제인가?"</strong> 대체로 답은 다음 중 하나다. 행동이 둘 이상이다. 설정이나 상태를 바깥에서 보거나 비교하거나 저장해야 한다. 여러 훅을 한 단위로 묶어 바꿔야 한다. 이름 붙은 개념으로서 문서와 도구에서 발견되어야 한다. 어느 것도 해당하지 않으면 함수로 충분하다.</p>
-  <table data-preview>
-    <thead><tr><th>파이썬 기능</th><th>흡수하거나 단순화하는 패턴</th><th>여전히 클래스가 필요한 경우(장에서 다룸)</th></tr></thead>
-    <tbody>
-      <tr><td>일급 함수, 클로저</td><td>전략(10), 커맨드(12), 팩토리 메서드의 생성 훅(1)</td><td>실행 취소처럼 행동이 둘 이상일 때(12), 설정을 드러내야 할 때(10)</td></tr>
-      <tr><td>제너레이터, <code>__iter__</code></td><td>반복자(15)</td><td>순회 상태를 저장·재개해야 할 때(15)</td></tr>
-      <tr><td>모듈</td><td>싱글턴(4), 퍼사드(8)</td><td>테스트에서 교체해야 할 때 — 대개 주입으로 해결(4)</td></tr>
-      <tr><td><code>__getattr__</code> 위임</td><td>어댑터(5), 프록시(9)</td><td>타입 검사와 명시성이 중요할 때(5, 9)</td></tr>
-      <tr><td><code>@</code> 데코레이터 문법</td><td>함수에 대한 데코레이터 패턴(6)</td><td>이름만 같고 개념은 다르다 — 객체 인터페이스를 감쌀 때(6)</td></tr>
-    </tbody>
-  </table>
+<h2>4. 파이썬이라는 렌즈</h2>
+<p>GoF 패턴의 일부는 C++에 없는 기능을 메우려는 것이었다. 파이썬은 그 일부를 언어 기능으로 흡수한다.</p>
+<ul>
+  <li><strong><dfn data-term="duck-typing">덕 타이핑</dfn>.</strong> 선언된 타입이 아니라 가진 메서드가 협력 여부를 정한다.</li>
+  <li><strong><code>ABC</code>와 <code><dfn data-term="typing-protocol">Protocol</dfn></code>.</strong> <code>ABC</code>는 상속해야 인정하는 <dfn data-term="nominal-typing">명목적 타이핑</dfn>, <code>Protocol</code>은 메서드 모양만 맞으면 인정하는 <dfn data-term="structural-typing">구조적 타이핑</dfn>이다. 모양 검사는 코드를 실행하지 않고 힌트를 읽는 <dfn data-term="static-type-checker">정적 타입 검사기</dfn>가 한다. 진짜 객체 대신 테스트에 끼우는 <dfn data-term="test-double">테스트 대역</dfn>, 우리가 못 고치는 외부 라이브러리인 <dfn data-term="software-development-kit">SDK</dfn>, 함수처럼 상속 없이 끼어드는 것이면 <code>Protocol</code>, 우리가 정하고 구현하는 확장 지점이면 <code>ABC</code>를 쓴다.</li>
+  <li><strong><dfn data-term="first-class-function">일급 함수</dfn>와 <dfn data-term="closure">클로저</dfn>.</strong> 함수도 변수에 담고 넘길 수 있다. 클로저는 바깥 변수를 기억하는 안쪽 함수다. 메서드 하나짜리 인터페이스는 대개 함수로 줄고, 그 타입은 <code><dfn data-term="callable">Callable</dfn>[[인자…], 반환]</code>으로 적는다. 이런 함수가 들어가는 자리가 <dfn data-term="hook">훅</dfn>, 곧 흐름을 가진 쪽이 정한 때에 불러 주도록 비워 둔 자리다. <code>sorted(key=f)</code>의 <code>f</code>, 오버라이드한 메서드, 하위 클래스가 정의될 때 파이썬이 불러 주는 <code><dfn data-term="init-subclass">__init_subclass__</dfn></code>(1장)가 모두 훅이다.</li>
+  <li><strong><dfn data-term="dunder-special-method">던더 메서드</dfn>.</strong> 앞뒤에 밑줄 두 개가 붙은 특수 메서드다. <code><dfn data-term="call">__call__</dfn></code>은 객체를 함수처럼 부르게 하고, <code><dfn data-term="getattr">__getattr__</dfn></code>은 속성을 못 찾았을 때만 불린다(5·9장). <code>for</code> 문은 <code><dfn data-term="iterator-protocol">__next__</dfn></code>로 다음 값을 꺼내고(반복자 프로토콜), <code>with</code> 문은 <code><dfn data-term="context-manager">__enter__</dfn></code>·<code>__exit__</code>로 들어갈 때 준비하고 나올 때 예외가 나도 정리한다(컨텍스트 매니저). <dfn data-term="generator">제너레이터</dfn>는 <code>yield</code>가 든 함수로, 값을 하나 내고 멈췄다 이어 가는 반복자다(7·15장).</li>
+</ul>
+<p class="lead-in">2절의 코드를 이 렌즈로 다시 썼다. 상태 없는 규칙은 함수, 설정 있는 규칙은 클로저와 <code>__call__</code> 클래스, 계약은 <code>Protocol</code>이다. 데모 [2]를 보라.</p>
+<pre data-src="00_intro/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
+<p><code>FeePolicy</code>는 <code>rule(loan, fee)</code>라고 부를 뿐이고, 테스트 대역은 람다 한 줄이다. 그래도 데모 [2]에서 설정값을 보여 주고 두 번째 행동 <code>describe()</code>를 가진 것은 클래스 <code>ExamWaiver</code>뿐이다. 이 교재가 장마다 묻는다. <strong>"클래스가 필요한 순간은 언제인가?"</strong> 행동이 둘 이상이거나, 설정을 바깥에서 보거나 비교해야 할 때다. 아니면 함수로 충분하다.</p>
 </section>
 
 <section id="how-to-read">
-  <h2>5. 이 교재의 구성과 사용법</h2>
-  <p>패턴을 다루는 01~15장은 모두 같은 일곱 절로 되어 있다. 순서 자체가 교수법이다.</p>
-  <ol>
-    <li><strong>상황</strong>: 구체적인 인물, 제품, 변경 요구가 나오는 이야기. 코드는 없다. 무엇이 아픈지를 먼저 느끼게 하려는 것이다.</li>
-    <li><strong>순진한 설계와 그 한계</strong>: 그 상황에서 누구나 처음 쓸 법한 코드와, 데모 출력으로 드러나는 문제. <code># ⚠ 문제:</code> 주석이 고통 지점을 가리킨다.</li>
-    <li><strong>패턴의 구조</strong>: GoF 의도, 그 장의 실제 클래스 이름으로 그린 다이어그램, 역할 표.</li>
-    <li><strong>패턴 적용</strong>: 역할 태그와 "왜"를 설명하는 주석이 달린 교과서적 구현과 그 실행 결과.</li>
-    <li><strong>파이썬다운 변형</strong>: 언어 기능이 패턴을 어떻게 바꾸거나 없애는지, 그 대가는 무엇인지.</li>
-    <li><strong>트레이드오프와 관련 패턴</strong>: 얻는 것, 치르는 것, 쓰지 말아야 할 때, 이웃 패턴과의 차이.</li>
-    <li><strong>연습문제</strong>: 판단·리팩터링·확장·비교 유형을 섞은 3~4문제와, 접혀 있는 해설.</li>
-  </ol>
-  <p><strong>코드는 직접 실행하라.</strong> 본문의 코드 블록은 [▶ 실행]을 누르면 그 자리에서 돌아가고, 결과가 코드 아래에 나타난다. 코드는 표준 라이브러리만 쓰고 블록마다 따로 실행되므로, 어느 블록이든 앞뒤와 상관없이 바로 돌려 볼 수 있다. 한 장의 코드는 대체로 순진한 코드 → 패턴 코드 → 파이썬다운 변형 순서로 나온다. 코드 첫머리 docstring에 그 코드가 다루는 상황이 요약되어 있으니 그것만 읽어도 맥락을 잃지 않는다. 가장 좋은 학습법은 순진한 코드에 다음 변경 요구가 들어온다면 어디를 몇 군데 고쳐야 할지 먼저 따라가 보며 고통을 체험한 뒤 패턴 코드로 넘어가는 것이다.</p>
-  <p><strong>연습문제는 해설을 펼치기 전에 답을 써라.</strong> 해설은 정답만이 아니라 흔한 오답이 왜 틀렸는지를 함께 다룬다. 이 수준의 학생이 틀리는 이유는 대개 지식 부족이 아니라 과잉 적용이나 의도의 오독이기 때문이다. 코드 문제의 해설 코드도 [▶ 실행]으로 돌려 볼 수 있다.</p>
-  <p>장마다 도메인이 다르다(과학 연구실, 클라우드 인프라, 병원 <dfn data-term="electronic-medical-record">EMR</dfn>(전자의무기록), 결제, <dfn data-term="internet-of-things">IoT</dfn>(센서·장비가 네트워크로 데이터를 주고받는 사물인터넷)…). 패턴을 특정 도메인의 관용구로 기억하지 않고 구조적 문제로 기억하게 하려는 의도다. 마지막 <a href="99-summary.html">99장</a>은 로봇 물류 창고라는 하나의 시스템에서 여러 패턴이 어떻게 조합되는지 다루고, 장마다 내린 "언어가 패턴을 흡수하는 정도" 판단을 표 하나로 정리한다.</p>
+<h2>5. 이 교재의 구성과 사용법</h2>
+<p>01~15장은 상황 → 순진한 설계 → 구조 → 적용 → 파이썬다운 변형 → 트레이드오프 → 연습문제 순서다. 코드는 [▶ 실행]으로 돌려 보고, 연습문제는 해설을 펼치기 전에 답을 써라.</p>
 </section>
 
 <section id="pattern-map">
-  <h2>6. 15개 패턴 지도</h2>
-  <p>각 패턴의 의도를 한 줄로 요약했다. 지금 다 이해할 필요는 없다. 장을 읽은 뒤 돌아와 이 한 줄이 무엇을 압축하고 있는지 확인하는 용도로 쓰면 좋다.</p>
-  <h3>생성 패턴</h3>
-  <table data-preview>
-    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
-    <tbody>
-      <tr><td>1</td><td><a href="01-factory-method.html">팩토리 메서드</a></td><td>상위 클래스는 <em>언제</em> 만들지, 하위 클래스는 <em>무엇을</em> 만들지 결정한다.</td><td>과학 연구실 장비 데이터</td></tr>
-      <tr><td>2</td><td><a href="02-abstract-factory.html">추상 팩토리</a></td><td>함께 쓰여야 하는 객체 제품군을 섞이지 않게 한 번에 만든다.</td><td>멀티 클라우드 인프라</td></tr>
-      <tr><td>3</td><td><a href="03-builder.html">빌더</a></td><td>복잡한 객체를 단계적으로 조립하고, 같은 절차로 다른 표현을 만든다.</td><td>BI(비즈니스 인텔리전스) 대시보드의 SQL(데이터베이스 질의 언어) 조립</td></tr>
-      <tr><td>4</td><td><a href="04-singleton.html">싱글턴</a></td><td>인스턴스를 하나로 제한하고 전역 접근점을 준다 — 그리고 그 둘을 떼어 놓는 법.</td><td>병원 EMR 감사 로그</td></tr>
-    </tbody>
-  </table>
-  <h3>구조 패턴</h3>
-  <table data-preview>
-    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
-    <tbody>
-      <tr><td>5</td><td><a href="05-adapter.html">어댑터</a></td><td>고칠 수 없는 남의 인터페이스를 우리가 기대하는 인터페이스로 바꾼다.</td><td>커머스 결제 PG(전자결제대행사) 연동</td></tr>
-      <tr><td>6</td><td><a href="06-decorator.html">데코레이터</a></td><td>같은 인터페이스를 유지한 채 책임을 겹겹이 덧입힌다.</td><td>IoT 텔레메트리 채널</td></tr>
-      <tr><td>7</td><td><a href="07-composite.html">컴포지트</a></td><td>부분과 전체를 클라이언트가 똑같이 다루게 트리로 구성한다.</td><td>제조 부품표(BOM, Bill of Materials)</td></tr>
-      <tr><td>8</td><td><a href="08-facade.html">퍼사드</a></td><td>복잡한 서브시스템 앞에 단순한 정문 하나를 둔다.</td><td>항공 셀프 체크인</td></tr>
-      <tr><td>9</td><td><a href="09-proxy.html">프록시</a></td><td>같은 인터페이스의 대리인이 실제 객체로 가는 접근을 통제한다.</td><td>위성 영상 아카이브</td></tr>
-    </tbody>
-  </table>
-  <h3>행위 패턴</h3>
-  <table data-preview>
-    <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th><th>도메인</th></tr></thead>
-    <tbody>
-      <tr><td>10</td><td><a href="10-strategy.html">전략</a></td><td>교체 가능한 알고리즘 계열을 캡슐화하고 클라이언트가 고르게 한다.</td><td>음식 배달비 정책</td></tr>
-      <tr><td>11</td><td><a href="11-observer.html">옵저버</a></td><td>상태 변화를 알리는 쪽이 듣는 쪽을 모르게 한다.</td><td>증권 시세 알림</td></tr>
-      <tr><td>12</td><td><a href="12-command.html">커맨드</a></td><td>요청을 객체로 만들어 되돌리고, 묶고, 미루고, 보낸다.</td><td>웹 다이어그램 도구</td></tr>
-      <tr><td>13</td><td><a href="13-state.html">상태</a></td><td>행동이 상태에 따라 달라질 때 분기 대신 상태 객체를 바꾼다.</td><td>공유 킥보드 대여</td></tr>
-      <tr><td>14</td><td><a href="14-template-method.html">템플릿 메서드</a></td><td>절차의 골격은 고정하고 달라지는 단계만 하위 클래스에 연다.</td><td>온라인 저지 채점</td></tr>
-      <tr><td>15</td><td><a href="15-iterator.html">반복자</a></td><td>내부 표현을 감춘 채 원소를 차례로 꺼낸다 — 언어가 흡수한 패턴.</td><td>음악 스트리밍 재생 목록</td></tr>
-    </tbody>
-  </table>
-  <h3>장 사이의 연결</h3>
-  <p>패턴은 따로 외우면 서로 섞인다. 다음 짝들은 각 장에서 명시적으로 비교하거나 함께 쓰므로, 읽는 동안 의식해 두면 좋다.</p>
-  <table data-preview>
-    <thead><tr><th>짝</th><th>같은 점</th><th>가르는 질문</th></tr></thead>
-    <tbody>
-      <tr><td>팩토리 메서드(1) → 추상 팩토리(2)</td><td>생성 결정을 클라이언트에서 떼어 낸다</td><td>제품 하나인가, 함께 쓰여야 하는 제품군인가</td></tr>
-      <tr><td>추상 팩토리(2) ↔ 빌더(3)</td><td>복잡한 생성을 캡슐화한다</td><td>여러 객체를 즉시인가, 한 객체를 단계적으로인가</td></tr>
-      <tr><td>어댑터(5) · 데코레이터(6) · 프록시(9)</td><td>다른 객체를 감싼다</td><td>인터페이스를 바꾸는가 / 같은 인터페이스로 책임을 더하는가 / 접근을 통제하는가</td></tr>
-      <tr><td>어댑터(5) ↔ 퍼사드(8)</td><td>클라이언트와 서브시스템 사이에 선다</td><td>기존 인터페이스를 맞추는가, 새 단순 인터페이스를 만드는가</td></tr>
-      <tr><td>데코레이터(6) ↔ 컴포지트(7)</td><td>재귀적 합성 구조</td><td>책임을 더하는가, 부분-전체를 표현하는가</td></tr>
-      <tr><td>전략(10) ↔ 상태(13)</td><td>클래스 구조가 거의 같다</td><td>교체를 누가 결정하는가(클라이언트 / 상태 자신). 13장은 전이 결정을 컨텍스트의 전이표로 모으는 변형도 다룬다</td></tr>
-      <tr><td>전략(10) ↔ 템플릿 메서드(14)</td><td>알고리즘의 변이를 다룬다</td><td>합성으로인가, 상속으로인가</td></tr>
-      <tr><td>반복자(15) + 컴포지트(7)</td><td>대안이 아니라 협력 관계: 컴포지트가 트리를 만들고 반복자가 그것을 순회한다</td><td>트리를 어떤 순서로 순회할 것인가, 순회를 클라이언트에서 어떻게 떼어 낼 것인가</td></tr>
-    </tbody>
-  </table>
+<h2>6. 15개 패턴 지도</h2>
+<table data-preview>
+  <thead><tr><th>장</th><th>패턴</th><th>의도 한 줄</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td><a href="01-factory-method.html">팩토리 메서드</a></td><td>무엇을 만들지는 하위 클래스가 정한다.</td></tr>
+    <tr><td>2</td><td><a href="02-abstract-factory.html">추상 팩토리</a></td><td>함께 쓰는 객체 묶음을 섞이지 않게 만든다.</td></tr>
+    <tr><td>3</td><td><a href="03-builder.html">빌더</a></td><td>복잡한 객체를 단계적으로 조립한다.</td></tr>
+    <tr><td>4</td><td><a href="04-singleton.html">싱글턴</a></td><td>인스턴스를 하나로 제한한다.</td></tr>
+    <tr><td>5</td><td><a href="05-adapter.html">어댑터</a></td><td>남의 인터페이스를 우리 모양으로 바꾼다.</td></tr>
+    <tr><td>6</td><td><a href="06-decorator.html">데코레이터</a></td><td>같은 인터페이스로 책임을 덧입힌다.</td></tr>
+    <tr><td>7</td><td><a href="07-composite.html">컴포지트</a></td><td>부분과 전체를 똑같이 다룬다.</td></tr>
+    <tr><td>8</td><td><a href="08-facade.html">퍼사드</a></td><td>복잡한 내부 앞에 정문 하나를 둔다.</td></tr>
+    <tr><td>9</td><td><a href="09-proxy.html">프록시</a></td><td>대리인이 진짜 객체로 가는 접근을 통제한다.</td></tr>
+    <tr><td>10</td><td><a href="10-strategy.html">전략</a></td><td>알고리즘을 바꿔 끼우게 한다.</td></tr>
+    <tr><td>11</td><td><a href="11-observer.html">옵저버</a></td><td>알리는 쪽이 듣는 쪽을 모르게 한다.</td></tr>
+    <tr><td>12</td><td><a href="12-command.html">커맨드</a></td><td>요청을 객체로 만들어 쌓고, 미루고, 되돌린다.</td></tr>
+    <tr><td>13</td><td><a href="13-state.html">상태</a></td><td>분기 대신 상태 객체를 바꾼다.</td></tr>
+    <tr><td>14</td><td><a href="14-template-method.html">템플릿 메서드</a></td><td>골격은 고정하고 일부 단계만 연다.</td></tr>
+    <tr><td>15</td><td><a href="15-iterator.html">반복자</a></td><td>내부를 감춘 채 원소를 차례로 꺼낸다.</td></tr>
+  </tbody>
+</table>
 </section>
 
 <section id="exercises">
@@ -429,11 +153,3 @@ part:
     </details>
   </div>
 </section>
-
-<!--
-설계서 대비 변경 사항:
-- 연습문제 2를 연체료 함수가 아닌 '분실 배상금' 함수로 바꿨다. 연체료는 본문 2·4절에서 이미 두 가지로 리팩터링했으므로,
-  같은 도메인의 새 함수로 학생이 직접 같은 과정을 밟게 하는 편이 낫다고 판단했다.
-- 섹션 구성에 pattern-map(15개 패턴 의도 한 줄 + 장 링크 + 연결 표)을 별도로 두었다(코디네이터 요청).
-- 설계서가 권장한 '장 간 연결 지도 SVG'는 15개 상자와 교차 화살표가 좁은 화면에서 읽히지 않아 표('장 사이의 연결')로 대체했다.
--->

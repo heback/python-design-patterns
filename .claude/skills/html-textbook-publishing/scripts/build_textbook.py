@@ -24,6 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 SKILL = Path(__file__).resolve().parents[1]
 CHAPTERS, SRC, OUT = ROOT / "chapters", ROOT / "src", ROOT / "textbook"
+FULL = CHAPTERS / "full"    # 참고용 긴 버전 원고. 요약 판(chapters/{nn}-{slug}.html)이 기본이고 긴 버전은 {nn}-{slug}-full.html 로 나간다
 
 # SVG 화살표 마커. 원고 작성자는 marker-end="url(#triangle)" 처럼 참조만 하면 된다.
 SVG_DEFS = """<defs>
@@ -34,7 +35,8 @@ SVG_DEFS = """<defs>
 </defs>"""
 
 problems: list[str] = []          # 빌드 중 발견한 문제. 끝에 모아서 출력한다.
-term_locs: dict[str, str] = {}    # 용어 id → 정의(<dfn>)가 있는 출력 파일명. 용어집 링크에 쓴다.
+term_locs: dict[str, str] = {}    # 용어 id → 정의(<dfn>)가 있는 출력 파일명(요약 판). 용어집 링크에 쓴다.
+full_locs: dict[str, str] = {}    # 용어 id → 긴 버전의 정의 위치. 요약 판에 없는 용어의 용어집 링크로만 쓴다.
 
 
 def load_terms() -> dict[str, dict]:
@@ -58,17 +60,18 @@ class Chapter:
     subtitle: str
     part: str
     body: str
+    full: bool = False    # True면 참고용 긴 버전
 
     @property
     def out_name(self) -> str:
-        """출력 파일명. 원고 파일명과 같게 해 찾기 쉽게 한다."""
-        return f"{self.nn}-{self.slug}.html"
+        """출력 파일명. 요약 판은 원고 파일명과 같고, 긴 버전은 -full 을 붙인다."""
+        return f"{self.nn}-{self.slug}{'-full' if self.full else ''}.html"
 
 
-def load_chapters() -> list[Chapter]:
-    """chapters/ 의 원고를 번호순으로 읽어 메타 주석을 파싱한다."""
+def load_chapters(directory: Path = CHAPTERS, full: bool = False) -> list[Chapter]:
+    """directory 의 원고를 번호순으로 읽어 메타 주석을 파싱한다. full=True면 참고용 긴 버전(chapters/full/)."""
     result = []
-    for path in sorted(CHAPTERS.glob("[0-9][0-9]-*.html")):
+    for path in sorted(directory.glob("[0-9][0-9]-*.html")):
         text = path.read_text(encoding="utf-8")
         meta: dict[str, str] = {}
         m = re.search(r"<!--meta(.*?)-->", text, re.S)
@@ -81,7 +84,7 @@ def load_chapters() -> list[Chapter]:
             problems.append(f"{path.name}: 메타 주석 없음")
         nn, slug = path.stem.split("-", 1)
         result.append(Chapter(nn, slug, meta.get("title", slug), meta.get("subtitle", ""),
-                              meta.get("part", ""), text.strip()))
+                              meta.get("part", ""), text.strip(), full))
     return result
 
 
@@ -134,6 +137,8 @@ def process_body(ch: Chapter) -> tuple[str, str]:
     body = re.sub(r"(<table\b.*?</table>)", r'<div class="table-wrap">\1</div>', body, flags=re.S)
     body = re.sub(r"(<svg\b[^>]*>)", lambda m: m.group(1) + SVG_DEFS, body)
     body = re.sub(r'<dfn\b[^>]*data-term="([^"]+)"[^>]*>', lambda m: render_dfn(m.group(1), ch), body)
+    if ch.full:    # 긴 버전 안의 장 사이 링크는 긴 버전끼리 잇는다(요약 판에 없는 절 앵커로 가지 않도록)
+        body = re.sub(r'href="(\d\d-[\w-]+)\.html', r'href="\1-full.html', body)
     toc = []
     for sid, h2 in re.findall(r'<section\s+id="([\w-]+)"[^>]*>\s*<h2[^>]*>(.*?)</h2>', body, re.S):
         toc.append(f'<li><a href="#{sid}">{re.sub(r"<[^>]+>", "", h2).strip()}</a></li>')
@@ -146,7 +151,7 @@ def render_dfn(term_id: str, ch: Chapter) -> str:
     if entry is None:
         problems.append(f"{ch.out_name}: 등록되지 않은 용어 <dfn data-term=\"{term_id}\">")
         return f'<dfn class="term" data-term="{term_id}">'
-    term_locs[term_id] = ch.out_name
+    (full_locs if ch.full else term_locs)[term_id] = ch.out_name
     return (f'<dfn class="term" id="term-{term_id}" data-term="{term_id}" '
             f'title="{html.escape(entry.get("short", ""))}">')
 
@@ -156,12 +161,14 @@ def render_glossary() -> str:
     rows = []
     for t in sorted(TERMS.values(), key=lambda t: t["term"]):
         en = f' <span class="gl-en">{html.escape(t["en"])}</span>' if t.get("en") else ""
-        loc = term_locs.get(t["id"])
-        if loc is None:
+        loc, ref = term_locs.get(t["id"]), full_locs.get(t["id"])
+        if loc is None and ref is None:
             problems.append(f"용어집: '{t['term']}'({t['id']})의 <dfn> 정의 위치가 원고에 없음")
             where = "—"
         else:
-            where = f'<a href="{loc}#term-{t["id"]}">{loc.split("-", 1)[0]}장에서 처음 정의</a>'.replace(
+            note = "" if loc else " (긴 버전)"       # 요약 판에서 쓰지 않는 용어는 긴 버전의 정의로 잇는다
+            loc = loc or ref
+            where = f'<a href="{loc}#term-{t["id"]}">{loc.split("-", 1)[0]}장에서 처음 정의{note}</a>'.replace(
                 "00장", "서론").replace("99장", "종합")
         rows.append(f'<tr id="gl-{t["id"]}"><th scope="row">{html.escape(t["term"])}{en}</th>'
                     f'<td>{html.escape(t.get("short", ""))}</td><td class="gl-where">{where}</td></tr>')
@@ -195,24 +202,40 @@ def build() -> int:
     for asset in ("style.css", "pyrun.css", "pyhl.js", "pyrun.js", "textbook-code.js"):    # 코드 실행·편집(Pyodide) 자산 포함
         shutil.copy(SKILL / "assets" / asset, OUT / "assets" / asset)
 
-    for i, ch in enumerate(chapters):
-        body, toc = process_body(ch)
-        prev_ch = chapters[i - 1] if i > 0 else None
-        next_ch = chapters[i + 1] if i + 1 < len(chapters) else None
-        pager = '<nav class="pager">'
-        if prev_ch:
-            pager += f'<a class="prev" href="{prev_ch.out_name}"><small>← 이전 · {chapter_label(prev_ch)}</small>{prev_ch.title}</a>'
-        if next_ch:
-            pager += f'<a class="next" href="{next_ch.out_name}"><small>다음 · {chapter_label(next_ch)} →</small>{next_ch.title}</a>'
-        pager += "</nav>"
-        hero = (f'<header class="hero"><span class="part">{chapter_label(ch)}'
-                f'{" · " + ch.part if ch.part else ""}</span><h1>{ch.title}</h1>'
-                f'<p class="subtitle">{ch.subtitle}</p></header>')
-        page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)} — 파이썬 디자인 패턴 · {COURSE_LABEL}",
-                    body_class="chapter", part=ch.part, crumb=f"{chapter_label(ch)} · {ch.title}",
-                    toc=toc, hero=hero, content=body, pager=pager)
-        (OUT / ch.out_name).write_text(page, encoding="utf-8")
-        print(f"  built {ch.out_name}")
+    fulls = [c for c in load_chapters(FULL, full=True) if (CHAPTERS / f"{c.nn}-{c.slug}.html").exists()]
+    for c in load_chapters(FULL, full=True):
+        if c not in fulls:
+            problems.append(f"{c.out_name}: 대응하는 요약 판 chapters/{c.nn}-{c.slug}.html 없음")
+    for group in (chapters, fulls):                  # 요약 판을 먼저 만든다(용어집이 요약 판의 정의 위치를 우선한다)
+        for i, ch in enumerate(group):
+            body, toc = process_body(ch)
+            prev_ch = group[i - 1] if i > 0 else None
+            next_ch = group[i + 1] if i + 1 < len(group) else None
+            pager = '<nav class="pager">'
+            if prev_ch:
+                pager += f'<a class="prev" href="{prev_ch.out_name}"><small>← 이전 · {chapter_label(prev_ch)}</small>{prev_ch.title}</a>'
+            if next_ch:
+                pager += f'<a class="next" href="{next_ch.out_name}"><small>다음 · {chapter_label(next_ch)} →</small>{next_ch.title}</a>'
+            pager += "</nav>"
+            tag = " · 참고용 긴 버전" if ch.full else ""
+            hero = (f'<header class="hero"><span class="part">{chapter_label(ch)}'
+                    f'{" · " + ch.part if ch.part else ""}{tag}</span><h1>{ch.title}</h1>'
+                    f'<p class="subtitle">{ch.subtitle}</p></header>')
+            if ch.full:
+                short = f"{ch.nn}-{ch.slug}.html"
+                note = (f'<aside class="callout full-ref"><strong>참고용 긴 버전</strong> 이 글은 같은 내용을 자세히 풀어 쓴 참고 자료다. '
+                        f'수업에서는 요약 판을 기본으로 읽는다. 연습문제는 요약 판과 같다. <a href="{short}">요약 판으로 돌아가기 →</a></aside>')
+                body = note + body
+                pager = pager.replace('<nav class="pager">', f'<nav class="pager"><a class="prev" href="{short}"><small>↑ 요약 판</small>{chapter_label(ch)} {ch.title}</a>', 1)
+            elif (FULL / f"{ch.nn}-{ch.slug}.html").exists():
+                long_ = f"{ch.nn}-{ch.slug}-full.html"
+                body = (f'<aside class="callout full-ref"><strong>요약 판</strong> 핵심만 간추린 글이다. '
+                        f'더 자세한 설명과 여러 변형이 궁금하면 <a href="{long_}">참고용 긴 버전</a>을 보면 된다(읽지 않아도 연습문제를 풀 수 있다).</aside>' + body)
+            page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)}{' (참고용 긴 버전)' if ch.full else ' (요약)'} — 파이썬 디자인 패턴 · {COURSE_LABEL}",
+                        body_class="chapter", part=ch.part, crumb=f"{chapter_label(ch)} · {ch.title}{tag}",
+                        toc=toc, hero=hero, content=body, pager=pager)
+            (OUT / ch.out_name).write_text(page, encoding="utf-8")
+            print(f"  built {ch.out_name}")
 
     # ---- 용어집 ----
     if TERMS:
@@ -235,8 +258,12 @@ def build() -> int:
         for frag in re.findall(r'href="#([^"]+)"', text):
             if frag not in ids:
                 problems.append(f"{page.name}: 없는 앵커 #{frag}")
+        for href, frag in re.findall(r'href="([^"#:]+\.html)#([^"]+)"', text):       # 다른 장의 절·용어로 가는 링크
+            target = OUT / href
+            if target.exists() and frag not in set(re.findall(r'id="([^"]+)"', target.read_text(encoding="utf-8"))):
+                problems.append(f"{page.name}: {href} 에 없는 앵커 #{frag}")
 
-    print(f"\n{len(chapters)}개 장 빌드 → {OUT.relative_to(ROOT)}/")
+    print(f"\n{len(chapters)}개 장(요약 판) + 긴 버전 {len(fulls)}개 빌드 → {OUT.relative_to(ROOT)}/")
     for p in problems:
         print(f"  PROBLEM {p}")
     return 1 if problems else 0

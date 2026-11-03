@@ -11,7 +11,9 @@
    필요한 전역: core.js(el, ico, $, $$, lsGet, lsSet, stamp), fb.js(FB), student-auth.js(StudentAuth), 빌드가 넣는 TB_DATA = {chapters}. */
 (() => {
   if (typeof FB === "undefined" || typeof TB_DATA === "undefined") return;
-  const SLUG = (/\/(\d\d-[\w-]+)\.html/.exec(location.pathname) || [])[1];
+  const FILE = (/\/(\d\d-[\w-]+)\.html/.exec(location.pathname) || [])[1] || "";
+  const LONG = /-full$/.test(FILE);                  // 참고용 긴 버전 페이지: 같은 장의 읽기로 센다(절 id가 요약 판과 같다)
+  const SLUG = FILE.replace(/-full$/, "");
   const CH = (TB_DATA.chapters || []).find(c => c.slug === SLUG);
   if (!CH) return;                                  // 장 페이지가 아니면(용어집 등) 아무것도 하지 않는다
   const IDLE_MS = 60000, BEAT_MS = 60000, MIN_GAP_MS = 10000, READ_SECS = 2;
@@ -23,7 +25,8 @@
 
   /* ---------- 읽은 절·체류 시간(계정별) ---------- */
   const sections = $$("main.content section[id]");
-  const total = sections.length, ids = new Set(sections.map(s => s.id));
+  const secIds = (CH.sections || []).map(s => s.id);                        // 진도의 기준은 요약 판의 절 목록이다. 긴 버전 페이지에서도 같은 절만 센다
+  const ids = new Set(secIds.length ? secIds : sections.map(s => s.id)), total = ids.size;
   let secBy = {}, chMs = 0, lastSec = "";            // secBy: 절 id → 그 절이 화면 가운데에 있던 초, chMs: 이 장에서 보낸 시간(ms)
   const visible = new Set();
   const nRead = () => Object.keys(secBy).filter(id => ids.has(id) && secBy[id] >= READ_SECS).length;
@@ -96,7 +99,7 @@
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
     sending = true;
     try {
-      await FB.reportProgress({ chapters, activeMs, lastActiveAt: lastActiveAt || now, where: "교재 " + CH.title, focus: FocusTrack.snapshot() });
+      await FB.reportProgress({ chapters, activeMs, lastActiveAt: lastActiveAt || now, where: "교재 " + CH.title + (LONG ? " (긴 버전)" : ""), focus: FocusTrack.snapshot() });
       lastSig = sig; lastSentAt = Date.now(); barState = "ok"; ready = true;
     } catch (e) { barState = "err"; }
     sending = false; updateBar();
@@ -124,7 +127,7 @@
   /* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 절의 글과, 학생이 드래그해 고른 글 */
   if (typeof Assistant !== "undefined") Assistant.init({ getContext: () => {
     const cur = Assistant.nearestMid(sections), h = cur && cur.querySelector("h2");
-    return { kind: "textbook", title: `${CH.title}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
+    return { kind: "textbook", title: `${CH.title}${LONG ? " (긴 버전)" : ""}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
   } });
   FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
   StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); seed().then(() => { updateBar(); send(true); }); updateBar(); });
