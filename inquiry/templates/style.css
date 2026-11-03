@@ -262,6 +262,8 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .gate .err { color: var(--bad); margin-top: 12px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-xl); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
 .panel h3 { margin: 0 0 8px; font-size: 17px; }
+.err-box { background: var(--bad-soft); border: 1px solid var(--bad); color: var(--ink); border-radius: var(--radius-lg); padding: 10px 16px; margin: 8px 0; font-size: 14.5px; }
+.err-box b { color: var(--bad); display: inline-flex; align-items: center; gap: 2px; }
 .status-open, .status-closed { display: flex; align-items: center; gap: 4px; font-weight: 700; }
 .status-open { color: var(--ok); } .status-closed { color: var(--bad); }
 

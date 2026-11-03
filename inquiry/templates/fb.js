@@ -38,7 +38,7 @@ const FB = (() => {
     return m.fs.onSnapshot(m.fs.doc(m.db, col, id), s => cb(s.exists() ? s.data() : null), () => cb(undefined));
   }
   const watchMonitor = cb => watchDoc("config", "monitor", cb);
-  /* 진도 한 번 전송. p = {weeks?, chapters?, where?, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다.
+  /* 진도 한 번 전송. p = {weeks?, chapters?, where?, focus?, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다.
      학습지는 weeks 를, 교재 페이지는 chapters 를 보낸다. merge 로 쓰므로 서로의 필드를 덮어쓰지 않는다. */
   async function reportProgress(p) {
     const user = await schoolUser(), m = await load(), { doc, setDoc, serverTimestamp, Timestamp } = m.fs;
@@ -47,6 +47,7 @@ const FB = (() => {
     if (p.weeks) d.weeks = p.weeks;
     if (p.chapters) d.chapters = p.chapters;
     if (p.where) d.where = String(p.where).slice(0, 80);
+    if (p.focus) Object.assign(d, { view: p.focus.view, viewAt: Timestamp.fromMillis(p.focus.viewAt), leaves: p.focus.leaves, awayMs: p.focus.awayMs });   // 화면을 보고 있는지(student-auth.js FocusTrack)
     await setDoc(doc(m.db, "progress", user.uid), d, { merge: true });
   }
 

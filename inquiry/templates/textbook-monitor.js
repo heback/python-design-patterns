@@ -2,7 +2,8 @@
 /* 호스팅된 교재 페이지(각 장)용: 읽기 진도 자동 전달. 학습지의 monitor.js 와 같은 규칙이다.
    교사가 [진도 수집]을 켜 두었고 학생이 학교 Google 계정(@ts.hs.kr)으로 로그인했을 때만 보내며, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
    전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 이 장에서 읽은 절 수·마지막 절,
-   활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각.
+   활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각,
+   이 화면을 보고 있는지(FocusTrack: 탭 가림·창 포커스)와 벗어난 횟수·시간.
    이 목록과 고지 줄(updateBar)의 문구는 항상 같게 유지한다. 전달하지 않는 것: 키 입력, 화면, 탭 전환.
    읽은 절·활동 시간은 이 브라우저의 localStorage 에 계정(uid)별로 둔다. 서버 규칙이 도메인과 uid 를 다시 확인한다.
    필요한 전역: core.js(el, ico, $, $$, lsGet, lsSet, stamp), fb.js(FB), student-auth.js(StudentAuth), 빌드가 넣는 TB_DATA = {chapters}. */
@@ -53,7 +54,7 @@
       : loggedIn() && lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
     const stIco = barState === "err" ? ico("warning") : loggedIn() && lastSentAt ? ico("check_circle", "fill") : null;
     const kids = [ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
-      "어느 장의 어느 절까지 읽었는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)이 로그인한 계정의 이름·이메일과 함께 전달돼요. 키 입력 내용이나 화면은 보내지 않아요. "];
+      "어느 장의 어느 절까지 읽었는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)와 벗어난 횟수·시간이 로그인한 계정의 이름·이메일과 함께 전달돼요. 키 입력 내용이나 화면 내용은 보내지 않아요. "];
     if (!loggedIn()) {
       const msg = el("span", { class: "monmsg" });
       kids.push(msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인"));
@@ -73,7 +74,7 @@
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
     sending = true;
     try {
-      await FB.reportProgress({ chapters, activeMs, lastActiveAt: lastActiveAt || now, where: "교재 " + CH.title });
+      await FB.reportProgress({ chapters, activeMs, lastActiveAt: lastActiveAt || now, where: "교재 " + CH.title, focus: FocusTrack.snapshot() });
       lastSig = sig; lastSentAt = Date.now(); barState = "ok"; ready = true;
     } catch (e) { barState = "err"; }
     sending = false; updateBar();
@@ -97,6 +98,7 @@
   addEventListener("pagehide", () => send(true));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
   FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
+  FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
   StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); updateBar(); send(true); });
   StudentAuth.init();
 })();

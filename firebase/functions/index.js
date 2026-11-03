@@ -21,9 +21,13 @@ function isSchoolAccount(auth) {
 async function assertTeacher(auth) {
   if (!isSchoolAccount(auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
   const snap = await db.doc("config/teachers").get();
-  const emails = snap.exists ? (snap.data().emails || []) : [];
+  const raw = snap.exists ? snap.data().emails : undefined;
+  // firestore.rules 의 판정과 똑같이 맞춘다: emails 는 문자열 배열이어야 하고 이메일이 글자 그대로(소문자) 들어 있어야 한다.
+  // (문자열 필드일 때 includes 가 부분 문자열로 통과해 화면은 열리는데 데이터 규칙에서만 거부되는 어긋남을 막는다)
+  if (raw !== undefined && !Array.isArray(raw)) throw new HttpsError("failed-precondition", "config/teachers 의 emails 필드는 '배열(array)' 형식이어야 합니다. 콘솔에서 필드 유형을 배열로 바꾸고 이메일을 각각 문자열로 넣으세요.");
+  const emails = Array.isArray(raw) ? raw : [];
   if (!emails.length) throw new HttpsError("failed-precondition", "교사 허용 목록(config/teachers)이 비어 있습니다. Firebase 콘솔에서 교사 이메일을 등록하세요.");
-  if (!emails.includes(auth.token.email)) throw new HttpsError("permission-denied", "교사 허용 목록에 없는 계정입니다.");
+  if (!emails.includes(auth.token.email)) throw new HttpsError("permission-denied", `교사 허용 목록에 없는 계정입니다(${auth.token.email}). 목록의 이메일은 공백 없이 소문자로 정확히 적어야 합니다.`);
 }
 
 function loadContent() {

@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { prog: null, mon: undefined, group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+const M = { prog: null, progErr: "", mon: undefined, group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -62,6 +62,15 @@ function ago(ms) {
   const m = Math.floor((Date.now() - ms) / 60000);
   return m < 1 ? "방금" : m < 60 ? `${m}분 전` : `${Math.floor(m / 60)}시간 ${m % 60}분 전`;
 }
+/* 학생이 이 화면을 보고 있는지: 보내온 view(on·hidden·blur)와 그 상태가 된 시각, 벗어난 횟수·시간.
+   마지막으로 보낸 값이므로, 학생이 오래 아무것도 하지 않으면(상태 '멈춤') 실제와 다를 수 있다. */
+const VIEW = { on: ["ok", "check_circle", "보는 중"], hidden: ["bad", "tab_unselected", "다른 탭"], blur: ["part", "open_in_new", "다른 창"] };
+function viewCell(r) {
+  const v = VIEW[r.view]; if (!v) return "—";
+  const since = tsMs(r.viewAt), mins = since ? Math.floor((Date.now() - since) / 60000) : 0;
+  const away = (r.leaves || 0) ? ` · 벗어남 ${r.leaves}회 · ${Math.round((r.awayMs || 0) / 60000)}분` : "";
+  return el("span", {}, el("span", { class: "pill " + v[0] }, ico(v[1], "fill"), v[2] + (r.view !== "on" && mins >= 1 ? ` ${mins}분째` : "")), el("small", { style: "color:var(--dim)" }, away));
+}
 /* 마지막 활동으로부터: <2분 활동 중, <5분 잠시 멈춤, 그 이상 멈춤(자리 비움). 수업 중에만 의미가 있다. */
 function liveState(ms) {
   const m = ms ? (Date.now() - ms) / 60000 : Infinity;
@@ -77,7 +86,7 @@ function renderMonitor(main) {
   const paintCtl = () => {
     const on = !!(M.mon && M.mon.on);
     fill(ctl, el("h3", {}, "진도 수집"),
-      el("p", { class: "lead" }, "켜 두면 학생의 학습지와 교재 화면에 ‘진행 상황이 선생님께 자동으로 전달된다’는 고지가 뜨고, 교재 각 장에서 읽은 절·학습지에서 마친 문항·지금 있는 곳·마지막 활동 시각·활동 시간이 계정의 이름·이메일과 함께 아래 표에 실시간으로 나타납니다. 쓴 글의 내용은 전달되지 않습니다(학생 브라우저에만 저장됩니다). 수업이 끝나면 꺼 두세요."),
+      el("p", { class: "lead" }, "켜 두면 학생의 학습지와 교재 화면에 ‘진행 상황이 선생님께 자동으로 전달된다’는 고지가 뜨고, 교재 각 장에서 읽은 절·학습지에서 마친 문항·지금 있는 곳·마지막 활동 시각·활동 시간·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)가 계정의 이름·이메일과 함께 아래 표에 실시간으로 나타납니다. 쓴 글의 내용은 전달되지 않습니다(학생 브라우저에만 저장됩니다). 수업이 끝나면 꺼 두세요."),
       M.mon === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "수집 중 — 학생에게 고지가 표시됩니다" : "꺼짐 — 학생은 진도를 보내지 않습니다"),
       el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" },
         el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveMonitor(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "수집 중지"] : [ico("play_arrow"), "수집 시작"]),
@@ -104,18 +113,21 @@ function renderMonitor(main) {
     // 분류 머리줄: 같은 분류의 장을 한 칸으로 묶는다
     const groupHead = []; chs.forEach(c => { const last = groupHead[groupHead.length - 1]; if (last && last.g === c.group) last.n++; else groupHead.push({ g: c.group, n: 1 }); });
     fill(tbl, el("h3", {}, "학생 진도 (실시간)"),
+      M.progErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "진도를 읽지 못했습니다."), el("div", {}, M.progErr),
+        /permission|insufficient/i.test(M.progErr) ? el("div", {}, "Firestore 규칙이 이 계정을 교사로 인정하지 않는 경우입니다. 콘솔에서 config/teachers 문서의 emails 가 ‘배열(array)’ 유형인지, 지금 로그인한 이메일이 소문자·공백 없이 들어 있는지 확인하세요.") : null) : null,
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
       el("p", { class: "lead", style: "font-size:13.5px" }, "칸의 숫자는 그 장에서 읽은 절의 비율입니다(절이 화면 가운데에 2초 이상 머물면 읽은 것으로 셉니다). 교재의 호스팅 사본을 열어 읽을 때만 집계됩니다."),
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;margin:6px 0" }, el("label", {}, "분류 ", grpSel), el("label", {}, "정렬 ", sortSel)),
       !rows.length ? el("p", { class: "lead" }, "아직 진도를 보낸 학생이 없습니다. 수집을 켜고, 학생이 학교 Google 계정으로 로그인하면 나타납니다.")
         : el("div", { style: "overflow-x:auto" }, el("table", { class: "ro prog" },
           el("thead", {},
-            el("tr", {}, ["학생", "상태", "마지막 활동", "지금 있는 곳", "학습지", "활동 시간"].map(h => el("th", { rowspan: 2 }, h)), groupHead.map(h => el("th", { colspan: h.n, style: "text-align:center" }, GROUP_NAME[h.g]))),
+            el("tr", {}, ["학생", "상태", "화면", "마지막 활동", "지금 있는 곳", "학습지", "활동 시간"].map(h => el("th", { rowspan: 2 }, h)), groupHead.map(h => el("th", { colspan: h.n, style: "text-align:center" }, GROUP_NAME[h.g]))),
             el("tr", {}, chs.map(c => el("th", { style: "font-weight:600;white-space:nowrap" }, c.title)))),
           el("tbody", {}, rows.map(r => {
             const ms = tsMs(r.lastActiveAt), [cls, lab] = liveState(ms), wp = wsTotal ? Math.round(100 * wsDone(r) / wsTotal) : 0;
             return el("tr", {}, el("td", { style: "white-space:nowrap" }, key(r)),
               el("td", {}, el("span", { class: "pill " + cls }, ico(cls === "ok" ? "check_circle" : cls === "part" ? "pause_circle" : "do_not_disturb_on", "fill"), lab)),
+              el("td", { style: "white-space:nowrap" }, viewCell(r)),
               el("td", { style: "white-space:nowrap" }, ago(ms)), el("td", { style: "white-space:nowrap" }, r.where || "—"), el("td", {}, `${wp}%`), el("td", {}, `${Math.round((r.activeMs || 0) / 60000)}분`),
               chs.map(c => { const f = cell(r, c), pct = Math.round(100 * f); return el("td", { style: `text-align:center;background:linear-gradient(90deg,var(--ok-soft) ${pct}%,transparent ${pct}%)`, title: `${c.title} ${pct}%` }, f ? pct + "%" : "—"); }));
           })))));
@@ -123,7 +135,7 @@ function renderMonitor(main) {
 
   paintCtl(); paintTbl();
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); }), tok);
-  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; if (err) toast("진도를 읽지 못했습니다: " + errText(err)); paintTbl(); }), tok);
+  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }
 

@@ -51,10 +51,15 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/config/monitor).data.get('on', false) == true;
     }
     function progressOk(d) {
-      return d.keys().hasOnly(['student', 'uid', 'weeks', 'chapters', 'where', 'activeMs', 'lastActiveAt', 'updatedAt'])
+      return d.keys().hasOnly(['student', 'uid', 'weeks', 'chapters', 'where', 'view', 'viewAt', 'leaves', 'awayMs', 'activeMs', 'lastActiveAt', 'updatedAt'])
         && (!('weeks' in d) || d.weeks is map)           // 학습지 진도(주차별 완료 문항)
         && (!('chapters' in d) || d.chapters is map)     // 교재 읽기 진도(장별 읽은 절)
         && (!('where' in d) || (d.where is string && d.where.size() <= 80))
+        // 이 화면을 보고 있는지: on(보이고 포커스 있음)·hidden(탭 가림)·blur(포커스 잃음), 그 상태가 된 시각, 벗어난 횟수·시간(ms)
+        && (!('view' in d) || d.view in ['on', 'hidden', 'blur'])
+        && (!('viewAt' in d) || d.viewAt is timestamp)
+        && (!('leaves' in d) || (d.leaves is number && d.leaves >= 0))
+        && (!('awayMs' in d) || (d.awayMs is number && d.awayMs >= 0))
         && d.activeMs is number && d.student is map
         && request.resource.size() < 60000;
     }
