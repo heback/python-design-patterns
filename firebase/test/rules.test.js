@@ -176,10 +176,18 @@ test("진도: 장별 체류 시간(sec)·절별 체류 시간(s)이 든 chapters
   await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a", { chapters: ch })));
   await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), { uid: "a", student: { name: "홍" }, activeMs: 1, updatedAt: Timestamp.now(), lastActiveAt: Timestamp.now(), chapters: { "10-strategy": { sec: 700 } } }, { merge: true }));   // 병합 쓰기
 });
-test("설정 문서(monitor): 누구나 읽고 교사만 쓴다", async () => {
+test("진도 수집 스위치(config/monitor): 누구나 읽지만 아무도 직접 쓰지 못한다(교사도). 변경 이력(monitorEvents)은 교사만 읽는다", async () => {
   await assertFails(setDoc(doc(pupil("a"), "config/monitor"), { on: true }));
-  await assertSucceeds(setDoc(doc(teacher(), "config/monitor"), { on: true }));
+  await assertFails(setDoc(doc(teacher(), "config/monitor"), { on: true }));            // 함수(setMonitor)로만 바꾼다
+  await monitor(true);
   await assertSucceeds(getDoc(doc(pupil("a"), "config/monitor")));
+  await assertFails(setDoc(doc(teacher(), "config/monitor"), { on: false }));
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "monitorEvents/e1"), { on: true, by: "teacher@ts.hs.kr" }));
+  await assertSucceeds(getDoc(doc(teacher(), "monitorEvents/e1")));
+  await assertFails(getDoc(doc(pupil("a"), "monitorEvents/e1")));
+  await assertFails(setDoc(doc(teacher(), "monitorEvents/e2"), { on: false }));          // 이력을 새로 쓰거나
+  await assertFails(deleteDoc(doc(teacher(), "monitorEvents/e1")));                      // 지울 수도 없다
+  await assertFails(setDoc(doc(teacher(), "monitorEvents/e1"), { on: false }));          // 고칠 수도 없다
 });
 
 test("학생(학교 계정, 허용 목록 밖)은 교사 권한이 없다: 진도 읽기·설정 쓰기 불가", async () => {

@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { view: "", prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", logStu: "", logFilter: "all", group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", logStu: "", logFilter: "all", group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -146,7 +146,21 @@ function renderMonitor(main) {
         el("button", { class: "btn danger", onclick: async () => {
           if (!confirm("서버에 쌓인 모든 학생의 진도 기록을 삭제합니다. 계속할까요?")) return;
           try { toast(`진도 기록 ${await FB.clearProgress()}건을 삭제했습니다`); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
-        } }, [ico("delete"), "진도 기록 삭제"])));
+        } }, [ico("delete"), "진도 기록 삭제"])),
+      monitorProof(on));
+  };
+  /* 켜고 끈 이력(서버 시각·변경한 교사)과, 꺼진 뒤 새로 들어온 진도가 없다는 확인. 학생 화면에도 중지 사실과 시각이 표시된다. */
+  const monitorProof = on => {
+    const ev = M.events || [], lastOff = !on ? ev.find(e => e.on === false) : null, offAt = lastOff ? tsMs(lastOff.at) : (M.mon && M.mon.updatedAt && !on ? tsMs(M.mon.updatedAt) : null);
+    const after = offAt ? (M.prog || []).filter(r => (tsMs(r.updatedAt) || 0) > offAt).length : null;
+    return el("div", { style: "margin-top:12px" },
+      after !== null ? el("p", { class: after ? "status-closed" : "status-open", style: "font-size:14px" }, ico(after ? "warning" : "verified", "fill"),
+        after ? `중지(${stamp(new Date(offAt))}) 이후에 서버가 받은 진도 갱신이 ${after}건 있습니다. 서버 규칙상 있을 수 없는 값이니 확인이 필요합니다.` : `중지(${stamp(new Date(offAt))}) 이후 서버가 받은 진도 갱신: 0건. 서버 규칙이 수집이 꺼진 동안의 쓰기를 거부합니다.`) : null,
+      el("details", { class: "fold" }, el("summary", {}, `켜고 끈 이력 (서버 기록 ${ev.length}건)`),
+        ev.length ? el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["시각", "상태", "변경한 교사"].map(h => el("th", {}, h)))),
+          el("tbody", {}, ev.slice(0, 15).map(e => el("tr", {}, el("td", {}, stamp(new Date(tsMs(e.at)))), el("td", {}, e.on ? "켬(수집 시작)" : "끔(수집 중지)"), el("td", {}, e.by || "—")))))
+          : el("p", { class: "lead" }, "아직 이력이 없습니다."),
+        el("p", { class: "lead", style: "font-size:13px" }, "이력과 스위치는 서버 함수가 서버 시각으로 기록하며, 교사 화면에서도 직접 고치거나 지울 수 없습니다. 학생 화면에는 수집이 중지된 상태와 중지한 시각이 항상 표시됩니다.")));
   };
 
   /* --- 학생 AI 도우미 스위치 --- */
@@ -252,11 +266,12 @@ function renderMonitor(main) {
 
   paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintNav();
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); paintNav(); }), tok);
+  liveSub(FB.watchMonitorEvents((rows, err) => { M.events = rows || []; paintCtl(); }), tok);
   liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); paintNav(); }), tok);
   liveSub(FB.watchStats((s, err) => { M.stats = s; if (err) M.logErr = errText(err); paintChat(); }), tok);
   liveSub(FB.watchChatUsage((rows, err) => { M.usage = rows || []; if (err) M.logErr = errText(err); paintChat(); }), tok);
   liveSub(FB.watchChatLogs((rows, err) => { M.logs = rows || []; M.logErr = err ? errText(err) : ""; paintChat(); }, 200), tok);
-  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); paintNav(); }), tok);
+  liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); paintNav(); paintCtl(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }
 

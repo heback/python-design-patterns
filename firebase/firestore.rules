@@ -66,7 +66,9 @@ service cloud.firestore {
 
     // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.
     match /config/submission { allow read: if true; allow write: if isTeacher(); }
-    match /config/monitor { allow read: if true; allow write: if isTeacher(); }
+    // 진도 수집 스위치: 모두 읽고, 쓰기는 함수(setMonitor)만 한다. 교사도 직접 쓰지 못하므로 켜고 끈 시각·이력(monitorEvents)을 조작할 수 없다.
+    match /config/monitor { allow read: if true; allow write: if false; }
+    match /monitorEvents/{id} { allow read: if isTeacher(); }
     match /config/assistant { allow read: if true; allow write: if isTeacher(); }      // 학생 AI 도우미 켜기/끄기
 
     // AI 도우미 대화 기록·토큰 집계: 함수(관리자 권한)만 쓰고 교사만 읽는다. 학생은 읽지도 쓰지도 못한다(한도·집계를 속일 수 없다).

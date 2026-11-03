@@ -11,6 +11,9 @@
 .monbar { max-width: 1052px; margin: 12px auto 0; padding: 9px 16px; font-size: 13.5px; line-height: 1.65; color: var(--text, #1a2332); background: var(--accent-soft, #e8eff5); border: 1px solid var(--accent-line, var(--border, #b9cde0)); border-radius: 12px; }
 .monbar b { color: var(--accent, #1f4f78); }
 .monbar .ms { margin-right: 6px; color: var(--accent, #1f4f78); }
+.monbar.off { background: var(--surface-2, #f1ede5); border-color: var(--border, #dcd5c6); }
+.monbar.off .ms { color: var(--muted, #5a6372); }
+.monbar.off b { color: var(--text, #1a2332); }
 .monbar.err { background: var(--gold-soft, var(--warn-soft, #f6ecd6)); border-color: var(--gold-line, var(--border, #e4d2a4)); }
 .monbar .monst { margin-left: 6px; font-weight: 600; color: var(--ok, #1d6a47); white-space: nowrap; }
 .monbar .monst .ms { color: inherit; margin-right: 3px; }

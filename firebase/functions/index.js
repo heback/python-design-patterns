@@ -118,6 +118,18 @@ exports.generateFeedback = onCall({ region: REGION, secrets: [GEMINI_API_KEY], m
   return { drafts };
 });
 
+/** 진도 수집 켜기/끄기. 교사만 부를 수 있고, 스위치(config/monitor)와 변경 이력(monitorEvents)을 한 번에 쓴다.
+ *  둘 다 서버 시각(serverTimestamp)이 찍히고 클라이언트는 직접 쓸 수 없다(규칙) — '언제 켜고 껐는지'를 나중에 바꿀 수 없다. */
+exports.setMonitor = onCall({ region: REGION, maxInstances: 5 }, async req => {
+  await assertTeacher(req.auth);
+  if (typeof (req.data || {}).on !== "boolean") throw new HttpsError("invalid-argument", "on 은 true/false 여야 합니다.");
+  const on = req.data.on, by = req.auth.token.email, at = FieldValue.serverTimestamp(), batch = db.batch();
+  batch.set(db.doc("config/monitor"), { on, updatedBy: by, updatedAt: at });
+  batch.set(db.collection("monitorEvents").doc(), { on, by, at });
+  await batch.commit();
+  return { on };
+});
+
 /** 학생 AI 도우미. 학교 Google 계정(학생·교사)만, 교사가 켠 동안만, 학생별 사용 한도 안에서 답한다.
  *  질문·답은 저장하지 않는다(사용 횟수만 chatUsage/{uid} 에 센다). 질문·사진·현재 화면의 글이 Gemini 로 전달된다. */
 async function askModel(apiKey, v) {

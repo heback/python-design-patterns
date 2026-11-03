@@ -6,7 +6,7 @@
    student.js 보다 먼저 실려서, 전역 S·CONTENT·LS_KEY 는 함수가 실제로 불릴 때 읽는다. */
 const Mon = (() => {
   const IDLE_MS = 60000, BEAT_MS = 60000, MIN_GAP_MS = 10000;
-  let monOn = false, ready = false, sending = false, again = false, barState = "";
+  let monOn = false, monKnown = false, monAt = 0, ready = false, sending = false, again = false, barState = "";
   let lastSentAt = 0, lastSig = "", lastInput = 0, lastActiveAt = 0, lastTick = Date.now(), tickCount = 0;
   let activeMs = 0, started = false;
   const lastByWeek = {};
@@ -23,7 +23,13 @@ const Mon = (() => {
   /* ---------- 고지 줄 ---------- */
   function updateBar() {
     const b = $("#monbar"); if (!b) return;
-    const show = typeof FB !== "undefined" && monOn; b.hidden = !show; if (!show) return;
+    const show = typeof FB !== "undefined" && monKnown; b.hidden = !show; if (!show) return;      // 스위치 상태를 아직 모르면(불러오는 중·오프라인) 아무 말도 하지 않는다
+    if (!monOn) {                                                                       // 수집이 중지된 상태도 학생에게 분명히 알린다(나중에 서로 다른 말이 나오지 않도록)
+      b.className = "monbar off";
+      b.replaceChildren(ico("pause_circle", "fill"), el("b", {}, "진도 수집이 중지된 상태예요. "),
+        "지금은 읽은 곳·활동 시간·이 화면을 보고 있는지 같은 학습 활동 정보가 선생님께 전달되거나 서버에 기록되지 않아요" + (monAt ? ` (선생님이 ${stamp(new Date(monAt))}에 중지했어요)` : "") + ". AI 도우미를 쓸 때의 질문·답 기록은 이와 별개예요.");
+      return;
+    }
     b.className = "monbar" + (barState === "err" ? " err" : "");
     const st = !loggedIn() ? ""
       : barState === "err" ? "지금은 전달하지 못했어요(인터넷 연결을 확인해 주세요. 공부에는 영향이 없어요)."
@@ -75,7 +81,7 @@ const Mon = (() => {
     setInterval(tick, 1000);
     addEventListener("pagehide", () => send(true));
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
-    FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
+    FB.watchMonitor(s => { const was = monOn; monKnown = s !== undefined; monAt = s && s.updatedAt && s.updatedAt.toMillis ? s.updatedAt.toMillis() : 0; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
     FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
     StudentAuth.onChange(() => { ready = false; lastSig = ""; activeMs = Number(lsGet(K_AMS())) || 0; updateBar(); send(true); });
     StudentAuth.init();

@@ -66,10 +66,9 @@ const FB = (() => {
     const m = await load();
     return m.fs.onSnapshot(m.fs.collection(m.db, "progress"), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
   }
-  async function saveMonitor(on) {
-    const m = await load();
-    await m.fs.setDoc(m.fs.doc(m.db, "config", "monitor"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
-  }
+  /* 켜기/끄기는 서버 함수가 한다: 스위치와 변경 이력(monitorEvents)을 서버 시각으로 함께 쓰고, 클라이언트는 직접 쓰지 못한다. */
+  const saveMonitor = on => call("setMonitor", { on: !!on });
+  const watchMonitorEvents = cb => live("monitorEvents", cb, m => m.fs.query(m.fs.collection(m.db, "monitorEvents"), m.fs.orderBy("at", "desc"), m.fs.limit(30)));
   async function saveAssistant(on) {
     const m = await load();
     await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
@@ -102,6 +101,6 @@ const FB = (() => {
 
   return { who, domain: DOMAIN, fbErr, currentUser,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, saveAssistant, watchChatUsage, watchChatLogs, watchStats, clearChatLogs,
-           watchProgress, saveMonitor, clearProgress,
+           watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();
