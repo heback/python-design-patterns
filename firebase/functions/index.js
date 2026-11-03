@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
-const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_DAILY_LIMIT, ASSISTANT_MINUTE_LIMIT } = require("./config");
+const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_DAILY_LIMIT, ASSISTANT_MINUTE_LIMIT } = require("./config");
 const assistant = require("./assistant");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
 
@@ -146,7 +146,7 @@ exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
 
   const t0 = Date.now(), day = new Date(t0 + 9 * 3600e3).toISOString().slice(0, 10);
   const tk = req.auth.token, student = { name: (tk.name || "").trim() || (tk.email || "").split("@")[0], email: (tk.email || "").toLowerCase() };
-  const base = { uid: req.auth.uid, student, kind: v.value.context.kind, where: v.value.context.title, v: v.value, model: MODEL, at: Timestamp.now(), day };
+  const base = { uid: req.auth.uid, student, kind: v.value.context.kind, where: v.value.context.title, v: v.value, model: ASSISTANT_MODEL, at: Timestamp.now(), day };
   try {
     const r = await askModel(GEMINI_API_KEY.value(), v.value);
     await recordChat(Object.assign({}, base, { reply: r.ok ? r.reply : "", refused: !!r.refused, error: r.ok ? "" : "답 형식 오류", usage: r.usage, ms: Date.now() - t0 }))
