@@ -1,11 +1,13 @@
 "use strict";
 /* 호스팅된 교재 페이지(각 장)용: 읽기 진도 자동 전달. 학습지의 monitor.js 와 같은 규칙이다.
    교사가 [진도 수집]을 켜 두었고 학생이 학교 Google 계정(@ts.hs.kr)으로 로그인했을 때만 보내며, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
-   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 이 장에서 읽은 절 수·마지막 절,
+   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 이 장에서 읽은 절 수·마지막 절, 이 장과 절별 체류 시간(초),
    활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각,
    이 화면을 보고 있는지(FocusTrack: 탭 가림·창 포커스)와 벗어난 횟수·시간.
    이 목록과 고지 줄(updateBar)의 문구는 항상 같게 유지한다. 전달하지 않는 것: 키 입력, 화면, 탭 전환.
-   읽은 절·활동 시간은 이 브라우저의 localStorage 에 계정(uid)별로 둔다. 서버 규칙이 도메인과 uid 를 다시 확인한다.
+   체류 시간은 화면이 보이고 최근 60초 안에 조작이 있던 시간만 센다(절별: 그 절이 화면 가운데 띠에 있던 시간). 값은 줄어들지 않는다:
+   서버의 내 기록과 비교해 큰 쪽만 쓰므로 기기를 바꾸거나 이 브라우저 기록이 지워져도 줄지 않는다.
+   읽은 절·체류 시간·활동 시간은 이 브라우저의 localStorage 에 계정(uid)별로도 둔다. 서버 규칙이 도메인과 uid 를 다시 확인한다.
    필요한 전역: core.js(el, ico, $, $$, lsGet, lsSet, stamp), fb.js(FB), student-auth.js(StudentAuth), 빌드가 넣는 TB_DATA = {chapters}. */
 (() => {
   if (typeof FB === "undefined" || typeof TB_DATA === "undefined") return;
@@ -13,31 +15,42 @@
   const CH = (TB_DATA.chapters || []).find(c => c.slug === SLUG);
   if (!CH) return;                                  // 장 페이지가 아니면(용어집 등) 아무것도 하지 않는다
   const IDLE_MS = 60000, BEAT_MS = 60000, MIN_GAP_MS = 10000, READ_SECS = 2;
-  let monOn = false, ready = false, sending = false, barState = "", lastSentAt = 0, lastSig = "";
-  let lastInput = 0, lastActiveAt = 0, lastTick = Date.now(), tickCount = 0, activeMs = 0;
+  let monOn = false, ready = false, sending = false, again = false, barState = "", lastSentAt = 0, lastSig = "";
+  let lastInput = 0, lastActiveAt = 0, lastTick = Date.now(), tickCount = 0, activeMs = 0, seeding = false;
   const loggedIn = () => !!StudentAuth.get();
-  const K_READ = () => StudentAuth.key("dp-textbook-read"), K_AMS = () => StudentAuth.key("dp-inquiry-student-activeMs");
+  const K_READ = () => StudentAuth.key("dp-textbook-read"), K_DWELL = () => StudentAuth.key("dp-textbook-dwell"), K_AMS = () => StudentAuth.key("dp-inquiry-student-activeMs");
   const jget = k => { try { return JSON.parse(lsGet(k) || "{}"); } catch (e) { return {}; } };
 
-  /* ---------- 읽은 절(계정별) ---------- */
+  /* ---------- 읽은 절·체류 시간(계정별) ---------- */
   const sections = $$("main.content section[id]");
-  const total = sections.length;
-  let read = new Set(), lastSec = "";
-  const dwell = {}, visible = new Set();
+  const total = sections.length, ids = new Set(sections.map(s => s.id));
+  let secBy = {}, chMs = 0, lastSec = "";            // secBy: 절 id → 그 절이 화면 가운데에 있던 초, chMs: 이 장에서 보낸 시간(ms)
+  const visible = new Set();
+  const nRead = () => Object.keys(secBy).filter(id => ids.has(id) && secBy[id] >= READ_SECS).length;
+  const saveDwell = () => { const all = jget(K_DWELL()); all[SLUG] = { c: Math.round(chMs / 1000), s: secBy, l: lastSec }; lsSet(K_DWELL(), JSON.stringify(all)); };
   function loadMine() {                              // 로그인(또는 계정 전환) 때 이 계정의 기록을 불러온다
-    const mine = (jget(K_READ())[SLUG] || []); read = new Set(mine); lastSec = mine.slice(-1)[0] || "";
+    const d = jget(K_DWELL())[SLUG] || {}, old = jget(K_READ())[SLUG] || [];      // old: 예전 버전이 저장한 '읽은 절 목록'(이어받는다)
+    secBy = Object.assign({}, d.s || {}); chMs = (Number(d.c) || 0) * 1000; lastSec = d.l || old.slice(-1)[0] || "";
+    old.forEach(id => { secBy[id] = Math.max(secBy[id] || 0, READ_SECS); });
     activeMs = Number(lsGet(K_AMS())) || 0;
+  }
+  /* 서버의 내 기록과 합친다: 절별·장별로 큰 쪽만 쓴다(줄어들지 않는다). 읽을 수 없으면 이 브라우저의 값만 쓴다. */
+  async function seed() {
+    seeding = true;
+    try {
+      const d = await FB.readMyProgress(), c = d && d.chapters && d.chapters[SLUG];
+      if (c) {
+        Object.entries(c.s || {}).forEach(([id, v]) => { if (ids.has(id) && Number(v) > (secBy[id] || 0)) secBy[id] = Number(v); });
+        if (Number(c.sec) * 1000 > chMs) chMs = Number(c.sec) * 1000;
+        if (!lastSec && c.last) lastSec = c.last;
+      }
+    } catch (e) {}
+    seeding = false; saveDwell();
   }
   if (total && typeof IntersectionObserver !== "undefined") {
     // 화면 가운데 40% 띠에 걸쳐 있는 절을 '읽는 중'으로 본다(긴 절도 한 번에 읽은 것으로 세지 않도록)
     const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) visible.add(e.target.id); else visible.delete(e.target.id); }), { rootMargin: "-30% 0px -30% 0px" });
     sections.forEach(s => io.observe(s));
-  }
-  function markRead(id) {
-    if (read.has(id)) return false;
-    read.add(id); lastSec = id;
-    const all = jget(K_READ()); all[SLUG] = [...read]; lsSet(K_READ(), JSON.stringify(all));
-    return true;
   }
 
   /* ---------- 고지 줄 ---------- */
@@ -66,10 +79,13 @@
   }
 
   /* ---------- 전송 ---------- */
-  const snapshot = () => ({ [SLUG]: { n: read.size, total, last: lastSec } });
+  /* 서버로 보내는 이 장의 기록. sec(장 체류 초)와 s(절별 초)는 계속 늘어나는 값이라 변경 판정(sig)에는 넣지 않는다 — 하트비트·상태 변화 때 함께 간다. */
+  const snapshot = () => ({ [SLUG]: { n: nRead(), total, last: lastSec, sec: Math.round(chMs / 1000), s: Object.fromEntries(Object.entries(secBy).filter(([id, v]) => ids.has(id) && v > 0)) } });
+  const keyOf = c => JSON.stringify({ n: c[SLUG].n, total: c[SLUG].total, last: c[SLUG].last });
   async function send(force) {
-    if (!monOn || !loggedIn() || sending) return;
-    const chapters = snapshot(), sig = JSON.stringify(chapters), now = Date.now();
+    if (!monOn || !loggedIn() || seeding) return;
+    if (sending) { if (force) again = true; return; }                  // 앞 전송이 끝나면 최신 상태로 한 번 더 보낸다(버리면 서버가 옛 상태에 머문다)
+    const chapters = snapshot(), sig = keyOf(chapters) + "|" + FocusTrack.snapshot().view, now = Date.now();      // 화면 상태가 바뀐 것도 '바뀐 것'이다
     if (!force && now - lastSentAt < MIN_GAP_MS) return;
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
     sending = true;
@@ -78,24 +94,25 @@
       lastSig = sig; lastSentAt = Date.now(); barState = "ok"; ready = true;
     } catch (e) { barState = "err"; }
     sending = false; updateBar();
+    if (again) { again = false; send(true); }
   }
 
   /* ---------- 1초마다: 활동 시간과 읽은 절 ---------- */
   function tick() {
     const now = Date.now(), dt = now - lastTick; lastTick = now; tickCount++;
-    if (!loggedIn()) return;
+    if (!loggedIn() || seeding) return;
     const active = document.visibilityState === "visible" && now - lastInput < IDLE_MS;
-    if (active && dt < 5000) activeMs += dt;
+    if (active && dt < 5000) { activeMs += dt; chMs += dt; }
     let changed = false;
-    if (active) visible.forEach(id => { dwell[id] = (dwell[id] || 0) + 1; if (dwell[id] >= READ_SECS && markRead(id)) changed = true; });
-    if (tickCount % 10 === 0) lsSet(K_AMS(), String(Math.round(activeMs)));
+    if (active) visible.forEach(id => { if (!ids.has(id)) return; secBy[id] = (secBy[id] || 0) + 1; if (secBy[id] === READ_SECS) { lastSec = id; changed = true; } });
+    if (tickCount % 10 === 0 || changed) { lsSet(K_AMS(), String(Math.round(activeMs))); saveDwell(); }
     if (changed || tickCount % 15 === 0) send(false);
   }
 
   ["pointerdown", "keydown", "input", "scroll", "wheel", "touchstart"].forEach(t =>
     addEventListener(t, () => { lastInput = lastActiveAt = Date.now(); }, { passive: true, capture: true }));
   setInterval(tick, 1000);
-  addEventListener("pagehide", () => send(true));
+  addEventListener("pagehide", () => { saveDwell(); send(true); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
   FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
   /* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 절의 글과, 학생이 드래그해 고른 글 */
@@ -104,6 +121,6 @@
     return { kind: "textbook", title: `${CH.title}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
   } });
   FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
-  StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); updateBar(); send(true); });
+  StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); seed().then(() => { updateBar(); send(true); }); updateBar(); });
   StudentAuth.init();
 })();

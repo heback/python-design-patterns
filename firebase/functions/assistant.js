@@ -92,4 +92,20 @@ function finalize(text) {
   return reply ? { ok: true, reply, refused: false } : { ok: false };
 }
 
-module.exports = { LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize };
+/** Gemini 응답의 usageMetadata 를 {prompt, output, thoughts, total} 로. 없으면 0. 사진·긴 맥락은 prompt 에 이미 들어 있다. */
+function usageFrom(meta) {
+  const n = x => Math.max(0, Math.round(Number(x) || 0)), m = meta || {};
+  const prompt = n(m.promptTokenCount), output = n(m.candidatesTokenCount), thoughts = n(m.thoughtsTokenCount);
+  return { prompt, output, thoughts, total: n(m.totalTokenCount) || prompt + output + thoughts };
+}
+const addUsage = (a, b) => ({ prompt: a.prompt + b.prompt, output: a.output + b.output, thoughts: a.thoughts + b.thoughts, total: a.total + b.total });
+const emptyUsage = () => ({ prompt: 0, output: 0, thoughts: 0, total: 0 });
+
+/** 대화 기록 한 줄(chatLogs 문서)을 만든다. 사진 자체는 저장하지 않고 있었는지·크기만 남긴다. */
+function logEntry({ uid, student, kind, where, v, reply, refused, error, usage, ms, model, at, day }) {
+  return { uid, student, at, day, kind: kind === "worksheet" ? "worksheet" : "textbook", where: String(where || "").slice(0, 200),
+    question: v.question, hasImage: !!v.image, imageBytes: v.image ? Math.floor(v.image.data.length * 3 / 4) : 0,
+    reply: reply || "", refused: !!refused, error: error || "", model, usage: usage || emptyUsage(), ms: Math.max(0, Math.round(ms || 0)) };
+}
+
+module.exports = { LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize, usageFrom, addUsage, emptyUsage, logEntry };

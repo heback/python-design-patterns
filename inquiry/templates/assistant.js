@@ -27,7 +27,21 @@ const Assistant = (() => {
   }
   async function pick(file) {
     if (!file) return;
-    try { setImage(await shrink(file)); } catch (e) { addMsg("err", e.message || "사진을 불러오지 못했어요."); }
+    try { setImage(await shrink(file)); input.focus(); } catch (e) { addMsg("err", e.message || "사진을 불러오지 못했어요."); }
+  }
+  /* 붙여넣기·끌어다 놓기로 들어온 데이터에서 이미지 파일을 찾는다(스크린샷은 files 가 아니라 items 로만 오는 브라우저가 있다) */
+  function imageFrom(dt) {
+    if (!dt) return null;
+    const f = [...(dt.files || [])].find(x => /^image\//.test(x.type)); if (f) return f;
+    const it = [...(dt.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); return it ? it.getAsFile() : null;
+  }
+  /* [붙여넣기] 버튼: 클립보드에 있는 이미지를 읽는다(브라우저가 허용할 때). 막히면 Ctrl/⌘+V 로 붙여넣는 방법을 알려 준다. */
+  async function pasteFromClipboard() {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const it of items) { const t = it.types.find(x => /^image\//.test(x)); if (t) { await pick(new File([await it.getType(t)], "clipboard", { type: t })); return; } }
+      addMsg("err", "클립보드에 이미지가 없어요. 이미지를 먼저 복사해 주세요(화면 캡처: Windows Win+Shift+S, Mac Cmd+Shift+Ctrl+4).");
+    } catch (e) { addMsg("err", "브라우저가 클립보드 읽기를 막았어요. 이미지를 복사한 뒤 입력란을 누르고 Ctrl+V(Mac은 Cmd+V)로 붙여넣어 보세요."); }
   }
 
   /* ---------- 대화 ---------- */
@@ -61,22 +75,22 @@ const Assistant = (() => {
     } catch (e) {
       wait.remove();
       const m = String(e.message || "");
-      addMsg("err", /resource-exhausted|너무 빨라|번까지/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
+      addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
     setBusy(false); input.focus();
   }
-  function autosize(t) { t.style.height = "auto"; t.style.height = Math.min(120, t.scrollHeight) + "px"; }
+  function autosize(t) { t.style.height = "auto"; t.style.height = Math.max(96, Math.min(180, t.scrollHeight)) + "px"; }      // 늘 여러 줄(최소 4줄)이 보이고, 길어지면 6~7줄까지 자란다
 
   /* ---------- 화면 ---------- */
   function build() {
     fab = el("button", { type: "button", class: "ai-fab", "aria-label": "AI 도우미 열기", title: "AI 도우미", hidden: true, onclick: toggle }, ico("smart_toy", "fill"));
     log = el("div", { class: "ai-log", role: "log", "aria-live": "polite" });
-    input = el("textarea", { class: "ai-in", rows: 1, placeholder: "궁금한 것을 물어보세요 (Enter로 보내기)", "aria-label": "질문 입력",
-      oninput: () => autosize(input), onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } },
-      onpaste: e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(x => x.type.startsWith("image/")); if (f) { e.preventDefault(); pick(f); } } });
+    input = el("textarea", { class: "ai-in", rows: 4, placeholder: "궁금한 것을 물어보세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", "aria-label": "질문 입력",
+      oninput: () => autosize(input), onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } } });
     const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
-    attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 첨부", title: "사진 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
+    attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 파일 첨부", title: "사진 파일 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
+    const pasteBtn = el("button", { type: "button", class: "ai-ico", "aria-label": "클립보드의 이미지 붙여넣기", title: "클립보드의 이미지 붙여넣기", onclick: pasteFromClipboard }, ico("content_paste"));
     send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: ask }, ico("send"));
     preview = el("div", { class: "ai-prev", hidden: true });
     ctxChip = el("div", { class: "ai-ctx" }); leftEl = el("span", { class: "ai-left" });
@@ -89,9 +103,15 @@ const Assistant = (() => {
         el("span", { class: "ai-hbtn" },
           el("button", { type: "button", class: "ai-ico", "aria-label": "대화 지우기", title: "대화 지우기", onclick: welcome }, ico("delete_sweep")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
-      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
+      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
       log, login, ctxChip, preview,
-      el("div", { class: "ai-row" }, attach, input, send, file), leftEl);
+      el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file),
+      el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요."), leftEl);
+    // 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다
+    panel.addEventListener("paste", e => { const f = imageFrom(e.clipboardData); if (f) { e.preventDefault(); pick(f); } });
+    panel.addEventListener("dragover", e => { if ([...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files")) { e.preventDefault(); panel.classList.add("drop"); } });
+    panel.addEventListener("dragleave", e => { if (e.target === panel) panel.classList.remove("drop"); });
+    panel.addEventListener("drop", e => { const f = imageFrom(e.dataTransfer); panel.classList.remove("drop"); if (f) { e.preventDefault(); pick(f); } });
     document.body.append(fab, panel);
     document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) toggle(); });
     welcome();

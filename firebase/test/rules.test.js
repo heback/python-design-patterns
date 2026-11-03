@@ -159,14 +159,22 @@ test("진도: 화면을 보고 있는지(view·viewAt·leaves·awayMs)를 쓸 �
   await assertFails(setDoc(doc(a, "progress/a"), prog("a", Object.assign({}, ok, { viewAt: 12345 }))));            // 시각 형식이 아님
   await assertFails(setDoc(doc(a, "progress/a"), prog("a", Object.assign({}, ok, { url: "https://x.com" }))));     // 어떤 주소·내용 필드도 허용하지 않는다
 });
-test("진도: 읽기·삭제는 교사만, 학생은 본인 것도 읽지 못한다", async () => {
+test("진도: 학생은 본인 문서 한 건만 읽는다(목록·남의 문서·삭제는 불가), 교사는 목록·삭제", async () => {
   await monitor(true);
   await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
-  await assertFails(getDoc(doc(pupil("a"), "progress/a")));
+  await assertSucceeds(getDoc(doc(pupil("a"), "progress/a")));                 // 본인 것(체류 시간을 서버 값과 비교하려고)
+  await assertFails(getDoc(doc(pupil("b"), "progress/a")));                    // 남의 것
   await assertFails(getDocs(collection(pupil("a"), "progress")));
   await assertSucceeds(getDocs(collection(teacher(), "progress")));
   await assertFails(deleteDoc(doc(pupil("a"), "progress/a")));
   await assertSucceeds(deleteDoc(doc(teacher(), "progress/a")));
+});
+test("진도: 장별 체류 시간(sec)·절별 체류 시간(s)이 든 chapters 를 쓸 수 있다", async () => {
+  await monitor(true);
+  const s = Object.fromEntries(["goals", "context", "naive", "structure", "implementation", "pythonic", "tradeoffs", "exercises"].map((k, i) => [k, 30 + i]));
+  const ch = Object.fromEntries(["01-factory-method", "10-strategy", "99-summary"].map(k => [k, { n: 8, total: 8, last: "exercises", sec: 612, s }]));
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a", { chapters: ch })));
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), { uid: "a", student: { name: "홍" }, activeMs: 1, updatedAt: Timestamp.now(), lastActiveAt: Timestamp.now(), chapters: { "10-strategy": { sec: 700 } } }, { merge: true }));   // 병합 쓰기
 });
 test("설정 문서(monitor): 누구나 읽고 교사만 쓴다", async () => {
   await assertFails(setDoc(doc(pupil("a"), "config/monitor"), { on: true }));
@@ -198,12 +206,22 @@ test("진도: 문서 ID 는 본인 uid 여야 한다(다른 ID 로 만들거나 
   await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
 });
 
-test("AI 도우미 스위치(config/assistant): 누구나 읽고 교사만 쓴다. 사용량(chatUsage)은 클라이언트가 읽지도 쓰지도 못한다", async () => {
+test("AI 도우미: 스위치는 누구나 읽고 교사만 쓴다. 대화 기록·사용량·집계는 교사만 읽고 학생은 읽지도 쓰지도 못한다", async () => {
   await assertFails(setDoc(doc(pupil("a"), "config/assistant"), { on: true }));
   await assertSucceeds(setDoc(doc(teacher(), "config/assistant"), { on: true }));
   await assertSucceeds(getDoc(doc(pupil("a"), "config/assistant")));
-  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "chatUsage/a"), { day: "2026-11-03", count: 1 }));
-  await assertFails(getDoc(doc(pupil("a"), "chatUsage/a")));
-  await assertFails(setDoc(doc(pupil("a"), "chatUsage/a"), { day: "2026-11-03", count: 0 }));       // 한도 초기화 불가
-  await assertFails(getDoc(doc(teacher(), "chatUsage/a")));
+  await env.withSecurityRulesDisabled(async c => { const d = c.firestore();
+    await setDoc(doc(d, "chatUsage/a"), { day: "2026-11-03", count: 1, total_totalTokens: 500 });
+    await setDoc(doc(d, "chatLogs/x1"), { uid: "a", question: "질문", reply: "답" });
+    await setDoc(doc(d, "stats/assistant"), { totalTokens: 500 }); });
+  for (const path of ["chatUsage/a", "chatLogs/x1", "stats/assistant"]) {
+    await assertFails(getDoc(doc(pupil("a"), path)));                                  // 본인 기록도 학생은 못 읽는다
+    await assertFails(setDoc(doc(pupil("a"), path), { total_totalTokens: 0, count: 0 }));      // 한도·집계를 지울 수 없다
+    await assertSucceeds(getDoc(doc(teacher(), path)));
+    await assertFails(setDoc(doc(teacher(), path), { x: 1 }));                          // 교사도 직접 쓰지 않는다(함수만)
+  }
+  await assertSucceeds(getDocs(collection(teacher(), "chatLogs")));
+  await assertFails(getDocs(collection(pupil("a"), "chatLogs")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "chatLogs/x1")));                      // 교사는 기록을 지울 수 있다
+  await assertFails(deleteDoc(doc(pupil("a"), "chatUsage/a")));
 });

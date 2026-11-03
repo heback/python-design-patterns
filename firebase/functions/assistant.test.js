@@ -66,3 +66,14 @@ test("finalize: onTopic 이 true 가 아니면(없음·문자열·null) 모두 �
 test("시스템 프롬프트: 허용 범위 세 가지와 범위 밖 예시, 주입 방어가 명시돼 있다", () => {
   for (const w of ["파이썬", "객체지향프로그래밍", "디자인 패턴", "onTopic", "이전 지시를 무시해", "다른 과목", "사진이 범위 밖"]) assert.ok(SYSTEM.includes(w), w);
 });
+
+test("usageFrom·addUsage: Gemini usageMetadata 를 토큰 수로 바꾸고 합친다", () => {
+  const { usageFrom, addUsage, emptyUsage, logEntry } = require("./assistant");
+  assert.deepEqual(usageFrom({ promptTokenCount: 120, candidatesTokenCount: 30, thoughtsTokenCount: 10, totalTokenCount: 160 }), { prompt: 120, output: 30, thoughts: 10, total: 160 });
+  assert.deepEqual(usageFrom({ promptTokenCount: 5, candidatesTokenCount: 2 }), { prompt: 5, output: 2, thoughts: 0, total: 7 });     // total 이 없으면 합
+  assert.deepEqual(usageFrom(undefined), emptyUsage()); assert.deepEqual(usageFrom({ promptTokenCount: -3, candidatesTokenCount: "x" }), emptyUsage());
+  assert.deepEqual(addUsage({ prompt: 1, output: 2, thoughts: 3, total: 6 }, { prompt: 10, output: 20, thoughts: 30, total: 60 }), { prompt: 11, output: 22, thoughts: 33, total: 66 });
+  const e = logEntry({ uid: "u", student: { name: "김", email: "a@ts.hs.kr" }, kind: "worksheet", where: "t".repeat(500), v: { question: "질문", image: { data: "A".repeat(400) } }, reply: "답", refused: false, usage: usageFrom({ totalTokenCount: 9 }), ms: 123.7, model: "m", at: 1, day: "2026-11-03" });
+  assert.equal(e.hasImage, true); assert.equal(e.imageBytes, 300); assert.equal(e.where.length, 200); assert.equal(e.ms, 124); assert.equal(e.kind, "worksheet");
+  assert.ok(!("image" in e) && !JSON.stringify(e).includes("AAAA"), "사진 자체는 기록에 없어야 한다");
+});

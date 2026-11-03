@@ -6,7 +6,7 @@
    student.js 보다 먼저 실려서, 전역 S·CONTENT·LS_KEY 는 함수가 실제로 불릴 때 읽는다. */
 const Mon = (() => {
   const IDLE_MS = 60000, BEAT_MS = 60000, MIN_GAP_MS = 10000;
-  let monOn = false, ready = false, sending = false, barState = "";
+  let monOn = false, ready = false, sending = false, again = false, barState = "";
   let lastSentAt = 0, lastSig = "", lastInput = 0, lastActiveAt = 0, lastTick = Date.now(), tickCount = 0;
   let activeMs = 0, started = false;
   const lastByWeek = {};
@@ -45,8 +45,9 @@ const Mon = (() => {
     return weeks;
   }
   async function send(force) {
-    if (!monOn || !loggedIn() || typeof FB === "undefined" || sending) return;
-    const weeks = snapshot(), sig = JSON.stringify(weeks), now = Date.now();
+    if (!monOn || !loggedIn() || typeof FB === "undefined") return;
+    if (sending) { if (force) again = true; return; }                  // 앞 전송이 끝나면 최신 상태로 한 번 더 보낸다(버리면 서버가 옛 상태에 머문다)
+    const weeks = snapshot(), sig = JSON.stringify(weeks) + "|" + FocusTrack.snapshot().view, now = Date.now();      // 화면 상태가 바뀐 것도 '바뀐 것'이다
     if (!force && now - lastSentAt < MIN_GAP_MS) return;
     if (!force && sig === lastSig && !(now - lastInput < IDLE_MS && now - lastSentAt >= BEAT_MS)) return;   // 바뀐 게 없으면 활동 중일 때만 1분마다 하트비트
     sending = true;
@@ -55,6 +56,7 @@ const Mon = (() => {
       lastSig = sig; lastSentAt = Date.now(); barState = "ok"; ready = true;
     } catch (e) { barState = "err"; }
     sending = false; updateBar();
+    if (again) { again = false; send(true); }
   }
   /* 지금 어디에 있는지(교사 표의 '마지막 활동 위치'). 마지막으로 만진 문항의 주차를 쓴다. */
   function whereNow() { const ks = Object.keys(lastByWeek); return ks.length ? "학습지 " + ks[ks.length - 1] + "주차" : "학습지"; }

@@ -67,14 +67,20 @@ service cloud.firestore {
     // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.
     match /config/submission { allow read: if true; allow write: if isTeacher(); }
     match /config/monitor { allow read: if true; allow write: if isTeacher(); }
-    match /config/assistant { allow read: if true; allow write: if isTeacher(); }      // 학생 AI 도우미 켜기/끄기(chatUsage 는 규칙이 없어 클라이언트가 못 읽고 쓴다)
+    match /config/assistant { allow read: if true; allow write: if isTeacher(); }      // 학생 AI 도우미 켜기/끄기
+
+    // AI 도우미 대화 기록·토큰 집계: 함수(관리자 권한)만 쓰고 교사만 읽는다. 학생은 읽지도 쓰지도 못한다(한도·집계를 속일 수 없다).
+    match /chatLogs/{id} { allow read, delete: if isTeacher(); }
+    match /chatUsage/{uid} { allow read: if isTeacher(); }
+    match /stats/{id} { allow read: if isTeacher(); }
     match /config/submissionSecret { allow read, write: if isTeacher(); }
     match /config/teachers { allow read, write: if isTeacher(); }
 
     // 진도(완료 문항 수·읽은 절, 활동 시간, 마지막 활동 시각). 응답 본문은 담지 않는다.
-    // 문서 ID 는 로그인한 학생의 uid 와 같아야 한다(학생 한 명에 문서 하나, 남의 문서를 선점할 수 없다). 학생은 본인 문서만 쓰고 읽지는 못한다.
+    // 문서 ID 는 로그인한 학생의 uid 와 같아야 한다(학생 한 명에 문서 하나, 남의 문서를 선점할 수 없다). 학생은 본인 문서만 읽고 쓴다.
     match /progress/{sid} {
       allow get, list, delete: if isTeacher();
+      allow get: if isSchoolAccount() && sid == request.auth.uid;        // 학생은 본인 문서 한 건만 읽는다(체류 시간이 줄어들지 않게 서버의 내 값과 비교하려고). 목록·남의 문서는 불가
       allow create: if isSchoolAccount() && sid == request.auth.uid && request.resource.data.uid == request.auth.uid
                     && monitorOn() && progressOk(request.resource.data);
       allow update: if isTeacher()

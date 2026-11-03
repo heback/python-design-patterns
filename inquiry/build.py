@@ -41,7 +41,10 @@ def load_chapters():
         head = f.read_text(encoding="utf-8").split("-->", 1)[0]
         meta = dict(re.findall(r"^(\w+):[ \t]*(.*)$", head, re.M))
         title = re.sub(r"\s*\(.*?\)\s*$", "", meta.get("title", f.stem)).split(":")[0].strip()    # 영문 병기와 ': 부제' 를 뗀다
-        out.append({"slug": f.stem, "title": title, "full": meta.get("title", f.stem), "subtitle": _unwrap(meta.get("subtitle", "").strip()),
+        body = f.read_text(encoding="utf-8").split("-->", 1)[-1]
+        sections = [{"id": m.group(1), "title": re.sub(r"<[^>]+>", "", m.group(2)).strip()}
+                    for m in re.finditer(r'<section\s+id="([\w-]+)"[^>]*>\s*<h2[^>]*>(.*?)</h2>', body, re.S)]       # 교사 화면의 절별 체류 시간 표에 쓴다
+        out.append({"slug": f.stem, "sections": sections, "title": title, "full": meta.get("title", f.stem), "subtitle": _unwrap(meta.get("subtitle", "").strip()),
                     "part": meta.get("part", "").strip(), "group": PART_KEY.get(meta.get("part", "").strip(), "intro")})
     return out
 

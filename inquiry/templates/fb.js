@@ -55,6 +55,12 @@ const FB = (() => {
     await setDoc(doc(m.db, "progress", user.uid), d, { merge: true });
   }
 
+  /* 내 진도 문서 한 번 읽기(없으면 null). 기기를 바꾸거나 기록이 지워져도 값이 줄지 않게, 보내기 전에 서버의 값과 비교해 큰 쪽을 쓴다. */
+  async function readMyProgress() {
+    const u = await schoolUser(), m = await load(), s = await m.fs.getDoc(m.fs.doc(m.db, "progress", u.uid));
+    return s.exists() ? s.data() : null;
+  }
+
   /* ---------- 진도 제어(교사) ---------- */
   async function watchProgress(cb) {
     const m = await load();
@@ -67,6 +73,15 @@ const FB = (() => {
   async function saveAssistant(on) {
     const m = await load();
     await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
+  }
+  /* AI 도우미 기록·집계(교사). 함수가 쓰고 교사만 읽는다. */
+  const live = (col, cb, q) => load().then(m => m.fs.onSnapshot(q ? q(m) : m.fs.collection(m.db, col), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e)));
+  const watchChatUsage = cb => live("chatUsage", cb);
+  const watchChatLogs = (cb, n) => live("chatLogs", cb, m => m.fs.query(m.fs.collection(m.db, "chatLogs"), m.fs.orderBy("at", "desc"), m.fs.limit(n || 200)));
+  async function watchStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "assistant"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
+  async function clearChatLogs() {
+    const m = await load(), { collection, getDocs, deleteDoc } = m.fs, snap = await getDocs(collection(m.db, "chatLogs"));
+    await Promise.all(snap.docs.map(d => deleteDoc(d.ref))); return snap.size;
   }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
@@ -86,7 +101,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, reportProgress, watchAssistant, askAssistant, saveAssistant,
+           watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, saveAssistant, watchChatUsage, watchChatLogs, watchStats, clearChatLogs,
            watchProgress, saveMonitor, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

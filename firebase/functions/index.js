@@ -2,6 +2,7 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
 const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_DAILY_LIMIT, ASSISTANT_MINUTE_LIMIT } = require("./config");
 const assistant = require("./assistant");
@@ -121,7 +122,8 @@ exports.generateFeedback = onCall({ region: REGION, secrets: [GEMINI_API_KEY], m
  *  질문·답은 저장하지 않는다(사용 횟수만 chatUsage/{uid} 에 센다). 질문·사진·현재 화면의 글이 Gemini 로 전달된다. */
 async function askModel(apiKey, v) {
   if (!apiKey && process.env.FUNCTIONS_EMULATOR) {            // 에뮬레이터에는 키가 없다: 시험용 답(범위 판정은 질문에 '[범위밖]'이 있으면 거절로 흉내 낸다)
-    return v.question.includes("[범위밖]") ? { ok: true, reply: assistant.REFUSAL, refused: true } : { ok: true, reply: "(에뮬레이터 시험 답변) " + v.question.slice(0, 60), refused: false };
+    const off = v.question.includes("[범위밖]"), reply = off ? assistant.REFUSAL : "(에뮬레이터 시험 답변) " + v.question.slice(0, 60);
+    return { ok: true, reply, refused: off, usage: { prompt: v.question.length * 2, output: reply.length, thoughts: 0, total: v.question.length * 2 + reply.length } };      // 토큰 집계 시험용 가짜 사용량
   }
   return require("./assistant-model").answer(apiKey, v);
 }
@@ -137,20 +139,39 @@ exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
   const ref = db.doc(`chatUsage/${req.auth.uid}`), limits = { daily: ASSISTANT_DAILY_LIMIT, minute: ASSISTANT_MINUTE_LIMIT };
   const used = await db.runTransaction(async tx => {                      // 모델을 부르기 전에 한도를 확인하고 한 번 센다
     const snap = await tx.get(ref), r = assistant.checkLimit(snap.exists ? snap.data() : null, Date.now(), limits);
-    if (r.ok) tx.set(ref, r.next);
+    if (r.ok) tx.set(ref, r.next, { merge: true });          // merge: 같은 문서의 누적 토큰·횟수(total_*)를 지우지 않는다
     return r;
   });
   if (!used.ok) throw new HttpsError("resource-exhausted", used.reason === "minute" ? "질문이 너무 빨라요. 잠시 뒤에 다시 물어봐 주세요." : `오늘 질문은 ${ASSISTANT_DAILY_LIMIT}번까지예요. 내일 다시 물어봐 주세요.`);
 
+  const t0 = Date.now(), day = new Date(t0 + 9 * 3600e3).toISOString().slice(0, 10);
+  const tk = req.auth.token, student = { name: (tk.name || "").trim() || (tk.email || "").split("@")[0], email: (tk.email || "").toLowerCase() };
+  const base = { uid: req.auth.uid, student, kind: v.value.context.kind, where: v.value.context.title, v: v.value, model: MODEL, at: Timestamp.now(), day };
   try {
     const r = await askModel(GEMINI_API_KEY.value(), v.value);
+    await recordChat(Object.assign({}, base, { reply: r.ok ? r.reply : "", refused: !!r.refused, error: r.ok ? "" : "답 형식 오류", usage: r.usage, ms: Date.now() - t0 }))
+      .catch(err => console.error("대화 기록 실패:", err && err.message));          // 기록이 실패해도 학생의 답은 막지 않는다
     if (!r.ok) throw new Error("답 형식 오류");
     return { reply: r.reply, refused: !!r.refused, left: Math.max(0, ASSISTANT_DAILY_LIMIT - used.next.count) };
   } catch (e) {
-    await db.runTransaction(async tx => { const snap = await tx.get(ref); if (snap.exists && snap.data().count > 0) tx.update(ref, { count: snap.data().count - 1 }); }).catch(() => {});   // 실패한 질문은 세지 않는다
+    if (!(e && e.message === "답 형식 오류")) await recordChat(Object.assign({}, base, { error: String(e && e.message || e).slice(0, 200), ms: Date.now() - t0 })).catch(() => {});     // 호출 실패도 기록한다
+    await db.runTransaction(async tx => { const snap = await tx.get(ref); if (snap.exists && snap.data().count > 0) tx.update(ref, { count: snap.data().count - 1 }); }).catch(() => {});   // 실패한 질문은 하루 한도에서 뺀다
     console.error("askAssistant 실패:", e && e.message);
-    throw new HttpsError("unavailable", "지금은 답을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
+    const exhausted = /credit|billing|prepay|quota|RESOURCE_EXHAUSTED|"code":\s*(402|429)/i.test(String(e && e.message || e));       // 모델 쪽 크레딧·요금 한도 소진
+    throw new HttpsError("unavailable", exhausted ? "AI 도우미의 사용량(크레딧)이 모두 소진되어 지금은 쓸 수 없어요. 선생님께 알려 주세요." : "지금은 답을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
   }
 });
+
+/** 대화 한 건을 chatLogs 에 남기고, 학생별(chatUsage)·반 전체(stats/assistant, 날짜별) 토큰·횟수를 센다. 교사만 읽을 수 있다(규칙).
+ *  사진 파일은 저장하지 않는다(있었는지와 크기만). 한도용 chatUsage 의 day/count 필드와 같은 문서를 쓰되 merge 로 서로 덮어쓰지 않는다. */
+async function recordChat(e) {
+  const entry = assistant.logEntry(e), u = entry.usage, inc = FieldValue.increment;
+  const sums = { count: inc(1), refused: inc(entry.refused ? 1 : 0), errors: inc(entry.error ? 1 : 0), images: inc(entry.hasImage ? 1 : 0), promptTokens: inc(u.prompt), outputTokens: inc(u.output), thoughtTokens: inc(u.thoughts), totalTokens: inc(u.total) };
+  const batch = db.batch();
+  batch.set(db.collection("chatLogs").doc(), entry);
+  batch.set(db.doc(`chatUsage/${e.uid}`), Object.assign({ student: e.student, lastAt: e.at }, Object.fromEntries(Object.entries(sums).map(([k, f]) => ["total_" + k, f]))), { merge: true });
+  batch.set(db.doc("stats/assistant"), Object.assign({ updatedAt: e.at }, sums, { byDay: { [e.day]: sums } }), { merge: true });
+  await batch.commit();
+}
 
 exports._test = { sanitize, isSchoolAccount };
