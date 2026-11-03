@@ -18,15 +18,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 탐구학습 자료 (`inquiry/`)
 
-개념기반 탐구학습 5주 과정. `inquiry/content/week{1-5}.py`(문항·예시 정답·교사 메모)와 `templates/`를 `python3 inquiry/build.py`로 합쳐 `student.html`(정답 제거)과 `teacher.html`(교사용 진도·퀴즈 화면)을 만든다. 산출물 HTML은 직접 수정하지 말고 content/templates를 고친다. **학생이 쓴 글은 서버로 받지 않는다.** JSON 저장·불러오기·내보내기도, 학생 [제출]·[코멘트 확인]도, 교사용 수업 가이드·예시 정답·응답 코멘트·제출 관리 화면도 없다(쓴 내용은 그 브라우저의 localStorage에만 저장). 서버로 가는 것은 진도와 퀴즈 응답뿐이다.
+개념기반 탐구학습 5주 과정. `inquiry/content/week{1-5}.py`(문항·예시 정답·교사 메모)와 `templates/`를 `python3 inquiry/build.py`로 합쳐 `student.html`(정답 제거)과 `teacher.html`(교사용 진도 화면)을 만든다. 산출물 HTML은 직접 수정하지 말고 content/templates를 고친다. **학생이 쓴 글은 서버로 받지 않는다.** JSON 저장·불러오기·내보내기도, 학생 [제출]·[코멘트 확인]도, 교사용 수업 가이드·예시 정답·응답 코멘트·제출 관리 화면도 없다(쓴 내용은 그 브라우저의 localStorage에만 저장). 서버로 가는 것은 진도와 퀴즈 응답뿐이다.
 
 탐구학습지를 점검·개선할 때는 `inquiry-review` 스킬(개념기반 탐구수업 8개 렌즈)을 따르고, 수정 후 `inquiry-reviewer` 에이전트로 독립 재점검한다. 학생 화면의 `optional`(선택, 진행률 제외)·`recall`(앞서 쓴 글 표시)·`compare`(이전 척도 응답 표시) 문항 필드는 `inquiry/templates/`가 처리한다. 코드 실행·편집은 `.claude/skills/html-textbook-publishing/assets/pyrun.js`(교재·학습지 공용, Pyodide)가 맡는다.
 
-### 진도·퀴즈 서버 (`firebase/`)
+### 진도 서버 (`firebase/`)
 
-`inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 필수다(없으면 `build.py`가 멈춘다). `build.py`가 `templates/fb.js`를 합쳐 진도 전달·돌발 퀴즈와 교사 로그인을 켠다. 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
+`inquiry/firebase-config.js`(gitignore, 예시는 `firebase-config.example.js`)가 필수다(없으면 `build.py`가 멈춘다). `build.py`가 `templates/fb.js`를 합쳐 진도 전달과 교사 로그인을 켠다. 교사 화면은 학교 Google 계정 로그인 게이트이고 정답·교사 메모는 빌드물에 없다(로그인 후 `getTeacherContent` 함수가 내려줌). 접근·제출 가능 여부는 `firebase/firestore.rules`와 `firebase/functions`가 서버에서 강제하므로 클라이언트 검사만 고치지 말 것. 응답은 `submissions/{id}/weeks/{n}`에 JSON 문자열로 저장한다(중첩 배열 불가 + 주차별 규칙 때문). 규칙·함수 수정 후 `firebase/README.md`의 테스트를 돌린다.
 
-**진도 자동 전달·돌발 퀴즈**: 교사가 `config/monitor`를 켠 동안 학습지(`inquiry/templates/monitor.js`)와 호스팅된 교재 사본(`textbook-monitor.js`, `build.py`가 `firebase/public/textbook/` 각 장에만 주입)이 완료 문항·읽은 절·활동 시간·마지막 활동 시각만 `progress/{id}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 화면이 **교재 장별(분류: 생성·구조·행위) 읽기 진도** 실시간 표와 퀴즈 제어를 보여 준다. **돌발 퀴즈는 교재 분류별**로 묶고(`inquiry/content/quiz.py`, 문항마다 교재 장), 팝업은 `templates/quiz-ui.js`를 학습지와 교재 사본이 함께 쓰며, 채점은 `answerQuiz` 함수(서버)가 한다 — 학생 빌드에서는 정답·풀이가 `strip()`으로 빠지므로 퀴즈를 고칠 때 이 경계를 지킨다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
+**진도 자동 전달**: 교사가 `config/monitor`를 켠 동안 학습지(`inquiry/templates/monitor.js`)와 호스팅된 교재 사본(`textbook-monitor.js`, `build.py`가 `firebase/public/textbook/` 각 장에만 주입하고 전체 장 목차 `index.html`도 만든다)이 완료 문항·읽은 절·활동 시간·마지막 활동 시각만 `progress/{uid}`로 보내고(응답 본문 제외, 항상 고지 줄 표시), 교사 화면이 교재 장별(분류: 생성·구조·행위) 읽기 진도 실시간 표를 보여 준다. 학생·교사 모두 학교 Google 계정(@ts.hs.kr)으로 로그인하며 **학번·성명은 받지 않는다**(진도 문서 ID = uid, 이름·이메일 = 계정). 교사는 `config/teachers` 허용 목록(필수, 없으면 아무도 교사가 아님)에 있는 이메일이다. 수집 항목을 늘리면 학생 고지 문구·`firestore.rules`의 `progressOk`·`firebase/README.md`를 함께 고친다.
 
 ## 명령
 
@@ -67,3 +67,4 @@ open textbook/00-intro.html
 | 2026-11-03 | 교재가 주차가 아니라 생성·구조·행위 분류라는 점을 반영: 퀴즈를 교재 분류별(문항마다 교재 장)로 재구성·4문항 추가(19문항), 교재 사본에 읽기 진도·퀴즈 모니터 주입(textbook-monitor.js), 교사 진도 표를 교재 장별로, 퀴즈 팝업을 quiz-ui.js로 공용화, 규칙에 chapters·where 추가 | inquiry/content/quiz.py, inquiry/templates, build.py, firebase/ | 교재 구조에 맞춘 진도·퀴즈 관리 |
 | 2026-11-03 | 학생 교재 상단 바·탭 제목·표지에 과목명 '객체지향프로그래밍.대구과학고등학교.2학기' 표시(build_textbook.py의 COURSE_LABEL) | scripts/build_textbook.py, assets/base.html·style.css, docs/index.html | 과목 구분 표시 |
 | 2026-11-03 | 학생도 학교 Google 계정(@ts.hs.kr)으로 로그인(익명 로그인 폐지). 교사 판정을 config/teachers 허용 목록 필수(없으면 닫힘)로 변경 — 학생과 같은 도메인이므로. 학번·성명은 학생이 직접 입력 | firebase/firestore.rules·functions, inquiry/templates(quiz-ui.js의 StudentAuth, fb.js, monitor.js, textbook-monitor.js) | 익명 로그인 설정 오류(auth/admin-restricted-operation)와 기기·이름 도용 방지 |
+| 2026-11-03 | 학번·성명 입력 폐지(로그인 계정으로만 식별, 진도 문서 ID = uid). 돌발 퀴즈 기능 전체 삭제(quiz.py·팝업·answerQuiz 함수·규칙·교사 퀴즈 패널), 학생 로그인 코드는 student-auth.js로 분리 | inquiry/templates, build.py, firebase/ | 학번·성명 입력 단계에서 진도가 보고되지 않던 문제 해소, 퀴즈 기능 불필요 |

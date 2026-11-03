@@ -14,8 +14,6 @@
 <body>
 <header class="topbar">
   <h1><span class="ms" aria-hidden="true">menu_book</span>디자인 패턴 학습 관리</h1>
-  <input class="id" id="f-num" placeholder="학번" aria-label="학번" inputmode="numeric">
-  <input class="id" id="f-name" placeholder="성명" aria-label="성명">
   <span class="grow"></span>
   <span class="savestate" id="savestate"></span>
   <a class="btn ghost" href="../textbook/index.html" target="_blank" rel="noopener" title="교재를 새 창으로 열기(같은 학번·성명으로 읽은 진도가 기록돼요)"><span class="ms" aria-hidden="true">auto_stories</span>교재</a>
@@ -35,7 +33,7 @@
 <script>/*@FB@*/</script>
 <script>/*@CONTENT@*/</script>
 <script>/*@CORE@*/</script>
-<script>/*@QUIZUI@*/</script>
+<script>/*@STUDENTAUTH@*/</script>
 <script>/*@MONITOR@*/</script>
 <script>/*@APP@*/</script>
 </body>

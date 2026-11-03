@@ -113,79 +113,75 @@ test("허용 목록이 없거나 비어 있으면 아무도 교사가 아니다(
 });
 
 
-/* ---------- 진도 수집(progress) · 돌발 퀴즈(quizResponses) ---------- */
+/* ---------- 진도 수집(progress) ---------- */
 const monitor = (on = true) => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "config/monitor"), { on }));
 const prog = (uid, extra = {}) => Object.assign({ student: { name: "홍" }, uid, weeks: { 1: { n: 2, total: 9, ids: ["w1-e1"], last: "w1-e1" } }, activeMs: 1000, lastActiveAt: Timestamp.now(), updatedAt: Timestamp.now() }, extra);
 
 test("진도: 수집 스위치가 없거나 꺼져 있으면 학생 쓰기 거부", async () => {
-  await assertFails(setDoc(doc(pupil("a"), "progress/s1"), prog("a")));
+  await assertFails(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
   await monitor(false);
-  await assertFails(setDoc(doc(pupil("a"), "progress/s1"), prog("a")));
+  await assertFails(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
 });
 test("진도: 켜져 있으면 본인 문서를 쓰고 고칠 수 있다(제출이 닫혀 있어도)", async () => {
   await monitor(true);
   const a = pupil("a");
-  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a")));
-  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a", { activeMs: 5000 })));
+  await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a")));
+  await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a", { activeMs: 5000 })));
 });
 test("진도: 남의 문서·uid 위조·허용 밖 필드·타입 오류 거부", async () => {
   await monitor(true);
-  await assertSucceeds(setDoc(doc(pupil("a"), "progress/s1"), prog("a")));
-  await assertFails(setDoc(doc(pupil("b"), "progress/s1"), prog("b")));                   // 남의 문서 덮어쓰기
-  await assertFails(setDoc(doc(pupil("b"), "progress/s2"), prog("a")));                   // uid 위조
-  await assertFails(setDoc(doc(pupil("a"), "progress/s3"), prog("a", { answers: "본문" }))); // 응답 본문 같은 추가 필드
-  await assertFails(setDoc(doc(pupil("a"), "progress/s4"), prog("a", { activeMs: "많이" })));
-  await assertFails(setDoc(doc(pupil("a"), "progress/s5"), prog("a", { weeks: [1, 2] })));
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
+  await assertFails(setDoc(doc(pupil("b"), "progress/a"), prog("b")));                   // 남의 문서 덮어쓰기
+  await assertFails(setDoc(doc(pupil("b"), "progress/b"), prog("a")));                   // uid 위조
+  await assertFails(setDoc(doc(pupil("a"), "progress/a"), prog("a", { answers: "본문" }))); // 응답 본문 같은 추가 필드
+  await assertFails(setDoc(doc(pupil("a"), "progress/a"), prog("a", { activeMs: "많이" })));
+  await assertFails(setDoc(doc(pupil("a"), "progress/a"), prog("a", { weeks: [1, 2] })));
 });
 test("진도: 교재 읽기 진도(chapters·where)도 쓸 수 있고, 형식이 틀리면 거부", async () => {
   await monitor(true);
   const a = pupil("a"), ch = { "10-strategy": { n: 3, total: 8, last: "naive" } };
-  await assertSucceeds(setDoc(doc(a, "progress/s1"), prog("a", { chapters: ch, where: "교재 전략" })));
-  await assertSucceeds(setDoc(doc(a, "progress/s2"), { student: { name: "홍" }, uid: "a", chapters: ch, activeMs: 10, lastActiveAt: Timestamp.now(), updatedAt: Timestamp.now() }));   // 학습지 없이 교재만
+  await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a", { chapters: ch, where: "교재 전략" })));
+  await assertSucceeds(setDoc(doc(a, "progress/a"), { student: { name: "홍" }, uid: "a", chapters: ch, activeMs: 10, lastActiveAt: Timestamp.now(), updatedAt: Timestamp.now() }));   // 학습지 없이 교재만
   await assertFails(setDoc(doc(a, "progress/s3"), prog("a", { chapters: "전부" })));
   await assertFails(setDoc(doc(a, "progress/s4"), prog("a", { where: 7 })));
   await assertFails(setDoc(doc(a, "progress/s5"), prog("a", { where: "가".repeat(81) })));
-  await assertFails(setDoc(doc(pupil("b"), "progress/s1"), prog("b", { chapters: ch })));      // 남의 문서
+  await assertFails(setDoc(doc(pupil("b"), "progress/a"), prog("b", { chapters: ch })));      // 남의 문서
 });
 test("진도: 읽기·삭제는 교사만, 학생은 본인 것도 읽지 못한다", async () => {
   await monitor(true);
-  await assertSucceeds(setDoc(doc(pupil("a"), "progress/s1"), prog("a")));
-  await assertFails(getDoc(doc(pupil("a"), "progress/s1")));
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
+  await assertFails(getDoc(doc(pupil("a"), "progress/a")));
   await assertFails(getDocs(collection(pupil("a"), "progress")));
   await assertSucceeds(getDocs(collection(teacher(), "progress")));
-  await assertFails(deleteDoc(doc(pupil("a"), "progress/s1")));
-  await assertSucceeds(deleteDoc(doc(teacher(), "progress/s1")));
+  await assertFails(deleteDoc(doc(pupil("a"), "progress/a")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "progress/a")));
 });
-test("설정 문서(monitor·quiz): 누구나 읽고 교사만 쓴다", async () => {
+test("설정 문서(monitor): 누구나 읽고 교사만 쓴다", async () => {
   await assertFails(setDoc(doc(pupil("a"), "config/monitor"), { on: true }));
-  await assertFails(setDoc(doc(pupil("a"), "config/quiz"), { liveId: "w1-q1" }));
   await assertSucceeds(setDoc(doc(teacher(), "config/monitor"), { on: true }));
-  await assertSucceeds(setDoc(doc(teacher(), "config/quiz"), { liveId: "w1-q1", auto: { 1: true } }));
   await assertSucceeds(getDoc(doc(pupil("a"), "config/monitor")));
-  await assertSucceeds(getDoc(doc(pupil("a"), "config/quiz")));
-});
-test("퀴즈 응답: 학생은 쓰기·읽기 모두 불가(정답·점수 위조 방지), 교사는 읽기·삭제 가능", async () => {
-  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "quizResponses/w1-q1/answers/s1"), { correct: false, attempts: 1 }));
-  await assertFails(setDoc(doc(pupil("a"), "quizResponses/w1-q1/answers/s1"), { correct: true, attempts: 1 }));
-  await assertFails(getDoc(doc(pupil("a"), "quizResponses/w1-q1/answers/s1")));
-  await assertSucceeds(getDocs(collection(teacher(), "quizResponses/w1-q1/answers")));
-  await assertFails(setDoc(doc(teacher(), "quizResponses/w1-q1/answers/s1"), { correct: true }));   // 교사도 직접 쓰지 않는다(삭제만)
-  await assertSucceeds(deleteDoc(doc(teacher(), "quizResponses/w1-q1/answers/s1")));
 });
 
-test("학생(학교 계정, 허용 목록 밖)은 교사 권한이 없다: 진도 읽기·설정 쓰기·퀴즈 응답 읽기 불가", async () => {
+test("학생(학교 계정, 허용 목록 밖)은 교사 권한이 없다: 진도 읽기·설정 쓰기 불가", async () => {
   await monitor(true);
-  await assertSucceeds(setDoc(doc(pupil("a"), "progress/s1"), prog("a")));
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
   await assertFails(getDocs(collection(pupil("a"), "progress")));
   await assertFails(setDoc(doc(pupil("a"), "config/monitor"), { on: false }));
   await assertFails(setDoc(doc(pupil("a"), "config/teachers"), { emails: ["a@ts.hs.kr"] }));      // 스스로 교사가 될 수 없다
-  await assertFails(getDocs(collection(pupil("a"), "quizResponses/behave-q1/answers")));
 });
 test("진도: 익명 로그인·학교 밖 Google 계정은 쓸 수 없다", async () => {
   await monitor(true);
-  await assertFails(setDoc(doc(student("a"), "progress/s1"), prog("a")));                          // 익명
+  await assertFails(setDoc(doc(student("a"), "progress/a"), prog("a")));                          // 익명
   const gmail = env.authenticatedContext("g", { email: "g@gmail.com", email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore();
-  await assertFails(setDoc(doc(gmail, "progress/s1"), prog("g")));
+  await assertFails(setDoc(doc(gmail, "progress/g"), prog("g")));
   const unverified = env.authenticatedContext("u", { email: "u@ts.hs.kr", email_verified: false, firebase: { sign_in_provider: "google.com" } }).firestore();
-  await assertFails(setDoc(doc(unverified, "progress/s1"), prog("u")));
+  await assertFails(setDoc(doc(unverified, "progress/u"), prog("u")));
+});
+
+test("진도: 문서 ID 는 본인 uid 여야 한다(다른 ID 로 만들거나 남의 ID 를 선점할 수 없다)", async () => {
+  await monitor(true);
+  await assertFails(setDoc(doc(pupil("a"), "progress/17_하늘"), prog("a")));          // 이름 같은 임의 ID 불가
+  await assertFails(setDoc(doc(pupil("a"), "progress/b"), prog("a")));               // 남의 uid 로 된 ID 불가
+  await assertFails(setDoc(doc(pupil("a"), "progress/b"), prog("b")));               // uid 위조도 불가
+  await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
 });

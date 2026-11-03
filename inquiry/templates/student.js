@@ -19,8 +19,6 @@ let lsFailed = false;   // 브라우저 저장소가 막혔는가(boot 보다 �
 function hasAnswers() { return Object.keys(S.answers).length > 0; }
 
 function bindTop() {
-  const f = $("#f-name"), n = $("#f-num");
-  [[f, "name"], [n, "number"]].forEach(([inp, key]) => inp.addEventListener("input", () => { S.student[key] = inp.value; touch(); if (typeof Mon !== "undefined") Mon.refresh(); }));
   $("#btn-print").addEventListener("click", () => print());
   $("#btn-reset").addEventListener("click", () => {
     if (!confirm("이 브라우저에 있는 작성 내용을 모두 지우고 처음부터 시작합니다. 지운 내용은 복구할 수 없습니다. 계속할까요?")) return;
@@ -45,7 +43,7 @@ function updateSaveState(lsOk) {
   else { e.className = "savestate clean"; e.replaceChildren(ico("check_circle", "fill"), "이 브라우저에 자동 저장됨 " + stamp(S.saved ? new Date(S.saved) : new Date())); e.title = "같은 기기·브라우저에서만 이어 쓸 수 있어요. 쓴 글은 선생님께 전달되지 않고 이 브라우저에만 남아요."; }
 }
 
-/* ---------- 진도 전달·돌발 퀴즈(Firebase) ---------- */
+/* ---------- 진도 전달(Firebase) ---------- */
 function initFb() {
   if (typeof FB === "undefined") return;
   if (typeof Mon !== "undefined") Mon.init();
@@ -53,9 +51,8 @@ function initFb() {
 
 /* ---------- 화면 ---------- */
 function render() {
-  $("#f-name").value = S.student.name; $("#f-num").value = S.student.number;
   renderTabs(); renderWeek(); updateSaveState();
-  if (typeof Mon !== "undefined") { Mon.rebase(); Mon.refresh(); }
+  if (typeof Mon !== "undefined") Mon.refresh();
 }
 
 function renderTabs() {

@@ -229,8 +229,6 @@ table.grid td textarea { font-size: 14px; min-height: 56px; }
 .item.done .filled-mark { color: var(--ok); font-weight: 600; }
 
 /* 정답 표시 상자: 한 겹 머리선 + 연한 바탕. 왼쪽 색 띠는 쓰지 않고 첫 줄 낱말로 알린다. */
-.sample { margin-top: 12px; background: var(--ok-soft); border: 1px solid var(--ok-line); border-radius: var(--radius-lg); padding: 10px 16px; }
-.sample > b { display: block; font-size: 13px; color: var(--ok); margin-bottom: 2px; letter-spacing: .02em; }
 .val { white-space: pre-wrap; word-break: break-word; }
 .val.empty, .empty { color: var(--dim); font-style: italic; }
 .val-code { margin: 4px 0; }
@@ -238,9 +236,6 @@ table.ro { border-collapse: collapse; width: 100%; font-size: 14.5px; }
 table.ro th, table.ro td { border: 1px solid var(--line); padding: 6px 10px; vertical-align: top; text-align: left; white-space: pre-wrap; }
 table.ro.prog th, table.ro.prog td { white-space: nowrap; }
 table.ro th { background: var(--panel-sunk); color: var(--ink-soft); font-size: 12.5px; letter-spacing: .02em; }
-.ro-opt { padding: 3px 10px; border-radius: var(--radius-sm); margin: 2px 0; }
-.ro-opt.on { background: var(--accent-soft); font-weight: 600; }
-.ro-opt.key::after { content: "  정답"; color: var(--ok); font-weight: 700; font-size: 12.5px; }
 .pill { display: inline-flex; align-items: center; padding: 1px 10px; border-radius: var(--radius-pill); font-size: 12.5px; font-weight: 700; }
 .pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.bad { background: var(--bad-soft); color: var(--bad); }
 .pill.part { background: var(--gold-soft); color: var(--gold-ink); } .pill.none { background: var(--panel-sunk); color: var(--dim); }
@@ -260,15 +255,13 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .recall .rl { color: var(--accent); font-weight: 600; }
 .opt-tag { display: inline-block; border: 1px solid var(--line-control); color: var(--dim); border-radius: var(--radius-pill); padding: 0 8px; font-size: 12px; margin-right: 6px; font-weight: 500; }
 
-/* 교사 로그인 · 진도·퀴즈 화면 */
+/* 교사 로그인 · 진도 화면 */
 [hidden] { display: none !important; }
 .gate { max-width: 440px; margin: 16vh auto; text-align: center; padding: 0 16px; }
 .gate h1 { font: 700 26px/1.4 var(--font-serif); }
 .gate .err { color: var(--bad); margin-top: 12px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-xl); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
 .panel h3 { margin: 0 0 8px; font-size: 17px; }
-.wk-toggles { display: flex; gap: 14px; flex-wrap: wrap; margin: 10px 0; }
-.wk-toggles label { display: flex; gap: 6px; align-items: center; }
 .status-open, .status-closed { display: flex; align-items: center; gap: 4px; font-weight: 700; }
 .status-open { color: var(--ok); } .status-closed { color: var(--bad); }
 

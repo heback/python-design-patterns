@@ -16,11 +16,9 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "content"))
 
 import week1, week2, week3, week4, week5  # noqa: E401
-from quiz import QUIZ
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
-TEACHER_ONLY_QUIZ = {"answer", "explain"}      # 돌발 퀴즈 풀(QUIZ)은 교재 분류별. 학생용 빌드에서는 정답·풀이를 제거한다.
-PART_KEY = {"": "intro", "생성 패턴": "create", "구조 패턴": "struct", "행위 패턴": "behave"}   # 교재 chapters 의 part → 퀴즈 분류 키
+PART_KEY = {"": "intro", "생성 패턴": "create", "구조 패턴": "struct", "행위 패턴": "behave"}   # 교재 chapters 의 part → 분류 키(진도 표의 분류 머리줄)
 TEACHER_ONLY_ITEM = {"answer", "note"}
 FB_DIR = ROOT.parent / "firebase"
 FB_CONFIG = ROOT / "firebase-config.js"      # 필수: 학생 제출·교사 로그인이 모두 Firebase 로 동작한다(gitignore)
@@ -51,36 +49,9 @@ def load_chapters():
 CHAPTERS = load_chapters()
 
 
-def validate_quiz(seen, errs):
-    """돌발 퀴즈: 분류 키·id 모양·중복, 교재 장 존재, 선택지 개수, 정답 범위, 풀이 누락."""
-    slugs = {c["slug"] for c in CHAPTERS}
-    keys = set()
-    for g in QUIZ:
-        if g["key"] in keys or g["key"] not in PART_KEY.values():
-            errs.append(f"퀴즈 분류 키 오류: {g['key']}")
-        keys.add(g["key"])
-        for q in g["items"]:
-            i = q["id"]
-            if i in seen:
-                errs.append(f"id 중복: {i}")
-            seen.add(i)
-            if not re.fullmatch(rf"{g['key']}-q\d+", i):
-                errs.append(f"{i}: 퀴즈 id 형식은 {g['key']}-q번호")
-            if q.get("chapter", "") and q["chapter"] not in slugs:
-                errs.append(f"{i}: 없는 교재 장 {q['chapter']}")
-            if not 2 <= len(q.get("options", [])) <= 5:
-                errs.append(f"{i}: 선택지는 2~5개")
-            elif not (isinstance(q.get("answer", {}).get("sel"), int) and 0 <= q["answer"]["sel"] < len(q["options"])):
-                errs.append(f"{i}: 퀴즈 정답 범위 오류")
-            for k in ("q", "explain", "concept"):
-                if not q.get(k):
-                    errs.append(f"{i}: {k} 누락")
-
-
 def validate():
     """문항 id 중복, 정답의 모양, 선택지 범위를 검사한다."""
     seen, errs = set(), []
-    validate_quiz(seen, errs)
     for w in WEEKS:
         for st in w["stages"]:
             for it in st["items"]:
@@ -134,16 +105,6 @@ def strip(weeks, keep_code_answer=True):
     return out
 
 
-def strip_quizzes():
-    """학생용 퀴즈 풀: 정답·풀이를 뺀다(채점은 서버 answerQuiz 가 한다)."""
-    out = copy.deepcopy(QUIZ)
-    for g in out:
-        for q in g["items"]:
-            for k in TEACHER_ONLY_QUIZ:
-                q.pop(k, None)
-    return out
-
-
 def js(obj):
     """<script> 안에 안전하게 넣을 JSON."""
     return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
@@ -159,13 +120,13 @@ def fb_snippet():
 def render(tpl_name, content_js, app_js):
     t = ROOT / "templates"
     page = (t / tpl_name).read_text(encoding="utf-8")
-    return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8") + "\n" + (t / "quiz-ui.css").read_text(encoding="utf-8"))
+    return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8") + "\n" + (t / "mon-ui.css").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN_CSS@*/", (PYRUN / "pyrun.css").read_text(encoding="utf-8"))
                 .replace("/*@PYHL@*/", (PYRUN / "pyhl.js").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
                 .replace("/*@FB@*/", fb_snippet())
                 .replace("/*@MONITOR@*/", (t / "monitor.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
-                .replace("/*@QUIZUI@*/", (t / "quiz-ui.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
+                .replace("/*@STUDENTAUTH@*/", (t / "student-auth.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
                 .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))
@@ -204,15 +165,15 @@ def render_textbook_index():
 
 
 def inject_textbook_monitor(dest):
-    """Firebase 호스팅에 올리는 교재 사본(각 장 페이지)에만 진도·퀴즈 모니터를 넣는다. GitHub Pages 의 docs/textbook 은 건드리지 않는다.
+    """Firebase 호스팅에 올리는 교재 사본(각 장 페이지)에만 읽기 진도 모니터를 넣는다. GitHub Pages 의 docs/textbook 은 건드리지 않는다.
     학번·성명은 학습지와 같은 저장소를 쓰므로 학습지와 같은 주소(origin)의 사본이어야 한다."""
     t = ROOT / "templates"
-    tail = ("<style>" + (t / "quiz-ui.css").read_text(encoding="utf-8") + "</style>\n"
+    tail = ("<style>" + (t / "mon-ui.css").read_text(encoding="utf-8") + "</style>\n"
             "<script>" + FB_CONFIG.read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "fb.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "core.js").read_text(encoding="utf-8") + "</script>\n"
-            "<script>const TB_DATA = " + js({"chapters": CHAPTERS, "quizzes": strip_quizzes()}) + ";</script>\n"
-            "<script>" + (t / "quiz-ui.js").read_text(encoding="utf-8") + "</script>\n"
+            "<script>const TB_DATA = " + js({"chapters": CHAPTERS}) + ";</script>\n"
+            "<script>" + (t / "student-auth.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
     (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")
@@ -239,9 +200,9 @@ def main():
         print("inquiry/firebase-config.js 가 없습니다. 학생 제출과 교사 로그인이 Firebase 로 동작하므로 필요합니다.\n"
               "  cp inquiry/firebase-config.example.js inquiry/firebase-config.js 후 값을 채우세요(firebase/README.md 1회 설정).")
         sys.exit(1)
-    student = render("student.html.tpl", "const CONTENT = " + js({"weeks": strip(WEEKS), "quizzes": strip_quizzes(), "chapters": CHAPTERS}) + ";", "student.js")
+    student = render("student.html.tpl", "const CONTENT = " + js({"weeks": strip(WEEKS), "chapters": CHAPTERS}) + ";", "student.js")
     # 호스팅되는 교사 화면에는 정답·교사 메모·운영 안내를 넣지 않는다. 로그인 후 getTeacherContent()가 내려준다.
-    teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False), "quizzes": strip_quizzes(), "chapters": CHAPTERS}) + ";\nconst GATED = true;", "teacher.js")
+    teacher = render("teacher.html.tpl", "let CONTENT = " + js({"weeks": strip(WEEKS, keep_code_answer=False), "chapters": CHAPTERS}) + ";\nconst GATED = true;", "teacher.js")
     (FB_DIR / "public").mkdir(parents=True, exist_ok=True)
     (FB_DIR / "public" / "index.html").write_text(teacher, encoding="utf-8")
     # 학생용도 같은 사이트의 /inquiry/ 에 둔다(교재 링크 ../textbook/ 가 열리도록 textbook도 복사). 교재가 빌드돼 있을 때만.
@@ -250,9 +211,9 @@ def main():
     if (ROOT.parent / "textbook").exists():
         shutil.rmtree(FB_DIR / "public" / "textbook", ignore_errors=True)
         shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
-        print(f"교재 사본 {inject_textbook_monitor(FB_DIR / 'public' / 'textbook')}개 장에 진도·퀴즈 모니터를 넣었다")
+        print(f"교재 사본 {inject_textbook_monitor(FB_DIR / 'public' / 'textbook')}개 장에 읽기 진도 모니터를 넣었다")
     (FB_DIR / "functions").mkdir(parents=True, exist_ok=True)
-    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "quizzes": QUIZ, "chapters": CHAPTERS}, ensure_ascii=False), encoding="utf-8")
+    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "chapters": CHAPTERS}, ensure_ascii=False), encoding="utf-8")
     (ROOT / "student.html").write_text(student, encoding="utf-8")
     (ROOT / "teacher.html").write_text(teacher, encoding="utf-8")
     n_items = sum(1 for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] != "info")

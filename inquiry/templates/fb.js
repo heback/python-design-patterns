@@ -6,7 +6,8 @@ const FB = (() => {
   const REGION = window.FIREBASE_REGION || "asia-northeast3", DOMAIN = window.TEACHER_DOMAIN || "ts.hs.kr";
   const EMU = /[?&]emulator\b/.test(location.search);
   let M = null;
-  const sid = st => [st.klass, st.number, st.name].map(safeName).filter(Boolean).join("_");
+  /* 학생 식별은 로그인 계정으로만 한다: 진도 문서 ID = uid, 이름 = 계정 이름(없으면 이메일 앞부분), 이메일 = 계정 이메일 */
+  const who = u => ({ name: ((u.displayName || "").trim() || (u.email || "").split("@")[0]), email: (u.email || "").toLowerCase() });
 
   async function load() {
     if (M) return M;
@@ -30,55 +31,33 @@ const FB = (() => {
   const call = async (name, data) => { const m = await load(); return (await m.fn.httpsCallable(m.fx, name)(data)).data; };
   const fbErr = e => (e && (e.message || e.code)) || String(e);
 
-  /* ---------- 진도 수집·돌발 퀴즈(학생) ---------- */
+  /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
   async function watchDoc(col, id, cb) {
     const m = await load();
     return m.fs.onSnapshot(m.fs.doc(m.db, col, id), s => cb(s.exists() ? s.data() : null), () => cb(undefined));
   }
   const watchMonitor = cb => watchDoc("config", "monitor", cb);
-  const watchQuiz = cb => watchDoc("config", "quiz", cb);
   /* 진도 한 번 전송. p = {weeks?, chapters?, where?, activeMs, lastActiveAt(ms)}. 응답 본문은 보내지 않는다.
      학습지는 weeks 를, 교재 페이지는 chapters 를 보낸다. merge 로 쓰므로 서로의 필드를 덮어쓰지 않는다. */
-  async function reportProgress(student, p) {
+  async function reportProgress(p) {
     const user = await schoolUser(), m = await load(), { doc, setDoc, serverTimestamp, Timestamp } = m.fs;
-    const d = { student: { klass: student.klass || "", number: student.number || "", name: student.name },
+    const d = { student: who(user),
       uid: user.uid, activeMs: Math.round(p.activeMs), lastActiveAt: Timestamp.fromMillis(p.lastActiveAt), updatedAt: serverTimestamp() };
     if (p.weeks) d.weeks = p.weeks;
     if (p.chapters) d.chapters = p.chapters;
     if (p.where) d.where = String(p.where).slice(0, 80);
-    await setDoc(doc(m.db, "progress", sid(student)), d, { merge: true });
+    await setDoc(doc(m.db, "progress", user.uid), d, { merge: true });
   }
-  const answerQuiz = (student, quizId, choice) => call("answerQuiz", { quizId, sid: sid(student), choice });
 
-  /* ---------- 진도·퀴즈 제어(교사) ---------- */
+  /* ---------- 진도 제어(교사) ---------- */
   async function watchProgress(cb) {
     const m = await load();
     return m.fs.onSnapshot(m.fs.collection(m.db, "progress"), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
   }
-  async function watchQuizAnswers(quizId, cb) {
-    const m = await load();
-    return m.fs.onSnapshot(m.fs.collection(m.db, "quizResponses", quizId, "answers"), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
-  }
   async function saveMonitor(on) {
     const m = await load();
     await m.fs.setDoc(m.fs.doc(m.db, "config", "monitor"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
-  }
-  /* cfg = {liveId, liveAt?, auto:{주차:bool}}. 즉시 출제를 새로 열 때는 liveAt 을 생략해 지금 시각이 찍히게 하면, 같은 퀴즈를 다시 열어도 학생 화면에 다시 뜬다.
-     자동 모드만 바꿀 때는 기존 liveAt 을 그대로 넘겨 이미 닫은 학생에게 다시 뜨지 않게 한다. */
-  async function saveQuizCfg(cfg) {
-    const m = await load();
-    await m.fs.setDoc(m.fs.doc(m.db, "config", "quiz"), { liveId: cfg.liveId || "", liveAt: cfg.liveAt || m.fs.Timestamp.now(), auto: cfg.auto || {}, updatedBy: m.au.currentUser.email });
-  }
-  async function loadQuizCfg() {
-    const m = await load(), s = await m.fs.getDoc(m.fs.doc(m.db, "config", "quiz"));
-    return s.exists() ? s.data() : { liveId: "", auto: {} };
-  }
-  async function resetQuizAnswers(quizId) {
-    const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
-    const snap = await getDocs(collection(m.db, "quizResponses", quizId, "answers"));
-    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
-    return snap.size;
   }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
@@ -97,8 +76,8 @@ const FB = (() => {
   async function signOut() { const m = await load(); return m.auth.signOut(m.au); }
   const teacherContent = () => call("getTeacherContent", {});
 
-  return { sid, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, watchQuiz, reportProgress, answerQuiz,
-           watchProgress, watchQuizAnswers, saveMonitor, saveQuizCfg, loadQuizCfg, resetQuizAnswers, clearProgress,
+  return { who, domain: DOMAIN, fbErr, currentUser,
+           watchMonitor, reportProgress,
+           watchProgress, saveMonitor, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();
