@@ -120,6 +120,28 @@ function liveState(ms) {
   return m < 2 ? ["ok", "활동 중"] : m < 5 ? ["part", "잠시 멈춤"] : ["none", "멈춤"];
 }
 
+/* 진도표의 '상태'·'화면' 열이 어떤 조건으로 정해지는지 설명한다. 조건을 바꾸면(liveState·VIEW·VIEW_STALE_MS) 이 설명도 함께 고친다. */
+function statusLegend() {
+  const pill = (cls, icon, label) => el("span", { class: "pill " + cls, style: "margin-right:6px" }, ico(icon, "fill"), label);
+  const row = (p, text) => el("li", { style: "margin:3px 0" }, p, text);
+  return el("details", { open: "", style: "margin:6px 0;font-size:13.5px" },
+    el("summary", { style: "cursor:pointer;font-weight:700" }, "상태·화면 표시 기준"),
+    el("div", { style: "display:flex;gap:28px;flex-wrap:wrap;margin-top:4px" },
+      el("div", { style: "flex:1;min-width:260px" }, el("b", {}, "상태"), " — 학생이 마지막으로 조작(클릭·키 입력·스크롤)한 때부터 지난 시간",
+        el("ul", { style: "list-style:none;padding:0;margin:4px 0" },
+          row(pill("ok", "check_circle", "활동 중"), "2분 미만"),
+          row(pill("part", "pause_circle", "잠시 멈춤"), "2분 이상 5분 미만"),
+          row(pill("none", "do_not_disturb_on", "멈춤"), "5분 이상 (자리 비움·탭 닫음, 또는 화면만 켜 둔 채 조작 없음)"))),
+      el("div", { style: "flex:1;min-width:260px" }, el("b", {}, "화면"), " — 학생 브라우저가 알려 주는 탭 상태(무엇을 보는지는 알 수 없음). 조작이 없어도 1분마다 갱신",
+        el("ul", { style: "list-style:none;padding:0;margin:4px 0" },
+          row(pill("ok", "check_circle", "보는 중"), "이 탭이 보이고 창에 포커스가 있음"),
+          row(pill("part", "open_in_new", "다른 창"), "탭은 보이지만 다른 창·프로그램을 눌러 포커스를 잃음"),
+          row(pill("bad", "tab_unselected", "다른 탭"), "다른 탭으로 옮기거나 창을 최소화해 이 탭이 가려짐"),
+          row(pill("none", "signal_disconnected", "신호 없음"), "최근 3분 넘게 보고가 없음(탭을 닫았거나 접속 끊김). 마지막으로 받은 값을 참고로 함께 표시"),
+          row(el("span", { style: "margin-right:6px" }, "—"), "아직 화면 정보를 보낸 적 없음")))),
+    el("p", { style: "color:var(--dim);margin:4px 0 0" }, "두 열은 서로 다른 것을 잽니다. '멈춤'인데 '보는 중'이면 탭은 열어 둔 채 5분 넘게 조작이 없는 것이고, '멈춤'인데 '신호 없음'이면 탭을 닫았거나 접속이 끊긴 것입니다."));
+}
+
 function renderMonitor(main) {
   const tok = T.liveTok = {};
   /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
@@ -251,6 +273,7 @@ function renderMonitor(main) {
         /permission|insufficient/i.test(M.progErr) ? el("div", {}, "Firestore 규칙이 이 계정을 교사로 인정하지 않는 경우입니다. 콘솔에서 config/teachers 문서의 emails 가 ‘배열(array)’ 유형인지, 지금 로그인한 이메일이 소문자·공백 없이 들어 있는지 확인하세요.") : null) : null,
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
       el("p", { class: "lead", style: "font-size:13.5px" }, "칸의 숫자는 그 장에서 읽은 절의 비율이고 아래 작은 글씨는 그 장의 체류 시간입니다. 숫자를 누르면 절별 세부 정보를 볼 수 있습니다. 절이 화면 가운데에 2초 이상 머물면 읽은 것으로 세고, 체류 시간은 화면이 보이고 최근 60초 안에 조작이 있던 시간만 셉니다(줄어들지 않는 값). 교재의 호스팅 사본을 열어 읽을 때만 집계됩니다."),
+      statusLegend(),
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;margin:6px 0" }, el("label", {}, "분류 ", grpSel), el("label", {}, "정렬 ", sortSel)),
       !rows.length ? el("p", { class: "lead" }, "아직 진도를 보낸 학생이 없습니다. 수집을 켜고, 학생이 학교 Google 계정으로 로그인하면 나타납니다.")
         : el("div", { style: "overflow-x:auto" }, el("table", { class: "ro prog" },
