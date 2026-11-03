@@ -3,7 +3,8 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { GoogleGenAI, Type } = require("@google/genai");
-const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS } = require("./config");
+const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_DAILY_LIMIT, ASSISTANT_MINUTE_LIMIT, ASSISTANT_MAX_TOKENS } = require("./config");
+const assistant = require("./assistant");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
 
 admin.initializeApp();
@@ -114,6 +115,43 @@ exports.generateFeedback = onCall({ region: REGION, secrets: [GEMINI_API_KEY], m
   }
   await batch.commit();
   return { drafts };
+});
+
+/** 학생 AI 도우미. 학교 Google 계정(학생·교사)만, 교사가 켠 동안만, 학생별 사용 한도 안에서 답한다.
+ *  질문·답은 저장하지 않는다(사용 횟수만 chatUsage/{uid} 에 센다). 질문·사진·현재 화면의 글이 Gemini 로 전달된다. */
+async function askModel(apiKey, v) {
+  if (!apiKey && process.env.FUNCTIONS_EMULATOR) return "(에뮬레이터 시험 답변) " + v.question.slice(0, 60);          // 에뮬레이터에는 키가 없으므로 시험용 답을 돌려준다
+  const ai = new GoogleGenAI({ apiKey });
+  const r = await ai.models.generateContent({ model: MODEL, contents: assistant.buildContents(v),
+    config: { systemInstruction: assistant.SYSTEM, temperature: 0.4, maxOutputTokens: ASSISTANT_MAX_TOKENS } });
+  return assistant.cleanReply(r.text);
+}
+
+exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxInstances: 10, timeoutSeconds: 60 }, async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
+  const cfg = (await db.doc("config/assistant").get()).data();
+  if (!cfg || cfg.on !== true) throw new HttpsError("failed-precondition", "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요.");
+  const v = assistant.validate(req.data);
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+
+  const ref = db.doc(`chatUsage/${req.auth.uid}`), limits = { daily: ASSISTANT_DAILY_LIMIT, minute: ASSISTANT_MINUTE_LIMIT };
+  const used = await db.runTransaction(async tx => {                      // 모델을 부르기 전에 한도를 확인하고 한 번 센다
+    const snap = await tx.get(ref), r = assistant.checkLimit(snap.exists ? snap.data() : null, Date.now(), limits);
+    if (r.ok) tx.set(ref, r.next);
+    return r;
+  });
+  if (!used.ok) throw new HttpsError("resource-exhausted", used.reason === "minute" ? "질문이 너무 빨라요. 잠시 뒤에 다시 물어봐 주세요." : `오늘 질문은 ${ASSISTANT_DAILY_LIMIT}번까지예요. 내일 다시 물어봐 주세요.`);
+
+  try {
+    const reply = await askModel(GEMINI_API_KEY.value(), v.value);
+    if (!reply) throw new Error("빈 답");
+    return { reply, left: Math.max(0, ASSISTANT_DAILY_LIMIT - used.next.count) };
+  } catch (e) {
+    await db.runTransaction(async tx => { const snap = await tx.get(ref); if (snap.exists && snap.data().count > 0) tx.update(ref, { count: snap.data().count - 1 }); }).catch(() => {});   // 실패한 질문은 세지 않는다
+    console.error("askAssistant 실패:", e && e.message);
+    throw new HttpsError("unavailable", "지금은 답을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
+  }
 });
 
 exports._test = { sanitize, isSchoolAccount };

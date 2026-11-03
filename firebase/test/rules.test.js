@@ -197,3 +197,13 @@ test("진도: 문서 ID 는 본인 uid 여야 한다(다른 ID 로 만들거나 
   await assertFails(setDoc(doc(pupil("a"), "progress/b"), prog("b")));               // uid 위조도 불가
   await assertSucceeds(setDoc(doc(pupil("a"), "progress/a"), prog("a")));
 });
+
+test("AI 도우미 스위치(config/assistant): 누구나 읽고 교사만 쓴다. 사용량(chatUsage)은 클라이언트가 읽지도 쓰지도 못한다", async () => {
+  await assertFails(setDoc(doc(pupil("a"), "config/assistant"), { on: true }));
+  await assertSucceeds(setDoc(doc(teacher(), "config/assistant"), { on: true }));
+  await assertSucceeds(getDoc(doc(pupil("a"), "config/assistant")));
+  await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "chatUsage/a"), { day: "2026-11-03", count: 1 }));
+  await assertFails(getDoc(doc(pupil("a"), "chatUsage/a")));
+  await assertFails(setDoc(doc(pupil("a"), "chatUsage/a"), { day: "2026-11-03", count: 0 }));       // 한도 초기화 불가
+  await assertFails(getDoc(doc(teacher(), "chatUsage/a")));
+});

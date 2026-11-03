@@ -330,6 +330,45 @@ details.fold > summary { cursor: pointer; font-weight: 600; color: var(--accent)
 .qbtn.primary:hover:not(:disabled) { background: var(--accent-strong, var(--accent, #163a5a)); color: var(--on-accent, var(--accent-text, #fff)); }
 .qbtn:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
 @media print { .monbar { display: none !important; } }
+
+/* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
+.ai-fab { position: fixed; right: 20px; bottom: 20px; z-index: 1500; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
+.ai-fab:hover { transform: scale(1.06); }
+.ai-fab:focus-visible, .ai-ico:focus-visible, .ai-send:focus-visible, .ai-in:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
+.ai-fab .ms { font-size: 30px; margin: 0; vertical-align: 0; }
+.ai-panel { position: fixed; right: 20px; bottom: 88px; z-index: 1500; width: min(390px, calc(100vw - 24px)); height: min(600px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14.5px; line-height: 1.65; }
+.ai-panel[hidden], .ai-fab[hidden] { display: none; }
+.ai-panel header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); border-bottom: 2px solid var(--gold, #d4ae55); }
+.ai-panel header b { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
+.ai-hbtn { display: inline-flex; gap: 2px; }
+.ai-ico { border: 0; background: transparent; color: inherit; cursor: pointer; border-radius: 8px; padding: 4px; display: inline-grid; place-items: center; }
+.ai-ico:hover { background: rgba(127, 127, 127, .18); }
+.ai-panel header .ai-ico { color: var(--on-navy, #f3efe6); }
+.ai-panel header .ai-ico:focus-visible { outline-color: var(--focus-on-navy, #f0cd73); }
+.ai-note { margin: 0; padding: 8px 14px; font-size: 12.5px; line-height: 1.55; color: var(--muted, #5a6372); background: var(--accent-soft, #e8eff5); border-bottom: 1px solid var(--accent-line, var(--border, #b9cde0)); }
+.ai-log { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { max-width: 88%; border-radius: 14px; padding: 8px 12px; word-break: keep-all; overflow-wrap: anywhere; }
+.ai-msg img { display: block; max-width: 100%; max-height: 180px; border-radius: 8px; margin-bottom: 6px; }
+.ai-txt { white-space: pre-wrap; }
+.ai-msg.me { align-self: flex-end; background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-bottom-right-radius: 4px; }
+.ai-msg.bot { align-self: flex-start; background: var(--surface-2, #f1ede5); border-bottom-left-radius: 4px; }
+.ai-msg.wait { color: var(--muted, #5a6372); font-style: italic; }
+.ai-msg.err { align-self: stretch; max-width: 100%; background: var(--bad-soft, #f8e7e0); color: var(--bad, #a03a1c); border: 1px solid var(--bad, #a03a1c); font-size: 13.5px; }
+.ai-login { padding: 8px 14px; font-size: 13.5px; background: var(--gold-soft, #f6ecd6); border-top: 1px solid var(--gold-line, var(--border, #e4d2a4)); }
+.ai-login[hidden], .ai-prev[hidden] { display: none; }
+.ai-ctx { padding: 4px 14px; font-size: 12px; color: var(--muted, #5a6372); border-top: 1px solid var(--border, #dcd5c6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-ctx .ms { margin-right: 4px; }
+.ai-prev { position: relative; margin: 0 14px 6px; width: 84px; }
+.ai-prev img { width: 84px; height: 64px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border, #dcd5c6); display: block; }
+.ai-x { position: absolute; top: -8px; right: -8px; border: 1px solid var(--border, #dcd5c6); background: var(--surface, #fff); color: var(--text, #1a2332); border-radius: 50%; width: 22px; height: 22px; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.ai-x .ms { font-size: 15px; margin: 0; vertical-align: 0; }
+.ai-row { display: flex; align-items: flex-end; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--border, #dcd5c6); }
+.ai-in { flex: 1; resize: none; border: 1px solid var(--line-control, var(--border, #8c8372)); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 14.5px; line-height: 1.5; color: var(--text, #1a2332); background: var(--surface, #fff); max-height: 120px; }
+.ai-send { border: 0; background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-radius: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; }
+.ai-send:disabled { opacity: .5; cursor: default; }
+.ai-left { display: block; padding: 0 14px 8px; font-size: 12px; color: var(--muted, #5a6372); text-align: right; min-height: 1px; }
+@media (max-width: 640px) { .ai-panel { right: 8px; left: 8px; bottom: 82px; width: auto; height: min(70vh, 560px); } .ai-fab { right: 14px; bottom: 14px; } }
+@media print { .ai-fab, .ai-panel { display: none !important; } }
 </style>
 <style>/* 파이썬 실행·편집기(pyrun.js) 공용 스타일. 교재와 탐구 학습지의 색 토큰을 모두 받아 쓴다. */
 /* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
@@ -873,6 +912,10 @@ const FB = (() => {
   const call = async (name, data) => { const m = await load(); return (await m.fn.httpsCallable(m.fx, name)(data)).data; };
   const fbErr = e => (e && (e.message || e.code)) || String(e);
 
+  /* ---------- 학생 AI 도우미 ---------- */
+  const watchAssistant = cb => watchDoc("config", "assistant", cb);
+  const askAssistant = p => call("askAssistant", p);
+
   /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
   async function watchDoc(col, id, cb) {
@@ -902,6 +945,10 @@ const FB = (() => {
     const m = await load();
     await m.fs.setDoc(m.fs.doc(m.db, "config", "monitor"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
   }
+  async function saveAssistant(on) {
+    const m = await load();
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
+  }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
     const snap = await getDocs(collection(m.db, "progress"));
@@ -920,7 +967,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, reportProgress,
+           watchMonitor, reportProgress, watchAssistant, askAssistant, saveAssistant,
            watchProgress, saveMonitor, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();
@@ -1174,6 +1221,142 @@ const FocusTrack = (() => {
 })();
 </script>
 <script>"use strict";
+/* 학생 AI 도우미(학습지·호스팅 교재 공용). 오른쪽 아래 아이콘을 누르면 대화창이 열린다.
+   질문은 글 또는 사진, 답은 글. 학생이 지금 보고 있는 화면(교재의 절·학습지의 문항)과 드래그해 고른 글을 함께 보낸다.
+   교사가 켜 둔 동안(config/assistant.on)에만 아이콘이 보이고, 학교 Google 계정으로 로그인해야 쓸 수 있다.
+   서버(askAssistant)는 질문·답을 저장하지 않고 사용 횟수만 센다. 대화 기록은 이 창을 닫을 때까지만 화면에 있다.
+   필요한 전역: el, ico, $, FB(fb.js), StudentAuth(student-auth.js). 호스트가 getContext() => {kind, title, text, selection} 를 준다. */
+const Assistant = (() => {
+  const MAX_SIDE = 1280, QUALITY = 0.82, MAX_BYTES = 1_300_000;
+  let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, input = null, send = null, attach = null, preview = null, ctxChip = null, leftEl = null;
+  let image = null, busy = false, history = [], started = false;
+
+  /* ---------- 사진: 크기를 줄여 JPEG 으로(전송량·비용 절약) ---------- */
+  async function shrink(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("JPG·PNG·WebP 사진만 보낼 수 있어요.");
+    const bmp = await createImageBitmap(file), k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+    let q = QUALITY, url = c.toDataURL("image/jpeg", q);
+    while (url.length * 3 / 4 > MAX_BYTES && q > 0.4) { q -= 0.15; url = c.toDataURL("image/jpeg", q); }
+    if (url.length * 3 / 4 > MAX_BYTES) throw new Error("사진이 너무 커요. 더 작은 사진을 보내 주세요.");
+    return { mime: "image/jpeg", data: url.split(",")[1], url };
+  }
+  function setImage(im) {
+    image = im; preview.replaceChildren();
+    if (im) preview.append(el("img", { src: im.url, alt: "첨부한 사진" }), el("button", { type: "button", class: "ai-x", "aria-label": "사진 빼기", onclick: () => setImage(null) }, ico("close")));
+    preview.hidden = !im;
+  }
+  async function pick(file) {
+    if (!file) return;
+    try { setImage(await shrink(file)); } catch (e) { addMsg("err", e.message || "사진을 불러오지 못했어요."); }
+  }
+
+  /* ---------- 대화 ---------- */
+  function addMsg(who, text, img) {
+    const m = el("div", { class: "ai-msg " + who });
+    if (img) m.append(el("img", { src: img, alt: "보낸 사진" }));
+    if (text) m.append(el("div", { class: "ai-txt" }, text));           // textContent 로만 넣는다(HTML 해석 없음)
+    log.append(m); log.scrollTop = log.scrollHeight; return m;
+  }
+  function welcome() {
+    log.replaceChildren(); history = [];
+    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.");
+  }
+  function refreshCtx() {
+    const c = getContext() || {};
+    ctxChip.replaceChildren(ico("visibility"), `AI가 보는 화면: ${c.title || "현재 화면"}${c.selection ? " · 선택한 글 포함" : ""}`);
+  }
+  function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
+  async function ask() {
+    if (busy) return;
+    const q = input.value.trim(); if (!q && !image) return;
+    if (!StudentAuth.get()) { addMsg("err", "먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
+    const ctx = getContext() || {}, im = image;
+    addMsg("me", q || "(사진)", im && im.url); input.value = ""; autosize(input); setImage(null);
+    const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
+    try {
+      const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
+      wait.remove(); addMsg("bot", r.reply);
+      history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6);
+      leftEl.textContent = `오늘 남은 질문 ${r.left}번`;
+    } catch (e) {
+      wait.remove();
+      const m = String(e.message || "");
+      addMsg("err", /resource-exhausted|너무 빨라|번까지/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
+        : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
+    }
+    setBusy(false); input.focus();
+  }
+  function autosize(t) { t.style.height = "auto"; t.style.height = Math.min(120, t.scrollHeight) + "px"; }
+
+  /* ---------- 화면 ---------- */
+  function build() {
+    fab = el("button", { type: "button", class: "ai-fab", "aria-label": "AI 도우미 열기", title: "AI 도우미", hidden: true, onclick: toggle }, ico("smart_toy", "fill"));
+    log = el("div", { class: "ai-log", role: "log", "aria-live": "polite" });
+    input = el("textarea", { class: "ai-in", rows: 1, placeholder: "궁금한 것을 물어보세요 (Enter로 보내기)", "aria-label": "질문 입력",
+      oninput: () => autosize(input), onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } },
+      onpaste: e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(x => x.type.startsWith("image/")); if (f) { e.preventDefault(); pick(f); } } });
+    const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
+    attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 첨부", title: "사진 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
+    send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: ask }, ico("send"));
+    preview = el("div", { class: "ai-prev", hidden: true });
+    ctxChip = el("div", { class: "ai-ctx" }); leftEl = el("span", { class: "ai-left" });
+    const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
+      el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
+    const syncLogin = () => { login.hidden = !!StudentAuth.get(); };
+    StudentAuth.onChange(syncLogin); syncLogin();
+    panel = el("section", { class: "ai-panel", role: "dialog", "aria-label": "AI 도우미", hidden: true },
+      el("header", {}, el("b", {}, ico("smart_toy", "fill"), "AI 도우미"),
+        el("span", { class: "ai-hbtn" },
+          el("button", { type: "button", class: "ai-ico", "aria-label": "대화 지우기", title: "대화 지우기", onclick: welcome }, ico("delete_sweep")),
+          el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
+      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
+      log, login, ctxChip, preview,
+      el("div", { class: "ai-row" }, attach, input, send, file), leftEl);
+    document.body.append(fab, panel);
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) toggle(); });
+    welcome();
+  }
+  function toggle() {
+    const open = panel.hidden; panel.hidden = !open; fab.setAttribute("aria-expanded", String(open));
+    if (open) { refreshCtx(); input.focus(); log.scrollTop = log.scrollHeight; } else fab.focus();
+  }
+  function show() { if (fab) { fab.hidden = !enabled; if (!enabled && !panel.hidden) toggle(); } }
+
+  /* 호스트가 화면 맥락을 만들 때 쓰는 도구 */
+  /* 노드의 글을 읽기 좋은 글로: 줄 번호·실행 결과·버튼·그림은 빼고, 화면 밖에 복제해 줄바꿈이 살아 있는 innerText 로 읽는다(visibility:hidden 이면 innerText 가 비므로 화면 밖으로만 치운다). */
+  function readable(node, max) {
+    const c = node.cloneNode(true);
+    c.querySelectorAll(".pr-gutter, .pr-out, .pr-bar, .pr-hl, .copy, button, svg, script, style, textarea, input, select, .ms").forEach(n => n.remove());
+    const box = el("div", { style: "position:absolute;left:-99999px;top:0;width:700px;pointer-events:none" }); box.append(c); document.body.append(box);
+    const t = (box.innerText || "").replace(/\n{3,}/g, "\n\n").trim(); box.remove(); return t.slice(0, max);
+  }
+  /* 학생이 드래그해 고른 글(대화창 안에서 고른 것은 뺀다) */
+  function selectedText() {
+    const s = window.getSelection(); if (!s || s.isCollapsed) return "";
+    const n = s.anchorNode && (s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentElement);
+    if (n && n.closest && n.closest(".ai-panel")) return "";
+    return String(s).trim().slice(0, 1500);
+  }
+  /* 화면 가운데에 가장 가까운(가운데를 지나면 0) 요소 */
+  function nearestMid(nodes) {
+    const mid = innerHeight / 2; let best = null, bd = Infinity;
+    nodes.forEach(x => { const r = x.getBoundingClientRect(); const d = r.top <= mid && r.bottom >= mid ? 0 : Math.min(Math.abs(r.top - mid), Math.abs(r.bottom - mid)); if (d < bd) { bd = d; best = x; } });
+    return best;
+  }
+
+  /* o = {getContext}. 교사가 켠 동안만 아이콘을 보인다. */
+  function init(o) {
+    if (started || typeof FB === "undefined") return; started = true;
+    getContext = o.getContext; build();
+    setInterval(() => { if (!panel.hidden) refreshCtx(); }, 1500);                // 화면을 옮기거나 글을 고르면 안내가 따라간다
+    FB.watchAssistant(s => { enabled = !!(s && s.on); show(); }).catch(() => {});
+  }
+  return { init, readable, selectedText, nearestMid };
+})();
+</script>
+<script>"use strict";
 /* 학생용: 진도 자동 전달. 교사가 [진도 수집]을 켜 두었을 때만 동작하고, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
    전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 주차별 완료 문항 수·ID, 마지막으로 만진 문항, 활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각.
    이 화면을 보고 있는지(FocusTrack: 탭 가림·창 포커스)와 벗어난 횟수·시간도 전달한다. 학생 고지 줄(updateBar)은 이 목록과 항상 같게 유지한다.
@@ -1309,6 +1492,22 @@ function updateSaveState(lsOk) {
 function initFb() {
   if (typeof FB === "undefined") return;
   if (typeof Mon !== "undefined") Mon.init();
+  if (typeof Assistant !== "undefined") Assistant.init({ getContext: assistantContext });
+}
+
+/* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 문항(없으면 그 주차 머리말)과 그 문항에 학생이 쓴 글·코드, 드래그해 고른 글 */
+function assistantContext() {
+  const w = CONTENT.weeks[curWeek], item = Assistant.nearestMid($$("#week .item"));
+  const stage = item && item.closest(".stage"), stageName = stage ? (($(".badge", stage) || {}).textContent || "").trim() : "";
+  const head = `${w.n}주차 · ${w.concept} · ${w.title}`;
+  let text = head;
+  if (stage) { const intro = $(".intro", stage); text += `\n[단계] ${stageName}` + (intro ? "\n" + Assistant.readable(intro, 600) : ""); }
+  if (item) {
+    text += "\n[문항]\n" + Assistant.readable(item, 2500);
+    const mine = $$("textarea", item).map(t => t.value.trim()).filter(Boolean).join("\n---\n").slice(0, 1500);     // 학생이 쓴 글·코드(내 답을 봐 달라고 물을 수 있도록)
+    if (mine) text += "\n[학생이 쓴 답]\n" + mine;
+  }
+  return { kind: "worksheet", title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
 }
 
 /* ---------- 화면 ---------- */

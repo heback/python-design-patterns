@@ -67,6 +67,7 @@ service cloud.firestore {
     // 설정: 누구나 읽기(비밀 없음), 교사만 쓰기. 제출 코드·교사 목록은 교사만.
     match /config/submission { allow read: if true; allow write: if isTeacher(); }
     match /config/monitor { allow read: if true; allow write: if isTeacher(); }
+    match /config/assistant { allow read: if true; allow write: if isTeacher(); }      // 학생 AI 도우미 켜기/끄기(chatUsage 는 규칙이 없어 클라이언트가 못 읽고 쓴다)
     match /config/submissionSecret { allow read, write: if isTeacher(); }
     match /config/teachers { allow read, write: if isTeacher(); }
 

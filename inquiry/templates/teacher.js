@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { prog: null, progErr: "", mon: undefined, group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+const M = { prog: null, progErr: "", mon: undefined, ai: undefined, group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -79,8 +79,8 @@ function liveState(ms) {
 
 function renderMonitor(main) {
   const tok = T.liveTok = {};
-  const ctl = el("div", { class: "panel" }), tbl = el("div", { class: "panel" });
-  main.append(ctl, tbl);
+  const ctl = el("div", { class: "panel" }), ai = el("div", { class: "panel" }), tbl = el("div", { class: "panel" });
+  main.append(ctl, ai, tbl);
 
   /* --- 수집 스위치 --- */
   const paintCtl = () => {
@@ -94,6 +94,15 @@ function renderMonitor(main) {
           if (!confirm("서버에 쌓인 모든 학생의 진도 기록을 삭제합니다. 계속할까요?")) return;
           try { toast(`진도 기록 ${await FB.clearProgress()}건을 삭제했습니다`); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
         } }, [ico("delete"), "진도 기록 삭제"])));
+  };
+
+  /* --- 학생 AI 도우미 스위치 --- */
+  const paintAi = () => {
+    const on = !!(M.ai && M.ai.on);
+    fill(ai, el("h3", {}, "학생 AI 도우미"),
+      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 학생 한 명당 하루 40번·1분에 6번까지이며, 질문과 답은 서버에 저장하지 않고 사용 횟수만 셉니다. 질문·사진·화면의 글은 Google Gemini로 전달되고 학생 화면에 그 사실이 안내됩니다."),
+      M.ai === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "켜짐 — 학생 화면에 AI 아이콘이 보입니다" : "꺼짐 — 학생 화면에 AI 아이콘이 없습니다"),
+      el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveAssistant(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "AI 도우미 끄기"] : [ico("play_arrow"), "AI 도우미 켜기"]));
   };
 
   /* --- 진도 표: 교재 장별 읽기 진도(분류별로 묶음) + 학습지 진행 --- */
@@ -133,8 +142,9 @@ function renderMonitor(main) {
           })))));
   };
 
-  paintCtl(); paintTbl();
+  paintCtl(); paintAi(); paintTbl();
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); }), tok);
+  liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); }), tok);
   liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }

@@ -31,6 +31,10 @@ const FB = (() => {
   const call = async (name, data) => { const m = await load(); return (await m.fn.httpsCallable(m.fx, name)(data)).data; };
   const fbErr = e => (e && (e.message || e.code)) || String(e);
 
+  /* ---------- 학생 AI 도우미 ---------- */
+  const watchAssistant = cb => watchDoc("config", "assistant", cb);
+  const askAssistant = p => call("askAssistant", p);
+
   /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
   async function watchDoc(col, id, cb) {
@@ -60,6 +64,10 @@ const FB = (() => {
     const m = await load();
     await m.fs.setDoc(m.fs.doc(m.db, "config", "monitor"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
   }
+  async function saveAssistant(on) {
+    const m = await load();
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
+  }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
     const snap = await getDocs(collection(m.db, "progress"));
@@ -78,7 +86,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, reportProgress,
+           watchMonitor, reportProgress, watchAssistant, askAssistant, saveAssistant,
            watchProgress, saveMonitor, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

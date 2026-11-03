@@ -98,6 +98,11 @@
   addEventListener("pagehide", () => send(true));
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") send(true); });
   FB.watchMonitor(s => { const was = monOn; monOn = !!(s && s.on); if (!monOn) { ready = false; lastSentAt = 0; } if (monOn && !was) send(true); updateBar(); }).catch(() => {});
+  /* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 절의 글과, 학생이 드래그해 고른 글 */
+  if (typeof Assistant !== "undefined") Assistant.init({ getContext: () => {
+    const cur = Assistant.nearestMid(sections), h = cur && cur.querySelector("h2");
+    return { kind: "textbook", title: `${CH.title}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
+  } });
   FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
   StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); updateBar(); send(true); });
   StudentAuth.init();

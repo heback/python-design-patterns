@@ -47,6 +47,22 @@ function updateSaveState(lsOk) {
 function initFb() {
   if (typeof FB === "undefined") return;
   if (typeof Mon !== "undefined") Mon.init();
+  if (typeof Assistant !== "undefined") Assistant.init({ getContext: assistantContext });
+}
+
+/* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 문항(없으면 그 주차 머리말)과 그 문항에 학생이 쓴 글·코드, 드래그해 고른 글 */
+function assistantContext() {
+  const w = CONTENT.weeks[curWeek], item = Assistant.nearestMid($$("#week .item"));
+  const stage = item && item.closest(".stage"), stageName = stage ? (($(".badge", stage) || {}).textContent || "").trim() : "";
+  const head = `${w.n}주차 · ${w.concept} · ${w.title}`;
+  let text = head;
+  if (stage) { const intro = $(".intro", stage); text += `\n[단계] ${stageName}` + (intro ? "\n" + Assistant.readable(intro, 600) : ""); }
+  if (item) {
+    text += "\n[문항]\n" + Assistant.readable(item, 2500);
+    const mine = $$("textarea", item).map(t => t.value.trim()).filter(Boolean).join("\n---\n").slice(0, 1500);     // 학생이 쓴 글·코드(내 답을 봐 달라고 물을 수 있도록)
+    if (mine) text += "\n[학생이 쓴 답]\n" + mine;
+  }
+  return { kind: "worksheet", title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
 }
 
 /* ---------- 화면 ---------- */

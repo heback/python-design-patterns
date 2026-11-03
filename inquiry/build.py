@@ -120,12 +120,13 @@ def fb_snippet():
 def render(tpl_name, content_js, app_js):
     t = ROOT / "templates"
     page = (t / tpl_name).read_text(encoding="utf-8")
-    return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8") + "\n" + (t / "mon-ui.css").read_text(encoding="utf-8"))
+    return (page.replace("/*@STYLE@*/", (t / "style.css").read_text(encoding="utf-8") + "\n" + (t / "mon-ui.css").read_text(encoding="utf-8") + "\n" + (t / "assistant.css").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN_CSS@*/", (PYRUN / "pyrun.css").read_text(encoding="utf-8"))
                 .replace("/*@PYHL@*/", (PYRUN / "pyhl.js").read_text(encoding="utf-8"))
                 .replace("/*@PYRUN@*/", (PYRUN / "pyrun.js").read_text(encoding="utf-8"))
                 .replace("/*@FB@*/", fb_snippet())
                 .replace("/*@MONITOR@*/", (t / "monitor.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
+                .replace("/*@ASSISTANT@*/", (t / "assistant.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@STUDENTAUTH@*/", (t / "student-auth.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
@@ -168,12 +169,13 @@ def inject_textbook_monitor(dest):
     """Firebase 호스팅에 올리는 교재 사본(각 장 페이지)에만 읽기 진도 모니터를 넣는다. GitHub Pages 의 docs/textbook 은 건드리지 않는다.
     학번·성명은 학습지와 같은 저장소를 쓰므로 학습지와 같은 주소(origin)의 사본이어야 한다."""
     t = ROOT / "templates"
-    tail = ("<style>" + (t / "mon-ui.css").read_text(encoding="utf-8") + "</style>\n"
+    tail = ("<style>" + (t / "mon-ui.css").read_text(encoding="utf-8") + (t / "assistant.css").read_text(encoding="utf-8") + "</style>\n"
             "<script>" + FB_CONFIG.read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "fb.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "core.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>const TB_DATA = " + js({"chapters": CHAPTERS}) + ";</script>\n"
             "<script>" + (t / "student-auth.js").read_text(encoding="utf-8") + "</script>\n"
+            "<script>" + (t / "assistant.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
     (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")
