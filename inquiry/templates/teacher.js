@@ -10,7 +10,6 @@ let booted = false;
 function boot() {
   if (booted) return; booted = true;
   initTheme();
-  $("#btn-print").addEventListener("click", () => print());
   render();
 }
 
