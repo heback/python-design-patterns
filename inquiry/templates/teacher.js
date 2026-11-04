@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qOpen: {}, qErr: "",
+const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qSel: "", qFind: "", qErr: "",
   lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
   group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
@@ -339,7 +339,25 @@ function renderMonitor(main) {
     (M.quota || []).forEach(q => { if (!stu.has(q.id)) stu.set(q.id, { student: {}, u: null }); });
     const list = [...stu].map(([uid, v]) => ({ uid, ...v })).sort((a, b) => stuName(a).localeCompare(stuName(b), "ko", { numeric: true }));
     const limIn = el("input", { type: "number", min: 0, max: MAXQ, step: 1, value: baseLimit(), style: "width:90px", "aria-label": "장별 기본 질문 한도" });
-    const find = el("input", { type: "search", placeholder: "학생 이름·이메일 찾기", style: "min-width:200px", oninput: () => { const t = find.value.trim().toLowerCase(); vQuota.querySelectorAll("details[data-name]").forEach(d => { d.hidden = !!t && !d.dataset.name.includes(t); }); } });
+    const nameOf = x => (stuName({ student: x.student }) === "(이름 없음)" ? x.uid : stuName({ student: x.student }));
+    if (!list.some(x => x.uid === M.qSel)) M.qSel = "";                                               // 선택한 학생이 목록에 없으면 선택 해제
+    const find = el("input", { type: "search", placeholder: "학생 이름·이메일 찾기", value: M.qFind, style: "width:100%", oninput: () => { M.qFind = find.value; applyFind(); } });
+    const applyFind = () => { const t = M.qFind.trim().toLowerCase(); vQuota.querySelectorAll(".qlist [data-name]").forEach(b => { b.hidden = !!t && !b.dataset.name.includes(t); }); };
+    const detail = el("div", { class: "qdetail" });
+    const paintDetail = () => {
+      const x = list.find(y => y.uid === M.qSel);
+      if (!x) { fill(detail, el("p", { class: "lead" }, "왼쪽에서 학생을 고르면 그 학생의 한도를 바꾸는 화면이 여기에 나타납니다.")); return; }
+      const q = quotaOf(x.uid), all = Number(q.all) || 0, caps = Object.values(q.chapters || {}).filter(Boolean).length;
+      fill(detail, el("h4", {}, nameOf(x)), x.student && x.student.email ? el("p", { class: "lead", style: "font-size:12.5px;margin:0 0 6px" }, x.student.email) : null,
+        el("p", { class: "lead", style: "font-size:12.5px" }, `모든 장 ${signed(all)}${caps ? ` · 장별 가감 ${caps}곳` : ""}`), quotaBody(x.uid, x.u));
+    };
+    const items = list.map(x => {
+      const q = quotaOf(x.uid), all = Number(q.all) || 0, caps = Object.values(q.chapters || {}).filter(Boolean).length;
+      const mark = all || caps ? "가감 있음" : "";
+      return el("button", { type: "button", class: "qitem" + (x.uid === M.qSel ? " on" : ""), "data-name": (nameOf(x) + " " + ((x.student && x.student.email) || "")).toLowerCase(), "aria-pressed": x.uid === M.qSel ? "true" : "false",
+        onclick: () => { M.qSel = x.uid; items.forEach(b => { const on = b === items[list.indexOf(x)]; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); }); paintDetail(); } },
+        el("span", {}, nameOf(x)), el("small", {}, mark));
+    });
     fill(vQuota, el("h3", {}, "질문 한도"),
       el("p", { class: "lead" }, "학생 한 명이 AI 도우미에게 물을 수 있는 횟수를 장(교재의 한 장, 학습지의 한 주차)마다 따로 정합니다. 기본값은 모든 학생에게 같고, 학생별로 모든 장 또는 한 장의 한도를 늘리거나 줄일 수 있습니다. 1분에 6번까지라는 속도 제한은 따로 있습니다."),
       M.qErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "한도 정보를 읽지 못했습니다."), el("div", {}, M.qErr)) : null,
@@ -351,17 +369,8 @@ function renderMonitor(main) {
           } }, ico("save"), "저장")),
         el("p", { class: "lead", style: "font-size:13px" }, `기본값을 바꾸면 모든 학생에게 바로 적용됩니다(학생별 가감은 그대로 더해집니다). 0 으로 하면 AI 도우미를 쓸 수 없게 됩니다. 정하지 않으면 ${DEFQ}번입니다.`)),
       el("h4", {}, `학생별 (${list.length}명)`),
-      el("div", { style: "margin:6px 0" }, find),
-      list.length ? list.map(({ uid, student, u }) => {
-        const q = quotaOf(uid), caps = Object.values(q.chapters || {}).filter(Boolean).length, all = Number(q.all) || 0, usedMax = Math.max(0, ...Object.values((u && u.chapters) || {}).map(Number));
-        const d = el("details", { class: "fold qstu", "data-name": stuName({ student }).toLowerCase(), ...(M.qOpen[uid] ? { open: "" } : {}) },
-          el("summary", {}, stuName({ student }) === "(이름 없음)" ? uid : stuName({ student }), " ",
-            el("small", { class: "lead" }, `· 모든 장 ${signed(all)}${caps ? ` · 장별 가감 ${caps}곳` : ""} · 한 장 최대 ${nf(usedMax)}번 사용`)));
-        const fillBody = () => { d.querySelector(".qbody") || d.append(el("div", { class: "qbody" })); fill(d.querySelector(".qbody"), quotaBody(uid, u)); };
-        if (M.qOpen[uid]) fillBody();
-        d.addEventListener("toggle", () => { M.qOpen[uid] = d.open; if (d.open) fillBody(); });         // 열 때만 표를 만든다(학생 수 × 장 수가 많다)
-        return d;
-      }) : el("p", { class: "lead" }, "아직 AI 도우미를 쓰거나 진도를 보낸 학생이 없습니다."));
+      list.length ? el("div", { class: "qsplit" }, el("div", { class: "qpick" }, find, el("div", { class: "qlist" }, items)), detail) : el("p", { class: "lead" }, "아직 AI 도우미를 쓰거나 진도를 보낸 학생이 없습니다."));
+    paintDetail(); applyFind();
   };
   const paintChat = () => { paintTok(); paintLog(); paintAi(); if (M.view === "quota") paintQuota(); paintNav(); };
 
