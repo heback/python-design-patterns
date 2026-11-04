@@ -78,6 +78,15 @@ code { font-family: var(--font-code); font-size: .9em; }
   border-radius: 999px; width: 34px; height: 34px; cursor: pointer; font-size: 16px;
 }
 
+/* ---- 요약 판 / 원문 탭(상단 바에 함께 고정) ---- */
+.topbar { flex-wrap: wrap; row-gap: 0; }
+.ver-tabs { flex-basis: 100%; display: flex; gap: 4px; margin: 8px -20px -11px; padding: 0 20px; }
+.ver-tabs a { padding: 7px 18px; font-size: .9em; font-weight: 600; text-decoration: none; color: var(--muted); border-bottom: 3px solid transparent; }
+.ver-tabs a:hover { color: var(--text); }
+.ver-tabs a.on { color: var(--accent); border-bottom-color: var(--accent); }
+body.has-tabs .side-toc { top: 112px; max-height: calc(100vh - 120px); }
+html:has(body.has-tabs) { scroll-padding-top: 112px; }
+
 /* ---- 레이아웃 ---- */
 .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
 .side-toc { position: sticky; top: 72px; align-self: start; padding-top: 40px; font-size: .88em; max-height: calc(100vh - 80px); overflow: auto; }

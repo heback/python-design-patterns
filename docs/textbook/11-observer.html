@@ -14,19 +14,20 @@
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 </head>
-<body class="chapter" data-part="행위 패턴">
+<body class="chapter has-tabs" data-part="행위 패턴">
 <header class="topbar">
   <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="course">객체지향프로그래밍.대구과학고등학교.2학기</span>
   <span class="crumb">11장 · 옵저버 (Observer)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+  <nav class="ver-tabs" aria-label="요약 판과 원문 전환"><a href="11-observer.html" class="on" data-ver="short" aria-current="page" title="핵심만 간추린 글(기본)">요약 판</a><a href="11-observer-full.html" class="" data-ver="long" title="더 자세한 설명과 여러 변형(읽지 않아도 연습문제를 풀 수 있다)">원문 (긴 버전)</a></nav>
 </header>
 <div class="layout">
   <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
   <main class="content">
     <header class="hero"><span class="part">11장 · 행위 패턴</span><h1>옵저버 (Observer)</h1><p class="subtitle">변화를 알리는 쪽이 듣는 쪽을 모르게 하기</p></header>
-    <aside class="callout full-ref"><strong>요약 판</strong> 핵심만 간추린 글이다. 더 자세한 설명과 여러 변형이 궁금하면 <a href="11-observer-full.html">참고용 긴 버전</a>을 보면 된다(읽지 않아도 연습문제를 풀 수 있다).</aside><section id="goals">
+    <section id="goals">
 <h2>학습 목표</h2>
 <ol>
   <li>알리는 쪽(주체)이 듣는 쪽(관찰자)을 모르도록 구독·통지 구조를 만들 수 있다.</li>

@@ -14,19 +14,20 @@
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 </head>
-<body class="chapter" data-part="">
+<body class="chapter has-tabs" data-part="">
 <header class="topbar">
   <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="course">객체지향프로그래밍.대구과학고등학교.2학기</span>
   <span class="crumb">종합 · 종합: 패턴 비교와 조합 · 참고용 긴 버전</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
+  <nav class="ver-tabs" aria-label="요약 판과 원문 전환"><a href="99-summary.html" class="" data-ver="short" title="핵심만 간추린 글(기본)">요약 판</a><a href="99-summary-full.html" class="on" data-ver="long" aria-current="page" title="더 자세한 설명과 여러 변형(읽지 않아도 연습문제를 풀 수 있다)">원문 (긴 버전)</a></nav>
 </header>
 <div class="layout">
   <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#look-alikes">1. 닮은 패턴 구별하기</a></li><li><a href="#case-study">2. 사례 연구: 로봇 창고</a></li><li><a href="#combinations">3. 자주 쓰이는 조합</a></li><li><a href="#principles">4. 원칙으로 되짚기</a></li><li><a href="#python-absorption">5. 파이썬이 흡수한 패턴들</a></li><li><a href="#smells">6. 냄새에서 후보 패턴으로</a></li><li><a href="#anti-patterns">7. 패턴 과잉 체크리스트</a></li><li><a href="#exercises">8. 연습문제</a></li></ol></nav>
   <main class="content">
     <header class="hero"><span class="part">종합 · 참고용 긴 버전</span><h1>종합: 패턴 비교와 조합</h1><p class="subtitle">닮은 패턴을 의도로 가르고, 변경 축만큼만 패턴을 넣기</p></header>
-    <aside class="callout full-ref"><strong>참고용 긴 버전</strong> 이 글은 같은 내용을 자세히 풀어 쓴 참고 자료다. 수업에서는 요약 판을 기본으로 읽는다. 연습문제는 요약 판과 같다. <a href="99-summary.html">요약 판으로 돌아가기 →</a></aside><section id="goals">
+    <section id="goals">
   <h2>학습 목표</h2>
   <ol>
     <li>구조가 비슷한 패턴들(전략/상태, 데코레이터/프록시/어댑터, 팩토리 메서드/추상 팩토리/빌더, 컴포지트/데코레이터, 퍼사드/어댑터, 커맨드/전략, 템플릿 메서드/전략)을 "누가 무엇을 결정하는가"라는 의도 기준으로 구별할 수 있다.</li>

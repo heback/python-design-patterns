@@ -221,19 +221,19 @@ def build() -> int:
             hero = (f'<header class="hero"><span class="part">{chapter_label(ch)}'
                     f'{" · " + ch.part if ch.part else ""}{tag}</span><h1>{ch.title}</h1>'
                     f'<p class="subtitle">{ch.subtitle}</p></header>')
+            tabs = ""
             if ch.full:
                 short = f"{ch.nn}-{ch.slug}.html"
-                note = (f'<aside class="callout full-ref"><strong>참고용 긴 버전</strong> 이 글은 같은 내용을 자세히 풀어 쓴 참고 자료다. '
-                        f'수업에서는 요약 판을 기본으로 읽는다. 연습문제는 요약 판과 같다. <a href="{short}">요약 판으로 돌아가기 →</a></aside>')
-                body = note + body
                 pager = pager.replace('<nav class="pager">', f'<nav class="pager"><a class="prev" href="{short}"><small>↑ 요약 판</small>{chapter_label(ch)} {ch.title}</a>', 1)
-            elif (FULL / f"{ch.nn}-{ch.slug}.html").exists():
-                long_ = f"{ch.nn}-{ch.slug}-full.html"
-                body = (f'<aside class="callout full-ref"><strong>요약 판</strong> 핵심만 간추린 글이다. '
-                        f'더 자세한 설명과 여러 변형이 궁금하면 <a href="{long_}">참고용 긴 버전</a>을 보면 된다(읽지 않아도 연습문제를 풀 수 있다).</aside>' + body)
+            if ch.full or (FULL / f"{ch.nn}-{ch.slug}.html").exists():
+                # 요약 판 ↔ 원문(긴 버전) 탭. 상단 바에 고정되고, 누르면 읽던 절 위치로 같은 절 id를 따라 이동한다(textbook-code.js).
+                short, long_ = f"{ch.nn}-{ch.slug}.html", f"{ch.nn}-{ch.slug}-full.html"
+                tabs = ('<nav class="ver-tabs" aria-label="요약 판과 원문 전환">'
+                        f'<a href="{short}" class="{"" if ch.full else "on"}" data-ver="short"{"" if ch.full else " aria-current=\"page\""} title="핵심만 간추린 글(기본)">요약 판</a>'
+                        f'<a href="{long_}" class="{"on" if ch.full else ""}" data-ver="long"{" aria-current=\"page\"" if ch.full else ""} title="더 자세한 설명과 여러 변형(읽지 않아도 연습문제를 풀 수 있다)">원문 (긴 버전)</a></nav>')
             page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)}{' (참고용 긴 버전)' if ch.full else ' (요약)'} — 파이썬 디자인 패턴 · {COURSE_LABEL}",
                         body_class="chapter", part=ch.part, crumb=f"{chapter_label(ch)} · {ch.title}{tag}",
-                        toc=toc, hero=hero, content=body, pager=pager)
+                        toc=toc, hero=hero, content=body, pager=pager, tabs=tabs, tabs_class=" has-tabs" if tabs else "")
             (OUT / ch.out_name).write_text(page, encoding="utf-8")
             print(f"  built {ch.out_name}")
 
