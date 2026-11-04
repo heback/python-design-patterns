@@ -127,7 +127,7 @@
   /* AI 도우미가 참고하는 화면: 지금 화면 가운데에 있는 절의 글과, 학생이 드래그해 고른 글 */
   if (typeof Assistant !== "undefined") Assistant.init({ getContext: () => {
     const cur = Assistant.nearestMid(sections), h = cur && cur.querySelector("h2");
-    return { kind: "textbook", title: `${CH.title}${LONG ? " (긴 버전)" : ""}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
+    return { kind: "textbook", chapter: SLUG, title: `${CH.title}${LONG ? " (긴 버전)" : ""}${h ? " · " + h.textContent.trim() : ""}`, text: cur ? Assistant.readable(cur, 6000) : "", selection: Assistant.selectedText() };
   } });
   FocusTrack.onChange(() => send(true));      // 화면을 벗어나거나 돌아올 때 바로 알린다
   StudentAuth.onChange(() => { ready = false; lastSig = ""; loadMine(); seed().then(() => { updateBar(); send(true); }); updateBar(); });

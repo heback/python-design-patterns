@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, getDoc, getDocs, collection, deleteDoc, Timestamp } = require("firebase/firestore");
+const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, Timestamp } = require("firebase/firestore");
 
 let env;
 const T = { email: "teacher@ts.hs.kr", email_verified: true, firebase: { sign_in_provider: "google.com" } };
@@ -230,6 +230,21 @@ test("AI 도우미: 스위치는 누구나 읽고 교사만 쓴다. 대화 기�
   }
   await assertSucceeds(getDocs(collection(teacher(), "chatLogs")));
   await assertFails(getDocs(collection(pupil("a"), "chatLogs")));
+  await assertFails(deleteDoc(doc(pupil("a"), "chatLogs/x1")));                        // 학생은 자기 대화 기록도 지울 수 없다
+  await assertFails(deleteDoc(doc(pupil("b"), "chatLogs/x1")));                        // 남의 기록은 더더욱
+  await assertFails(updateDoc(doc(pupil("a"), "chatLogs/x1"), { question: "" }));       // 고칠 수도 없다
+  await assertFails(deleteDoc(doc(pupil("a"), "stats/assistant")));
   await assertSucceeds(deleteDoc(doc(teacher(), "chatLogs/x1")));                      // 교사는 기록을 지울 수 있다
   await assertFails(deleteDoc(doc(pupil("a"), "chatUsage/a")));
+});
+
+test("AI 도우미 질문 한도 가감(chatQuota): 교사만 읽고, 아무도 직접 쓰지 못한다(함수만). 학생은 자기 한도를 올리거나 지울 수 없다", async () => {
+  await env.withSecurityRulesDisabled(async c => { await setDoc(doc(c.firestore(), "chatQuota/a"), { all: 10, chapters: { "05-singleton": -5 } }); });
+  await assertFails(getDoc(doc(pupil("a"), "chatQuota/a")));
+  await assertSucceeds(getDoc(doc(teacher(), "chatQuota/a")));
+  await assertFails(setDoc(doc(pupil("a"), "chatQuota/a"), { all: 1000 }));
+  await assertFails(updateDoc(doc(pupil("a"), "chatQuota/a"), { all: 1000 }));
+  await assertFails(deleteDoc(doc(pupil("a"), "chatQuota/a")));
+  await assertFails(setDoc(doc(teacher(), "chatQuota/a"), { all: 1000 }));
+  await assertFails(deleteDoc(doc(teacher(), "chatQuota/a")));
 });

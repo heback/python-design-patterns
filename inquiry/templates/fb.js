@@ -34,6 +34,8 @@ const FB = (() => {
   /* ---------- 학생 AI 도우미 ---------- */
   const watchAssistant = cb => watchDoc("config", "assistant", cb);
   const askAssistant = p => call("askAssistant", p);
+  /* 이 화면의 장에서 남은 질문 수: {chapter, chapterTitle, limit, used, left} */
+  const assistantQuota = chapter => call("getAssistantQuota", { chapter });
 
   /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
@@ -69,18 +71,52 @@ const FB = (() => {
   /* 켜기/끄기는 서버 함수가 한다: 스위치와 변경 이력(monitorEvents)을 서버 시각으로 함께 쓰고, 클라이언트는 직접 쓰지 못한다. */
   const saveMonitor = on => call("setMonitor", { on: !!on });
   const watchMonitorEvents = cb => live("monitorEvents", cb, m => m.fs.query(m.fs.collection(m.db, "monitorEvents"), m.fs.orderBy("at", "desc"), m.fs.limit(30)));
+  /* 켜기/끄기와 기본 한도(limit)는 같은 문서(config/assistant)에 있으므로 merge 로 써서 서로 지우지 않는다. */
   async function saveAssistant(on) {
     const m = await load();
-    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() }, { merge: true });
   }
+  /* 장별 기본 질문 한도(학생 한 명이 장 하나에서). 서버가 0~1000 의 정수가 아니면 기본값(40)으로 본다. */
+  async function saveAssistantLimit(n) {
+    const m = await load();
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { limit: n, limitBy: m.au.currentUser.email, limitAt: m.fs.Timestamp.now() }, { merge: true });
+  }
+  /* 학생·장별 한도 가감: chapter 는 "all"(모든 장) 또는 장 키, value 는 기본 한도에 더할 값(0 이면 가감 없음). 함수가 교사를 확인하고 쓴다. */
+  const setAssistantQuota = (uid, chapter, value) => call("setAssistantQuota", { uid, chapter, value });
   /* AI 도우미 기록·집계(교사). 함수가 쓰고 교사만 읽는다. */
   const live = (col, cb, q) => load().then(m => m.fs.onSnapshot(q ? q(m) : m.fs.collection(m.db, col), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e)));
   const watchChatUsage = cb => live("chatUsage", cb);
+  const watchChatQuota = cb => live("chatQuota", cb);
   const watchChatLogs = (cb, n) => live("chatLogs", cb, m => m.fs.query(m.fs.collection(m.db, "chatLogs"), m.fs.orderBy("at", "desc"), m.fs.limit(n || 200)));
   async function watchStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "assistant"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
+  /* 대화 기록 한 쪽. o = {uid?, kind: all|refused|error|image, size, after?(앞 쪽의 마지막 문서)}. 서버 쿼리로 거르고 커서로 넘긴다.
+     반환 {rows, last, more}: more 는 다음 쪽이 있는지(size+1 건을 읽어 알아낸다). 필터 조합마다 복합 색인이 필요하다(firestore.indexes.json). */
+  function chatLogQuery(m, o) {
+    const { collection, query, where } = m.fs, cs = [];
+    if (o.uid) cs.push(where("uid", "==", o.uid));
+    if (o.kind === "refused") cs.push(where("refused", "==", true));
+    else if (o.kind === "error") cs.push(where("failed", "==", true));
+    else if (o.kind === "image") cs.push(where("hasImage", "==", true));
+    return { cs, col: collection(m.db, "chatLogs"), query };
+  }
+  async function chatLogsPage(o) {
+    const m = await load(), { orderBy, limit, startAfter, getDocs } = m.fs, q = chatLogQuery(m, o), size = o.size || 20;
+    const extra = [orderBy("at", "desc")]; if (o.after) extra.push(startAfter(o.after)); extra.push(limit(size + 1));
+    const docs = (await getDocs(q.query(q.col, ...q.cs, ...extra))).docs, page = docs.slice(0, size);
+    return { rows: page.map(d => Object.assign({ id: d.id }, d.data())), last: page.length ? page[page.length - 1] : null, more: docs.length > size };
+  }
+  /* 같은 조건의 전체 건수(서버 집계, 문서를 내려받지 않는다). 실패하면 null. */
+  async function chatLogsCount(o) {
+    try { const m = await load(), q = chatLogQuery(m, o); return (await m.fs.getCountFromServer(q.query(q.col, ...q.cs))).data().count; } catch (e) { return null; }
+  }
+  /* 모든 대화 기록 삭제(교사만 — 규칙). 많을 수 있으므로 400건씩 묶어서 지운다. */
   async function clearChatLogs() {
-    const m = await load(), { collection, getDocs, deleteDoc } = m.fs, snap = await getDocs(collection(m.db, "chatLogs"));
-    await Promise.all(snap.docs.map(d => deleteDoc(d.ref))); return snap.size;
+    const m = await load(), { collection, query, limit, getDocs, writeBatch } = m.fs; let n = 0;
+    for (;;) {
+      const snap = await getDocs(query(collection(m.db, "chatLogs"), limit(400))); if (snap.empty) break;
+      const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit(); n += snap.size;
+    }
+    return n;
   }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
@@ -100,7 +136,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, saveAssistant, watchChatUsage, watchChatLogs, watchStats, clearChatLogs,
+           watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

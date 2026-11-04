@@ -1,7 +1,9 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", logStu: "", logFilter: "all", group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", quota: null, qOpen: {}, qErr: "",
+  lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
+  group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -145,11 +147,11 @@ function statusLegend() {
 function renderMonitor(main) {
   const tok = T.liveTok = {};
   /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
-  /* 메뉴: 환경설정 · 진도표 · 대화기록 · 토큰 사용량 */
+  /* 메뉴: 환경설정 · 진도표 · 대화기록 · 토큰 사용량 · 질문 한도 */
   const ctl = el("div", { class: "setrow" }), vAi = el("div", { class: "setrow" }), tbl = el("div", {});
   const vSet = el("section", { class: "panel", id: "v-settings" }, el("h3", {}, "환경설정"), ctl, vAi), vProg = el("section", { class: "panel", id: "v-progress" }, tbl),
-    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" });
-  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok]];
+    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" });
+  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok], ["quota", "tune", "질문 한도", vQuota]];
   const known = k => VIEWS.some(v => v[0] === k);
   if (!known(M.view)) { const h = location.hash.slice(1), saved = lsGet("dp-teacher-view"); M.view = known(h) ? h : known(saved) ? saved : "progress"; }
   const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
@@ -157,10 +159,10 @@ function renderMonitor(main) {
     const act = (M.prog || []).filter(r => liveState(tsMs(r.lastActiveAt))[0] === "ok").length, aiOn = !!(M.ai && M.ai.on), monOn = !!(M.mon && M.mon.on), err = !!recentChatErr();
     const badge = k => k === "progress" ? el("span", { class: "nb " + (monOn ? "ok" : "off"), title: monOn ? "수집 중(활동 중인 학생 수)" : "진도 수집이 꺼져 있어요" }, monOn ? `${act}명` : "수집 꺼짐")
       : k === "settings" ? (err ? el("span", { class: "nb bad", title: "최근 AI 호출 오류" }, "오류") : null)
-      : k === "logs" ? (M.logs && M.logs.length ? el("span", { class: "nb" }, String(M.logs.length)) : null) : null;
+      : null;
     fill(nav, VIEWS.map(([k, ic, lab]) => el("button", { type: "button", class: "side-item", "aria-current": M.view === k ? "page" : null, onclick: () => go(k) }, ico(ic, M.view === k ? "fill" : ""), el("span", { class: "side-lab" }, lab), badge(k))));
   };
-  const go = k => { M.view = k; lsSet("dp-teacher-view", k); try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); paintNav(); scrollTo(0, 0); };
+  const go = k => { M.view = k; lsSet("dp-teacher-view", k); try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); if (k === "quota") paintQuota(); paintNav(); scrollTo(0, 0); };
   main.append(el("div", { class: "shell" }, nav, el("div", { class: "view" }, VIEWS.map(v => v[3]))));
   VIEWS.forEach(v => { v[3].hidden = v[0] !== M.view; });
 
@@ -198,7 +200,7 @@ function renderMonitor(main) {
     const re = recentChatErr();
     fill(vAi, el("h4", {}, "학생 AI 도우미"),
       re ? errBox(re) : null,
-      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 학생 한 명당 하루 40번·1분에 6번까지이며, 학생과 AI가 주고받은 질문·답은 [대화기록] 메뉴에 기록되고 [토큰 사용량] 메뉴에 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
+      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 질문 횟수는 학생 한 명이 장(학습지는 주차)마다 기본 40번, 1분에 6번까지이며 기본값과 학생·장별 가감은 [질문 한도] 메뉴에서 바꿉니다. 학생과 AI가 주고받은 질문·답은 [대화기록] 메뉴에 기록되고 [토큰 사용량] 메뉴에 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
       M.ai === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "켜짐 — 학생 화면에 AI 아이콘이 보입니다" : "꺼짐 — 학생 화면에 AI 아이콘이 없습니다"),
       el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveAssistant(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "AI 도우미 끄기"] : [ico("play_arrow"), "AI 도우미 켜기"]));
   };
@@ -224,32 +226,117 @@ function renderMonitor(main) {
           el("td", {}, nf(u.total_promptTokens)), el("td", {}, nf(u.total_outputTokens)), el("td", {}, nf(u.total_totalTokens)), el("td", {}, ago(tsMs(u.lastAt)))))))) : el("p", { class: "lead" }, "아직 AI 도우미를 쓴 학생이 없습니다."));
   };
 
-  /* --- 대화 기록 화면: 학생·거절·오류·사진으로 걸러 보기 --- */
+  /* --- 대화 기록 화면: 쪽 나누기(서버 커서) + 학생·거절·오류·사진 필터(서버 쿼리) --- */
+  const lg = M.lg;
+  const resetLogs = () => { lg.page = 0; lg.cursors = [null]; lg.total = null; lg.rows = null; loadLogs(true); };
+  async function loadLogs(withTotal) {
+    const seq = ++lg.seq; lg.busy = true; lg.err = ""; paintLog();
+    try {
+      const o = { uid: lg.uid, kind: lg.kind, size: lg.size, after: lg.cursors[lg.page] };
+      const [r, total] = await Promise.all([FB.chatLogsPage(o), withTotal ? FB.chatLogsCount(o) : Promise.resolve(undefined)]);
+      if (seq !== lg.seq) return;                                  // 더 새 요청이 있으면 이 결과는 버린다
+      lg.rows = r.rows; lg.more = r.more; if (r.more) lg.cursors[lg.page + 1] = r.last; if (total !== undefined) lg.total = total;
+    } catch (e) {
+      if (seq !== lg.seq) return;
+      lg.rows = []; lg.more = false; lg.err = errText(e);
+      if (/index/i.test(lg.err)) lg.err += " — 이 조건에 쓰는 색인을 만드는 중이거나 아직 배포하지 않았습니다. `firebase deploy --only firestore:indexes` 후 몇 분 뒤 다시 시도하세요.";
+    }
+    lg.busy = false; paintLog();
+  }
+  const goPage = n => { lg.page = n; loadLogs(false); scrollTo(0, 0); };
+  const pager = () => {
+    const pages = lg.total != null ? Math.max(1, Math.ceil(lg.total / lg.size)) : null, from = lg.page * lg.size + 1, n = (lg.rows || []).length;
+    return el("div", { class: "pager" },
+      el("button", { class: "btn small", disabled: lg.busy || lg.page === 0, onclick: () => goPage(0) }, ico("first_page"), "처음"),
+      el("button", { class: "btn small", disabled: lg.busy || lg.page === 0, onclick: () => goPage(lg.page - 1) }, ico("chevron_left"), "이전"),
+      el("span", { class: "pg-info" }, pages ? `${lg.page + 1} / ${pages}쪽` : `${lg.page + 1}쪽`, n ? ` · ${nf(from)}–${nf(from + n - 1)}번째` : "", lg.total != null ? ` · 총 ${nf(lg.total)}건` : ""),
+      el("button", { class: "btn small", disabled: lg.busy || !lg.more, onclick: () => goPage(lg.page + 1) }, "다음", ico("chevron_right")));
+  };
   const paintLog = () => {
-    const logs = M.logs || [], usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
-    const shown = logs.filter(l => (!M.logStu || l.uid === M.logStu) && (M.logFilter === "all" || (M.logFilter === "refused" ? l.refused : M.logFilter === "error" ? l.error : l.hasImage)));
-    const stuSel = el("select", { onchange: e => { M.logStu = e.target.value; paintLog(); } }, el("option", { value: "" }, "전체 학생"),
-      usage.map(u => el("option", { value: u.id, ...(u.id === M.logStu ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
-    const fltSel = el("select", { onchange: e => { M.logFilter = e.target.value; paintLog(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === M.logFilter ? { selected: "" } : {}) }, l)));
+    const rows = lg.rows || [], usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
+    const stuSel = el("select", { onchange: e => { lg.uid = e.target.value; resetLogs(); } }, el("option", { value: "" }, "전체 학생"),
+      usage.map(u => el("option", { value: u.id, ...(u.id === lg.uid ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
+    const fltSel = el("select", { onchange: e => { lg.kind = e.target.value; resetLogs(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === lg.kind ? { selected: "" } : {}) }, l)));
+    const sizeSel = el("select", { onchange: e => { lg.size = Number(e.target.value); resetLogs(); } }, [20, 50, 100].map(n => el("option", { value: n, ...(n === lg.size ? { selected: "" } : {}) }, `${n}건씩`)));
     fill(vLog, el("h3", {}, "대화기록"),
-      M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "기록을 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
-      el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0 10px" }, el("label", {}, "학생 ", stuSel), el("label", {}, "보기 ", fltSel),
-        el("small", { class: "lead" }, `최근 ${logs.length}건 중 ${shown.length}건`),
+      lg.err ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "기록을 읽지 못했습니다."), el("div", {}, lg.err)) : null,
+      el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0 10px" }, el("label", {}, "학생 ", stuSel), el("label", {}, "보기 ", fltSel), el("label", {}, "쪽당 ", sizeSel),
+        el("button", { class: "btn small", disabled: lg.busy, onclick: () => loadLogs(true) }, ico("refresh"), "새로고침"),
         el("button", { class: "btn small danger", style: "margin-left:auto", onclick: async () => {
           if (!confirm("서버에 저장된 모든 AI 대화 기록을 삭제합니다(토큰 집계는 그대로 남습니다). 계속할까요?")) return;
-          try { toast(`대화 기록 ${await FB.clearChatLogs()}건을 삭제했습니다`); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
+          try { toast(`대화 기록 ${await FB.clearChatLogs()}건을 삭제했습니다`); resetLogs(); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
         } }, ico("delete"), "대화기록 삭제")),
-      shown.length ? shown.slice(0, 60).map(l => el("details", { class: "chatlog" + (l.error ? " bad" : "") },
+      el("p", { class: "lead", style: "font-size:13px" }, "최신 질문부터 보여 줍니다. 학생은 이 기록을 지우거나 고칠 수 없고(서버 규칙), 삭제는 교사만 할 수 있습니다. 오류만 걸러 보기는 이 기능을 넣은 뒤에 쌓인 기록부터 적용됩니다."),
+      rows.length || lg.page > 0 ? pager() : null,
+      lg.rows === null ? el("p", { class: "lead" }, "불러오는 중…") : null,
+      rows.map(l => el("details", { class: "chatlog" + (l.error ? " bad" : "") },
         el("summary", {}, el("span", { class: "cl-time" }, stamp(new Date(tsMs(l.at)))), el("b", {}, stuName(l)), el("span", { class: "cl-q" }, l.question),
           l.refused ? el("span", { class: "pill part" }, "범위 밖") : null, l.error ? el("span", { class: "pill bad" }, "오류") : null, l.hasImage ? el("span", { class: "pill none" }, ico("image"), "사진") : null,
           el("small", { class: "cl-tok" }, `${nf((l.usage || {}).total)} 토큰`)),
         el("div", { class: "cl-body" },
           el("div", { class: "cl-meta" }, `${l.kind === "worksheet" ? "학습지" : "교재"} · ${l.where || "—"} · 입력 ${nf((l.usage || {}).prompt)} / 출력 ${nf((l.usage || {}).output)} / 생각 ${nf((l.usage || {}).thoughts)} · ${l.ms || 0}ms${l.hasImage ? ` · 사진 ${Math.round((l.imageBytes || 0) / 1024)}KB(파일은 저장하지 않음)` : ""}`),
           el("div", { class: "cl-row" }, el("b", {}, "학생 "), l.question),
-          l.error ? el("div", { class: "cl-row err" }, el("b", {}, "오류 "), l.error) : el("div", { class: "cl-row" }, el("b", {}, "AI "), l.reply)))) : el("p", { class: "lead" }, logs.length ? "조건에 맞는 기록이 없습니다." : "아직 기록이 없습니다."),
-      shown.length > 60 ? el("p", { class: "lead" }, `최근 60건만 표시합니다(필터로 좁혀 보세요).`) : null);
+          l.error ? el("div", { class: "cl-row err" }, el("b", {}, "오류 "), l.error) : el("div", { class: "cl-row" }, el("b", {}, "AI "), l.reply)))),
+      lg.rows !== null && !rows.length && !lg.err ? el("p", { class: "lead" }, lg.page ? "이 쪽에는 기록이 없습니다." : lg.uid || lg.kind !== "all" ? "조건에 맞는 기록이 없습니다." : "아직 기록이 없습니다.") : null,
+      rows.length > 8 ? pager() : null);
   };
-  const paintChat = () => { paintTok(); paintLog(); paintAi(); paintNav(); };
+
+  /* --- 질문 한도 화면: 기본값 + 학생·장별 가감 --- */
+  const MAXQ = 1000, DEFQ = 40;
+  const CAPS = () => [...(CONTENT.chapters || []).map(c => [c.slug, c.title]), ...CONTENT.weeks.map(w => ["week" + w.n, `학습지 ${w.n}주차`]), ["etc", "기타 화면"]];
+  const baseLimit = () => { const n = M.ai && M.ai.limit; return Number.isInteger(n) && n >= 0 && n <= MAXQ ? n : DEFQ; };
+  const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n);
+  const quotaOf = uid => ((M.quota || []).find(q => q.id === uid)) || {};
+  const limitOf = (q, slug) => Math.max(0, baseLimit() + (Number(q.all) || 0) + (Number((q.chapters || {})[slug]) || 0));
+  async function adjustQuota(uid, cap, cur, step, btn) {
+    const v = step === null ? 0 : Math.max(-MAXQ, Math.min(MAXQ, cur + step));
+    if (v === cur) return;
+    btn.disabled = true;
+    try { await FB.setAssistantQuota(uid, cap, v); } catch (err) { alert("바꾸지 못했습니다: " + errText(err)); btn.disabled = false; }      // 성공하면 실시간 구독이 화면을 다시 그린다
+  }
+  function quotaBody(uid, u) {
+    const q = quotaOf(uid), used = (u && u.chapters) || {};
+    const btns = (cap, cur) => el("span", { class: "qbtns" }, [[-10, "−10"], [-1, "−1"], [1, "+1"], [10, "+10"]].map(([d, t]) => el("button", { type: "button", class: "btn small", onclick: e => adjustQuota(uid, cap, cur, d, e.currentTarget) }, t)),
+      el("button", { type: "button", class: "btn small", disabled: !cur, title: "가감을 없애고 기본 한도로", onclick: e => adjustQuota(uid, cap, cur, null, e.currentTarget) }, "초기화"));
+    const row = (cap, label, usedN, lim, cur) => el("tr", {}, el("td", {}, label), el("td", {}, usedN == null ? "—" : nf(usedN)), el("td", {}, lim == null ? "—" : `${nf(lim)}${usedN != null && usedN >= lim ? " (소진)" : ""}`),
+      el("td", { class: cur ? "qdelta" : "" }, cur ? signed(cur) : "0"), el("td", {}, btns(cap, cur)));
+    const all = Number(q.all) || 0;
+    return el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["장(주차)", "쓴 횟수", "한도", "가감", "가감 바꾸기"].map(h => el("th", {}, h)))),
+      el("tbody", {}, row("all", "모든 장 (전체에 더함)", null, baseLimit() + all, all), CAPS().map(([slug, title]) => row(slug, title, used[slug] || 0, limitOf(q, slug), Number((q.chapters || {})[slug]) || 0)))),
+      el("p", { class: "lead", style: "font-size:12.5px" }, `한도 = 기본 ${baseLimit()}번 + 모든 장 가감 + 그 장 가감(0보다 작아지지 않음). 쓴 횟수는 줄지 않으므로 이미 다 쓴 학생에게는 가감을 + 로 올려 주면 바로 더 물을 수 있습니다.`));
+  }
+  const paintQuota = () => {
+    const stu = new Map();
+    (M.usage || []).forEach(u => stu.set(u.id, { student: u.student || {}, u }));
+    (M.prog || []).forEach(r => { if (!stu.has(r.id)) stu.set(r.id, { student: r.student || {}, u: null }); });
+    (M.quota || []).forEach(q => { if (!stu.has(q.id)) stu.set(q.id, { student: {}, u: null }); });
+    const list = [...stu].map(([uid, v]) => ({ uid, ...v })).sort((a, b) => stuName(a).localeCompare(stuName(b), "ko", { numeric: true }));
+    const limIn = el("input", { type: "number", min: 0, max: MAXQ, step: 1, value: baseLimit(), style: "width:90px", "aria-label": "장별 기본 질문 한도" });
+    const find = el("input", { type: "search", placeholder: "학생 이름·이메일 찾기", style: "min-width:200px", oninput: () => { const t = find.value.trim().toLowerCase(); vQuota.querySelectorAll("details[data-name]").forEach(d => { d.hidden = !!t && !d.dataset.name.includes(t); }); } });
+    fill(vQuota, el("h3", {}, "질문 한도"),
+      el("p", { class: "lead" }, "학생 한 명이 AI 도우미에게 물을 수 있는 횟수를 장(교재의 한 장, 학습지의 한 주차)마다 따로 정합니다. 기본값은 모든 학생에게 같고, 학생별로 모든 장 또는 한 장의 한도를 늘리거나 줄일 수 있습니다. 1분에 6번까지라는 속도 제한은 따로 있습니다."),
+      M.qErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "한도 정보를 읽지 못했습니다."), el("div", {}, M.qErr)) : null,
+      el("div", { class: "setrow" }, el("h4", {}, "기본 한도"),
+        el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, el("label", {}, "장마다 학생 한 명이 ", limIn, " 번까지"),
+          el("button", { class: "btn primary", onclick: async e => {
+            const n = Number(limIn.value); if (!Number.isInteger(n) || n < 0 || n > MAXQ) { alert(`0~${MAXQ} 사이의 정수를 입력하세요.`); return; }
+            e.currentTarget.disabled = true; try { await FB.saveAssistantLimit(n); toast(`기본 한도를 ${n}번으로 저장했습니다`); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } e.currentTarget.disabled = false;
+          } }, ico("save"), "저장")),
+        el("p", { class: "lead", style: "font-size:13px" }, `기본값을 바꾸면 모든 학생에게 바로 적용됩니다(학생별 가감은 그대로 더해집니다). 0 으로 하면 AI 도우미를 쓸 수 없게 됩니다. 정하지 않으면 ${DEFQ}번입니다.`)),
+      el("h4", {}, `학생별 (${list.length}명)`),
+      el("div", { style: "margin:6px 0" }, find),
+      list.length ? list.map(({ uid, student, u }) => {
+        const q = quotaOf(uid), caps = Object.values(q.chapters || {}).filter(Boolean).length, all = Number(q.all) || 0, usedMax = Math.max(0, ...Object.values((u && u.chapters) || {}).map(Number));
+        const d = el("details", { class: "fold qstu", "data-name": stuName({ student }).toLowerCase(), ...(M.qOpen[uid] ? { open: "" } : {}) },
+          el("summary", {}, stuName({ student }) === "(이름 없음)" ? uid : stuName({ student }), " ",
+            el("small", { class: "lead" }, `· 모든 장 ${signed(all)}${caps ? ` · 장별 가감 ${caps}곳` : ""} · 한 장 최대 ${nf(usedMax)}번 사용`)));
+        const fillBody = () => { d.querySelector(".qbody") || d.append(el("div", { class: "qbody" })); fill(d.querySelector(".qbody"), quotaBody(uid, u)); };
+        if (M.qOpen[uid]) fillBody();
+        d.addEventListener("toggle", () => { M.qOpen[uid] = d.open; if (d.open) fillBody(); });         // 열 때만 표를 만든다(학생 수 × 장 수가 많다)
+        return d;
+      }) : el("p", { class: "lead" }, "아직 AI 도우미를 쓰거나 진도를 보낸 학생이 없습니다."));
+  };
+  const paintChat = () => { paintTok(); paintLog(); paintAi(); if (M.view === "quota") paintQuota(); paintNav(); };
 
   /* --- 진도 표: 교재 장별 읽기 진도(분류별로 묶음) + 학습지 진행 --- */
   const paintTbl = () => {
@@ -294,13 +381,18 @@ function renderMonitor(main) {
           })))));
   };
 
-  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintNav();
+  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); paintNav(); }), tok);
   liveSub(FB.watchMonitorEvents((rows, err) => { M.events = rows || []; paintCtl(); }), tok);
   liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); paintNav(); }), tok);
-  liveSub(FB.watchStats((s, err) => { M.stats = s; if (err) M.logErr = errText(err); paintChat(); }), tok);
+  liveSub(FB.watchStats((s, err) => {
+    M.stats = s; if (err) M.logErr = errText(err);
+    const c = s && s.count; if (c !== M.statCount) { const first = M.statCount === undefined; M.statCount = c; if (!first && lg.page === 0 && !lg.busy && lg.rows !== null) loadLogs(true); }      // 새 질문이 들어오면 첫 쪽을 자동으로 새로 읽는다
+    paintChat();
+  }), tok);
+  liveSub(FB.watchChatQuota((rows, err) => { M.quota = rows || []; M.qErr = err ? errText(err) : ""; if (M.view === "quota") paintQuota(); }), tok);
   liveSub(FB.watchChatUsage((rows, err) => { M.usage = rows || []; if (err) M.logErr = errText(err); paintChat(); }), tok);
-  liveSub(FB.watchChatLogs((rows, err) => { M.logs = rows || []; M.logErr = err ? errText(err) : ""; paintChat(); }, 200), tok);
+  liveSub(FB.watchChatLogs((rows, err) => { M.logs = rows || []; M.logErr = err ? errText(err) : ""; paintChat(); }, 30), tok);      // 최근 30건: 오류 알림용(전체 목록은 쪽 나누기로 따로 읽는다)
   liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); paintNav(); paintCtl(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }

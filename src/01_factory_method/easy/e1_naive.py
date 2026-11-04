@@ -63,16 +63,16 @@ if __name__ == "__main__":
     except ValueError as e:
         print(f"  실패: {e} → 공용 run()을 고쳐 달라고 요청해야 한다")
 
-    print("[3] 정규화만 테스트하려면 전역 이름 자체를 바꿔치기해야 한다")
+    print("[3] 정규화만 테스트하려면 리더의 이름 자체를 가짜로 바꿔치기해야 한다")
 
     class FakeReader:
-        """테스트용 리더. 끼워 넣을 자리가 없어 이름을 덮어쓴다."""
+        """테스트용 가짜 리더. 끼워 넣을 자리가 없어 진짜 이름을 덮어쓴다."""
 
         def read_samples(self) -> list[float]:
             """세기 2, 4 → 기대 결과 0.5, 1.0."""
             return [2.0, 4.0]
 
     original = CsvSpectrumReader
-    globals()["CsvSpectrumReader"] = FakeReader  # ⚠ 문제: 모듈 전역을 건드린다
+    globals()["CsvSpectrumReader"] = FakeReader  # ⚠ 문제: 이 파일 전체의 이름표를 건드린다
     AcquisitionJob("S-test", "uv-vis").run()
-    globals()["CsvSpectrumReader"] = original  # 되돌리기를 잊으면 다른 코드가 깨진다
+    globals()["CsvSpectrumReader"] = original  # 되돌리기를 잊으면 다른 코드도 가짜를 쓴다

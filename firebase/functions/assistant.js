@@ -1,6 +1,6 @@
 "use strict";
 // 학생 AI 도우미: 입력 검증, Gemini 요청 만들기, 사용 한도 판정. Firebase 없이 단위 테스트할 수 있도록 순수 함수로 분리했다.
-const LIMITS = { question: 1200, ctxText: 6000, ctxSel: 1500, ctxTitle: 200, hist: 6, histText: 1500, imageBytes: 1_500_000 };
+const LIMITS = { question: 1200, ctxText: 6000, ctxSel: 1500, ctxTitle: 200, ctxChapter: 60, hist: 6, histText: 1500, imageBytes: 1_500_000 };
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const str = (v, max) => (typeof v === "string" ? v : "").replace(/\u0000/g, "").slice(0, max);
@@ -18,7 +18,7 @@ function validate(data) {
     value.image = { mime: im.mime, data: im.data };
   }
   const c = data.context || {};
-  value.context = { kind: c.kind === "worksheet" ? "worksheet" : "textbook", title: str(c.title, LIMITS.ctxTitle), text: str(c.text, LIMITS.ctxText), selection: str(c.selection, LIMITS.ctxSel) };
+  value.context = { kind: c.kind === "worksheet" ? "worksheet" : "textbook", title: str(c.title, LIMITS.ctxTitle), chapter: str(c.chapter, LIMITS.ctxChapter).trim(), text: str(c.text, LIMITS.ctxText), selection: str(c.selection, LIMITS.ctxSel) };
   for (const h of (Array.isArray(data.history) ? data.history : []).slice(-LIMITS.hist)) {
     if (!h || (h.role !== "user" && h.role !== "model")) continue;
     const t = str(h.text, LIMITS.histText).trim(); if (t) value.history.push({ role: h.role, text: t });
@@ -65,15 +65,31 @@ function buildContents(v) {
   return contents;
 }
 
-/** 사용 한도. usage 는 {day, count, minute, minuteCount} 또는 null. 반환: {ok, next} 또는 {ok:false, reason}. now 는 ms. */
-function checkLimit(usage, now, limits) {
-  const day = new Date(now + 9 * 3600e3).toISOString().slice(0, 10);          // 한국 날짜 기준
-  const minute = Math.floor(now / 60000);
-  const u = usage && usage.day === day ? usage : { day, count: 0, minute, minuteCount: 0 };
-  const mc = u.minute === minute ? u.minuteCount : 0;
-  if (u.count >= limits.daily) return { ok: false, reason: "daily" };
-  if (mc >= limits.minute) return { ok: false, reason: "minute" };
-  return { ok: true, next: { day, count: u.count + 1, minute, minuteCount: mc + 1 } };
+/* ---------- 사용 한도: 학생별 · 장별 ----------
+   장(chapter) 키: 교재는 장 slug(예: 05-singleton), 학습지는 week1~week5. 화면이 보내는 값이라 그대로 믿지 않고
+   서버가 아는 목록(allowed)에 있는 것만 쓴다. 목록에 없거나 비어 있으면 모두 같은 'etc' 칸을 쓴다(키를 바꿔 가며 한도를 피할 수 없다). */
+const ETC = "etc";
+const chapterKey = (raw, allowed) => (typeof raw === "string" && allowed && allowed.has(raw) ? raw : ETC);
+
+const int = (v, lo, hi) => { const n = Number(v); return Number.isInteger(n) && n >= lo && n <= hi ? n : null; };
+
+/** 이 학생이 이 장에서 쓸 수 있는 질문 수 = 기본 한도 + 모든 장 가감 + 그 장 가감(0 미만이면 0).
+ *  base 는 config/assistant.limit(교사가 정한 기본값, 없거나 이상하면 def), quota 는 chatQuota/{uid} 문서({all, chapters:{키:n}}) 또는 null. */
+function limitFor(base, quota, key, def, max) {
+  const b = int(base, 0, max); const q = quota || {};
+  const all = int(q.all, -max, max) || 0, one = int((q.chapters || {})[key], -max, max) || 0;
+  return Math.max(0, (b === null ? def : b) + all + one);
+}
+
+/** 사용 한도 판정. usage 는 chatUsage 문서({chapters:{키:쓴 횟수}, minute, minuteCount}) 또는 null,
+ *  lim = {minute: 분당 한도, chapter: 이 장의 한도, key: 장 키}. now 는 ms.
+ *  반환: {ok, next, used, limit} 또는 {ok:false, reason: "minute"|"chapter", used, limit}. next 는 merge 로 쓸 부분 문서다. */
+function checkLimit(usage, now, lim) {
+  const u = usage || {}, minute = Math.floor(now / 60000);
+  const used = int((u.chapters || {})[lim.key], 0, 1e9) || 0, mc = u.minute === minute ? (int(u.minuteCount, 0, 1e9) || 0) : 0;
+  if (used >= lim.chapter) return { ok: false, reason: "chapter", used, limit: lim.chapter };
+  if (mc >= lim.minute) return { ok: false, reason: "minute", used, limit: lim.chapter };
+  return { ok: true, used: used + 1, limit: lim.chapter, next: { minute, minuteCount: mc + 1, chapters: { [lim.key]: used + 1 } } };
 }
 
 /** 모델 답을 학생 화면용 일반 텍스트로 다듬는다(마크다운 기호가 남아 있으면 걷어 낸다). */
@@ -105,7 +121,7 @@ const emptyUsage = () => ({ prompt: 0, output: 0, thoughts: 0, total: 0 });
 function logEntry({ uid, student, kind, where, v, reply, refused, error, usage, ms, model, at, day }) {
   return { uid, student, at, day, kind: kind === "worksheet" ? "worksheet" : "textbook", where: String(where || "").slice(0, 200),
     question: v.question, hasImage: !!v.image, imageBytes: v.image ? Math.floor(v.image.data.length * 3 / 4) : 0,
-    reply: reply || "", refused: !!refused, error: error || "", model, usage: usage || emptyUsage(), ms: Math.max(0, Math.round(ms || 0)) };
+    reply: reply || "", refused: !!refused, error: error || "", failed: !!error, model, usage: usage || emptyUsage(), ms: Math.max(0, Math.round(ms || 0)) };
 }
 
-module.exports = { LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize, usageFrom, addUsage, emptyUsage, logEntry };
+module.exports = { ETC, chapterKey, limitFor, int, LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize, usageFrom, addUsage, emptyUsage, logEntry };

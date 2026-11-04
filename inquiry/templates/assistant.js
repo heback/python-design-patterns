@@ -2,12 +2,13 @@
 /* 학생 AI 도우미(학습지·호스팅 교재 공용). 오른쪽 아래 아이콘을 누르면 대화창이 열린다.
    질문은 글 또는 사진, 답은 글. 학생이 지금 보고 있는 화면(교재의 절·학습지의 문항)과 드래그해 고른 글을 함께 보낸다.
    교사가 켜 둔 동안(config/assistant.on)에만 아이콘이 보이고, 학교 Google 계정으로 로그인해야 쓸 수 있다.
-   서버(askAssistant)는 질문·답을 저장하지 않고 사용 횟수만 센다. 대화 기록은 이 창을 닫을 때까지만 화면에 있다.
+   질문과 답은 서버에 기록되어 선생님이 볼 수 있고, 학생은 기록을 지울 수 없다. 화면의 대화창은 [새 대화]로 비울 수 있지만 서버 기록은 그대로다.
+   질문은 학생별·장별로 횟수가 정해져 있다(기본 40번, 선생님이 학생별로 가감). 호스트가 getContext 의 chapter(교재 장 slug 또는 week1~5)를 주면 그 장의 남은 횟수를 보여 준다.
    필요한 전역: el, ico, $, FB(fb.js), StudentAuth(student-auth.js). 호스트가 getContext() => {kind, title, text, selection} 를 준다. */
 const Assistant = (() => {
   const MAX_SIDE = 1280, QUALITY = 0.82, MAX_BYTES = 1_300_000;
   let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, input = null, send = null, attach = null, preview = null, ctxChip = null, leftEl = null;
-  let image = null, busy = false, history = [], started = false;
+  let image = null, busy = false, history = [], started = false, quotaFor = null;
 
   /* ---------- 사진: 크기를 줄여 JPEG 으로(전송량·비용 절약) ---------- */
   async function shrink(file) {
@@ -53,11 +54,20 @@ const Assistant = (() => {
   }
   function welcome() {
     log.replaceChildren(); history = [];
-    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.");
+    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.");
   }
   function refreshCtx() {
     const c = getContext() || {};
     ctxChip.replaceChildren(ico("visibility"), `AI가 보는 화면: ${c.title || "현재 화면"}${c.selection ? " · 선택한 글 포함" : ""}`);
+    loadQuota(false);
+  }
+  /* 이 장에서 남은 질문 수. 장이 바뀌었을 때만 서버에 묻는다(화면을 옮기며 계속 묻지 않는다). */
+  const showLeft = q => { leftEl.textContent = `${q.chapterTitle || "이 화면"} · 남은 질문 ${q.left}번 (이 장 ${q.limit}번까지)`; };
+  async function loadQuota(force) {
+    const ch = (getContext() || {}).chapter || "";
+    if (!StudentAuth.get() || (!force && ch === quotaFor)) return;
+    quotaFor = ch;
+    try { showLeft(await FB.assistantQuota(ch)); } catch (e) { leftEl.textContent = ""; }
   }
   function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
   async function ask() {
@@ -71,10 +81,11 @@ const Assistant = (() => {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
       wait.remove(); addMsg(r.refused ? "bot refused" : "bot", r.reply);
       if (!r.refused) { history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6); }      // 범위 밖 질문은 대화 기록에 남기지 않는다
-      leftEl.textContent = `오늘 남은 질문 ${r.left}번`;
+      quotaFor = ctx.chapter || ""; showLeft(r);
     } catch (e) {
       wait.remove();
       const m = String(e.message || "");
+      if (/resource-exhausted/.test(e.code) && /번을 모두|쓸 수 없어요/.test(m)) quotaFor = null;        // 한도에 걸렸다: 다음에 화면을 볼 때 남은 횟수를 다시 읽는다
       addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
@@ -97,11 +108,11 @@ const Assistant = (() => {
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
     const syncLogin = () => { login.hidden = !!StudentAuth.get(); };
-    StudentAuth.onChange(syncLogin); syncLogin();
+    StudentAuth.onChange(() => { syncLogin(); quotaFor = null; if (panel && !panel.hidden) loadQuota(true); }); syncLogin();
     panel = el("section", { class: "ai-panel", role: "dialog", "aria-label": "AI 도우미", hidden: true },
       el("header", {}, el("b", {}, ico("smart_toy", "fill"), "AI 도우미"),
         el("span", { class: "ai-hbtn" },
-          el("button", { type: "button", class: "ai-ico", "aria-label": "대화 지우기", title: "대화 지우기", onclick: welcome }, ico("delete_sweep")),
+          el("button", { type: "button", class: "ai-ico", "aria-label": "새 대화 시작", title: "새 대화 시작 (화면만 비워요. 지난 질문과 답은 선생님이 볼 수 있도록 기록되어 남아요)", onclick: welcome }, ico("add_comment")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
       el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
       log, login, ctxChip, preview,

@@ -62,7 +62,7 @@ function assistantContext() {
     const mine = $$("textarea", item).map(t => t.value.trim()).filter(Boolean).join("\n---\n").slice(0, 1500);     // 학생이 쓴 글·코드(내 답을 봐 달라고 물을 수 있도록)
     if (mine) text += "\n[학생이 쓴 답]\n" + mine;
   }
-  return { kind: "worksheet", title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
+  return { kind: "worksheet", chapter: "week" + w.n, title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
 }
 
 /* ---------- 화면 ---------- */

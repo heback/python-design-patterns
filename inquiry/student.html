@@ -293,6 +293,16 @@ details.chatlog[open] > summary { border-bottom: 1px solid var(--line); backgrou
 .cl-body { padding: 10px 14px; font-size: 14.5px; }
 .cl-meta { color: var(--dim); font-size: 12.5px; margin-bottom: 6px; }
 .cl-row { white-space: pre-wrap; margin: 4px 0; } .cl-row b { color: var(--accent); } .cl-row.err { color: var(--bad); }
+/* 대화기록 쪽 나누기 · 질문 한도 화면 */
+.pager { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.pager .pg-info { color: var(--ink-soft); font-size: 13.5px; padding: 0 6px; }
+.pager .btn:disabled { opacity: .45; cursor: default; }
+details.qstu { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--panel); margin: 6px 0; padding: 0; }
+details.qstu > summary { padding: 8px 12px; }
+details.qstu[open] > summary { border-bottom: 1px solid var(--line); background: var(--panel-sunk); }
+details.qstu .qbody { padding: 8px 12px 10px; }
+.qbtns { display: inline-flex; gap: 4px; flex-wrap: nowrap; }
+td.qdelta { font-weight: 700; color: var(--accent); }
 /* 교사 화면: 왼쪽 메뉴 + 한 번에 한 화면 */
 main.wide { max-width: 1380px; }
 .shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -977,6 +987,8 @@ const FB = (() => {
   /* ---------- 학생 AI 도우미 ---------- */
   const watchAssistant = cb => watchDoc("config", "assistant", cb);
   const askAssistant = p => call("askAssistant", p);
+  /* 이 화면의 장에서 남은 질문 수: {chapter, chapterTitle, limit, used, left} */
+  const assistantQuota = chapter => call("getAssistantQuota", { chapter });
 
   /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
@@ -1012,18 +1024,52 @@ const FB = (() => {
   /* 켜기/끄기는 서버 함수가 한다: 스위치와 변경 이력(monitorEvents)을 서버 시각으로 함께 쓰고, 클라이언트는 직접 쓰지 못한다. */
   const saveMonitor = on => call("setMonitor", { on: !!on });
   const watchMonitorEvents = cb => live("monitorEvents", cb, m => m.fs.query(m.fs.collection(m.db, "monitorEvents"), m.fs.orderBy("at", "desc"), m.fs.limit(30)));
+  /* 켜기/끄기와 기본 한도(limit)는 같은 문서(config/assistant)에 있으므로 merge 로 써서 서로 지우지 않는다. */
   async function saveAssistant(on) {
     const m = await load();
-    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() });
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { on: !!on, updatedBy: m.au.currentUser.email, updatedAt: m.fs.Timestamp.now() }, { merge: true });
   }
+  /* 장별 기본 질문 한도(학생 한 명이 장 하나에서). 서버가 0~1000 의 정수가 아니면 기본값(40)으로 본다. */
+  async function saveAssistantLimit(n) {
+    const m = await load();
+    await m.fs.setDoc(m.fs.doc(m.db, "config", "assistant"), { limit: n, limitBy: m.au.currentUser.email, limitAt: m.fs.Timestamp.now() }, { merge: true });
+  }
+  /* 학생·장별 한도 가감: chapter 는 "all"(모든 장) 또는 장 키, value 는 기본 한도에 더할 값(0 이면 가감 없음). 함수가 교사를 확인하고 쓴다. */
+  const setAssistantQuota = (uid, chapter, value) => call("setAssistantQuota", { uid, chapter, value });
   /* AI 도우미 기록·집계(교사). 함수가 쓰고 교사만 읽는다. */
   const live = (col, cb, q) => load().then(m => m.fs.onSnapshot(q ? q(m) : m.fs.collection(m.db, col), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e)));
   const watchChatUsage = cb => live("chatUsage", cb);
+  const watchChatQuota = cb => live("chatQuota", cb);
   const watchChatLogs = (cb, n) => live("chatLogs", cb, m => m.fs.query(m.fs.collection(m.db, "chatLogs"), m.fs.orderBy("at", "desc"), m.fs.limit(n || 200)));
   async function watchStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "assistant"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
+  /* 대화 기록 한 쪽. o = {uid?, kind: all|refused|error|image, size, after?(앞 쪽의 마지막 문서)}. 서버 쿼리로 거르고 커서로 넘긴다.
+     반환 {rows, last, more}: more 는 다음 쪽이 있는지(size+1 건을 읽어 알아낸다). 필터 조합마다 복합 색인이 필요하다(firestore.indexes.json). */
+  function chatLogQuery(m, o) {
+    const { collection, query, where } = m.fs, cs = [];
+    if (o.uid) cs.push(where("uid", "==", o.uid));
+    if (o.kind === "refused") cs.push(where("refused", "==", true));
+    else if (o.kind === "error") cs.push(where("failed", "==", true));
+    else if (o.kind === "image") cs.push(where("hasImage", "==", true));
+    return { cs, col: collection(m.db, "chatLogs"), query };
+  }
+  async function chatLogsPage(o) {
+    const m = await load(), { orderBy, limit, startAfter, getDocs } = m.fs, q = chatLogQuery(m, o), size = o.size || 20;
+    const extra = [orderBy("at", "desc")]; if (o.after) extra.push(startAfter(o.after)); extra.push(limit(size + 1));
+    const docs = (await getDocs(q.query(q.col, ...q.cs, ...extra))).docs, page = docs.slice(0, size);
+    return { rows: page.map(d => Object.assign({ id: d.id }, d.data())), last: page.length ? page[page.length - 1] : null, more: docs.length > size };
+  }
+  /* 같은 조건의 전체 건수(서버 집계, 문서를 내려받지 않는다). 실패하면 null. */
+  async function chatLogsCount(o) {
+    try { const m = await load(), q = chatLogQuery(m, o); return (await m.fs.getCountFromServer(q.query(q.col, ...q.cs))).data().count; } catch (e) { return null; }
+  }
+  /* 모든 대화 기록 삭제(교사만 — 규칙). 많을 수 있으므로 400건씩 묶어서 지운다. */
   async function clearChatLogs() {
-    const m = await load(), { collection, getDocs, deleteDoc } = m.fs, snap = await getDocs(collection(m.db, "chatLogs"));
-    await Promise.all(snap.docs.map(d => deleteDoc(d.ref))); return snap.size;
+    const m = await load(), { collection, query, limit, getDocs, writeBatch } = m.fs; let n = 0;
+    for (;;) {
+      const snap = await getDocs(query(collection(m.db, "chatLogs"), limit(400))); if (snap.empty) break;
+      const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit(); n += snap.size;
+    }
+    return n;
   }
   async function clearProgress() {
     const m = await load(), { collection, getDocs, deleteDoc } = m.fs;
@@ -1043,7 +1089,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, saveAssistant, watchChatUsage, watchChatLogs, watchStats, clearChatLogs,
+           watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();
@@ -1300,12 +1346,13 @@ const FocusTrack = (() => {
 /* 학생 AI 도우미(학습지·호스팅 교재 공용). 오른쪽 아래 아이콘을 누르면 대화창이 열린다.
    질문은 글 또는 사진, 답은 글. 학생이 지금 보고 있는 화면(교재의 절·학습지의 문항)과 드래그해 고른 글을 함께 보낸다.
    교사가 켜 둔 동안(config/assistant.on)에만 아이콘이 보이고, 학교 Google 계정으로 로그인해야 쓸 수 있다.
-   서버(askAssistant)는 질문·답을 저장하지 않고 사용 횟수만 센다. 대화 기록은 이 창을 닫을 때까지만 화면에 있다.
+   질문과 답은 서버에 기록되어 선생님이 볼 수 있고, 학생은 기록을 지울 수 없다. 화면의 대화창은 [새 대화]로 비울 수 있지만 서버 기록은 그대로다.
+   질문은 학생별·장별로 횟수가 정해져 있다(기본 40번, 선생님이 학생별로 가감). 호스트가 getContext 의 chapter(교재 장 slug 또는 week1~5)를 주면 그 장의 남은 횟수를 보여 준다.
    필요한 전역: el, ico, $, FB(fb.js), StudentAuth(student-auth.js). 호스트가 getContext() => {kind, title, text, selection} 를 준다. */
 const Assistant = (() => {
   const MAX_SIDE = 1280, QUALITY = 0.82, MAX_BYTES = 1_300_000;
   let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, input = null, send = null, attach = null, preview = null, ctxChip = null, leftEl = null;
-  let image = null, busy = false, history = [], started = false;
+  let image = null, busy = false, history = [], started = false, quotaFor = null;
 
   /* ---------- 사진: 크기를 줄여 JPEG 으로(전송량·비용 절약) ---------- */
   async function shrink(file) {
@@ -1351,11 +1398,20 @@ const Assistant = (() => {
   }
   function welcome() {
     log.replaceChildren(); history = [];
-    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.");
+    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.");
   }
   function refreshCtx() {
     const c = getContext() || {};
     ctxChip.replaceChildren(ico("visibility"), `AI가 보는 화면: ${c.title || "현재 화면"}${c.selection ? " · 선택한 글 포함" : ""}`);
+    loadQuota(false);
+  }
+  /* 이 장에서 남은 질문 수. 장이 바뀌었을 때만 서버에 묻는다(화면을 옮기며 계속 묻지 않는다). */
+  const showLeft = q => { leftEl.textContent = `${q.chapterTitle || "이 화면"} · 남은 질문 ${q.left}번 (이 장 ${q.limit}번까지)`; };
+  async function loadQuota(force) {
+    const ch = (getContext() || {}).chapter || "";
+    if (!StudentAuth.get() || (!force && ch === quotaFor)) return;
+    quotaFor = ch;
+    try { showLeft(await FB.assistantQuota(ch)); } catch (e) { leftEl.textContent = ""; }
   }
   function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
   async function ask() {
@@ -1369,10 +1425,11 @@ const Assistant = (() => {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
       wait.remove(); addMsg(r.refused ? "bot refused" : "bot", r.reply);
       if (!r.refused) { history.push({ role: "user", text: q || "(사진)" }, { role: "model", text: r.reply }); history = history.slice(-6); }      // 범위 밖 질문은 대화 기록에 남기지 않는다
-      leftEl.textContent = `오늘 남은 질문 ${r.left}번`;
+      quotaFor = ctx.chapter || ""; showLeft(r);
     } catch (e) {
       wait.remove();
       const m = String(e.message || "");
+      if (/resource-exhausted/.test(e.code) && /번을 모두|쓸 수 없어요/.test(m)) quotaFor = null;        // 한도에 걸렸다: 다음에 화면을 볼 때 남은 횟수를 다시 읽는다
       addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
@@ -1395,11 +1452,11 @@ const Assistant = (() => {
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
     const syncLogin = () => { login.hidden = !!StudentAuth.get(); };
-    StudentAuth.onChange(syncLogin); syncLogin();
+    StudentAuth.onChange(() => { syncLogin(); quotaFor = null; if (panel && !panel.hidden) loadQuota(true); }); syncLogin();
     panel = el("section", { class: "ai-panel", role: "dialog", "aria-label": "AI 도우미", hidden: true },
       el("header", {}, el("b", {}, ico("smart_toy", "fill"), "AI 도우미"),
         el("span", { class: "ai-hbtn" },
-          el("button", { type: "button", class: "ai-ico", "aria-label": "대화 지우기", title: "대화 지우기", onclick: welcome }, ico("delete_sweep")),
+          el("button", { type: "button", class: "ai-ico", "aria-label": "새 대화 시작", title: "새 대화 시작 (화면만 비워요. 지난 질문과 답은 선생님이 볼 수 있도록 기록되어 남아요)", onclick: welcome }, ico("add_comment")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
       el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
       log, login, ctxChip, preview,
@@ -1611,7 +1668,7 @@ function assistantContext() {
     const mine = $$("textarea", item).map(t => t.value.trim()).filter(Boolean).join("\n---\n").slice(0, 1500);     // 학생이 쓴 글·코드(내 답을 봐 달라고 물을 수 있도록)
     if (mine) text += "\n[학생이 쓴 답]\n" + mine;
   }
-  return { kind: "worksheet", title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
+  return { kind: "worksheet", chapter: "week" + w.n, title: `${head}${stageName ? " · " + stageName : ""}`, text: text.slice(0, 6000), selection: Assistant.selectedText() };
 }
 
 /* ---------- 화면 ---------- */

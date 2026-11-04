@@ -8,7 +8,7 @@ run() 안에 `if device == ...` 분기를 추가했다. 이 코드는 그 결과
 읽을 때 주목할 점:
 - "언제 만들 것인가(흐름)"와 "무엇을 만들 것인가(구체 클래스 선택)"가 run() 한 메서드에 엉켜 있다.
 - 새 장비를 지원하려면 공용 프레임워크 코드(이 코드)를 열어 고쳐야 한다.
-- 테스트에서 가짜 리더를 끼울 이음새(seam)가 없어 모듈 전역을 바꿔치기해야 한다.
+- 테스트에서 가짜 리더를 끼울 이음새(seam)가 없어 이름표를 몰래 바꿔치기해야 한다.
 """
 from __future__ import annotations
 
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     print("\n[3] 정규화 로직만 테스트하고 싶은데, 실제 리더를 피할 방법이 없다")
     # ⚠ 문제: run()이 CsvSpectrumReader를 '이름으로' 직접 생성하므로,
-    #   가짜 리더를 넣으려면 모듈 전역 이름 자체를 바꿔치기(monkeypatch)해야 한다.
+    #   가짜 리더를 넣으려면 진짜 리더의 이름 자체를 몰래 바꿔치기(monkeypatch)해야 한다.
     #   이 방식은 같은 모듈을 쓰는 다른 테스트와 간섭하고, 복원을 잊으면 오염이 남는다.
     class FakeReader:
         """테스트용 가짜 리더: 결과를 손으로 계산할 수 있는 고정 데이터."""
@@ -161,10 +161,10 @@ if __name__ == "__main__":
             return [Sample(1, 2.0), Sample(2, 4.0)]
 
     original = CsvSpectrumReader
-    globals()["CsvSpectrumReader"] = FakeReader  # 전역 바꿔치기 — 냄새가 나는 지점
+    globals()["CsvSpectrumReader"] = FakeReader  # 이름표 바꿔치기 — 냄새가 나는 지점
     try:
         result = AcquisitionJob("S-test", "uv-vis").run()
         print(f"  정규화 결과: {[s.intensity for s in result]}  (기대값 [0.5, 1.0])")
     finally:
         globals()["CsvSpectrumReader"] = original
-    print("  → 테스트는 통과했지만, 전역 상태를 건드려야만 가능했다")
+    print("  → 테스트는 통과했지만, 이름표를 몰래 바꿔야만 가능했다")

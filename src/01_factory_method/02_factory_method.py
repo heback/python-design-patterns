@@ -245,7 +245,7 @@ if __name__ == "__main__":
 
     result = FakeJob("S-test").run()
     assert [s.intensity for s in result] == [0.5, 1.0]
-    print("  정규화 검증 통과 — monkeypatch 없이")
+    print("  정규화 검증 통과 — 이름 바꿔치기 없이")
 
     print("\n[4] create_reader()를 빠뜨린 하위 클래스는 만들 때 바로 걸린다")
 

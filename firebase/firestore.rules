@@ -72,8 +72,11 @@ service cloud.firestore {
     match /config/assistant { allow read: if true; allow write: if isTeacher(); }      // 학생 AI 도우미 켜기/끄기
 
     // AI 도우미 대화 기록·토큰 집계: 함수(관리자 권한)만 쓰고 교사만 읽는다. 학생은 읽지도 쓰지도 못한다(한도·집계를 속일 수 없다).
+    // 학생은 기록을 지우거나 고칠 수 없다(create·update·delete 모두 막힘). 삭제는 교사만.
     match /chatLogs/{id} { allow read, delete: if isTeacher(); }
     match /chatUsage/{uid} { allow read: if isTeacher(); }
+    // 학생별·장별 질문 한도 가감(chatQuota/{uid}): 함수(setAssistantQuota)만 쓰고 교사만 읽는다. 학생이 자기 한도를 올릴 수 없다.
+    match /chatQuota/{uid} { allow read: if isTeacher(); }
     match /stats/{id} { allow read: if isTeacher(); }
     match /config/submissionSecret { allow read, write: if isTeacher(); }
     match /config/teachers { allow read, write: if isTeacher(); }

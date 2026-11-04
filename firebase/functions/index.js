@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
-const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_DAILY_LIMIT, ASSISTANT_MINUTE_LIMIT } = require("./config");
+const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX, ASSISTANT_MINUTE_LIMIT } = require("./config");
 const assistant = require("./assistant");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
 
@@ -130,8 +130,23 @@ exports.setMonitor = onCall({ region: REGION, maxInstances: 5 }, async req => {
   return { on };
 });
 
-/** 학생 AI 도우미. 학교 Google 계정(학생·교사)만, 교사가 켠 동안만, 학생별 사용 한도 안에서 답한다.
- *  질문·답은 저장하지 않는다(사용 횟수만 chatUsage/{uid} 에 센다). 질문·사진·현재 화면의 글이 Gemini 로 전달된다. */
+/** 장 키 → 이름. 교재의 장 slug 와 학습지 주차(week1~)를 teacher-content.json 에서 읽고, 목록에 없는 화면은 'etc' 한 칸으로 모은다. */
+let CH_TABLE = null;
+function chapterTable() {
+  if (CH_TABLE) return CH_TABLE;
+  const m = new Map();
+  try {
+    const c = require("./teacher-content.json");
+    for (const x of c.chapters || []) m.set(x.slug, x.title);
+    for (const w of c.weeks || []) m.set("week" + w.n, `학습지 ${w.n}주차`);
+  } catch (e) { /* 내용 파일이 없으면 모든 화면이 '기타' 한 칸을 쓴다 */ }
+  m.set(assistant.ETC, "기타 화면");
+  return (CH_TABLE = m);
+}
+
+/** 학생 AI 도우미. 학교 Google 계정(학생·교사)만, 교사가 켠 동안만, 학생별·장별 사용 한도 안에서 답한다.
+ *  한도 = 기본(config/assistant.limit, 없으면 40) + 교사가 학생별로 가감한 값(chatQuota/{uid}). 쓴 횟수는 chatUsage/{uid}.chapters 에 센다.
+ *  질문·사진·현재 화면의 글이 Gemini 로 전달된다. */
 async function askModel(apiKey, v) {
   if (!apiKey && process.env.FUNCTIONS_EMULATOR) {            // 에뮬레이터에는 키가 없다: 시험용 답(범위 판정은 질문에 '[범위밖]'이 있으면 거절로 흉내 낸다)
     const off = v.question.includes("[범위밖]"), reply = off ? assistant.REFUSAL : "(에뮬레이터 시험 답변) " + v.question.slice(0, 60);
@@ -148,13 +163,17 @@ exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
   const v = assistant.validate(req.data);
   if (v.error) throw new HttpsError("invalid-argument", v.error);
 
-  const ref = db.doc(`chatUsage/${req.auth.uid}`), limits = { daily: ASSISTANT_DAILY_LIMIT, minute: ASSISTANT_MINUTE_LIMIT };
+  const ref = db.doc(`chatUsage/${req.auth.uid}`), quotaRef = db.doc(`chatQuota/${req.auth.uid}`), key = assistant.chapterKey(v.value.context.chapter, new Set(chapterTable().keys()));
   const used = await db.runTransaction(async tx => {                      // 모델을 부르기 전에 한도를 확인하고 한 번 센다
-    const snap = await tx.get(ref), r = assistant.checkLimit(snap.exists ? snap.data() : null, Date.now(), limits);
-    if (r.ok) tx.set(ref, r.next, { merge: true });          // merge: 같은 문서의 누적 토큰·횟수(total_*)를 지우지 않는다
+    const [snap, qs] = await Promise.all([tx.get(ref), tx.get(quotaRef)]);
+    const limit = assistant.limitFor(cfg.limit, qs.exists ? qs.data() : null, key, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX);
+    const r = assistant.checkLimit(snap.exists ? snap.data() : null, Date.now(), { minute: ASSISTANT_MINUTE_LIMIT, chapter: limit, key });
+    if (r.ok) tx.set(ref, r.next, { merge: true });          // merge: 같은 문서의 누적 토큰·횟수(total_*)와 다른 장의 횟수를 지우지 않는다
     return r;
   });
-  if (!used.ok) throw new HttpsError("resource-exhausted", used.reason === "minute" ? "질문이 너무 빨라요. 잠시 뒤에 다시 물어봐 주세요." : `오늘 질문은 ${ASSISTANT_DAILY_LIMIT}번까지예요. 내일 다시 물어봐 주세요.`);
+  const chTitle = chapterTable().get(key);
+  if (!used.ok) throw new HttpsError("resource-exhausted", used.reason === "minute" ? "질문이 너무 빨라요. 잠시 뒤에 다시 물어봐 주세요."
+    : used.limit === 0 ? `이 장(${chTitle})에서는 AI 도우미를 쓸 수 없어요. 선생님께 물어보세요.` : `이 장(${chTitle})에서 쓸 수 있는 질문 ${used.limit}번을 모두 썼어요. 더 필요하면 선생님께 말씀드려 보세요.`);
 
   const t0 = Date.now(), day = new Date(t0 + 9 * 3600e3).toISOString().slice(0, 10);
   const tk = req.auth.token, student = { name: (tk.name || "").trim() || (tk.email || "").split("@")[0], email: (tk.email || "").toLowerCase() };
@@ -164,14 +183,38 @@ exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
     await recordChat(Object.assign({}, base, { reply: r.ok ? r.reply : "", refused: !!r.refused, error: r.ok ? "" : "답 형식 오류", usage: r.usage, ms: Date.now() - t0 }))
       .catch(err => console.error("대화 기록 실패:", err && err.message));          // 기록이 실패해도 학생의 답은 막지 않는다
     if (!r.ok) throw new Error("답 형식 오류");
-    return { reply: r.reply, refused: !!r.refused, left: Math.max(0, ASSISTANT_DAILY_LIMIT - used.next.count) };
+    return { reply: r.reply, refused: !!r.refused, left: Math.max(0, used.limit - used.used), limit: used.limit, chapter: key, chapterTitle: chTitle };
   } catch (e) {
     if (!(e && e.message === "답 형식 오류")) await recordChat(Object.assign({}, base, { error: String(e && e.message || e).slice(0, 200), ms: Date.now() - t0 })).catch(() => {});     // 호출 실패도 기록한다
-    await db.runTransaction(async tx => { const snap = await tx.get(ref); if (snap.exists && snap.data().count > 0) tx.update(ref, { count: snap.data().count - 1 }); }).catch(() => {});   // 실패한 질문은 하루 한도에서 뺀다
+    await db.runTransaction(async tx => { const snap = await tx.get(ref), n = snap.exists ? ((snap.data().chapters || {})[key] || 0) : 0; if (n > 0) tx.set(ref, { chapters: { [key]: n - 1 } }, { merge: true }); }).catch(() => {});   // 실패한 질문은 그 장의 사용 횟수에서 뺀다
     console.error("askAssistant 실패:", e && e.message);
     const exhausted = /credit|billing|prepay|quota|RESOURCE_EXHAUSTED|"code":\s*(402|429)/i.test(String(e && e.message || e));       // 모델 쪽 크레딧·요금 한도 소진
     throw new HttpsError("unavailable", exhausted ? "AI 도우미의 사용량(크레딧)이 모두 소진되어 지금은 쓸 수 없어요. 선생님께 알려 주세요." : "지금은 답을 만들지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
   }
+});
+
+/** 학생이 자기 화면의 장에서 남은 질문 수를 본다(대화창을 열거나 장을 옮길 때). 한도 계산은 askAssistant 와 같다. */
+exports.getAssistantQuota = onCall({ region: REGION, maxInstances: 10 }, async req => {
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
+  const key = assistant.chapterKey(((req.data || {}).chapter || "").toString().slice(0, 60), new Set(chapterTable().keys()));
+  const [cfg, qs, us] = await Promise.all([db.doc("config/assistant").get(), db.doc(`chatQuota/${req.auth.uid}`).get(), db.doc(`chatUsage/${req.auth.uid}`).get()]);
+  const limit = assistant.limitFor((cfg.data() || {}).limit, qs.exists ? qs.data() : null, key, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX);
+  const used = us.exists ? ((us.data().chapters || {})[key] || 0) : 0;
+  return { chapter: key, chapterTitle: chapterTable().get(key), limit, used, left: Math.max(0, limit - used) };
+});
+
+/** 교사가 한 학생의 장별 한도를 가감한다(기본 한도에 더하거나 뺀다). chapter 는 "all"(모든 장)이나 장 키, value 는 가감할 값(정수, 0 이면 가감 없음). 교사만. */
+exports.setAssistantQuota = onCall({ region: REGION, maxInstances: 5 }, async req => {
+  await assertTeacher(req.auth);
+  const { uid, chapter, value } = req.data || {};
+  if (typeof uid !== "string" || !uid || uid.includes("/") || uid.length > 128) throw new HttpsError("invalid-argument", "학생(uid)이 필요합니다.");
+  const n = assistant.int(value, -ASSISTANT_LIMIT_MAX, ASSISTANT_LIMIT_MAX);
+  if (n === null) throw new HttpsError("invalid-argument", `가감 값은 -${ASSISTANT_LIMIT_MAX} ~ ${ASSISTANT_LIMIT_MAX} 사이의 정수여야 합니다.`);
+  const meta = { updatedBy: req.auth.token.email, updatedAt: FieldValue.serverTimestamp() }, v = n === 0 ? FieldValue.delete() : n;
+  if (chapter === "all") await db.doc(`chatQuota/${uid}`).set({ all: v, ...meta }, { merge: true });
+  else if (typeof chapter === "string" && chapterTable().has(chapter)) await db.doc(`chatQuota/${uid}`).set({ chapters: { [chapter]: v }, ...meta }, { merge: true });
+  else throw new HttpsError("invalid-argument", "알 수 없는 장입니다.");
+  return { uid, chapter, value: n };
 });
 
 /** 대화 한 건을 chatLogs 에 남기고, 학생별(chatUsage)·반 전체(stats/assistant, 날짜별) 토큰·횟수를 센다. 교사만 읽을 수 있다(규칙).

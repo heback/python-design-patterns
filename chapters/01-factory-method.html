@@ -24,13 +24,13 @@ part: 생성 패턴
 
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
-  <p class="lead-in">서윤이 분기를 붙인 직후의 코드다. 리더는 장비의 출력 형식을 해석하는 코드, 곧 <dfn data-term="parser">파서</dfn>다. 리더들은 멀쩡하다. <code>__init__</code>의 <code>port</code>, <code>run()</code> 맨 앞의 <code>if</code> 사슬, 데모 [3]을 보라. 데모 [3]의 <code><dfn data-term="globals">globals()</dfn></code>는 모듈의 전역 이름을 딕셔너리로 돌려주는 내장 함수다. 여기에 대입하면 이름이 가리키는 대상이 바뀐다. 이렇게 실행 중에 이름을 다른 대상으로 갈아 끼우는 기법을 <dfn data-term="monkeypatch">몽키패치</dfn>라 한다.</p>
+  <p class="lead-in">서윤이 분기를 붙인 직후의 코드다. 리더는 장비가 내보낸 글자를 읽어 숫자로 바꿔 주는 클래스다(이런 코드를 <dfn data-term="parser">파서</dfn>라고도 부른다). 리더들 자체는 멀쩡하다. 눈여겨볼 곳은 <code>__init__</code>의 <code>port</code>, <code>run()</code> 맨 앞의 <code>if</code> 목록, 그리고 데모 [3]이다. 데모 [3]은 테스트를 하려고 진짜 리더 이름 <code>CsvSpectrumReader</code>가 가짜 리더를 가리키도록 몰래 바꿔 놓았다가, 끝나면 원래대로 되돌린다. 이렇게 이름을 바꿔 끼우는 데 쓴 <code><dfn data-term="globals">globals()</dfn></code>는 이 파일에서 쓰는 이름표(클래스·함수 이름)와 그 대상을 모아 둔 목록을 돌려주는 함수라서, 여기에 다른 값을 넣으면 같은 이름표가 다른 클래스를 가리키게 된다. 파이썬 개발자들은 이렇게 실행 중에 이름이 가리키는 대상을 몰래 바꿔 끼우는 일을 <dfn data-term="monkeypatch">몽키패치</dfn>(monkeypatch)라고 부른다.</p>
   <pre data-src="01_factory_method/easy/e1_naive.py" data-title="순진한 코드"></pre>
   <p>데모 [1]은 잘 돈다. 문제는 변경 때 드러난다.</p>
   <ul>
-    <li><strong>확장할 자리가 공용 코드 안에만 있다.</strong> 데모 [2]처럼 옆 연구실은 자기 장비인 <dfn data-term="x-ray-diffractometer">X선 회절계(XRD)</dfn>(결정 구조를 재는 장비)를 다 알지만, 그 지식을 꽂을 곳이 남의 <code>if</code> 사슬뿐이다.</li>
-    <li><strong>장비별 인자가 새어 나온다.</strong> 신형 장비만 쓰는 <code>port</code>가 모든 작업에 붙었다.</li>
-    <li><strong>테스트할 <dfn data-term="seam">이음새</dfn>가 없다.</strong> 이음새는 코드를 고치지 않고 다른 구현을 끼울 수 있는 지점이다. <code>run()</code>이 <code>CsvSpectrumReader</code>라는 이름에 묶여 있어, 데모 [3]은 전역 이름을 몽키패치해야 했다.</li>
+    <li><strong>확장할 자리가 공용 코드 안에만 있다.</strong> 데모 [2]처럼 옆 연구실은 자기 장비인 <dfn data-term="x-ray-diffractometer">X선 회절계(XRD)</dfn>(결정 구조를 재는 장비)를 누구보다 잘 안다. 그런데 그 장비를 연결할 곳이 남이 관리하는 공용 <code>run()</code>의 <code>if</code> 목록뿐이다.</li>
+    <li><strong>장비마다 다른 설정이 모두에게 번진다.</strong> 신형 장비만 쓰는 <code>port</code>가 모든 작업에 따라붙는다.</li>
+    <li><strong>테스트용 가짜를 끼울 <dfn data-term="seam">이음새</dfn>가 없다.</strong> 이음새는 코드를 고치지 않고도 다른 것을 끼워 넣을 수 있는 자리다. 테스트 중에는 실제 장비 대신 가짜 리더를 쓰고 싶은데, <code>run()</code>이 <code>CsvSpectrumReader</code>라는 진짜 클래스의 이름을 직접 적어 두어서 가짜를 넣을 자리가 없다. 그래서 데모 [3]처럼 이름표를 몰래 바꿔 놓고 테스트가 끝나면 되돌려야 한다. 되돌리는 것을 잊으면 같은 이름을 쓰는 다른 코드도 가짜를 쓰게 된다.</li>
   </ul>
   <div class="callout warn">
     <span class="label">흔한 첫 시도</span>
