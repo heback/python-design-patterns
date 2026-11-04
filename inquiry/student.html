@@ -1290,10 +1290,13 @@ function newState() { return { app: APP, schema: SCHEMA, student: { name: "", nu
 function validState(d) { return d && d.app === APP && d.answers && typeof d.answers === "object"; }
 function initTheme() {
   const t = lsGet("dp-theme"); if (t) document.documentElement.dataset.theme = t;
-  const b = $(".theme-toggle"); if (!b) return;
-  b.addEventListener("click", () => {
-    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-    r.dataset.theme = dark ? "light" : "dark"; lsSet("dp-theme", r.dataset.theme);
+  /* 로그인 화면과 본 화면에 토글 버튼이 따로 있고 initTheme 가 두 번 불릴 수 있으므로, 모든 버튼에 한 번씩만 처리기를 붙인다(중복되면 한 번 눌러도 두 번 뒤집혀 안 바뀐다). */
+  document.querySelectorAll(".theme-toggle").forEach(b => {
+    if (b.dataset.bound) return; b.dataset.bound = "1";
+    b.addEventListener("click", () => {
+      const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      r.dataset.theme = dark ? "light" : "dark"; lsSet("dp-theme", r.dataset.theme);
+    });
   });
 }
 const STAGE_NO = { engage: 1, find: 2, sort: 3, general: 4, transfer: 5, reflect: 6 };

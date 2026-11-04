@@ -125,7 +125,8 @@ function liveState(ms) {
 function statusLegend() {
   const pill = (cls, icon, label) => el("span", { class: "pill " + cls, style: "margin-right:6px" }, ico(icon, "fill"), label);
   const row = (p, text) => el("li", { style: "margin:3px 0" }, p, text);
-  return el("details", { open: "", style: "margin:6px 0;font-size:13.5px" },
+  /* 기본은 접어 둔다. 진도표는 실시간으로 다시 그려지므로 교사가 펼친 상태를 M.legendOpen 에 기억해 두었다가 되살린다. */
+  return el("details", { ...(M.legendOpen ? { open: "" } : {}), ontoggle: e => { M.legendOpen = e.target.open; }, style: "margin:6px 0;font-size:13.5px" },
     el("summary", { style: "cursor:pointer;font-weight:700" }, "상태·화면 표시 기준"),
     el("div", { style: "display:flex;gap:28px;flex-wrap:wrap;margin-top:4px" },
       el("div", { style: "flex:1;min-width:260px" }, el("b", {}, "상태"), " — 학생이 마지막으로 조작(클릭·키 입력·스크롤)한 때부터 지난 시간",
@@ -217,6 +218,13 @@ function renderMonitor(main) {
     if (m === "custom") { let f = M.tokFrom || today, t = M.tokTo || today; if (f > t) [f, t] = [t, f]; return { from: f, to: t, label: "지정한 기간" }; }
     return { from: today, to: today, label: "오늘" };
   };
+  /* 예상 비용: 100만 토큰당 요금(USD, Gemini API 유료·표준, 2026-11 확인 https://aistudio.google.com/docs/pricing).
+     학생 AI 도우미 모델(gemini-flash-lite-latest = Gemini 3.5 Flash-Lite 로 가정): 입력 $0.30, 출력(생각 토큰 포함) $2.50.
+     요금·모델이 바뀌면 이 값과 안내 문구를 함께 고친다. 환율은 임의 가정값이다. */
+  const PRICE = { model: "Gemini 3.5 Flash-Lite", inUsd: 0.30, outUsd: 2.50, krwPerUsd: 1450 };
+  const costUsd = v => (v.promptTokens * PRICE.inUsd + (v.outputTokens + v.thoughtTokens) * PRICE.outUsd) / 1e6;
+  const usd = x => "$" + (x >= 1 ? x.toFixed(2) : x.toFixed(4));
+  const money = x => `${usd(x)} (약 ${nf(Math.round(x * PRICE.krwPerUsd))}원)`;
   const paintTok = () => {
     const st = M.stats || {}, today = todayKst(), R = tokRange();
     const tot = R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(st[k]) || 0])) : sumDays(st.byDay, R.from, R.to);
@@ -230,7 +238,8 @@ function renderMonitor(main) {
     const setRange = k => { M.tokRange = k; if (k === "custom") { M.tokFrom = M.tokFrom || addDays(today, -6); M.tokTo = M.tokTo || today; } paintTok(); };
     const dateIn = (key, val) => el("input", { type: "date", value: val, max: today, "aria-label": key === "tokFrom" ? "시작 날짜" : "끝 날짜", onchange: e => { if (e.target.value) { M[key] = e.target.value; paintTok(); } } });
     fill(vTok, el("h3", {}, "토큰 사용량"),
-      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 요금은 모델과 시점마다 달라 토큰 수만 보여 줍니다. 날짜는 한국 시간 기준입니다."),
+      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 날짜는 한국 시간 기준입니다."),
+      el("p", { class: "lead", style: "font-size:13px" }, `예상 비용은 ${PRICE.model} 요금(100만 토큰당 입력 $${PRICE.inUsd.toFixed(2)} · 출력과 생각 토큰 $${PRICE.outUsd.toFixed(2)}, 2026년 11월 Google 공시 기준)으로 계산한 추정치이고 원화는 1달러=${nf(PRICE.krwPerUsd)}원으로 가정했습니다. 실제 청구액과 다를 수 있으니 Google AI Studio의 결제 화면으로 확인하세요.`),
       M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "집계를 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
       el("div", { class: "seg", role: "group", "aria-label": "기간 선택" }, seg.map(([k, l]) => el("button", { type: "button", class: "seg-b", "aria-pressed": String((M.tokRange || "today") === k), onclick: () => setRange(k) }, l))),
       (M.tokRange || "today") === "custom" ? el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0" }, dateIn("tokFrom", R.from), "부터", dateIn("tokTo", R.to), "까지") : null,
@@ -239,16 +248,18 @@ function renderMonitor(main) {
         el("div", {}, el("b", {}, "질문"), `${nf(tot.count)}건 (거절 ${nf(tot.refused)} · 오류 ${nf(tot.errors)} · 사진 ${nf(tot.images)})`),
         el("div", {}, el("b", {}, "토큰 합계"), `${nf(tot.totalTokens)} (입력 ${nf(tot.promptTokens)} · 출력 ${nf(tot.outputTokens)} · 생각 ${nf(tot.thoughtTokens)})`),
         el("div", {}, el("b", {}, "질문한 학생"), R.all ? `${nf(rows.length)}명` : `${nf(rows.length)}명${older && older.count ? " 이상" : ""}`),
-        el("div", {}, el("b", {}, "질문 1건당 토큰"), tot.count ? nf(Math.round(tot.totalTokens / tot.count)) : "—")),
+        el("div", {}, el("b", {}, "질문 1건당 토큰"), tot.count ? nf(Math.round(tot.totalTokens / tot.count)) : "—"),
+        el("div", {}, el("b", {}, "예상 비용"), money(costUsd(tot))),
+        el("div", {}, el("b", {}, "질문 1건당 예상 비용"), tot.count ? money(costUsd(tot) / tot.count) : "—")),
       el("h4", {}, "날짜별"),
-      days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "입력 토큰", "출력 토큰", "합계 토큰"].map(h => el("th", {}, h)))),
-        el("tbody", {}, days.slice(0, 120).map(([d, v]) => el("tr", {}, el("td", {}, d + (d === today ? " (오늘)" : "")), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens))))))) : el("p", { class: "lead" }, "이 기간의 기록이 없습니다."),
+      days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용"].map(h => el("th", {}, h)))),
+        el("tbody", {}, days.slice(0, 120).map(([d, v]) => el("tr", {}, el("td", {}, d + (d === today ? " (오늘)" : "")), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, usd(costUsd(v)))))))) : el("p", { class: "lead" }, "이 기간의 기록이 없습니다."),
       days.length > 120 ? el("p", { class: "lead" }, "최근 120일만 표시합니다.") : null,
       el("h4", {}, "학생별"),
-      rows.length || (older && older.count) ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "마지막 사용"].map(h => el("th", {}, h)))),
+      rows.length || (older && older.count) ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용", "마지막 사용"].map(h => el("th", {}, h)))),
         el("tbody", {}, rows.map(({ u, v }) => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(v.count)), el("td", {}, nf(v.refused)),
-          el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, ago(tsMs(u.lastAt))))),
-          older && older.count ? el("tr", { class: "tok-older" }, el("td", {}, "날짜별 학생 집계가 없는 이전 사용량"), el("td", {}, nf(older.count)), el("td", {}, nf(older.refused)), el("td", {}, nf(older.promptTokens)), el("td", {}, nf(older.outputTokens)), el("td", {}, nf(older.totalTokens)), el("td", {}, "—")) : null))) : el("p", { class: "lead" }, R.all ? "아직 AI 도우미를 쓴 학생이 없습니다." : "이 기간에 AI 도우미를 쓴 학생이 없습니다."),
+          el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, usd(costUsd(v))), el("td", {}, ago(tsMs(u.lastAt))))),
+          older && older.count ? el("tr", { class: "tok-older" }, el("td", {}, "날짜별 학생 집계가 없는 이전 사용량"), el("td", {}, nf(older.count)), el("td", {}, nf(older.refused)), el("td", {}, nf(older.promptTokens)), el("td", {}, nf(older.outputTokens)), el("td", {}, nf(older.totalTokens)), el("td", {}, usd(costUsd(older))), el("td", {}, "—")) : null))) : el("p", { class: "lead" }, R.all ? "아직 AI 도우미를 쓴 학생이 없습니다." : "이 기간에 AI 도우미를 쓴 학생이 없습니다."),
       !R.all ? el("p", { class: "lead", style: "font-size:13px" }, "학생별 날짜 집계는 2026-11-04 이후의 사용량부터 쌓입니다. 그 전의 사용량은 반 전체 날짜별 집계에만 있어 위 표에 한 줄로 따로 나타나며, 학생별로는 [전체]에서만 볼 수 있습니다.") : null);
   };
 
