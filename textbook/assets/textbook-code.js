@@ -43,9 +43,9 @@
   });
 })();
 
-/* 요약 판 ↔ 원문 탭: 누르면 지금 읽던 절(두 판이 같은 절 id를 쓴다)의 위치로 바로 이동한다. 같은 id가 없으면 맨 위로 간다. */
+/* 요약 판 ↔ 원문 전환 버튼: 누르면 지금 읽던 절(두 판이 같은 절 id를 쓴다)의 위치로 바로 이동한다. 같은 id가 없으면 맨 위로 간다. */
 (function () {
-  const tabs = document.querySelectorAll(".ver-tabs a:not(.on)");
+  const tabs = document.querySelectorAll(".ver-switch");
   if (!tabs.length) return;
   tabs.forEach(a => a.addEventListener("click", e => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;

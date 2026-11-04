@@ -14,14 +14,13 @@
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 </head>
-<body class="{{body_class}}{{tabs_class}}" data-part="{{part}}">
+<body class="{{body_class}}" data-part="{{part}}">
 <header class="topbar">
   <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="course">{{course}}</span>
   <span class="crumb">{{crumb}}</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
-  {{tabs}}
 </header>
 <div class="layout">
   <nav class="side-toc" aria-label="이 장의 목차">{{toc}}</nav>
@@ -31,6 +30,7 @@
     {{pager}}
   </main>
 </div>
+{{tabs}}
 <footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>

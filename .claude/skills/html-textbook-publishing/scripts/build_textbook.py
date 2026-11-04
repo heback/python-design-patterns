@@ -226,14 +226,15 @@ def build() -> int:
                 short = f"{ch.nn}-{ch.slug}.html"
                 pager = pager.replace('<nav class="pager">', f'<nav class="pager"><a class="prev" href="{short}"><small>↑ 요약 판</small>{chapter_label(ch)} {ch.title}</a>', 1)
             if ch.full or (FULL / f"{ch.nn}-{ch.slug}.html").exists():
-                # 요약 판 ↔ 원문(긴 버전) 탭. 상단 바에 고정되고, 누르면 읽던 절 위치로 같은 절 id를 따라 이동한다(textbook-code.js).
                 short, long_ = f"{ch.nn}-{ch.slug}.html", f"{ch.nn}-{ch.slug}-full.html"
-                tabs = ('<nav class="ver-tabs" aria-label="요약 판과 원문 전환">'
-                        f'<a href="{short}" class="{"" if ch.full else "on"}" data-ver="short"{"" if ch.full else " aria-current=\"page\""} title="핵심만 간추린 글(기본)">요약 판</a>'
-                        f'<a href="{long_}" class="{"on" if ch.full else ""}" data-ver="long"{" aria-current=\"page\"" if ch.full else ""} title="더 자세한 설명과 여러 변형(읽지 않아도 연습문제를 풀 수 있다)">원문 (긴 버전)</a></nav>')
+                # 화면 오른쪽 가운데에 따라다니는 전환 버튼: 요약 판에는 [원문], 원문에는 [요약]. 누르면 읽던 절의 같은 id 위치로 이동한다(textbook-code.js).
+                if ch.full:
+                    tabs = (f'<a class="ver-switch" href="{short}" aria-label="요약 판으로 이동" title="요약 판의 같은 절로 이동">요약</a>')
+                else:
+                    tabs = (f'<a class="ver-switch" href="{long_}" aria-label="원문(긴 버전)으로 이동" title="원문(긴 버전)의 같은 절로 이동">원문</a>')
             page = fill(template, page_title=f"{chapter_label(ch)} {re.sub(r'<[^>]+>', '', ch.title)}{' (참고용 긴 버전)' if ch.full else ' (요약)'} — 파이썬 디자인 패턴 · {COURSE_LABEL}",
                         body_class="chapter", part=ch.part, crumb=f"{chapter_label(ch)} · {ch.title}{tag}",
-                        toc=toc, hero=hero, content=body, pager=pager, tabs=tabs, tabs_class=" has-tabs" if tabs else "")
+                        toc=toc, hero=hero, content=body, pager=pager, tabs=tabs)
             (OUT / ch.out_name).write_text(page, encoding="utf-8")
             print(f"  built {ch.out_name}")
 

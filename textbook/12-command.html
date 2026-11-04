@@ -14,14 +14,13 @@
   try { var t = localStorage.getItem("dp-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 </head>
-<body class="chapter has-tabs" data-part="행위 패턴">
+<body class="chapter" data-part="행위 패턴">
 <header class="topbar">
   <a class="brand" href="https://heback.github.io/python-design-patterns/">파이썬 디자인 패턴</a>
   <span class="course">객체지향프로그래밍.대구과학고등학교.2학기</span>
   <span class="crumb">12장 · 커맨드 (Command)</span>
   <a class="glossary-link" href="glossary.html">용어집</a>
   <button class="theme-toggle" type="button" aria-label="밝기 모드 전환">◐</button>
-  <nav class="ver-tabs" aria-label="요약 판과 원문 전환"><a href="12-command.html" class="on" data-ver="short" aria-current="page" title="핵심만 간추린 글(기본)">요약 판</a><a href="12-command-full.html" class="" data-ver="long" title="더 자세한 설명과 여러 변형(읽지 않아도 연습문제를 풀 수 있다)">원문 (긴 버전)</a></nav>
 </header>
 <div class="layout">
   <nav class="side-toc" aria-label="이 장의 목차"><ol><li><a href="#goals">학습 목표</a></li><li><a href="#context">1. 상황</a></li><li><a href="#naive">2. 순진한 설계와 그 한계</a></li><li><a href="#structure">3. 패턴의 구조</a></li><li><a href="#implementation">4. 패턴 적용</a></li><li><a href="#pythonic">5. 파이썬다운 변형</a></li><li><a href="#tradeoffs">6. 트레이드오프와 관련 패턴</a></li><li><a href="#exercises">7. 연습문제</a></li></ol></nav>
@@ -674,6 +673,7 @@ if __name__ == &quot;__main__&quot;:
     <nav class="pager"><a class="prev" href="11-observer.html"><small>← 이전 · 11장</small>옵저버 (Observer)</a><a class="next" href="13-state.html"><small>다음 · 13장 →</small>상태 (State)</a></nav>
   </main>
 </div>
+<a class="ver-switch" href="12-command-full.html" aria-label="원문(긴 버전)으로 이동" title="원문(긴 버전)의 같은 절로 이동">원문</a>
 <footer class="foot">파이썬 디자인 패턴 · 모든 예제 코드는 코드 블록의 [▶ 실행]으로 직접 실행할 수 있다.</footer>
 <script src="assets/pyhl.js"></script>
 <script>PyHL.apply(document);</script>

@@ -78,14 +78,15 @@ code { font-family: var(--font-code); font-size: .9em; }
   border-radius: 999px; width: 34px; height: 34px; cursor: pointer; font-size: 16px;
 }
 
-/* ---- 요약 판 / 원문 탭(상단 바에 함께 고정) ---- */
-.topbar { flex-wrap: wrap; row-gap: 0; }
-.ver-tabs { flex-basis: 100%; display: flex; gap: 4px; margin: 8px -20px -11px; padding: 0 20px; }
-.ver-tabs a { padding: 7px 18px; font-size: .9em; font-weight: 600; text-decoration: none; color: var(--muted); border-bottom: 3px solid transparent; }
-.ver-tabs a:hover { color: var(--text); }
-.ver-tabs a.on { color: var(--accent); border-bottom-color: var(--accent); }
-body.has-tabs .side-toc { top: 112px; max-height: calc(100vh - 120px); }
-html:has(body.has-tabs) { scroll-padding-top: 112px; }
+/* ---- 요약 판 ↔ 원문 전환 버튼: 화면 오른쪽 가운데에 고정 ---- */
+.ver-switch {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 9;
+  padding: 18px 10px; background: var(--accent); color: var(--bg); font-weight: 700; font-size: .9em; letter-spacing: .08em;
+  text-decoration: none; writing-mode: vertical-rl; border-radius: 8px 0 0 8px; line-height: 1;
+}
+.ver-switch:hover { filter: brightness(1.12); }
+.ver-switch:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+@media (max-width: 640px) { .ver-switch { padding: 14px 7px; font-size: .82em; } }
 
 /* ---- 레이아웃 ---- */
 .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 0 24px; }
@@ -235,7 +236,7 @@ table.glossary tr:target { background: var(--accent-soft); }
 .foot { text-align: center; color: var(--muted); font-size: .85em; padding: 30px 16px 40px; border-top: 1px solid var(--border); }
 
 @media print {
-  .topbar, .side-toc, .pager, .copy, /* ---- 용어 정의 ---- */
+  .topbar, .ver-switch, .side-toc, .pager, .copy, /* ---- 용어 정의 ---- */
 dfn.term { font-style: normal; font-weight: 700; text-decoration: underline dotted var(--accent); text-underline-offset: 4px; cursor: help; }
 dfn.term:target { background: var(--accent-soft); border-radius: 4px; }
 .glossary-link { color: var(--muted); font-size: .88em; text-decoration: none; white-space: nowrap; }
