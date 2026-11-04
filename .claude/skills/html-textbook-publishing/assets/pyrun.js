@@ -27,14 +27,24 @@ const PyRun = (function () {
           await py.runPythonAsync(m.shim);
           postMessage({ type: "ready" });
         } else if (m.type === "run") {
-          py.setStdout({ batched: s => postMessage({ type: "out", id: m.id, text: s + "\n" }) });
-          py.setStderr({ batched: s => postMessage({ type: "out", id: m.id, text: s + "\n", err: true }) });
+          /* batched 는 줄 단위라 print(end="") 처럼 줄바꿈 없는 출력이 버퍼에 남고 \n 도 멋대로 붙는다.
+             write 는 파이썬이 쓴 바이트를 그대로 받으므로 end=·sep=·flush= 가 의도대로 나온다. */
+          const mk = err => {
+            const dec = new TextDecoder();
+            return { write: buf => { const t = dec.decode(buf, { stream: true }); if (t) postMessage({ type: "out", id: m.id, text: t, err }); return buf.length; } };
+          };
+          py.setStdout(mk(false));
+          py.setStderr(mk(true));
           const g = py.globals.get("dict")();
           g.set("__name__", "__main__");
+          /* 줄바꿈 없이 끝난 출력(print("끝", end=""))은 파이썬 버퍼에 남아 있다. 'done' 을 보내기 전에 비워서 내보낸다. */
+          const flush = () => { try { py.runPython("import sys\nsys.stdout.flush()\nsys.stderr.flush()"); } catch (_) {} };
           try {
             await py.runPythonAsync(m.code, { globals: g });
+            flush();
             postMessage({ type: "done", id: m.id, ok: true });
           } catch (err) {
+            flush();
             let msg = String((err && err.message) || err);
             const i = msg.indexOf('File "<exec>"');
             if (i >= 0) msg = "Traceback (most recent call last):\n  " + msg.slice(i);
