@@ -78,3 +78,4 @@ open textbook/00-intro.html
 | 2026-11-04 | AI 도우미 질문 한도를 하루 40번에서 학생별·장별 40번(기본값)으로 변경, 교사 [질문 한도] 메뉴(기본값·학생/장별 가감, 함수 setAssistantQuota·getAssistantQuota, chatQuota), 대화기록 쪽 나누기(서버 커서·필터 색인), 학생은 기록 삭제 불가를 규칙 테스트로 고정, 학생 대화창 [대화 지우기]를 [새 대화]로 | firebase/functions·firestore.rules·firestore.indexes.json, inquiry/templates(assistant.js·teacher.js·fb.js) | 비용 통제와 학생별 조정, 기록이 많아져도 볼 수 있게 |
 | 2026-11-04 | 코드 실행기 stdout을 batched에서 write 핸들러로 바꿔 print(end=…) 출력 문제 수정 | assets/pyrun.js | end 옵션이 든 출력이 안 나옴 |
 | 2026-11-04 | 팩토리 메서드 장의 몽키패치·globals·이음새 설명을 쉬운 말로 고침 | chapters/01-factory-method.html, chapters/full, terms.json, src/01_factory_method | 학생이 용어를 어려워함 |
+| 2026-11-04 | 토큰 사용량을 기간(오늘·주간·월간·전체·직접 지정)별로 보기, 학생별 날짜별 집계(chatUsage.byDay) 추가 | inquiry/templates/teacher.js·style.css, firebase/functions/index.js | 기간별 사용량 파악 |

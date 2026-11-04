@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", quota: null, qOpen: {}, qErr: "",
+const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qOpen: {}, qErr: "",
   lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
   group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
@@ -205,25 +205,52 @@ function renderMonitor(main) {
       el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveAssistant(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "AI 도우미 끄기"] : [ico("play_arrow"), "AI 도우미 켜기"]));
   };
 
-  /* --- 토큰 사용량 화면: 반 전체·오늘·날짜별·학생별 --- */
+  /* --- 토큰 사용량 화면: 기간(오늘·주간·월간·전체·직접 지정)별 반 전체·날짜별·학생별 --- */
+  const SUM_KEYS = ["count", "refused", "errors", "images", "promptTokens", "outputTokens", "thoughtTokens", "totalTokens"];
+  const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400e3).toISOString().slice(0, 10);       // YYYY-MM-DD(한국 날짜 문자열)에 일수를 더한다
+  const emptySum = () => Object.fromEntries(SUM_KEYS.map(k => [k, 0]));
+  const sumDays = (byDay, from, to) => { const t = emptySum(); for (const [d, v] of Object.entries(byDay || {})) if (d >= from && d <= to) SUM_KEYS.forEach(k => { t[k] += Number(v[k]) || 0; }); return t; };
+  const tokRange = () => {          // 현재 선택한 기간 → {all, from, to, label}
+    const today = todayKst(), m = M.tokRange || "today";
+    if (m === "all") return { all: true, from: "0000-00-00", to: "9999-99-99", label: "전체 기간" };
+    if (m === "week") return { from: addDays(today, -6), to: today, label: "주간 (오늘 포함 최근 7일)" };
+    if (m === "month") return { from: addDays(today, -29), to: today, label: "월간 (오늘 포함 최근 30일)" };
+    if (m === "custom") { let f = M.tokFrom || today, t = M.tokTo || today; if (f > t) [f, t] = [t, f]; return { from: f, to: t, label: "지정한 기간" }; }
+    return { from: today, to: today, label: "오늘" };
+  };
   const paintTok = () => {
-    const st = M.stats || {}, today = todayKst(), td = (st.byDay || {})[today] || {};
-    const usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
-    const days = Object.entries(st.byDay || {}).sort((a, b) => b[0].localeCompare(a[0]));
+    const st = M.stats || {}, today = todayKst(), R = tokRange();
+    const tot = R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(st[k]) || 0])) : sumDays(st.byDay, R.from, R.to);
+    const days = Object.entries(st.byDay || {}).filter(([d]) => d >= R.from && d <= R.to).sort((a, b) => b[0].localeCompare(a[0]));
+    const rows = (M.usage || []).map(u => { const v = R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(u["total_" + k]) || 0])) : sumDays(u.byDay, R.from, R.to); return { u, v }; })
+      .filter(r => r.v.count > 0).sort((a, b) => b.v.totalTokens - a.v.totalTokens);
+    // 학생별 날짜 집계는 이 기능을 넣은 뒤부터 쌓인다. 반 전체 합계와의 차이는 '날짜별 학생 집계가 없는 이전 사용량'으로 따로 보여 준다.
+    const sumStu = rows.reduce((t, r) => { SUM_KEYS.forEach(k => { t[k] += r.v[k]; }); return t; }, emptySum());
+    const older = R.all ? null : Object.fromEntries(SUM_KEYS.map(k => [k, Math.max(0, tot[k] - sumStu[k])]));
+    const seg = [["today", "오늘"], ["week", "주간"], ["month", "월간"], ["all", "전체"], ["custom", "기간 지정"]];
+    const setRange = k => { M.tokRange = k; if (k === "custom") { M.tokFrom = M.tokFrom || addDays(today, -6); M.tokTo = M.tokTo || today; } paintTok(); };
+    const dateIn = (key, val) => el("input", { type: "date", value: val, max: today, "aria-label": key === "tokFrom" ? "시작 날짜" : "끝 날짜", onchange: e => { if (e.target.value) { M[key] = e.target.value; paintTok(); } } });
     fill(vTok, el("h3", {}, "토큰 사용량"),
-      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 요금은 모델과 시점마다 달라 토큰 수만 보여 줍니다."),
+      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 요금은 모델과 시점마다 달라 토큰 수만 보여 줍니다. 날짜는 한국 시간 기준입니다."),
       M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "집계를 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
+      el("div", { class: "seg", role: "group", "aria-label": "기간 선택" }, seg.map(([k, l]) => el("button", { type: "button", class: "seg-b", "aria-pressed": String((M.tokRange || "today") === k), onclick: () => setRange(k) }, l))),
+      (M.tokRange || "today") === "custom" ? el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0" }, dateIn("tokFrom", R.from), "부터", dateIn("tokTo", R.to), "까지") : null,
+      el("p", { class: "lead", style: "margin:8px 0" }, R.all ? "기간: 전체 (지금까지 쌓인 모든 사용량)" : R.from === R.to ? `기간: ${R.label} (${R.from})` : `기간: ${R.label} — ${R.from} ~ ${R.to}`),
       el("div", { class: "dlg-sum" },
-        el("div", {}, el("b", {}, "전체 질문"), `${nf(st.count)}건 (거절 ${nf(st.refused)} · 오류 ${nf(st.errors)} · 사진 ${nf(st.images)})`),
-        el("div", {}, el("b", {}, "전체 토큰"), `${nf(st.totalTokens)} (입력 ${nf(st.promptTokens)} · 출력 ${nf(st.outputTokens)} · 생각 ${nf(st.thoughtTokens)})`),
-        el("div", {}, el("b", {}, `오늘(${today.slice(5)})`), `${nf(td.count)}건 · ${nf(td.totalTokens)} 토큰`)),
+        el("div", {}, el("b", {}, "질문"), `${nf(tot.count)}건 (거절 ${nf(tot.refused)} · 오류 ${nf(tot.errors)} · 사진 ${nf(tot.images)})`),
+        el("div", {}, el("b", {}, "토큰 합계"), `${nf(tot.totalTokens)} (입력 ${nf(tot.promptTokens)} · 출력 ${nf(tot.outputTokens)} · 생각 ${nf(tot.thoughtTokens)})`),
+        el("div", {}, el("b", {}, "질문한 학생"), R.all ? `${nf(rows.length)}명` : `${nf(rows.length)}명${older && older.count ? " 이상" : ""}`),
+        el("div", {}, el("b", {}, "질문 1건당 토큰"), tot.count ? nf(Math.round(tot.totalTokens / tot.count)) : "—")),
       el("h4", {}, "날짜별"),
       days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "입력 토큰", "출력 토큰", "합계 토큰"].map(h => el("th", {}, h)))),
-        el("tbody", {}, days.map(([d, v]) => el("tr", {}, el("td", {}, d), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens))))))) : el("p", { class: "lead" }, "아직 기록이 없습니다."),
+        el("tbody", {}, days.slice(0, 120).map(([d, v]) => el("tr", {}, el("td", {}, d + (d === today ? " (오늘)" : "")), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens))))))) : el("p", { class: "lead" }, "이 기간의 기록이 없습니다."),
+      days.length > 120 ? el("p", { class: "lead" }, "최근 120일만 표시합니다.") : null,
       el("h4", {}, "학생별"),
-      usage.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "마지막 사용"].map(h => el("th", {}, h)))),
-        el("tbody", {}, usage.map(u => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(u.total_count)), el("td", {}, nf(u.total_refused)),
-          el("td", {}, nf(u.total_promptTokens)), el("td", {}, nf(u.total_outputTokens)), el("td", {}, nf(u.total_totalTokens)), el("td", {}, ago(tsMs(u.lastAt)))))))) : el("p", { class: "lead" }, "아직 AI 도우미를 쓴 학생이 없습니다."));
+      rows.length || (older && older.count) ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "마지막 사용"].map(h => el("th", {}, h)))),
+        el("tbody", {}, rows.map(({ u, v }) => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(v.count)), el("td", {}, nf(v.refused)),
+          el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, ago(tsMs(u.lastAt))))),
+          older && older.count ? el("tr", { class: "tok-older" }, el("td", {}, "날짜별 학생 집계가 없는 이전 사용량"), el("td", {}, nf(older.count)), el("td", {}, nf(older.refused)), el("td", {}, nf(older.promptTokens)), el("td", {}, nf(older.outputTokens)), el("td", {}, nf(older.totalTokens)), el("td", {}, "—")) : null))) : el("p", { class: "lead" }, R.all ? "아직 AI 도우미를 쓴 학생이 없습니다." : "이 기간에 AI 도우미를 쓴 학생이 없습니다."),
+      !R.all ? el("p", { class: "lead", style: "font-size:13px" }, "학생별 날짜 집계는 2026-11-04 이후의 사용량부터 쌓입니다. 그 전의 사용량은 반 전체 날짜별 집계에만 있어 위 표에 한 줄로 따로 나타나며, 학생별로는 [전체]에서만 볼 수 있습니다.") : null);
   };
 
   /* --- 대화 기록 화면: 쪽 나누기(서버 커서) + 학생·거절·오류·사진 필터(서버 쿼리) --- */

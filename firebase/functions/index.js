@@ -217,14 +217,14 @@ exports.setAssistantQuota = onCall({ region: REGION, maxInstances: 5 }, async re
   return { uid, chapter, value: n };
 });
 
-/** 대화 한 건을 chatLogs 에 남기고, 학생별(chatUsage)·반 전체(stats/assistant, 날짜별) 토큰·횟수를 센다. 교사만 읽을 수 있다(규칙).
+/** 대화 한 건을 chatLogs 에 남기고, 학생별(chatUsage, 누적 total_* 와 날짜별 byDay)·반 전체(stats/assistant, 날짜별) 토큰·횟수를 센다. 교사만 읽을 수 있다(규칙).
  *  사진 파일은 저장하지 않는다(있었는지와 크기만). 한도용 chatUsage 의 day/count 필드와 같은 문서를 쓰되 merge 로 서로 덮어쓰지 않는다. */
 async function recordChat(e) {
   const entry = assistant.logEntry(e), u = entry.usage, inc = FieldValue.increment;
   const sums = { count: inc(1), refused: inc(entry.refused ? 1 : 0), errors: inc(entry.error ? 1 : 0), images: inc(entry.hasImage ? 1 : 0), promptTokens: inc(u.prompt), outputTokens: inc(u.output), thoughtTokens: inc(u.thoughts), totalTokens: inc(u.total) };
   const batch = db.batch();
   batch.set(db.collection("chatLogs").doc(), entry);
-  batch.set(db.doc(`chatUsage/${e.uid}`), Object.assign({ student: e.student, lastAt: e.at }, Object.fromEntries(Object.entries(sums).map(([k, f]) => ["total_" + k, f]))), { merge: true });
+  batch.set(db.doc(`chatUsage/${e.uid}`), Object.assign({ student: e.student, lastAt: e.at }, Object.fromEntries(Object.entries(sums).map(([k, f]) => ["total_" + k, f])), { byDay: { [e.day]: sums } }), { merge: true });      // byDay: 학생별 날짜별 집계(교사 화면의 기간별 토큰 사용량)
   batch.set(db.doc("stats/assistant"), Object.assign({ updatedAt: e.at }, sums, { byDay: { [e.day]: sums } }), { merge: true });
   await batch.commit();
 }
