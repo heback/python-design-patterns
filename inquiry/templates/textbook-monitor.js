@@ -81,7 +81,7 @@
       const msg = el("span", { class: "monmsg" });
       kids.push(msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인"));
     } else {
-      kids.push(el("span", { class: "monacct" }, StudentAuth.get().email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.manageConsent() }, ico("verified_user"), "개인정보 동의"), " ", el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃"), " ");
+      kids.push(el("span", { class: "monacct" }, StudentAuth.get().email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃"), " ");
     }
     kids.push(el("span", { class: "monst" }, stIco, st));
     b.replaceChildren(...kids);

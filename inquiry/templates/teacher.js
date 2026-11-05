@@ -410,8 +410,13 @@ function renderMonitor(main) {
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
       M.consents === null ? null : el("p", { class: "lead" }, `개인정보 동의 ${consList.length}명 (AI 도우미 선택 동의 ${consList.filter(c => c.ai === true).length}명)` + (rows.some(r => !consOk(r)) ? ` · 동의 없는 진도 기록 ${rows.filter(r => !consOk(r)).length}건` : "")),
       consList.length ? el("details", { style: "margin:4px 0 8px;font-size:13.5px" }, el("summary", { style: "cursor:pointer;font-weight:700" }, "개인정보 동의 현황"),
-        el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "이메일", "동의 일시", "AI 도우미(선택)", "문구 버전"].map(h => el("th", {}, h)))),
-          el("tbody", {}, consList.map(c => el("tr", {}, el("td", {}, (c.student || {}).name || c.id), el("td", {}, (c.student || {}).email || ""), el("td", {}, tsMs(c.agreedAt) ? stamp(new Date(tsMs(c.agreedAt))) : "—"), el("td", {}, c.ai === true ? "동의" : "동의 안 함"), el("td", {}, c.version || ""))))))) : null,
+        el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "이메일", "동의 일시", "AI 도우미(선택)", "문구 버전", "관리"].map(h => el("th", {}, h)))),
+          el("tbody", {}, consList.map(c => el("tr", {}, el("td", {}, (c.student || {}).name || c.id), el("td", {}, (c.student || {}).email || ""), el("td", {}, tsMs(c.agreedAt) ? stamp(new Date(tsMs(c.agreedAt))) : "—"), el("td", {}, c.ai === true ? "동의" : "동의 안 함"), el("td", {}, c.version || ""),
+            el("td", {}, el("button", { type: "button", class: "btn small", title: "이 학생의 동의 기록을 지웁니다. 학생은 다시 동의해야 하고, 그 전까지 진도 전송과 AI 질문이 막힙니다.", onclick: async () => {
+              if (!confirm(`${(c.student || {}).name || c.id}(${(c.student || {}).email || ""})의 개인정보 동의를 초기화할까요?\n학생은 다시 동의해야 하고, 그 전까지 이 학생의 새 진도와 AI 질문은 서버가 받지 않습니다. 이미 쌓인 진도·대화 기록은 그대로입니다.`)) return;
+              try { await FB.resetConsent(c.id); toast("동의를 초기화했습니다."); } catch (err) { alert("초기화하지 못했습니다: " + errText(err)); }
+            } }, "동의 초기화")))))))) : null,
+      consList.length ? el("p", { class: "lead", style: "font-size:13px;margin-top:0" }, "학생은 한 번 동의하면 스스로 철회·변경할 수 없습니다. 철회나 선택 항목 변경은 여기서 [동의 초기화]로 처리합니다.") : null,
       el("p", { class: "lead", style: "font-size:13.5px" }, "칸의 숫자는 그 장에서 읽은 절의 비율이고 아래 작은 글씨는 그 장의 체류 시간입니다. 숫자를 누르면 절별 세부 정보를 볼 수 있습니다. 절이 화면 가운데에 2초 이상 머물면 읽은 것으로 세고, 체류 시간은 화면이 보이고 최근 60초 안에 조작이 있던 시간만 셉니다(줄어들지 않는 값). 교재의 호스팅 사본을 열어 읽을 때만 집계됩니다."),
       statusLegend(),
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;margin:6px 0" }, el("label", {}, "분류 ", grpSel), el("label", {}, "정렬 ", sortSel)),

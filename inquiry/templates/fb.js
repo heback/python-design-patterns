@@ -45,10 +45,10 @@ const FB = (() => {
     const user = await schoolUser(), m = await load(), { doc, setDoc, serverTimestamp } = m.fs, w = who(user);
     await setDoc(doc(m.db, "consents", user.uid), { uid: user.uid, student: { name: w.name.slice(0, 80), email: w.email }, version, ai: !!ai, agreedAt: serverTimestamp() });
   }
-  /* 동의 철회: 내 동의 문서를 지운다. 지우면 서버 규칙이 진도 쓰기를 거부하고 함수가 AI 도우미 질문을 거부한다. */
-  async function withdrawConsent() {
-    const user = await schoolUser(), m = await load();
-    await m.fs.deleteDoc(m.fs.doc(m.db, "consents", user.uid));
+  /* 동의 초기화(교사만 — 규칙): 그 학생의 동의 문서를 지운다. 학생은 다음에 화면을 열 때(열어 둔 화면은 곧바로) 다시 동의해야 하고, 그 전까지 진도·AI 질문이 막힌다. 학생은 스스로 철회·변경할 수 없다. */
+  async function resetConsent(uid) {
+    const m = await load();
+    await m.fs.deleteDoc(m.fs.doc(m.db, "consents", uid));
   }
 
   /* ---------- 진도 수집(학생) ---------- */
@@ -151,7 +151,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
-           watchMyConsent, saveConsent, withdrawConsent, watchConsents,
+           watchMyConsent, saveConsent, resetConsent, watchConsents,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
