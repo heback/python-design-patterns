@@ -37,14 +37,14 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;하은의 코드에서 어떤 사고들이 일어났을까? 공통 원인은 무엇일까?&quot;, &quot;&#x27;HAVING을 쓰려면 GROUP BY도 있어야 한다&#x27;는 규칙은 왜 지켜지지 않았을까?&quot;, &quot;to_summary()를 to_sql()을 복사해 만들었더니 어떤 일이 생겼을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>쇼핑몰 회사의 데이터 분석가 하은은 사내 <dfn class="term" id="term-business-intelligence" data-term="business-intelligence" title="비즈니스 인텔리전스 — 사내 데이터를 집계·시각화해 의사 결정을 돕는 분석 체계(대시보드 등).">BI</dfn>(회사 데이터를 모아 차트로 보여 주는 분석 체계) 대시보드에 "기간별 매출" 차트를 만들었다. 데이터베이스에 묻는 언어인 <dfn class="term" id="term-structured-query-language" data-term="structured-query-language" title="관계형 데이터베이스에 질의하고 데이터를 다루는 표준 언어.">SQL</dfn> 문장 한 줄이면 충분했고, 이것을 <code>SalesQuery</code> 클래스로 감쌌다.</p>
   <p>차트가 스무 개로 늘었다. 지역 필터, 회원 등급 필터가 붙고, 어떤 차트는 월별로 묶어 일정 금액 이상만 보여 준다. SQL에서 묶는 기준은 <code><dfn class="term" id="term-group-by-having" data-term="group-by-having" title="GROUP BY는 행을 열 값별 그룹으로 묶어 집계(SUM 등)하는 기준이고, HAVING은 집계가 끝난 그룹에 거는 조건이다(WHERE는 집계 전 행에 거는 조건).">GROUP BY</dfn></code>, 묶은 뒤에 거는 조건은 <code>HAVING</code>이다. 하은은 요구가 올 때마다 생성자에 선택 인자를 하나씩 더했다.</p>
   <p>사고가 이어졌다. 기간 없이 지역만 걸자 문법 오류가 났다. 누군가 <code>GROUP BY</code> 없이 <code>HAVING</code>만 붙였다. 팀은 "HAVING을 쓰려면 GROUP BY도 있어야 한다"는 규칙을 정했지만 검사할 자리가 없었다. 팀장이 차트마다 한국어 요약을 띄워 달라고 하자, 하은은 <code>to_sql()</code>을 복사해 <code>to_summary()</code>를 만들었다. 한 달 뒤 VIP 매출 요약에 회원 등급 조건이 빠져 있었다.</p>
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;점층적 생성자는 무엇일까? None, \&quot;VIP\&quot;, None, None 같은 호출이 왜 읽기 어려울까?&quot;, &quot;데모 [2], [3]의 잘못된 SQL은 왜 막히지 않고 데이터베이스까지 갔을까?&quot;, &quot;파이썬의 키워드 인자만으로 풀리는 문제와 풀리지 않는 문제는 각각 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">하은의 <code>SalesQuery</code>다. 선택 인자가 늘 때마다 매개변수를 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록을 쓰게 되는 모양을 <dfn class="term" id="term-telescoping-constructor" data-term="telescoping-constructor" title="선택 인자가 늘 때마다 생성자 매개변수를 하나씩 덧붙여, 호출부가 위치로만 구분되는 긴 인자 목록(None 행렬)을 쓰게 되는 안티패턴.">점층적 생성자</dfn>(telescoping constructor)라 한다. 생성자와 데모 [1]의 호출부를 비교하고, <code>to_summary()</code>가 <code>to_sql()</code>을 따라 하다 무엇을 놓쳤는지 보라.</p>
   <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;03 빌더 — 순진한 코드: 선택 인자를 생성자에 계속 덧붙인 SalesQuery.
 
@@ -118,7 +118,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;GoF 빌더의 핵심인 &#x27;같은 절차, 다른 표현&#x27;을 하은의 경우에 대입해 보자. 절차와 표현은 각각 무엇일까?&quot;, &quot;감독(Director)과 빌더는 각각 무엇을 알고, 무엇은 모를까?&quot;, &quot;유창한 빌더(메서드 체이닝)는 GoF 빌더와 푸는 문제가 어떻게 다를까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도는 이렇다. "복잡한 객체의 생성 과정과 표현 방법을 분리하여, 동일한 생성 절차에서 서로 다른 표현 결과를 만들 수 있게 한다." 핵심은 <em>같은 절차</em>와 <em>다른 표현</em>이다. 하은의 경우 절차는 "필터 → 묶기"이고, 표현은 SQL과 요약이다.</p>
   <p>그런데 요즘 "빌더"라고 하면 대개 <code>Builder().a(1).b(2).build()</code> 같은 <dfn class="term" id="term-fluent-interface" data-term="fluent-interface" title="메서드가 자신(self)을 돌려주어 `b.select(...).where(...).build()`처럼 호출을 한 문장으로 이어 쓰게 만든 API 스타일; 빌더에서 선택 사항이 많은 객체를 읽히게 조립하는 데 흔히 쓴다.">유창한 인터페이스</dfn>를 떠올린다. 메서드가 자기 자신을 돌려주어 호출을 점으로 이어 쓰게 만든 <dfn class="term" id="term-application-programming-interface" data-term="application-programming-interface" title="프로그램이 다른 프로그램·서비스의 기능을 호출하기 위해 약속한 인터페이스.">API</dfn>(다른 코드가 쓰라고 내놓은 함수·메서드의 약속) 설계 방식이다. 이 유창한 빌더에는 Director도 다중 표현도 없다. 목적은 "선택 사항이 많은 객체 하나를 읽히게, 검증된 <dfn class="term" id="term-immutable-object" data-term="immutable-object" title="생성된 뒤 상태를 바꿀 수 없는 객체; 공유해도 안전하고 해시 키로 쓸 수 있다.">불변</dfn> 상태로 만들기"다. 불변은 만든 뒤 상태를 바꿀 수 없다는 뜻이다. 이름은 같지만 푸는 문제가 다르다. 이 장은 둘 다 다룬다.</p>
   <figure class="diagram">
@@ -177,7 +177,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;유창한 빌더에서 build()는 무슨 일을 할까? 검증이 왜 그곳에 모여 있을까?&quot;, &quot;&#x27;조립 중에는 관대하게, 완성 시에는 엄격하게&#x27;는 무슨 뜻일까?&quot;, &quot;GoF 빌더에서 조립 절차의 유일한 주인은 누구일까? 덕분에 SQL과 요약이 어긋나는 일이 왜 사라졌을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>4.1 유창한 빌더: 조립과 완성을 나눈다</h3>
   <p class="lead-in">먼저 현업에서 더 흔한 유창한 빌더로 앞의 두 문제를 푼다. 메서드가 <code>return self</code>로 자신을 돌려주어 호출을 점으로 이어 붙이는 기법을 <dfn class="term" id="term-method-chaining" data-term="method-chaining" title="메서드가 객체 자신을 돌려주게 하여 여러 호출을 점(.)으로 이어 붙이는 기법.">메서드 체이닝</dfn>이라 한다. 반환 타입 <code><dfn class="term" id="term-typing-self" data-term="typing-self" title="&#x27;이 메서드가 호출된 객체의 실제 클래스&#x27;를 뜻하는 반환 타입 힌트(3.11+); 하위 클래스에서 체이닝해도 타입이 유지된다.">Self</dfn></code>(<code>typing.Self</code>)는 "이 메서드가 불린 객체의 실제 클래스"를 뜻하는 타입 힌트다. 가변 리스트가 어디에만 있는지, 그리고 <dfn class="term" id="term-cross-field-validation" data-term="cross-field-validation" title="필드 하나가 아니라 여러 필드의 조합에 걸린 제약(예: HAVING이 있으면 GROUP BY도 있어야 함)을 검사하는 것.">교차 검증</dfn>, 곧 필드 하나가 아니라 여러 필드의 조합에 걸린 규칙(HAVING이면 GROUP BY도)을 검사하는 일이 왜 <code>build()</code>에 모여 있는지 보라.</p>
   <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;03 빌더 — 패턴 코드: 유창한 빌더로 조립하고, build()에서 한 번에 검증한다.
@@ -387,7 +387,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;파이썬에는 있고 Java에는 없어서 빌더가 덜 필요해지는 기능은 무엇일까?&quot;, &quot;dataclasses.replace로 일부만 바꾼 새 객체를 만들 때, 검증(__post_init__)은 다시 돌까?&quot;, &quot;그래도 손으로 빌더를 만들어야 하는 경계는 언제일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>Java에서 유창한 빌더가 퍼진 가장 큰 이유는 이름 있는 인자와 기본값이 없어서였다. 파이썬에는 둘 다 있다.</p>
   <p class="lead-in">아래 코드는 빌더 없이 같은 <code>Query</code>를 만든다. <code><dfn class="term" id="term-kw-only-true" data-term="kw-only-true" title="`@dataclass(kw_only=True)`(3.10+)로 생성자를 키워드 전용으로 만들어 위치 인자 호출을 막는 옵션.">kw_only</dfn>=True</code>는 데이터클래스의 생성자를 <dfn class="term" id="term-keyword-only-argument" data-term="keyword-only-argument" title="매개변수 목록의 * 뒤에 두어 반드시 이름=값으로만 넘길 수 있게 한 인자.">키워드 전용 인자</dfn>로, 곧 <code>이름=값</code>으로만 넘길 수 있게 만드는 옵션이다. <code>__post_init__</code>이 <code>build()</code>의 검증을 대신한다. <code><dfn class="term" id="term-dataclasses-replace" data-term="dataclasses-replace" title="기존 데이터클래스 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수; 내부적으로 `__init__`을 다시 불러 `__post_init__` 검증도 다시 돈다.">dataclasses.replace</dfn></code>는 기존 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수다. 데모 [2]의 <code><dfn class="term" id="term-type-ignore-comment" data-term="type-ignore-comment" title="그 줄에 대해 정적 타입 검사기의 경고를 끄는 주석 지시문(대괄호 안에 무시할 오류 코드를 적을 수 있다)."># type: ignore</dfn>[misc]</code>는 일부러 틀리게 부른 그 줄에서 정적 타입 검사기의 경고를 끄는 주석이다. 데모 [3]에서 검증이 다시 도는지 보라.</p>
   <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;03 빌더 — 파이썬다운 변형: 빌더 없이 키워드 전용 dataclass로.
@@ -440,7 +440,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;빌더로 얻는 것을 두 가지만 말해 보자.&quot;, &quot;&#x27;선택 인자가 많다&#x27;는 것만으로는 왜 빌더를 쓸 이유가 되지 않을까?&quot;, &quot;추상 팩토리(2장), 템플릿 메서드(14장)와 무엇이 다른지 한 문장씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p><strong>얻는 것.</strong></p>
   <ul>
     <li>선택 사항이 많은 객체의 생성 코드가 읽히고, 완성품은 검증된 불변 상태로만 존재한다.</li>
@@ -684,6 +684,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;배달비 규칙이 늘 때마다 민재는 무엇을 했고, 그 결과 어떤 문의가 왔을까?&quot;, &quot;새벽 5시 주문의 배달비가 서울과 부산에서 다르게 나온 원인은 무엇일까?&quot;, &quot;서울·부산·제주의 요금 계산에서 &#x27;바뀌는 것&#x27;과 &#x27;같은 것&#x27;은 각각 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>음식 배달 플랫폼 '한끼배달'의 백엔드 개발자 민재는 서비스 초기, 배달비를 가장 단순하게 정했다. 기본 3,000원에 km당 500원. 계산은 <code>Order.delivery_fee()</code> 메서드 다섯 줄이면 충분했고, 실제로 반년 동안 아무 문제가 없었다.</p>
 <p>문제는 사업이 커지면서 생겼다. 비 오는 날 라이더가 부족해지자 우천 할증 1,000원이 붙었고, 밤 10시 이후 주문에는 심야 할증이 붙었다. 월 구독 상품 '한끼패스'가 출시되면서 구독 회원은 배달비가 무료가 되었고, 일부 가게는 배달비 일부를 자기 돈으로 대신 내 주는 프로모션을 시작했다. 민재는 그때마다 <code>delivery_fee()</code>에 <code>if</code>를 하나씩 더했다.</p>
 <p>결정타는 운영팀의 요청이었다. "부산 해운대에서는 거리 비례 대신 <strong><dfn class="term" id="term-tiered-pricing" data-term="tiered-pricing" title="거리 구간마다 정해진 요금을 매기는 방식.">구간제</dfn> 요금표</strong>를 실험해 보고 싶어요. 결과가 좋으면 다른 지역에도 넓히고, 나쁘면 다음 주에 되돌릴 거예요. 제주에서는 이번 주만 정액 1,900원 이벤트를 하고요. 매번 배포를 기다리긴 어렵습니다." 구간제란 거리를 몇 구간으로 나눠 구간마다 정해진 요금을 매기는 방식이다. 운영팀이 하려는 것은 <dfn class="term" id="term-a-b-test" data-term="a-b-test" title="사용자(또는 지역)를 무작위로 나눠 두 안을 동시에 적용하고 결과를 비교하는 실험.">A/B 테스트</dfn> — 지역(또는 사용자)을 나눠 두 요금안을 동시에 적용하고 주문 수·이탈률을 비교하는 실험 — 였다. 요금 정책이 <em>지역별로, 주 단위로</em> 바뀌는 대상이 된 것이다.</p>
@@ -45,7 +45,7 @@
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;지역 분기 안에 할증 분기가 들어 있으면 새 규칙을 넣을 때 무엇을 고쳐야 할까?&quot;, &quot;&#x27;선택&#x27;과 &#x27;계산&#x27;이 한 덩어리라는 것은 무슨 뜻일까?&quot;, &quot;규칙 하나만 따로 시험하기 어려운 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">아래는 민재의 <code>Order.delivery_fee()</code>가 반년 동안 자란 모습이다. 지역 분기 안에 할증 분기가 중첩되어 있다는 점, 그리고 B안 블록이 A안 블록의 복사본이라는 점에 주목하라. <code># ⚠ 문제:</code> 주석이 각 고통 지점을 가리킨다.</p>
 <figure class="diagram code-map">
   <svg viewBox="0 0 640 556" role="img" aria-label="순진한 코드의 구조: Order가 Customer와 Store를 담고, delivery_fee() 하나가 구독 무료, 지역별 A안·B안·그 밖 분기, 할증, 가게 할인을 모두 품는다. B안의 할증은 A안을 복사해 심야 기준이 어긋났다"><defs>
@@ -250,7 +250,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;게임기와 게임 팩 비유에서 게임기와 팩은 각각 코드의 무엇일까?&quot;, &quot;Strategy, Concrete Strategy, Context는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;서비스가 직접 하는 일과 정책에 맡기는 일을 어떻게 나눴을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF는 전략 패턴의 의도를 이렇게 적는다. <em>"알고리즘군을 정의하고 각각을 캡슐화하여 교체 가능하게 만든다. 전략을 쓰면 알고리즘을 사용하는 클라이언트와 독립적으로 알고리즘을 바꿀 수 있다."</em> 핵심 단어는 '교체 가능'이다. 컨텍스트는 알고리즘을 <em>상속받지</em> 않고 <em>보유한다</em>. 그래서 컨텍스트 객체를 새로 만들지 않고도 알고리즘만 갈아 끼울 수 있다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 720 400" role="img" aria-label="배달비 전략 패턴 구조: DeliveryFeeService가 FeePolicy를 보유하고, DistancePolicy·TieredPolicy·FlatPolicy가 FeePolicy를 구현한다"><defs>
@@ -340,7 +340,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;운영팀이 바꾸고 싶어 하는가?&#x27;라는 질문으로 무엇은 정책으로 빼고 무엇은 서비스에 남겼을까?&quot;, &quot;정책에 Order 대신 FeeInput만 넘기면 무엇이 좋아질까?&quot;, &quot;전략 패턴은 if를 없애는 패턴일까? 지역 분기는 어디로 옮겨졌을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>민재가 먼저 한 일은 코드가 아니라 분류였다. <code>delivery_fee()</code>의 각 줄을 "운영팀이 실험하고 싶어 하는가?"로 나눴다. 요금표와 할증 금액은 실험 대상이므로 <em>변하는 것</em>이다. 구독 무료는 회원 약관이고 가게 할인은 가게와의 계약이므로, 어떤 요금표를 쓰든 똑같이 적용되는 <em>변하지 않는 것</em>이다. 이 판단이 곧 전략과 컨텍스트의 경계가 된다.</p>
 <p class="lead-in">첫 부분은 전략이 받는 입력과 전략 클래스들이다. <code>FeeInput</code>이 <code>Order</code>가 아니라는 점, 그리고 심야 판정이 <code>is_night()</code> 하나로 모여 복제가 사라졌다는 점을 확인하라. 이 패턴 코드는 길어서 세 부분으로 나눠 본다.</p>
 <figure class="diagram code-map">
@@ -1477,7 +1477,7 @@ REGION_CONFIG: dict[str, dict[str, Any]] = {
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;파이썬에서는 클래스 없이 무엇을 전략으로 쓸 수 있을까?&quot;, &quot;함수, dataclass, ABC는 전략의 성격에 따라 어떻게 골라야 할까?&quot;, &quot;sorted(key=...)가 전략 패턴과 닮은 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p><code>FeePolicy</code>의 본질은 메서드 하나다. GoF가 전략을 클래스로 표현한 것은 1994년의 C++·Smalltalk 환경에서 "호출 가능한 무언가를 변수에 담아 넘기는" 가장 자연스러운 방법이 객체였기 때문이다. 파이썬에서 함수는 일급 객체이므로 메서드 하나짜리 인터페이스는 <code>Callable[[FeeInput], int]</code>로 충분하다. <strong>파이썬에서 전략의 상당수는 그냥 함수다.</strong> 그러면 질문이 바뀐다. 클래스는 언제 여전히 필요한가?</p>
 <p class="lead-in">민재는 정책을 함수로 다시 쓰면서, 요율 같은 매개변수가 있는 정책을 표현하는 세 가지 방법(클로저, <code>functools.partial</code>, 호출 가능한 <code>dataclass</code>)을 나란히 두었다. 모두 같은 <code>FeePolicy</code> <dfn class="term" id="term-type-alias" data-term="type-alias" title="복잡한 타입 힌트에 이름을 붙인 것(FeePolicy = Callable[[FeeInput], int]).">타입 별칭</dfn>을 만족한다는 점에 주목하라. 타입 별칭은 복잡한 타입 힌트에 이름을 붙인 것이다(<code>FeePolicy = Callable[[FeeInput], int]</code>). <code>SurgePricing</code>의 docstring에 나오는 <code><dfn class="term" id="term-dataclasses-asdict" data-term="dataclasses-asdict" title="dataclass 인스턴스를 필드 이름→값 dict로 바꾸는 함수.">dataclasses.asdict()</dfn></code>는 dataclass 인스턴스를 필드 이름 → 값 dict로 바꾸는 함수로, 설정을 다시 JSON으로 내보낼 때 쓴다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: 전략 = 함수. 매개변수는 클로저·partial·호출 가능한 dataclass로.
@@ -2111,7 +2111,7 @@ REGION_CONFIG_JSON = &quot;&quot;&quot;
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;전략으로 얻는 것을 말해 보자. 새 정책은 어떻게 추가될까?&quot;, &quot;계산 방법이 아니라 숫자만 바뀔 때는 왜 전략이 아닐까?&quot;, &quot;상태(13장), 템플릿 메서드(14장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p><strong>얻는 것.</strong> 알고리즘별 단위 테스트, 런타임 교체, 새 알고리즘 추가 시 기존 코드 무수정(OCP), 그리고 설정 기반 선택의 길이 열린다. 순진한 설계의 거대한 조건문이 "각자 한 가지 일만 하는 작은 단위"로 쪼개진다.</p>
 <p><strong>치르는 것.</strong> 객체(또는 함수)의 수가 늘고, 요금이 어떻게 계산되는지 한눈에 보려면 설정·등록부·정책 클래스를 오가야 한다. 클라이언트(선택 로직)는 전략들 사이의 차이를 알아야 고를 수 있다. 그리고 전략 인터페이스는 한번 정하면 바꾸기 어렵다 — 어떤 전략에 새 입력(예: 날씨 등급)이 필요해지면 <code>FeeInput</code>을 넓혀야 하고 모든 전략이 그 영향을 받는다.</p>
 <div class="callout warn">
@@ -2444,6 +2444,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

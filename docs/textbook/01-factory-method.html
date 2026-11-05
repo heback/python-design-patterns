@@ -37,7 +37,7 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;장비가 바뀔 때마다 달라지는 것은 딱 하나다. 그게 무엇일까?&quot;, &quot;옆 연구실이 새 장비를 붙이려 할 때, 왜 남의 코드(공용 run())를 고쳐 달라고 부탁해야 했을까?&quot;, &quot;테스트하려던 학생은 왜 가짜 리더를 끼울 자리를 찾지 못했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>화학과 박사과정생 서윤은 실험 자동화를 맡았다. 연구실의 <dfn class="term" id="term-uv-vis-spectrophotometer" data-term="uv-vis-spectrophotometer" title="자외선·가시광선을 시료에 비춰 파장별 흡광도를 측정하는 분석 장비.">UV-Vis 분광광도계</dfn>(빛으로 시료를 재는 장비)가 측정을 마치면 결과 파일이 나온다. 서윤은 <code>AcquisitionJob</code> 클래스를 만들고 <code>run()</code> 하나에 "읽기 → <dfn class="term" id="term-normalization" data-term="normalization" title="단위가 다른 측정값을 비교하려고 일정 기준(여기서는 최대 세기 = 1.0)에 맞춰 크기를 조정하는 것.">정규화</dfn> → 저장"을 넣었다. 정규화는 장비마다 다른 세기 단위를 비교하려고 최댓값을 1.0에 맞추는 일이다.</p>
   <p><dfn class="term" id="term-mass-spectrometer" data-term="mass-spectrometer" title="시료를 이온화해 질량 대 전하비(m/z)별 세기를 측정하는 분석 장비.">질량분석기</dfn>(또 다른 분석 장비)가 들어왔고, 케이블 포트로 연결하는 신형 장비도 왔다. 장비마다 출력 형식이 다르다. 서윤은 <code>run()</code> 안에 <code>if device == …</code> 분기를 붙였다. 신형 장비에만 필요한 <code>port</code> 인자는 모든 작업의 생성자에 붙었다.</p>
   <p>그다음 학과가 이 코드를 다섯 연구실의 공용 <dfn class="term" id="term-framework" data-term="framework" title="전체 흐름을 쥐고 사용자 코드를 정해진 자리에서 불러 주는 재사용 골격 코드.">프레임워크</dfn>로 삼았다. 프레임워크는 전체 흐름을 쥐고, 각 연구실의 코드를 정해진 자리에서 불러 주는 공용 골격이다. 옆 연구실이 새 장비를 붙이려 하자 공용 <code>run()</code>의 분기를 고쳐 달라고 요청해야 했다. 정규화 로직만 <dfn class="term" id="term-unit-test" data-term="unit-test" title="함수·클래스 같은 작은 단위를 외부 의존 없이 따로 검증하는 테스트.">단위 테스트</dfn>(작은 단위를 실제 장비 없이 따로 검증하는 테스트)하려던 학생은 가짜 리더를 끼울 자리를 찾지 못했다.</p>
@@ -45,7 +45,7 @@
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;run() 맨 앞의 if 목록이 왜 문제일까? 새 장비를 붙이려면 누구의 코드를 고쳐야 할까?&quot;, &quot;&#x27;이음새&#x27;는 무엇일까? 이 코드에는 왜 이음새가 없다고 할까?&quot;, &quot;신형 장비에만 필요한 port가 모든 작업의 생성자에 붙어 있다. 무엇이 불편해질까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">서윤이 분기를 붙인 직후의 코드다. 리더는 장비가 내보낸 글자를 읽어 숫자로 바꿔 주는 클래스다(이런 코드를 <dfn class="term" id="term-parser" data-term="parser" title="텍스트·바이트 입력을 해석해 구조화된 데이터로 바꾸는 코드(그 작업이 파싱).">파서</dfn>라고도 부른다). 리더들 자체는 멀쩡하다. 눈여겨볼 곳은 <code>__init__</code>의 <code>port</code>, <code>run()</code> 맨 앞의 <code>if</code> 목록, 그리고 데모 [3]이다. 데모 [3]은 테스트를 하려고 진짜 리더 이름 <code>CsvSpectrumReader</code>가 가짜 리더를 가리키도록 몰래 바꿔 놓았다가, 끝나면 원래대로 되돌린다. 이렇게 이름을 바꿔 끼우는 데 쓴 <code><dfn class="term" id="term-globals" data-term="globals" title="이 파일(모듈)에서 쓰는 이름표와 그 대상을 모아 둔 딕셔너리를 돌려주는 내장 함수. 여기에 값을 넣으면 이름표가 다른 대상을 가리키게 바뀐다.">globals()</dfn></code>는 이 파일에서 쓰는 이름표(클래스·함수 이름)와 그 대상을 모아 둔 목록을 돌려주는 함수라서, 여기에 다른 값을 넣으면 같은 이름표가 다른 클래스를 가리키게 된다. 파이썬 개발자들은 이렇게 실행 중에 이름이 가리키는 대상을 몰래 바꿔 끼우는 일을 <dfn class="term" id="term-monkeypatch" data-term="monkeypatch" title="실행 중에 이름이 가리키는 대상을 몰래 다른 것으로 바꿔 끼우는 것. 테스트할 때 진짜 대신 가짜를 끼우려고 쓰지만, 같은 이름을 쓰는 다른 코드까지 영향을 받는다.">몽키패치</dfn>(monkeypatch)라고 부른다.</p>
   <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;01 팩토리 메서드 — 순진한 코드: 측정 흐름 안에서 리더를 직접 고르고 만든다.
 
@@ -138,7 +138,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;팩토리 메서드가 &#x27;미룬다&#x27;는 것은 무엇을 누구에게 미루는 것일까?&quot;, &quot;제품, 구체 제품, 생성자(Creator), 구체 생성자는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;장비가 하나 늘면 클래스는 어떻게 늘어날까? 그래서 &#x27;평행 클래스 계층&#x27;이라고 부른다.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF가 쓴 의도는 이렇다. "객체를 생성하기 위한 인터페이스를 정의하되, 어떤 클래스의 인스턴스를 만들지는 서브클래스가 결정하게 한다. 팩토리 메서드는 클래스의 인스턴스화를 서브클래스로 미룬다." 핵심은 <em>미룬다</em>이다. 생성은 여전히 상위 클래스의 흐름 안에서 일어난다. 상위 클래스는 만드는 <em>시점</em>을, 하위 클래스는 만들 <em>대상</em>을 안다.</p>
   <figure class="diagram">
     <svg viewBox="0 0 640 270" role="img" aria-label="팩토리 메서드 구조: AcquisitionJob이 run 안에서 create_reader를 부르고, UvVisJob이 create_reader를 오버라이드해 CsvSpectrumReader를 만든다"><defs>
@@ -199,7 +199,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;create_reader()는 run()의 어떤 단계를 떼어 낸 것일까?&quot;, &quot;옆 연구실의 XrdJob을 붙이면서 공용 코드를 한 줄이라도 고쳤을까? 어떻게 그게 가능할까?&quot;, &quot;테스트용 가짜(FakeJob)는 어느 자리로 들어올까? 순진한 코드와 무엇이 달라졌을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in"><code>run()</code>에서 "리더를 만든다"는 한 단계만 떼어 추상 메서드 <code>create_reader()</code>로 만들었다. 이 메서드가 팩토리 메서드다. 장비별 작업 클래스가 이것을 오버라이드한다. 아래쪽 "옆 연구실의 코드" 구획이 위쪽 공용 코드를 한 줄이라도 고치는지 확인하며 읽어라. 데모 [3]의 <code><dfn class="term" id="term-assert-python-o" data-term="assert-python-o" title="개발 중 불변 조건을 확인하는 문장; `python -O`로 실행하면 제거되므로 입력 검증에 쓰면 안 된다.">assert</dfn></code>는 조건이 거짓이면 <code>AssertionError</code>를 내는 확인 문장이다. <code>python -O</code>로 실행하면 통째로 사라지므로 테스트 확인에만 쓰고 입력 검사에는 쓰지 않는다.</p>
   <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;01 팩토리 메서드 — 패턴 코드: 흐름은 상위 클래스가, 리더 선택은 하위 클래스가.
 
@@ -334,7 +334,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;하위 클래스 대신 &#x27;만드는 방법&#x27;을 값으로 넘기면 무엇이 더 가벼워질까?&quot;, &quot;데모 [3]에서 리더는 언제 만들어질까? 그 시점은 누가 정할까?&quot;, &quot;from_config()는 왜 GoF의 팩토리 메서드가 아니라고 할까? 클래스가 스스로 등록하는 레지스트리는 무슨 문제를 줄여 줄까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>패턴 코드의 <code>UvVisJob</code>은 <code>create_reader()</code> 한 줄만 한다. 파이썬에서는 클래스도 함수처럼 부를 수 있다. 그렇다면 하위 클래스 대신 "만드는 방법"을 값으로 넘기면 된다.</p>
   <h3>생성 함수 넘기기와 <dfn class="term" id="term-alternative-constructor" data-term="alternative-constructor" title="`@classmethod` 등으로 만든, 같은 타입을 다른 입력 형식(설정 dict, 타임스탬프 등)에서 만드는 이름 붙은 생성 진입점; GoF 팩토리 메서드와 달리 무엇을 만들지는 호출자가 고른 클래스가 정한다.">대체 생성자</dfn></h3>
   <p class="lead-in">아래 코드는 <code>reader_factory</code> 인자로 만드는 방법을 받는다. 두 가지 도구가 새로 나온다. <code><dfn class="term" id="term-functools-partial" data-term="functools-partial" title="함수의 일부 인자를 미리 채워 둔 새 호출 가능 객체를 만든다. repr에 채운 인자가 보인다.">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 함수를 만든다. 대체 생성자는 같은 클래스를 다른 입력(예: 설정 dict)에서 만드는 이름 붙은 생성 진입점이다. 파이썬에서는 보통 <code><dfn class="term" id="term-classmethod" data-term="classmethod" title="인스턴스 대신 클래스(cls)를 첫 인자로 받는 메서드를 만드는 데코레이터; 하위 클래스에서 부르면 cls가 그 하위 클래스가 된다.">@classmethod</dfn></code>로 만든다. 이 장식을 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받는다. 데모 [3]에서 리더가 <em>언제</em> 만들어지는지 보라.</p>
@@ -531,7 +531,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;이 패턴으로 얻는 것을 말해 보자. 흐름을 가진 코드는 무엇을 모르게 되고, 새 제품은 어떻게 추가될까?&quot;, &quot;쓰지 말아야 할 때는 언제일까? 장비가 둘뿐이고 늘 계획이 없다면 무엇이 더 나을까?&quot;, &quot;추상 팩토리(2장), 템플릿 메서드(14장)와 무엇이 다른지 한 문장씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p><strong>얻는 것.</strong></p>
   <ul>
     <li>흐름을 가진 코드가 구체 클래스를 모른다(DIP).</li>
@@ -828,6 +828,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

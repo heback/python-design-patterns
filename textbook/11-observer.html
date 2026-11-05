@@ -37,13 +37,13 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;알림 서버가 멈췄을 때 왜 기록 기능까지 같이 쓰러졌을까?&quot;, &quot;사용자가 차트 화면을 닫아도 수신기가 계속 그 차트를 다시 그린 이유는 무엇일까?&quot;, &quot;&#x27;시세가 들어온다&#x27;는 사실과 &#x27;그때 무엇을 할까&#x27;는 각각 누가 알아야 할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>증권 앱 개발자 하린은 시세 수신기 <code>PriceFeed</code>를 만들었다. 새 가격이 들어오면 차트를 다시 그린다. 두 줄이면 됐다. 그 뒤 "목표가에 닿으면 알려 주세요", "모든 시세를 기록해 주세요" 같은 요구가 이어졌다. 하린은 <code>push_price()</code>에 호출을 한 줄씩 더했다.</p>
 <p>어느 날 알림을 보내는 서버가 멈췄다. 알림 호출이 예외를 던지자 그 아래 기록 호출까지 실행되지 않았다. 상관없는 기능이 같이 쓰러진 것이다. 같은 주에 또 하나가 드러났다. 사용자가 차트 화면을 닫아도 수신기는 그 차트를 계속 붙잡고 다시 그리고 있었다.</p>
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;PriceFeed가 차트·알림·기록을 직접 만들고 부르면, 새 기능을 붙일 때마다 무엇을 고쳐야 할까?&quot;, &quot;push_price()의 호출이 한 줄로 이어져 있으면 실패는 어떻게 번질까?&quot;, &quot;&#x27;그만 듣겠다&#x27;를 말할 방법이 없으면 어떤 일이 생길까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">하린의 <code>PriceFeed</code>다. 생성자가 차트·알림·기록을 직접 만들고, <code>push_price()</code>가 할 일 목록을 순서대로 부른다는 점을 보라.</p>
 <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;11 옵저버 — 순진한 코드: 시세 수신기가 반응하는 쪽을 모두 직접 부른다.
 
@@ -131,7 +131,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;유튜브 구독 비유에서 채널이 아는 것과 모르는 것은 각각 무엇일까?&quot;, &quot;Subject, Observer, Concrete Observer는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;푸시 모델과 풀 모델은 무엇이 다를까? 이 장은 어느 쪽을 쓸까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 정의는 이렇다. <em>"한 객체의 상태가 바뀌면 그 객체에 의존하는 모든 객체가 자동으로 통지받게 한다."</em> 유튜브 구독과 같다. 채널은 <dfn class="term" id="term-publish-subscribe" data-term="publish-subscribe" title="발행자는 메시지를 토픽에 발행하고, 그 토픽을 구독한 수신자(구독자)들이 받아 가는 메시징 모델; 발행자는 누가 받는지 모른다.">구독자</dfn>(알림을 받겠다고 신청한 사람) 목록만 갖고 새 영상을 알린다. 구독자가 누구인지, 알림을 받고 무엇을 하는지는 모른다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 640 270" role="img" aria-label="옵저버 구조: PriceFeed가 PriceObserver 목록을 갖고, ChartView·TargetPriceAlert·TradeLogger가 PriceObserver를 구현한다. 통지에는 Tick을 담아 보낸다"><defs>
@@ -195,7 +195,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;_notify()에서 구독자 목록을 복사해서 도는 이유는 무엇일까?&quot;, &quot;한 관찰자의 예외를 잡아 기록하고 다음으로 넘어가면 어떤 문제가 해결될까?&quot;, &quot;예외 격리에는 어떤 대가가 따를까? 그래서 잡은 예외는 어떻게 해야 할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">이제 차트·알림·기록이 스스로 구독한다. <code>_notify()</code>의 두 주석을 먼저 읽어라. <dfn class="term" id="term-iterate-over-a-copy" data-term="iterate-over-a-copy" title="통지를 시작할 때의 구독자 목록을 복사해 그 복사본을 도는 것. 통지 도중 구독·해제가 일어나도 건너뛰기가 생기지 않는다.">복사본 순회</dfn>는 통지를 시작할 때의 구독자 목록을 복사해 그 복사본을 도는 것이다. <dfn class="term" id="term-exception-isolation" data-term="exception-isolation" title="한 관찰자(구독자)가 던진 예외를 잡아 기록하고 다음으로 넘어가, 실패가 다른 관찰자에게 번지지 않게 하는 것.">예외 격리</dfn>는 한 관찰자의 예외를 잡아 기록하고 다음 관찰자로 넘어가는 것이다. 그 줄의 <code># <dfn class="term" id="term-noqa" data-term="noqa" title="린터(flake8 등)에게 그 줄의 특정 경고(예: BLE001 너무 넓은 except)를 무시하라고 알리는 주석.">noqa</dfn>: BLE001</code>은 코드 검사 도구에게 "너무 넓은 <code>except</code>" 경고를 일부러 끄라고 알리는 주석이다.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;11 옵저버 — 패턴 코드: 수신기는 구독자 목록에 알리기만 한다.
 
@@ -308,7 +308,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;메서드 하나짜리 관찰자는 클래스 대신 무엇으로 바꿀 수 있을까?&quot;, &quot;약한 참조(weakref)는 무엇이고, 어떤 문제를 덜어 줄까?&quot;, &quot;약한 참조가 있는데도 명시적 해제가 필요한 경우는 언제일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>패턴 코드에는 불만이 둘 남는다. 기록 한 줄에도 클래스를 만들어야 하고, <code>close()</code>를 잊으면 여전히 화면이 붙잡혀 있다. 메서드 하나짜리 관찰자는 함수로 바꾸면 된다(10장 전략과 같은 논리다). 수명은 <dfn class="term" id="term-weak-reference" data-term="weak-reference" title="대상 객체를 살려 두지 않는 참조. 다른 참조가 모두 사라지면 대상은 회수되고, 약한 참조는 죽은 참조가 된다.">약한 참조</dfn>에 맡길 수 있다. 약한 참조는 객체를 가리키되 그 객체가 사라지는 것을 막지 않는 참조다.</p>
 <p class="lead-in">아래 <code>EventHub</code>는 이벤트 이름별로 구독자를 보관한다. <code>on()</code>이 해제 함수를 돌려준다는 점, 그리고 바운드 메서드만 <code>weakref.<dfn class="term" id="term-weakref-weakmethod" data-term="weakref-weakmethod" title="바운드 메서드를 약하게 참조하는 weakref 도구. 메서드 객체가 아니라 그 주인 객체의 생존에 맞춰 살아 있다.">WeakMethod</dfn></code>(바운드 메서드를 약하게 가리키는 도구)로 보관하는 이유를 주석에서 확인하라.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;11 옵저버 — 파이썬다운 변형: 구독자는 함수면 되고, 해제는 약한 참조가 돕는다.
@@ -395,7 +395,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;옵저버로 얻는 것과 그 대가(흐름이 안 보임)는 각각 무엇일까?&quot;, &quot;순서와 결과가 중요한 흐름(결제 → 재고 → 배송)에는 왜 옵저버가 맞지 않을까?&quot;, &quot;커맨드(12장), 반복자(15장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것</h3>
 <ul>
   <li>기능을 더해도 주체는 고치지 않는다. 관찰자끼리 실패가 번지지 않는다.</li>
@@ -658,6 +658,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

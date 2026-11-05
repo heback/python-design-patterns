@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;BOM이 한 단계 깊어지자 원가 스크립트가 멈춘 이유는 무엇일까?&quot;, &quot;원가 함수를 복사해 중량 함수를 만든 것이 왜 나중에 더 큰 문제가 될까?&quot;, &quot;&#x27;엔진&#x27;과 &#x27;볼트&#x27;를 똑같이 취급할 수 있다면 원가를 구하는 코드는 어떻게 달라질까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>소형 경운기와 관리기를 만드는 '다온기계'의 생산관리팀 소연은 신모델의 원가를 뽑아야 했다. 처음 받은 자료는 구매팀의 엑셀이었다. 볼트, 베어링, 피스톤 링, 실린더 블록 같은 단품의 단가와 수량이 한 줄씩 적힌 평평한 목록이었고, 소연의 스크립트는 단가 × 수량을 더하면 끝이었다.</p>
 <p>그런데 설계팀의 실제 <dfn class="term" id="term-bill-of-materials" data-term="bill-of-materials" title="부품표 — 완제품을 이루는 조립품·단품과 수량을 계층으로 적은 목록.">부품표(BOM, Bill of Materials)</dfn>는 평평하지 않았다. 부품표는 완제품 하나를 만드는 데 드는 조립품과 단품을 수량과 함께 계층으로 적은 목록이다. 경운기는 엔진과 프레임으로, 엔진은 실린더 블록·피스톤 조립품·볼트로, 피스톤 조립품은 다시 링과 핀으로 이루어진다. 조립품마다 조립 <dfn class="term" id="term-labor-cost" data-term="labor-cost" title="조립 등 작업에 드는 인건비성 비용.">공임</dfn>(조립 작업에 드는 인건비성 비용)이 붙는다. 소연은 단품 클래스와 조립품 클래스를 만들고, 원가 함수 안에서 "이것이 단품인가 조립품인가"를 물으며 자식을 순회하는 루프를 두 겹 중첩했다. 엔진 원가가 맞게 나왔다.</p>
 <p>곧 요구가 늘었다. 물류팀은 총중량을, 구매팀은 "가장 늦게 들어오는 부품 기준으로 완제품이 언제 나올 수 있는가"(<dfn class="term" id="term-lead-time" data-term="lead-time" title="발주·착수부터 완료(입고·완성)까지 걸리는 기간; 조립품은 가장 늦은 하위 부품 + 자기 조립 기간이다.">리드타임</dfn>: 발주·착수부터 완료까지 걸리는 기간)를, 품질팀은 "단종 예정 부품이 어느 조립품에 들어가 있는가"를 원했다. 소연은 원가 함수를 복사해 중량 함수를 만들었다. 같은 <code>isinstance</code> 분기, 같은 이중 루프였다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Part와 Assembly에 공통 타입이 없으면 쓰는 쪽은 무엇을 해야 할까?&quot;, &quot;루프가 두 겹이라는 것은 코드에 어떤 가정이 박혀 있다는 뜻일까?&quot;, &quot;total_cost()와 total_weight()는 무엇만 다르고 무엇이 똑같을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>소연의 스크립트를 재현한다. <code>Part</code>와 <code>Assembly</code>는 공통 타입이 없는 별개의 클래스이고, 계산 함수가 둘을 구분한다.</p>
 <p class="lead-in"><code>total_cost()</code>와 <code>total_weight()</code>가 같은 골격을 공유한다는 점, 그리고 루프의 중첩 깊이가 곧 "처리할 수 있는 BOM의 깊이"라는 점에 주목하라. 데모 [3]이 그 가정을 깬다.</p>
 <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 순진한 설계: isinstance 분기와 깊이만큼 늘어나는 중첩 루프.
@@ -149,7 +149,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상자 안에 물건과 작은 상자가 섞여 있어도 &#x27;무게가 얼마냐&#x27;고 똑같이 묻는다. 이 비유에서 작은 상자는 어떻게 대답할까?&quot;, &quot;Component, Leaf, Composite는 이 장에서 각각 어떤 클래스일까? 재귀는 어디서 멈출까?&quot;, &quot;add()를 Component에 둘 때(투명성)와 Composite에만 둘 때(안전성)의 장단점은 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 의도: <em>"객체들을 트리 구조로 합성하여 부분-전체 계층을 표현한다. 컴포지트는 클라이언트가 개별 객체와 객체들의 합성을 동일하게 다룰 수 있게 한다."</em> 핵심은 뒷문장, '동일하게'다. 트리는 수단이고 목표는 클라이언트의 무지(無知)다. 아래 그림의 '(수량은 <dfn class="term" id="term-edge" data-term="edge" title="그래프에서 두 노드를 잇는 연결; 컴포지트 BOM에서는 (자식, 수량) 쌍이 간선 역할을 한다.">간선</dfn>에)'라는 표기에서 간선은 두 노드(부모와 자식)를 잇는 연결을 말한다. 이 장에서는 (자식, 수량) 쌍이 간선 역할을 한다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 720 330" role="img" aria-label="BOM 컴포지트 구조: Part와 Assembly가 BomItem을 상속하고, Assembly는 BomItem 자식들을 가진다"><defs>
@@ -215,7 +215,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Part.cost()와 Assembly.cost()는 각각 어떻게 계산할까? 자식이 단품인지 묻는 코드가 있을까?&quot;, &quot;볼트 객체 하나를 엔진과 프레임이 함께 쓸 수 있는 이유는 무엇일까? (수량이 어디에 있을까?)&quot;, &quot;깊이가 다섯 단계로 늘어났는데 코드를 고치지 않아도 된 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>소연은 네 가지 연산을 모두 <code>BomItem</code>의 추상 메서드로 올렸다. 그리고 두 가지 실제 데이터의 함정을 설계에 반영했다. 하나는 <strong>공유 부품</strong>이다. 같은 M8 볼트가 엔진에도 프레임에도 들어간다. 다른 하나는 <strong><dfn class="term" id="term-circular-reference" data-term="circular-reference" title="A가 B를 참조하고 B가 다시 A를 참조하는 고리; 트리 순회에서는 무한 재귀를 낳는다.">순환 참조</dfn></strong>, 즉 A가 B를 참조하고 B가 다시 A를 참조하는 고리다. ERP에 사람이 BOM을 입력하다 보면 "A의 하위에 B, B의 하위에 A" 같은 실수가 반드시 생긴다.</p>
 <p class="lead-in">Component와 Leaf부터 보자. <code>BomItem</code>의 docstring은 <code>add()</code>를 여기 두지 않은 이유를 설명한다. <code>Part</code>의 메서드들은 모두 재귀의 '바닥'이므로 자기 값만 돌려준다. <code>render()</code>는 트리를 <dfn class="term" id="term-depth-first-search" data-term="depth-first-search" title="트리·그래프를 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식(반대는 형제를 먼저 훑는 너비 우선).">깊이 우선</dfn>으로 출력한다. 한 가지를 끝까지 내려간 뒤 되돌아오며 순회하는 방식으로, 형제를 먼저 훑는 너비 우선과 대비된다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;07 컴포지트 — 패턴 적용: BomItem 하나로 단품과 조립품을 똑같이 다룬다.
@@ -957,7 +957,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;walk()는 트리를 어떤 모양의 흐름으로 바꿔 줄까? 그러면 무엇이 편해질까?&quot;, &quot;데모 [2]의 볼트 400개는 어떻게 계산된 값일까?&quot;, &quot;평평한 흐름으로는 쓰기 어렵고 재귀 메서드가 나은 연산은 어떤 것일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>패턴 코드의 설계는 연산을 하나 추가할 때마다 <code>BomItem</code>, <code>Part</code>, <code>Assembly</code> 세 곳을 연다. 구매팀이 "경운기 10대에 볼트가 몇 개 필요한가"(<dfn class="term" id="term-bom-explosion" data-term="bom-explosion" title="BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것.">소요량 전개</dfn>: BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것)를, 환경팀이 "탄소 배출량"을 요구하자 소연은 다른 방향을 생각했다. 연산을 클래스 안에 넣지 말고, <strong>순회는 한 번만 쓰고 연산은 순회 결과 위에서</strong> 하면 어떨까?</p>
 <p class="lead-in">아래 코드는 세 도구를 쓴다. (1) <code>Part</code>와 <code>Assembly</code>가 모두 구현하는 다형적 <code>walk()</code>(<dfn class="term" id="term-yield-from" data-term="yield-from" title="하위 이터러블의 값을 하나씩 그대로 흘려보내는(순회를 위임하는) 제너레이터 문법."><code>yield from</code></dfn> 재귀 제너레이터. <code>yield from</code>은 하위 제너레이터가 내는 값을 하나씩 그대로 흘려보내는 문법이다)가 트리를 (항목, 누적 수량)의 평평한 스트림으로 바꾸고, (2) <code>__iter__</code>·<code>__len__</code>·<dfn class="term" id="term-container-protocol" data-term="container-protocol" title="`__iter__`, `__len__`, `__contains__` 등을 구현해 객체가 `for`, `len()`, `in`과 어울리게 하는 특수 메서드 묶음."><code>__contains__</code></dfn>가 조립품을 파이썬 컨테이너처럼 만들며(이 특수 메서드 묶음을 컨테이너 프로토콜이라 한다. 구현하면 객체가 <code>for</code>, <code>len()</code>, <code>in</code>과 어울린다), (3) <dfn class="term" id="term-functools-singledispatch" data-term="functools-singledispatch" title="첫 인자의 타입에 따라 등록된 구현을 골라 호출하는 제네릭 함수 데코레이터; 타입별 분기를 한 디스패치 표에 모은다."><code>singledispatch</code></dfn>가 새 연산을 클래스 밖의 함수로 추가한다(첫 인자의 타입에 따라 등록된 구현을 골라 호출하는 함수를 만드는 표준 라이브러리 도구다). <code>explode()</code>에 재귀가 한 줄도 없다는 점을 확인하라.</p>
 <div class="callout"><span class="label">용어</span><p><dfn class="term" id="term-iterator" data-term="iterator" title="__next__()로 다음 값을 주고 끝나면 StopIteration을 던지는, &#x27;한 번 쓰면 닳는 커서&#x27; 객체. __iter__()는 자기 자신을 돌려준다."><code>Iterator</code></dfn>(이터레이터): <code>next()</code>를 부를 때마다 다음 값을 주고 끝나면 멈추는 객체. 한 번 끝까지 돌면 닳아서 다시 쓸 수 없다. 타입 힌트 <code>Iterator[...]</code>는 이런 값의 흐름을 돌려준다는 뜻이다. <dfn class="term" id="term-counter" data-term="counter" title="키별 개수를 세는 딕셔너리 하위 클래스; `+=`로 누적하고 `most_common()`으로 많은 순서대로 꺼낸다."><code>collections.Counter</code></dfn>: 키별 개수를 세는 딕셔너리. <code>+=</code>로 누적하고 <code>most_common()</code>으로 많은 순서대로 꺼낸다. <dfn class="term" id="term-visitor" data-term="visitor" title="객체 구조의 클래스를 고치지 않고 새 연산을 추가하기 위해, 연산을 별도 방문자 객체에 모으고 이중 디스패치로 호출하는 GoF 행위 패턴(이 책의 범위 밖).">방문자 패턴</dfn>: 객체 구조의 클래스를 고치지 않고 새 연산을 추가하려고, 연산을 별도의 방문자 객체에 모으는 GoF 행위 패턴(이 책의 범위 밖).</p></div>
@@ -1223,7 +1223,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;컴포지트로 얻는 것을 말해 보자. 쓰는 코드는 무엇을 몰라도 될까?&quot;, &quot;깊이가 고정되어 있거나 데이터가 그래프(고리)일 때는 왜 컴포지트가 맞지 않을까?&quot;, &quot;데코레이터(6장)와 같은 재귀 구조인데 무엇이 다를까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것과 치르는 것</h3>
 <ul>
   <li><strong>얻는 것:</strong> 깊이에 무관한 클라이언트 코드, 새 항목 타입 추가의 용이성(OCP), 재귀로 자연스럽게 표현되는 연산.</li>
@@ -1555,6 +1555,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

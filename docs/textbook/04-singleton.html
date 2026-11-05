@@ -37,14 +37,14 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;감사 로그의 체인은 왜 &#x27;마지막 기록 번호&#x27;를 쥔 기록기가 하나여야 성립할까? 기록기가 셋이면 어떻게 될까?&quot;, &quot;싱글턴은 첫 번째 고통을 풀었지만 두 번째 고통을 만들었다. 두 고통은 각각 무엇일까?&quot;, &quot;혼자 돌리면 통과하는 테스트가 전체와 함께 돌리면 왜 실패했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>종합병원 개발자 태윤은 <dfn class="term" id="term-audit-log" data-term="audit-log" title="누가 언제 어떤 데이터를 열람·수정했는지를 사후 검증할 수 있도록 빠짐없이 남기는 기록.">감사 로그</dfn>를 맡았다. 감사 로그는 누가 언제 어떤 환자 기록을 열람·수정했는지 나중에 검증할 수 있게 빠짐없이 남기는 기록이다. 태윤은 각 기록이 직전 기록의 번호를 담게 해, 기록들이 한 줄의 체인으로 이어지게 했다. 중간 기록을 지우거나 고치면 체인이 끊겨 드러난다. 이 구조가 성립하려면 "마지막 기록 번호"를 쥔 기록기가 반드시 하나여야 한다.</p>
   <p>처방·검사·원무 모듈이 각자 <code>AuditLogger()</code>를 만들자, 검증 도구가 수백 건을 "변조 의심"으로 내놓았다. 실제 변조는 없었다. 세 기록기가 각자의 "마지막 번호"를 들고 같은 파일에 번갈아 써서 체인이 세 갈래로 갈라진 것이다.</p>
   <p>태윤은 싱글턴을 택했고 체인은 다시 하나가 되었다. 두 달 뒤 테스트 담당자가 모듈별 단위 테스트를 도입하자 새 문제가 났다. 혼자 돌리면 통과하는 테스트가 전체와 함께 돌리면 실패했다. 앞선 테스트의 기록이 같은 싱글턴에 쌓여 있었다. 싱글턴은 첫 고통을 풀었지만, 두 번째 고통은 싱글턴 자신이 만들었다.</p>
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;기록기마다 _last 상태가 따로 있으면 체인에 어떤 일이 생길까? 데모 [2]의 prev를 따라가 보자.&quot;, &quot;이 문제의 요구를 정확히 쓰면 무엇일까? (&#x27;하나여야 한다&#x27; vs &#x27;어디서든 얻을 수 있어야 한다&#x27;)&quot;, &quot;두 요구 중 실제로는 필요 없었던 쪽은 어느 것일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">싱글턴 도입 전, 모듈마다 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다. 문제는 <code>_last</code>라는 상태가 인스턴스마다 따로 있다는 점과, 세 모듈이 각자 인스턴스를 만든다는 점이 겹칠 때 생긴다. 데모 [2]의 <code>prev</code>를 위에서 아래로 따라가 보라.</p>
   <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;04 싱글턴 — 순진한 코드: 모듈마다 감사 로그 기록기를 따로 만든다.
 
@@ -93,7 +93,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;싱글턴이 한꺼번에 묶는 두 요구는 무엇일까?&quot;, &quot;파이썬에서 Cls()를 부르면 __new__와 __init__ 중 무엇이 먼저일까? 싱글턴은 어느 단계에서 유일성을 지킬까?&quot;, &quot;각 요구는 어떤 대가를 낳을까? 표의 오른쪽 열을 읽어 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도는 이렇다. "클래스의 인스턴스가 오직 하나임을 보장하고, 그 인스턴스에 대한 전역적인 접근점을 제공한다." 한 문장에 요구가 둘이다. (1) <strong>유일성</strong>: 인스턴스가 하나다. (2) <strong>전역 접근</strong>: 어디서든 그것을 얻는다. 싱글턴은 이 둘을 클래스 하나에 묶는다.</p>
   <p>파이썬은 <code>Cls()</code>를 부르면 먼저 <code><dfn class="term" id="term-new" data-term="new" title="인스턴스를 할당해 돌려주는 특수 메서드; `Cls()`는 먼저 `__new__`로 객체를 얻고 그것이 Cls의 인스턴스이면 `__init__`으로 초기화한다.">__new__</dfn></code>로 객체를 할당해 얻고, 그다음 <code>__init__</code>으로 초기화한다. 싱글턴은 이 할당 단계에서 "이미 있으면 그것을 돌려준다"로 유일성을 통제한다.</p>
   <figure class="diagram">
@@ -140,7 +140,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;__init__의 _initialized 가드가 없으면 무슨 일이 생길까?&quot;, &quot;테스트끼리 간섭하는 문제는 두 요구 중 어느 쪽에서 나왔을까?&quot;, &quot;숨은 의존성이란 무엇일까? prescribe()의 시그니처에서는 왜 그게 안 보일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">태윤이 적용한 싱글턴이다. <code>__new__</code>의 <dfn class="term" id="term-lock" data-term="lock" title="한 번에 한 스레드만 임계 구역에 들어가게 하는 동기화 도구; `with lock:`으로 잡고 놓는다.">잠금</dfn>(<code>threading.Lock</code>)은 한 번에 한 <dfn class="term" id="term-thread" data-term="thread" title="한 프로세스 안에서 동시에 실행되는 실행 흐름. 스레드 풀은 미리 만든 스레드들에 작업을 나눠 준다.">스레드</dfn>(한 프로그램 안에서 동시에 도는 실행 흐름)만 그 구간에 들어가게 하는 도구다. 잠금이 없으면 서버 재시작 직후 동시에 온 두 요청이 각자 "처음" 만들 수 있다. 앞부분에서는 <code>__init__</code>의 <code>_initialized</code> 가드가 무엇을 막는지, 뒷부분에서는 <code>prescribe()</code>의 시그니처와 두 테스트의 결과를 보라. <dfn class="term" id="term-pytest" data-term="pytest" title="파이썬의 대표적 테스트 프레임워크; 픽스처로 준비·정리를 주입하고(예: 로그 캡처용 `caplog`), pytest-xdist 플러그인으로 테스트를 여러 워커 프로세스에 나눠 병렬 실행한다.">pytest</dfn> 같은 테스트 도구는 여러 테스트를 한 프로세스에서 차례로 돌리므로, 데모 [2]처럼 테스트들이 같은 싱글턴을 공유한다.</p>
   <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;04 싱글턴 — 패턴 코드: AuditLogger()를 어디서 부르든 같은 객체가 나온다.
 
@@ -217,7 +217,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;파이썬의 모듈은 왜 &#x27;이미 싱글턴&#x27;이라고 할까?&quot;, &quot;composition root에서 주입하면 유일성과 전역 접근은 각각 어떻게 해결될까?&quot;, &quot;이 방식이 치르는 대가(데모 [3])는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>5.1 "하나"를 만드는 다른 방법</h3>
   <p class="lead-in">아래 구현 비교 코드는 두 방법을 나란히 놓는다. <dfn class="term" id="term-metaclass" data-term="metaclass" title="클래스를 만들어 내는 클래스(기본은 `type`); 클래스 생성·호출 방식을 바꿀 수 있지만 상속 계층 전체에 전파되고 다른 메타클래스와 충돌할 수 있다.">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 호출되는 방식 자체를 바꿀 수 있다. 각 방식에서 유일성을 보장하는 주체가 누구인지 보라.</p>
   <figure class="code"><figcaption>구현 비교 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;04 싱글턴 — 구현 비교 코드: 메타클래스와 모듈 수준 객체.
@@ -352,7 +352,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;싱글턴의 비용 대부분은 유일성과 전역 접근 중 어디서 나올까?&quot;, &quot;&#x27;하나면 충분하다&#x27;와 &#x27;둘이면 틀린다&#x27;는 어떻게 다를까? 싱글턴이 필요한 쪽은 어느 것일까?&quot;, &quot;None이나 logging.getLogger처럼 정당한 경우는 감사 로그 기록기와 무엇이 다를까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p><strong>얻는 것.</strong></p>
   <ul>
     <li>유일성이 실행 중에 강제된다.</li>
@@ -632,6 +632,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

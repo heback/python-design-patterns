@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;정비 중인 킥보드가 열려 주행이 시작된 원인은 무엇일까? (unlock()의 else)&quot;, &quot;상태가 둘일 때 맞던 else가 상태가 늘어나자 왜 위험해졌을까?&quot;, &quot;상태가 늘어날 때마다 코드의 어디를 고쳐야 했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>공유 전동킥보드 스타트업 '킥고'의 백엔드 개발자 서진은 출시 첫 주에 킥보드를 두 상태로만 관리했다. 대여 가능(<code>"available"</code>)과 주행 중(<code>"riding"</code>)이다. <code>Scooter</code> 클래스의 <code>status</code> 문자열 하나와, <code>unlock()</code>·<code>end_ride()</code> 안의 <code>if status == ...</code> 몇 줄이면 충분했다.</p>
   <p>석 달이 지나자 요구사항이 쌓였다. 앱에서 <strong>10분 동안 유지되는 예약</strong>을 걸 수 있어야 하고, 배터리가 15% 아래로 떨어진 기기는 <strong>배터리 부족</strong>으로 지도에서 내려야 한다. 운영팀은 <strong>정비 중</strong> 상태를, 관제팀은 <dfn class="term" id="term-global-positioning-system" data-term="global-positioning-system" title="위성 신호로 위치를 측정하는 시스템.">GPS</dfn>(위성 신호로 위치를 재는 시스템) 신호가 끊긴 기기를 위한 <strong>분실 신고</strong> 상태를 요구했다. 상태가 늘자 그에 딸린 규칙도 늘었다. 상태마다 요금 계산, 앱 표시 문구, 허용되는 동작이 다르다. 예약은 10분이 지나면 저절로 풀리고 <dfn class="term" id="term-no-show" data-term="no-show" title="예약해 두고 나타나지 않는 것.">노쇼</dfn>(예약해 두고 나타나지 않는 것) 수수료가 붙는다. 사용자가 아무것도 하지 않아도 시간이 흐르기만 하면 일어나는 전이다.</p>
   <p>서진은 메서드마다 분기를 덧붙였다. 상태 여섯 개에 동작 메서드 여덟 개(표시용 <code>label()</code> 제외)이니, 새 상태 하나를 넣을 때마다 메서드 여섯 개를 고쳐야 했다. 그러다 사고가 났다. 정비 기사가 브레이크를 분해해 둔 킥보드를 한 사용자가 <dfn class="term" id="term-qr-code" data-term="qr-code" title="스마트폰으로 읽는 2차원 바코드.">QR</dfn>(스마트폰으로 읽는 2차원 바코드) 코드로 열었고, <strong>주행이 시작됐다</strong>. 원인은 출시 첫 주에 쓴 <code>unlock()</code>의 <code>else</code> 한 줄이었다. 상태가 둘뿐이던 시절의 <code>else</code>는 "대여 가능"이라는 뜻이었지만, 그 뒤로 추가된 상태 세 개가 모두 그 <code>else</code>로 흘러 들어갔다. 아무도 그 메서드를 다시 열어 보지 않았다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;불법 전이&#x27;란 무엇일까? 데모 [2]에서 어떤 일이 일어났을까?&quot;, &quot;&#x27;기본값이 허용&#x27;이라는 것은 왜 위험할까?&quot;, &quot;reserved_by 같은 상태별 데이터를 지우는 것을 잊으면 어떻게 될까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">아래는 사고가 난 시점의 <code>Scooter</code>다. 메서드마다 상태 목록이 되풀이되는 모양, 그리고 <code>unlock()</code>의 <code>else</code>가 무엇을 삼키는지에 주목하라. <code># ⚠ 문제:</code> 주석이 결함 지점이다. 데모 [3]과 [4]가 실제 버그를 재현한다. 맨 위 상수 이름에 든 <dfn class="term" id="term-time-to-live" data-term="time-to-live" title="데이터·예약 등이 유효한 유지 시간. 지나면 만료된다.">TTL</dfn>(Time To Live)은 예약처럼 유효 기간이 있는 것의 유지 시간으로, 지나면 만료된다. 코드 주석에 나오는 <dfn class="term" id="term-illegal-transition" data-term="illegal-transition" title="현재 상태에서 허용되지 않은 동작이 요청되어 일어나서는 안 되는 상태 변화.">불법 전이</dfn>는 현재 상태에서 허용되지 않는 동작이 받아들여져, 일어나서는 안 되는 상태 변화가 생기는 것을 말한다. 정비 중인 기기의 주행 시작이 바로 그런 예이고, 이 장의 모든 설계는 이것을 어떻게 막느냐로 수렴한다.</p>
   <figure class="diagram code-map">
   <svg viewBox="0 0 640 478" role="img" aria-label="순진한 코드의 구조: Scooter 한 클래스의 메서드 여덟 개가 각자 여섯 상태를 분기한다. unlock()의 else는 배터리 부족·정비 중·분실 신고 상태에서도 주행을 허용하고, report_lost()는 주행 중에도 분실로 바꾼다"><defs>
@@ -318,7 +318,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상태 패턴에서 &#x27;상태가 바뀐다&#x27;는 것은 구체적으로 무엇을 갈아 끼우는 것일까?&quot;, &quot;Context, State, Concrete State는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;ScooterState의 기본 구현이 모두 &#x27;거부&#x27;인 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도(intent)는 이렇다. <em>"객체의 내부 상태가 바뀌면 그 객체의 행동도 바뀌게 한다. 객체는 마치 클래스가 바뀐 것처럼 보인다."</em> 구현 아이디어는 단순하다. 상태마다 클래스를 하나씩 두고, 상태에 따라 달라지는 메서드는 모두 현재 상태 객체에 위임한다. 상태가 바뀐다는 것은 컨텍스트가 들고 있는 상태 객체를 다른 객체로 갈아 끼운다는 뜻이다. 그림의 <code>_reject()</code>에 붙은 <dfn class="term" id="term-typing-noreturn" data-term="typing-noreturn" title="함수가 정상적으로 반환하지 않음(항상 예외를 던짐)을 표시하는 반환 타입 힌트."><code>NoReturn</code></dfn>은 "이 함수는 정상적으로 돌아오지 않는다(항상 예외를 던진다)"는 뜻의 반환 타입 힌트다. 덕분에 타입 검사기는 <code>_reject()</code> 호출 뒤의 코드가 실행되지 않는다는 것을 안다.</p>
   <figure class="diagram">
     <svg viewBox="0 0 720 345" role="img" aria-label="상태 패턴 구조: Scooter가 ScooterState에 위임하고 여섯 구체 상태가 상속한다"><defs>
@@ -377,7 +377,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Maintenance에는 unlock()이 없다. 이것이 사고를 어떻게 막아 줄까?&quot;, &quot;반납 뒤 LowBattery로 갈지 Available로 갈지는 누가 고를까?&quot;, &quot;전략과 상태는 모양이 같다. 누가, 언제 교체하는지로 어떻게 구별할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">먼저 상태의 공통 기반을 보자. 사용자 명령(<code>reserve</code>, <code>unlock</code> …)의 기본 구현은 예외를 던지고, 시스템 이벤트(<code>tick</code>, <code>on_battery_changed</code>)의 기본 구현은 아무것도 하지 않는다. 기본값을 이벤트 종류에 따라 다르게 정했다는 점, 그리고 추상 메서드가 <code>label()</code> 하나뿐인 이유에 주목하라. 이 패턴 코드는 세 부분으로 나눠 싣는다. docstring에 나오는 <dfn class="term" id="term-stateless" data-term="stateless" title="인스턴스마다 다른 필드(상태)를 갖지 않는 성질. 무상태 객체는 여러 곳이 하나를 공유해도 안전하다.">무상태</dfn> 상태 객체란 인스턴스마다 다른 필드를 갖지 않는 객체로, 그래서 여러 킥보드가 하나를 공유해도 안전하다(5.2절에서 실제로 공유한다).</p>
   <figure class="code" data-full="&quot;&quot;&quot;[13장 상태 · 패턴 적용] 킥보드의 상태별 행동과 전이 규칙을 상태 객체로 옮긴다.
 
@@ -2145,7 +2145,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;전이 규칙을 표 하나(TRANSITIONS)에 모으면 무엇이 좋아질까?&quot;, &quot;표에서 &#x27;기본은 거부&#x27;는 어떻게 표현될까?&quot;, &quot;표 방식이 잃는 것은 무엇일까? 언제 상태 패턴이, 언제 표가 더 유리할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>5.1 Enum + 전이표: 전이 책임을 한곳에 모으기</h3>
   <p>관제팀장 유나는 서진에게 "전이 규칙 전체를 한 장으로 볼 수 없느냐"고 물었다. 4절의 설계는 전이 규칙을 상태 클래스 여섯 개에 <em>분산</em>시킨다. 그 반대 극단은 전이 규칙을 하나의 표, 곧 <em>데이터</em>에 <em>집중</em>시키는 것이다. 상태는 <code>Enum</code> 값이 되고, 전이 결정은 다시 컨텍스트(표)가 맡는다.</p>
   <p class="lead-in">아래 코드에서 볼 것은 세 가지다. 첫째, <code>TRANSITIONS</code> dict가 "기본은 거부"를 <em>키가 없음</em>으로 표현하는 방식. 둘째, 같은 전이 함수를 <dfn class="term" id="term-match-statement" data-term="match-statement" title="값의 구조를 패턴과 대조해 분기하는 문(파이썬 3.10+). | 로 여러 패턴, if로 가드, _ 로 나머지를 표현한다."><code>match</code> 문</dfn>으로 쓴 <code>next_status_match()</code>와의 비교. 셋째, 표에 들어가지 못한 가드(예약자 확인, 배터리에 따른 분기)가 <code>Scooter</code>의 if로 남는 모습이다.</p>
@@ -2749,7 +2749,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상태 패턴으로 얻는 것을 말해 보자. 깜빡한 동작이 사고가 되지 않는 이유는 무엇일까?&quot;, &quot;상태가 둘뿐이거나 상태마다 다른 것이 문구나 색뿐이라면 무엇으로 충분할까?&quot;, &quot;전략(10장)과의 차이, 그리고 옵저버(11장)를 change_state()에 붙이면 좋은 점을 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>얻는 것과 잃는 것</h3>
   <ul>
     <li><strong>얻는 것</strong>: 상태별 행동이 한곳에 모인다(SRP). 새 상태를 추가해도 컨텍스트는 그대로다(OCP). 불법 전이는 기본적으로 거부된다. 상태별 데이터의 수명이 명확해진다.</li>
@@ -3297,6 +3297,7 @@ class Scooter:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;PG사 B와 간편결제 C는 각각 어떤 점이 달라서 번역이 필요했을까?&quot;, &quot;15,000원 환불이 150원이 된 원인은 무엇일까?&quot;, &quot;왜 SDK 코드를 직접 고치는 방법은 쓸 수 없었을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>수제 캠핑용품을 파는 중소 쇼핑몰 '솔숲상회'의 백엔드 개발자 예린은 입사 첫 달에 결제를 붙였다. 계약한 <dfn class="term" id="term-payment-gateway-provider" data-term="payment-gateway-provider" title="전자결제대행사 — 가맹점 대신 카드사 등과 결제 승인·취소·정산을 처리해 주는 회사.">PG사</dfn>(전자결제대행사: 가맹점 대신 카드사 등과 결제 승인·취소·정산을 처리해 주는 회사) A는 파이썬 SDK를 제공했고, 사용법은 단순했다. <code>charge(amount_krw, card_token)</code>을 부르면 거래번호가 담긴 딕셔너리가 돌아오고, 실패하면 <code>PgAError</code>가 날아온다. 주문 서비스, 관리자 환불 화면, 야간 <dfn class="term" id="term-settlement-batch" data-term="settlement-batch" title="일정 주기(예: 야간)로 쌓인 거래를 한꺼번에 집계·대사하는 일괄 작업.">정산 배치</dfn>(하루치 거래를 밤에 한꺼번에 집계해 PG사 기록과 맞춰 보는 일괄 작업)가 모두 이 SDK를 직접 불렀다. 아무 문제가 없었다.</p>
 <p>반년 뒤 재무팀이 수수료 협상 끝에 PG사 B를 추가하기로 했다. B의 SDK는 결이 달랐다. 요청은 <code>PaymentRequest(amount=<dfn class="term" id="term-decimal-decimal" data-term="decimal-decimal" title="이진 부동소수점 오차 없이 10진수를 정확히 표현하는 수 타입; 금액 계산에 쓴다.">Decimal</dfn>, currency="KRW")</code> 객체로 감싸야 하고(<code>Decimal</code>은 이진 부동소수점 오차 없이 10진수를 정확히 표현하는 표준 라이브러리의 수 타입으로, 금액 계산에 쓰인다), 실패해도 예외를 던지지 않는다. 대신 응답의 <code>status_code</code>가 0이 아니다. 예린은 주문 서비스에 <code>if pg == "B":</code> 분기를 넣었다. 환불 화면에도, 정산 배치에도 같은 분기를 넣었다.</p>
 <p>석 달 뒤에는 해외 고객을 위한 간편결제 C가 들어왔다. C는 금액을 <dfn class="term" id="term-minor-unit" data-term="minor-unit" title="통화의 소수 둘째 자리 등 가장 작은 단위로 금액을 정수 표현한 것(예: 15,000원 → 1500000).">최소 화폐 단위(minor unit)</dfn>로 받는다. 통화를 소수 둘째 자리(센트)까지 쪼갠 단위로 센 정수라서, 원화 15,000원은 <code>1500000</code>이다. 결과는 반환값이 아니라 <dfn class="term" id="term-asynchronous-callback" data-term="asynchronous-callback" title="결과를 반환값으로 즉시 주지 않고, 작업이 끝나면 미리 넘겨받은 함수(콜백)를 불러 알리는 방식; 콜백은 다른 스레드에서 나중에 올 수 있다.">콜백</dfn>으로 온다. 콜백은 호출할 때 함께 넘겨 둔 함수로, SDK가 작업을 마치면 그 함수를 불러 결과를 알린다. C의 콜백은 그것도 다른 스레드에서, 나중에 온다. 분기는 세 갈래가 되었고, 그 세 갈래가 세 곳에 복제되었다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;pay()와 refund()에 같은 분기가 두 번 있으면 어떤 위험이 있을까?&quot;, &quot;주문 서비스가 status_code나 콜백 같은 SDK 사정을 알고 있으면, PG가 늘 때 무슨 일이 생길까?&quot;, &quot;데모 [2]에서 PG마다 실패를 알리는 방식은 어떻게 다를까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>문제를 정확히 보기 위해 사고 직전의 코드를 재현한다. 코드 앞부분은 세 SDK를 흉내 낸 것이고(실제로는 우리가 고칠 수 없는 부분), 뒷부분의 <code>OrderService</code>가 예린의 코드다.</p>
 <p class="lead-in">세 SDK가 서로 어떻게 다른지(이름, 금액 타입, 실패 보고 방식)를 먼저 훑고(SDK 흉내 코드의 거래번호는 <dfn class="term" id="term-itertools" data-term="itertools" title="반복자를 조립하는 표준 라이브러리 모듈(cycle 무한 반복, islice 앞 n개 자르기, chain 이어 붙이기, repeat, tee 복제 등)."><code>itertools</code></dfn>의 <code>count()</code>로 매긴다. <code>itertools</code>는 연속 번호처럼 값을 차례로 내놓는 도구들을 모아 둔 표준 라이브러리 모듈이다), <code>OrderService.pay()</code>와 <code>refund()</code>에서 그 차이가 어떻게 '비즈니스 로직 한가운데'에 녹아드는지 보라. <code># ⚠ 문제:</code> 주석이 아픈 곳이다.</p>
 <figure class="diagram code-map">
@@ -307,7 +307,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;여행용 플러그 어댑터에서 &#x27;전기&#x27;와 &#x27;플러그 모양&#x27;은 각각 코드의 무엇에 해당할까?&quot;, &quot;Client, Target, Adaptee, Adapter는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;Target을 &#x27;SDK들의 공통분모&#x27;가 아니라 &#x27;주문 서비스가 알고 싶은 최소한&#x27;으로 정하는 이유는 무엇일까?&quot;, &quot;객체 어댑터와 클래스 어댑터 중 이 장은 무엇을 골랐고, 왜일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF는 어댑터의 의도를 이렇게 적는다. <em>"클래스의 인터페이스를 클라이언트가 기대하는 다른 인터페이스로 변환한다. 어댑터는 인터페이스 호환성 문제 때문에 함께 쓸 수 없던 클래스들이 함께 동작하게 해 준다."</em> 핵심 단어는 '변환'이다. 어댑터는 기능을 추가하지 않는다. 이미 있는 기능을 다른 모양으로 보이게 할 뿐이다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 760 360" role="img" aria-label="결제 어댑터 구조: OrderService는 PaymentGateway에 의존하고, PG별 어댑터가 이를 구현하며 각 SDK를 감싼다"><defs>
@@ -397,7 +397,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;PgBAdapter._check()는 남의 실패 표현을 무엇으로 바꿀까? 이런 일을 뭐라고 부를까?&quot;, &quot;&#x27;C는 ×100&#x27;이라는 규칙은 이제 어디에 있을까? pay()와 refund()는 그것을 어떻게 함께 쓸까?&quot;, &quot;OrderService에서 PG 이름, Decimal, status_code가 사라졌는지 확인해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>예린은 먼저 "우리가 결제에 대해 말하는 방식"을 정했다. 금액은 원 단위 <code>int</code>, 결과는 즉시 반환, 실패는 우리 예외 하나. 이 결정은 SDK 문서를 보기 전에 내려야 한다. SDK 문서를 먼저 보면 Target이 특정 SDK를 닮아 간다.</p>
 <p class="lead-in">패턴 코드의 Target 부분이다. SDK 흉내 코드는 순진한 코드와 같되, C SDK만 실제처럼 다른 스레드에서 콜백하도록 바꿨으므로(순진한 코드는 단순화를 위해 즉시 콜백했다) 여기서는 생략했다. <code>PaymentDeclined</code>의 docstring이 말하는 "남의 어휘를 몰라도 된다"가 이 설계의 목적이다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;05 어댑터 — 패턴 적용: PaymentGateway 포트와 PG별 객체 어댑터.
@@ -1571,7 +1571,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Protocol을 쓰면 어댑터가 Target을 꼭 상속해야 할까?&quot;, &quot;메서드 하나짜리 Target은 클래스 대신 어떤 모양의 어댑터로 만들 수 있을까?&quot;, &quot;__getattr__로 SDK 메서드를 몽땅 넘기는 방식은 왜 경계에 구멍을 낼까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>팀 리드 도윤은 코드 리뷰에서 세 가지를 물었다. 어댑터가 꼭 Target을 상속해야 하는가? 함수 하나만 필요한 곳에도 클래스를 만들어야 하는가? 부가 메서드가 스무 개인 SDK라면 <code>__getattr__</code> 한 줄로 위임하면 되지 않는가? 셋 다 파이썬이라서 나오는 질문이다.</p>
 <p class="lead-in">아래 코드는 세 질문에 차례로 답한다. (1) <code>Protocol</code> Target과 상속하지 않는 <code>PgBAdapter</code>(Target에 붙은 <dfn class="term" id="term-typing-runtime-checkable" data-term="typing-runtime-checkable" title="Protocol에 붙여 `isinstance` 검사를 가능하게 하는 데코레이터; 메서드 이름의 존재만 보고 시그니처는 보지 않는다."><code>runtime_checkable</code></dfn>을 Protocol 정의 위에 붙이면 <code>isinstance</code> 검사를 할 수 있게 되는데, 메서드 이름이 있는지만 보고 시그니처는 보지 않는다), (2) <code>functools.partial</code>과 클로저로 만든 함수 어댑터, (3) 일부러 나쁘게 만든 <code>LeakyPgBAdapter</code>, (4) <code>raise ... from</code>의 의미 순서로 읽어라.</p>
 <figure class="diagram code-map">
@@ -1860,7 +1860,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;어댑터로 얻는 것은 무엇일까? 번역 규칙은 어디에 모일까?&quot;, &quot;쓰지 말아야 할 때 네 가지 중 하나를 골라 이유를 설명해 보자.&quot;, &quot;데코레이터(6장), 프록시(9장), 퍼사드(8장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것과 치르는 것</h3>
 <ul>
   <li><strong>얻는 것:</strong> 번역 규칙의 <dfn class="term" id="term-single-source-of-truth" data-term="single-source-of-truth" title="같은 지식(규칙·데이터)이 시스템 안에 오직 한 곳에만 정의되어 있는 상태. 복제본이 어긋날 여지가 없다.">단일 출처</dfn>(같은 지식이 시스템 안에 한 곳에만 정의되어 사본이 어긋날 여지가 없는 상태), 도메인 코드의 어휘 정화, 외부 SDK 교체 비용의 국소화, 가짜 어댑터를 이용한 쉬운 테스트.</li>
@@ -2233,6 +2233,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

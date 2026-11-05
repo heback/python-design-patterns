@@ -37,13 +37,13 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;화면 가장자리에서 옮긴 도형을 되돌리면 왜 엉뚱한 곳으로 갈까?&quot;, &quot;화살표 키와 우클릭 삭제를 만들 때 툴바 코드를 복사하면 어떤 문제가 생길까?&quot;, &quot;매크로 녹화와 협업이 필요해지면, &#x27;동작&#x27;은 코드에서 어떤 모습이어야 할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>그림판 앱을 만드는 은우는 툴바 버튼으로 도형을 옮기고 지우게 했다. 버튼 핸들러가 도형을 바로 바꿨다. 첫 사용자들의 요청은 같았다. "<dfn class="term" id="term-undo-redo" data-term="undo-redo" title="직전 작업을 되돌리기(undo)와 되돌린 작업을 다시 하기(redo).">실행 취소</dfn>가 없어요." 실행 취소(undo)는 직전 작업을 되돌리는 기능이다. 은우는 핸들러마다 "직전에 한 일"을 한 칸에 적게 했다. 화살표 키 이동과 우클릭 삭제를 만들 때는 툴바 코드를 복사했다.</p>
 <p>곧 버그가 쌓였다. 화면 가장자리에서 옮긴 도형을 되돌리면 엉뚱한 곳으로 간다. 화살표 키로 옮기면 도형이 화면 밖으로 나간다. 우클릭으로 지운 도형은 돌아오지 않는다. 다음 계획에는 <dfn class="term" id="term-macro-2" data-term="macro-2" title="여러 편집 동작을 하나로 기록해 두었다가 한 번에 재생하는 기능.">매크로 녹화</dfn>(여러 동작을 하나로 기록해 두었다가 한 번에 재생하는 것)와 동료 화면에서 내 편집을 재생하는 협업도 있었다. 지금 구조에서 동작은 핸들러 속 실행일 뿐이라, 저장하거나 묶거나 보낼 수 없다.</p>
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;데모 [1]에서 도형은 20만 움직였는데 되돌리기는 30을 되돌렸다. 왜 이런 일이 생길까?&quot;, &quot;이동을 되돌리는 법이 on_undo()의 분기에 따로 있으면 새 동작마다 무엇을 해야 할까?&quot;, &quot;&#x27;요청이 값이 아니다&#x27;는 말은 무슨 뜻일까? 값이면 무엇을 할 수 있게 될까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">은우의 편집기다. 이동 코드가 툴바와 화살표 키에 복사된 모습, 그리고 <code>on_undo()</code>가 이동을 <dfn class="term" id="term-inverse-operation" data-term="inverse-operation" title="어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(예: +1 ↔ −1). 연산이 정보를 잃으면(자르기·삭제·반올림) 존재하지 않는다.">역연산</dfn>으로 되돌리는 모습을 보라. 역연산은 연산의 효과를 거꾸로 계산해 되돌리는 것이다(+30 이동 ↔ −30 이동).</p>
 <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;12 커맨드 — 순진한 코드: 버튼 핸들러가 도형을 직접 바꾸고, 되돌리기는 따로 논다.
 
@@ -118,7 +118,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;식당 주문서 비유에서 손님, 직원, 주방은 각각 코드의 무엇일까?&quot;, &quot;Command, Receiver, Invoker는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;주문서(명령)는 요리가 끝난 뒤에도 남는다. 이것이 왜 되돌리기와 이력에 중요할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 정의는 이렇다. <em>"요청을 객체로 캡슐화하여 … 되돌릴 수 있는 연산을 지원한다."</em> 식당 주문서와 같다. 손님(버튼)은 주문서를 쓰고, 직원(이력)은 주문서를 꽂아 두고, 주방(수신자)이 요리한다. 주문서는 요리가 끝난 뒤에도 남는다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 640 260" role="img" aria-label="커맨드 구조: CommandHistory가 Command 목록을 쌓고, MoveShape와 DeleteShape가 Command를 구현하며 Canvas에 일을 맡긴다. 툴바와 단축키가 명령을 만든다"><defs>
@@ -184,7 +184,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;MoveShape는 왜 거꾸로 빼는 대신 실행 직전의 x(스냅샷)를 기억할까?&quot;, &quot;CommandHistory가 실행과 기록을 한 곳에서 하면 어떤 실수가 사라질까?&quot;, &quot;역연산 방식과 스냅샷 방식은 각각 언제 알맞고, 어떤 한계가 있을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in"><code>MoveShape</code>가 거꾸로 빼지 않고 <dfn class="term" id="term-snapshot" data-term="snapshot" title="어떤 시점의 상태(또는 그 일부)를 복사해 저장해 둔 것. 커맨드의 undo에서 실행 직전 값을 기억해 두었다가 그대로 되돌리는 데 쓴다.">스냅샷</dfn>을 남긴다는 점을 보라. 스냅샷은 어떤 시점의 값을 복사해 둔 것이다. 여기서는 실행 직전의 x를 기억했다가 되돌릴 때 그대로 쓴다.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;12 커맨드 — 패턴 코드: 요청을 명령 객체로 만들어 쌓고 되돌린다.
 
@@ -297,7 +297,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;partial은 &#x27;나중에 실행할 호출&#x27;을 담아 주지만 무엇은 해 주지 못할까?&quot;, &quot;명령이 Canvas를 필드로 들지 않고 execute(canvas)의 인자로 받으면 무엇이 달라질까?&quot;, &quot;되돌리기 정보(_before)는 왜 로그에 싣지 않고 실행한 쪽에 남을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>10장에서 전략의 상당수는 그냥 함수라고 했다. 커맨드는 절반만 그렇다. "나중에 실행할 호출"은 <code>partial</code>이 해 준다. 그러나 되돌리기 정보를 담고 다른 화면으로 보내는 일은 함수가 못 한다.</p>
 <p class="lead-in">아래 코드의 명령은 <code>Canvas</code>를 필드로 들지 않고 <code>execute(canvas)</code>의 인자로 받는다. 그래서 명령이 순수한 데이터가 되고 JSON으로 보낼 수 있다. 되돌리기 정보 <code>_before</code>는 <dfn class="term" id="term-field-init-false" data-term="field-init-false" title="생성자 인자로 받지 않는 dataclass 필드. 12장에서는 execute() 때 채워지는 undo 정보를 담는다."><code>field(init=False)</code></dfn>로 선언했다. 생성자 인자로 받지 않는 필드라는 뜻이다. <code>to_dict()</code>가 쓰는 <code><dfn class="term" id="term-dataclasses-asdict" data-term="dataclasses-asdict" title="dataclass 인스턴스를 필드 이름→값 dict로 바꾸는 함수.">asdict()</dfn></code>는 dataclass 객체를 필드 이름 → 값 dict로 바꾸는 함수다.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;12 커맨드 — 파이썬다운 변형: &#x27;나중에 실행&#x27;은 partial로, 되돌리기·전송은 dataclass 명령으로.
@@ -427,7 +427,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;커맨드로 얻는 것(여러 단계 되돌리기, 매크로, 로그 재생)과 그 대가는 무엇일까?&quot;, &quot;이메일 발송이나 결제처럼 되돌릴 수 없는 동작은 어떻게 다뤄야 할까?&quot;, &quot;전략(10장)은 무엇을, 커맨드는 무엇을 객체로 만든다고 했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것</h3>
 <ul>
   <li>버튼·단축키·메뉴가 같은 명령을 쓴다. 새 동작은 명령 클래스 하나로 추가된다.</li>
@@ -699,6 +699,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

@@ -37,13 +37,13 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;배달비 규칙이 늘 때마다 민재는 무엇을 했고, 그 결과 어떤 문의가 왔을까?&quot;, &quot;새벽 5시 주문의 배달비가 서울과 부산에서 다르게 나온 원인은 무엇일까?&quot;, &quot;서울·부산·제주의 요금 계산에서 &#x27;바뀌는 것&#x27;과 &#x27;같은 것&#x27;은 각각 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>배달 앱 '한끼배달'의 민재는 배달비를 "기본 3,000원 + km당 500원"으로 정했다. 메서드 하나면 됐다. 그 뒤로 비 오는 날 할증, 밤 할증, 구독 회원 무료, 가게가 대신 내 주는 할인이 차례로 붙었다. 민재는 그때마다 <code>if</code>를 하나씩 더했다.</p>
 <p>이번에는 운영팀이 부산에서 <dfn class="term" id="term-tiered-pricing" data-term="tiered-pricing" title="거리 구간마다 정해진 요금을 매기는 방식.">구간제</dfn>를 시험하겠다고 한다. 구간제는 거리를 몇 구간으로 나눠 구간마다 정해진 요금을 받는 방식이다. 제주는 이번 주만 1,900원 정액이다. 민재는 서울 코드를 복사해 부산 분기를 만들었다. 몇 주 뒤 "새벽 5시 주문인데 서울은 밤 할증이 붙고 부산은 안 붙는다"는 문의가 왔다. 복사하면서 한쪽 기준만 바뀐 것이다.</p>
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;지역 분기 안에 할증 분기가 들어 있으면 새 규칙을 넣을 때 무엇을 고쳐야 할까?&quot;, &quot;&#x27;선택&#x27;과 &#x27;계산&#x27;이 한 덩어리라는 것은 무슨 뜻일까?&quot;, &quot;규칙 하나만 따로 시험하기 어려운 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">민재의 <code>Order.delivery_fee()</code>다. 지역 분기 안에 할증 분기가 들어 있고, 부산 블록이 서울 블록의 복사본이라는 점을 보라.</p>
 <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;10 전략 — 순진한 코드: 배달비 규칙이 Order.delivery_fee() 안의 if로 자랐다.
 
@@ -128,7 +128,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;게임기와 게임 팩 비유에서 게임기와 팩은 각각 코드의 무엇일까?&quot;, &quot;Strategy, Concrete Strategy, Context는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;서비스가 직접 하는 일과 정책에 맡기는 일을 어떻게 나눴을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 정의는 이렇다. <em>"알고리즘군을 정의하고 각각을 캡슐화하여 교체 가능하게 만든다."</em> 게임기와 게임 팩과 같다. 게임기는 그대로이고 팩만 바꿔 꽂는다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 640 270" role="img" aria-label="전략 구조: DeliveryFeeService가 FeePolicy를 갖고, DistancePolicy·TieredPolicy·FlatPolicy가 FeePolicy를 구현한다. build_policy가 설정을 보고 정책을 만든다"><defs>
@@ -192,7 +192,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;운영팀이 바꾸고 싶어 하는가?&#x27;라는 질문으로 무엇은 정책으로 빼고 무엇은 서비스에 남겼을까?&quot;, &quot;정책에 Order 대신 FeeInput만 넘기면 무엇이 좋아질까?&quot;, &quot;전략 패턴은 if를 없애는 패턴일까? 지역 분기는 어디로 옮겨졌을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">민재는 줄마다 "운영팀이 바꾸고 싶어 하는가?"를 물었다. 요금표와 할증은 바뀌므로 정책으로 뺐고, 구독 무료와 가게 할인은 서비스에 남겼다. <code>Order</code> 대신 <code>FeeInput</code>이 넘어간다는 점을 보라.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;10 전략 — 패턴 코드: 요금 규칙을 교체 가능한 정책 객체로 뺀다.
 
@@ -305,7 +305,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;파이썬에서는 클래스 없이 무엇을 전략으로 쓸 수 있을까?&quot;, &quot;함수, dataclass, ABC는 전략의 성격에 따라 어떻게 골라야 할까?&quot;, &quot;sorted(key=...)가 전략 패턴과 닮은 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>정책 클래스의 본질은 <code>calculate()</code> 하나다. 파이썬은 함수를 변수에 담아 넘길 수 있으니 "<code>FeeInput</code>을 받아 <code>int</code>를 주는 함수"면 전략이 된다.</p>
 <p class="lead-in">아래 코드에서 정책은 함수·람다·<code>__call__</code>이 있는 dataclass다. <code>@register("flat")</code>는 정책을 만드는 함수를 설정 이름으로 등록부에 올린다. 데모 [2]에서 로그에 무엇이 찍히는지 비교하라.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;10 전략 — 파이썬다운 변형: 메서드 하나짜리 전략은 그냥 함수로.
@@ -414,7 +414,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;전략으로 얻는 것을 말해 보자. 새 정책은 어떻게 추가될까?&quot;, &quot;계산 방법이 아니라 숫자만 바뀔 때는 왜 전략이 아닐까?&quot;, &quot;상태(13장), 템플릿 메서드(14장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것</h3>
 <ul>
   <li>정책마다 따로 시험할 수 있고, 실행 중에 바꿔 끼울 수 있다.</li>
@@ -735,6 +735,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

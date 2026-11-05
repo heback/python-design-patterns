@@ -37,13 +37,13 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;정비 중인 킥보드가 열려 주행이 시작된 원인은 무엇일까? (unlock()의 else)&quot;, &quot;상태가 둘일 때 맞던 else가 상태가 늘어나자 왜 위험해졌을까?&quot;, &quot;상태가 늘어날 때마다 코드의 어디를 고쳐야 했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>공유 킥보드 '킥고'의 개발자 서진은 처음에 킥보드를 두 상태로만 관리했다. 대여 가능과 주행 중이다. <code>status</code> 문자열 하나와 if 몇 줄이면 됐다.</p>
   <p>석 달 뒤 상태가 늘었다. 예약됨, 배터리 부족, 정비 중. 서진은 메서드마다 분기를 덧붙였다. 그러다 사고가 났다. 정비 기사가 브레이크를 분해해 둔 킥보드를 누군가 앱으로 열었고, <strong>주행이 시작됐다</strong>. 범인은 상태가 둘일 때 쓴 <code>unlock()</code>의 <code>else</code> 한 줄이었다. 그때 <code>else</code>는 "대여 가능"이라는 뜻이었는데, 새 상태가 모두 그리로 흘러 들어갔다.</p>
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;불법 전이&#x27;란 무엇일까? 데모 [2]에서 어떤 일이 일어났을까?&quot;, &quot;&#x27;기본값이 허용&#x27;이라는 것은 왜 위험할까?&quot;, &quot;reserved_by 같은 상태별 데이터를 지우는 것을 잊으면 어떻게 될까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">사고가 난 시점의 <code>Scooter</code>다. 메서드마다 상태를 묻는 모양과 <code>unlock()</code>의 <code>else</code>를 보라. 현재 상태에서 허용되지 않는 동작이 받아들여져 생기면 안 되는 상태 변화가 일어나는 것을 <dfn class="term" id="term-illegal-transition" data-term="illegal-transition" title="현재 상태에서 허용되지 않은 동작이 요청되어 일어나서는 안 되는 상태 변화.">불법 전이</dfn>라 한다.</p>
   <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;13 상태 — 순진한 코드: 상태 문자열 하나와 메서드마다 붙은 if 분기.
 
@@ -115,7 +115,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상태 패턴에서 &#x27;상태가 바뀐다&#x27;는 것은 구체적으로 무엇을 갈아 끼우는 것일까?&quot;, &quot;Context, State, Concrete State는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;ScooterState의 기본 구현이 모두 &#x27;거부&#x27;인 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도는 이렇다. <em>"객체의 내부 상태가 바뀌면 행동도 바뀌게 한다. 객체는 마치 클래스가 바뀐 것처럼 보인다."</em> 상태마다 클래스를 하나 두고, 동작은 현재 상태 객체에 맡긴다. 상태가 바뀐다는 것은 들고 있는 상태 객체를 갈아 끼운다는 뜻이다.</p>
   <figure class="diagram">
     <svg viewBox="0 0 640 290" role="img" aria-label="상태 패턴 구조: Scooter가 ScooterState에 위임하고, 구체 상태들이 상속하며 다음 상태를 Scooter.change_state에 넘긴다"><defs>
@@ -165,7 +165,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Maintenance에는 unlock()이 없다. 이것이 사고를 어떻게 막아 줄까?&quot;, &quot;반납 뒤 LowBattery로 갈지 Available로 갈지는 누가 고를까?&quot;, &quot;전략과 상태는 모양이 같다. 누가, 언제 교체하는지로 어떻게 구별할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">서진은 분기를 상태 클래스로 옮겼다. <code>Maintenance</code>에 <code>unlock()</code>이 없다는 점이 사고의 해답이다. <code>Reserved.unlock()</code>의 if는 <dfn class="term" id="term-guard-condition" data-term="guard-condition" title="전이가 일어나기 위해 추가로 만족해야 하는 조건(예: 예약자 본인만 잠금 해제).">가드 조건</dfn>이다. 사건이 와도 추가 조건(여기서는 "예약자 본인")이 맞아야 전이가 일어난다.</p>
   <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;13 상태 — 패턴 코드: 상태마다 클래스 하나, 기본은 &#x27;거부&#x27;.
 
@@ -398,7 +398,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;전이 규칙을 표 하나(TRANSITIONS)에 모으면 무엇이 좋아질까?&quot;, &quot;표에서 &#x27;기본은 거부&#x27;는 어떻게 표현될까?&quot;, &quot;표 방식이 잃는 것은 무엇일까? 언제 상태 패턴이, 언제 표가 더 유리할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>관제팀장 유나가 물었다. "전이 규칙 전체를 한 장으로 볼 수 없나요?" 패턴 코드는 규칙을 상태 클래스 다섯 개에 나눠 둔다. 반대로 규칙을 표 하나에 모을 수도 있다. 상태들과 "(현재 상태, 사건) → 다음 상태" 규칙으로 동작을 적는 모델을 <dfn class="term" id="term-state-machine" data-term="state-machine" title="유한한 상태 집합과, (현재 상태, 사건) → 다음 상태로 정해진 전이 규칙으로 동작을 기술하는 모델.">상태 기계</dfn>라 하는데, 상태 패턴은 이것을 객체로, 아래 코드는 표로 만든다. 상태는 <code>Enum</code> 값이 되고, 전이는 다시 <code>Scooter</code>가 표를 보고 정한다.</p>
   <p class="lead-in">아래 코드에서 "기본은 거부"는 <code>TRANSITIONS</code>에 <em>키가 없음</em>으로 표현된다. <code>_enter()</code>는 <dfn class="term" id="term-entry-action" data-term="entry-action" title="어떤 상태로 들어갈 때마다 실행되는 동작(예: 그 상태에 필요 없는 데이터 정리).">진입 동작</dfn>이다. 어떤 상태에 들어갈 때마다 실행되는 동작으로, 여기서는 찌꺼기 정리와 정비 입고 때의 충전을 맡는다.</p>
   <figure class="code"><figcaption>전이표 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;13 상태 — 전이표 변형: Enum 상태와 (상태, 사건) -&gt; 다음 상태 dict.
@@ -521,7 +521,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상태 패턴으로 얻는 것을 말해 보자. 깜빡한 동작이 사고가 되지 않는 이유는 무엇일까?&quot;, &quot;상태가 둘뿐이거나 상태마다 다른 것이 문구나 색뿐이라면 무엇으로 충분할까?&quot;, &quot;전략(10장)과의 차이, 그리고 옵저버(11장)를 change_state()에 붙이면 좋은 점을 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>얻는 것</h3>
   <ul>
     <li>상태별 행동이 한 클래스에 모이고, <code>Scooter</code>는 그대로다.</li>
@@ -1060,6 +1060,7 @@ class Scooter:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

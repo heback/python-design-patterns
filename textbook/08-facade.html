@@ -37,14 +37,14 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;체크인이란 서비스들을 이 순서와 조건으로 부르는 것&#x27;이라는 지식이 어디에 흩어져 있었을까?&quot;, &quot;모바일 앱이 규정을 어긴 것은 서비스 품질 문제일까, 다른 문제일까?&quot;, &quot;좌석 서비스 API가 바뀌자 왜 두 화면을 모두 고쳐야 했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>'푸른날개항공'은 공항에 셀프 체크인 키오스크를 놓았다. 개발자 지호의 화면 코드는 사내 서비스 다섯 개를 차례로 불렀다. 예약을 찾고, 여권을 확인하고, 좌석을 받고, 미국행이면 승객 정보를 미국에 신고하고, 탑승권을 뽑는다. 서비스마다 담당 팀이 따로 있고, 각자는 잘 만들어져 있었다.</p>
 <p>이듬해 모바일 앱에서도 체크인을 하게 되었다. 모바일 팀은 지호의 코드를 열어 호출 순서를 베껴 갔다. 그 뒤 감사에서 두 가지가 드러났다. 모바일 앱은 미국행 신고를 빠뜨렸고, "여권 확인 전에는 좌석을 주지 않는다"는 규정도 순서를 바꿔 어겼다. 같은 시기 좌석 서비스 팀이 API를 새 버전으로 바꾸자 두 화면을 모두 고쳐야 했다.</p>
 <p>문제는 어느 서비스의 품질이 아니었다. "체크인이란 이 서비스들을 이 순서와 조건으로 부르는 것"이라는 지식이 화면마다 흩어져 있었다.</p>
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;KioskScreen.check_in()과 MobileApp.check_in()은 어디서 달라졌을까?&quot;, &quot;화면 하나가 서브시스템 다섯 개에 직접 기대면 어떤 불편이 생길까?&quot;, &quot;출입국 규정 같은 업무 규칙이 화면 코드의 줄 순서에 달려 있으면 왜 위험할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">감사 직전의 코드다. 예약·여권·좌석처럼 큰 기능을 이루면서 각자 따로 관리되는 부품들을 <dfn class="term" id="term-subsystem" data-term="subsystem" title="하나의 기능 영역을 함께 이루는 여러 클래스·서비스의 묶음. 퍼사드는 서브시스템 앞에 단순한 진입점을 둔다.">서브시스템</dfn>이라 부른다. 서브시스템은 각자 짧고 단순하다. 문제는 아래쪽 두 화면이다. 코드의 <dfn class="term" id="term-passenger-name-record" data-term="passenger-name-record" title="항공 예약 기록 번호(예약 번호)."><code>pnr</code></dfn>은 항공 예약 번호다. <code>MobileApp.check_in()</code>이 <code>KioskScreen.check_in()</code>과 어디서 달라졌는지 찾아보라.</p>
 <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 순진한 코드: 화면마다 체크인 순서를 복사해 서브시스템을 직접 부른다.
 
@@ -149,7 +149,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;호텔 안내 데스크 비유에서 &#x27;손님&#x27;, &#x27;데스크&#x27;, &#x27;담당 부서&#x27;는 각각 코드의 무엇일까?&quot;, &quot;서브시스템은 퍼사드가 있다는 사실을 알까? 의존은 어느 방향일까?&quot;, &quot;퍼사드는 서브시스템을 감출까? 접근을 정말 막고 싶다면 무엇이 필요할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 의도: <em>"서브시스템의 인터페이스 집합에 대해 하나의 통합된 인터페이스를 제공한다."</em> 호텔 안내 데스크를 떠올리면 된다. 손님은 "체크인해 주세요"만 말하고, 객실·청소·결제 담당을 누가 부르는지는 데스크가 안다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 640 290" role="img" aria-label="퍼사드 구조: 키오스크와 모바일은 CheckInFacade 하나에 의존하고, 퍼사드가 서브시스템들을 부른다. 카운터 직원 화면은 SeatServiceV2를 직접 부르기도 한다"><defs>
@@ -197,7 +197,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;퍼사드의 책임은 &#x27;조율&#x27;뿐이라고 한다. 조율과 업무 로직은 어떻게 다를까?&quot;, &quot;check_in()의 규칙 1·2는 왜 화면마다 두지 않고 한 곳에만 둘까?&quot;, &quot;퍼사드가 &#x27;신 객체&#x27;로 자라고 있다는 신호는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">지호는 원칙 하나를 세웠다. 퍼사드의 책임은 '조율'뿐이다. 좌석을 고르는 방법처럼 도메인 규칙 자체를 구현한 <dfn class="term" id="term-business-logic" data-term="business-logic" title="도메인의 규칙 자체(요금 계산, 좌석 배정 등)를 구현한 코드. 화면 표시·통신·조율 같은 기술적 코드와 구별된다.">업무 로직</dfn>은 서브시스템에 남긴다. 서브시스템은 순진한 코드와 같고 좌석 서비스만 v2(<code>allocate</code>, 직원 전용 <code>override</code>)로 바뀌었다. <code>check_in()</code>의 '규칙 1', '규칙 2' 주석을 보라.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 패턴 코드: CheckInFacade가 체크인 순서와 규칙을 한 곳에 모은다.
 
@@ -321,7 +321,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;상태가 없는 퍼사드는 왜 클래스가 아니라 함수 하나면 될까?&quot;, &quot;with kiosk_session() 한 줄은 어떤 규칙을 한 곳에 모아 줄까?&quot;, &quot;예외가 나도 장치가 역순으로 닫히는 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p><code>CheckInFacade</code>는 상태가 없다. 서브시스템 참조만 들고 있을 뿐이다. 동료 서윤이 물었다. "그럼 클래스일 이유가 있어?"</p>
 <p class="lead-in">아래 코드는 (1) 모듈 수준 함수 하나로 된 퍼사드 <code>check_in()</code>과 (2) 장치의 열기·닫기 순서를 <code>with</code> 한 줄 뒤에 숨기는 <code>kiosk_session()</code>을 보여 준다. 클래스 이름 <code>_Device</code>의 <dfn class="term" id="term-leading-underscore-convention" data-term="leading-underscore-convention" title="이름 앞 밑줄(_name)은 &#x27;내부용, 공개 API 아님&#x27;을 뜻하는 관례. 접근을 실제로 막지는 않는다.">이름 앞 밑줄</dfn>은 '내부용, 공개 API 아님'을 뜻하는 관례로, 접근을 실제로 막지는 않는다. 데모 [2]에서 예외가 나도 장치가 역순으로 닫히는지 보라.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;08 퍼사드 — 파이썬다운 변형: 함수 퍼사드와 contextmanager 퍼사드.
@@ -394,7 +394,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;퍼사드로 얻는 것을 말해 보자. 서브시스템이 바뀌면 어디까지 고치면 될까?&quot;, &quot;받은 호출을 그대로 넘기기만 하는 퍼사드는 왜 쓸모가 없을까?&quot;, &quot;어댑터(5장), 프록시(9장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <h3>얻는 것</h3>
 <ul>
   <li>쓰는 쪽이 기대는 대상이 줄고, 흐름 규칙이 한 곳에 모인다.</li>
@@ -714,6 +714,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

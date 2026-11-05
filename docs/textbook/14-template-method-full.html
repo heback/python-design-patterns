@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;C++와 Java 채점기는 파이썬 채점기를 복사해서 만들었다. 이후 어떤 문제가 생겼을까?&quot;, &quot;같은 &#x27;느린 오답&#x27;이 파이썬에서는 TLE, C++에서는 WA가 된 이유는 무엇일까?&quot;, &quot;세 채점기에서 같은 것과 다른 것은 각각 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>코딩 교육 플랫폼 '코드랩'의 개발자 도윤은 파이썬 제출물 채점기를 만들었다. 절차는 단순했다. 소스를 <dfn class="term" id="term-sandbox" data-term="sandbox" title="신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경.">샌드박스</dfn>(신뢰할 수 없는 코드를 다른 시스템과 격리해 실행하는 환경)에 저장하고, 실행하고, 테스트 케이스마다 출력을 기대값과 비교한 뒤, 결과를 기록한다.</p>
   <p>한 학기 뒤 C++와 Java 과목이 열렸다. C++는 실행 전에 컴파일 단계가 필요하다. Java는 컴파일 전에 공개 클래스 이름이 <code>Main</code>인지 검사해야 한다. 마감이 급했던 도윤은 파이썬 채점기를 복사해 C++ 채점기를 만들고, C++ 채점기를 다시 복사해 Java 채점기를 만들었다. 그렇게 채점기 세 개가 생겼다.</p>
   <p>그 뒤 "모든 언어"에 해당하는 요구사항이 연달아 들어왔다. 시간 제한 측정, 채점 뒤 샌드박스 디렉터리 정리, 일부 문제에 대한 부동소수 오차 허용이다. 도윤은 세 파일에 같은 수정을 세 번 했고, 그 과정에서 두 군데가 어긋났다. Java 채점기에는 샌드박스 정리가 빠져서, 몇 주 뒤 채점 서버의 디스크가 가득 찼다. C++ 채점기는 다른 팀원이 "틀린 답이면 시간은 볼 필요 없다"며 비교와 시간 검사의 순서를 바꿔 놓았다. 그래서 같은 "느린 오답"이 파이썬에서는 시간 초과, C++에서는 오답으로 판정되었다. 학생들이 게시판에 항의 글을 올렸다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;세 judge()를 나란히 놓고 어디가 같고 어디가 미묘하게 다른지 찾아보자.&quot;, &quot;공통 요구 하나가 왜 수정 세 번이 될까? 하나라도 빠뜨리면 어떻게 될까?&quot;, &quot;&#x27;시간 검사 → 비교&#x27; 순서는 지켜야 할 규칙인데 왜 아무도 지키지 않게 되었을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">아래는 세 채점기가 공존하던 시점의 코드다. 컴파일러 없이도 실행되도록 컴파일과 실행은 흉내만 낸다. 반면 샌드박스 디렉터리 생성과 시간 측정은 실제로 한다. 세 <code>judge()</code> 메서드를 나란히 놓고 어디가 같고 어디가 미묘하게 다른지 찾아보라. 데모 [2]~[4]가 상황에서 말한 세 가지 사고를 재현한다.</p>
   <div class="callout"><span class="label">용어</span>
     <p>이 코드는 <dfn class="term" id="term-online-judge" data-term="online-judge" title="제출된 프로그램을 테스트 입력으로 자동 실행해 정답 여부·시간 초과 등을 판정하는 채점 시스템.">온라인 저지</dfn>, 곧 제출된 프로그램을 테스트 입력으로 자동 실행해 판정하는 채점 시스템의 일부다. 판정 문자열은 업계 관례를 따른다. <dfn class="term" id="term-accepted" data-term="accepted" title="온라인 저지 판정: 모든 테스트를 통과한 정답.">AC</dfn>(Accepted, 모든 테스트 통과), <dfn class="term" id="term-wrong-answer" data-term="wrong-answer" title="온라인 저지 판정: 출력이 기대값과 다른 오답.">WA</dfn>(Wrong Answer, 출력이 기대값과 다름), <dfn class="term" id="term-time-limit-exceeded" data-term="time-limit-exceeded" title="온라인 저지 판정: 시간 제한 초과.">TLE</dfn>(Time Limit Exceeded, 시간 제한 초과), <dfn class="term" id="term-runtime-error" data-term="runtime-error" title="온라인 저지 판정: 실행 중 예외로 비정상 종료.">RE</dfn>(Runtime Error, 실행 중 예외로 비정상 종료), <dfn class="term" id="term-compile-error" data-term="compile-error" title="온라인 저지 판정: 컴파일(또는 사전 검증) 실패.">CE</dfn>(Compile Error, 컴파일 또는 사전 검증 실패)다. 컴파일 흉내 주석의 <dfn class="term" id="term-linking" data-term="linking" title="컴파일된 조각들과 라이브러리를 이어 실행 파일을 만드는 단계.">링크</dfn>는 컴파일된 조각과 라이브러리를 이어 실행 파일을 만드는 단계다. 표준 라이브러리로는 임시 디렉터리를 안전하게 만드는 <dfn class="term" id="term-tempfile" data-term="tempfile" title="임시 파일·디렉터리를 안전하게 만드는 표준 라이브러리."><code>tempfile</code></dfn>, 파일 경로를 객체로 다루는 <dfn class="term" id="term-pathlib-path" data-term="pathlib-path" title="파일 경로를 객체로 다루는 표준 라이브러리(/ 연산자로 경로 결합)."><code>pathlib</code></dfn>(<code>/</code> 연산자로 경로를 잇는다), 짧은 구간의 경과 시간을 재는 고해상도 시계 <dfn class="term" id="term-time-perf-counter" data-term="time-perf-counter" title="짧은 구간의 경과 시간을 재는 고해상도 시계 함수."><code>time.perf_counter</code></dfn>를 쓴다.</p>
@@ -290,7 +290,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;요리법 카드 비유에서 &#x27;인쇄된 순서&#x27;와 &#x27;비어 있는 칸&#x27;은 각각 코드의 무엇일까?&quot;, &quot;추상 단계와 훅(hook)은 무엇이 다를까? 가르는 기준은 무엇일까?&quot;, &quot;할리우드 원칙(&#x27;우리가 전화하겠다&#x27;)은 누가 누구를 부른다는 뜻일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도(intent)는 이렇다. <em>"연산 안에 알고리즘의 골격을 정의하고, 일부 단계를 하위 클래스로 미룬다. 템플릿 메서드는 알고리즘의 구조를 바꾸지 않고도 하위 클래스가 알고리즘의 특정 단계를 재정의할 수 있게 한다."</em> 핵심은 <strong>순서는 닫고 단계는 연다</strong>는 것이다. 이 패턴에서 OCP가 닫는 대상은 클래스 전체가 아니라 '절차'다.</p>
   <p>그림의 메모에 적힌 <dfn class="term" id="term-inversion-of-control" data-term="inversion-of-control" title="흐름의 제어권이 사용자 코드가 아니라 골격·프레임워크 쪽에 있어서, 사용자 코드는 불리기만 하는 구조.">제어의 역전</dfn>은 흐름의 제어권이 사용자 코드가 아니라 골격(또는 프레임워크) 쪽에 있어서, 사용자 코드는 불리기만 하는 구조를 말한다. 보통은 내 코드가 라이브러리를 부르지만, 여기서는 상위 클래스의 골격이 하위 클래스의 단계를 부른다. 이를 한 문장으로 요약한 것이 <dfn class="term" id="term-hollywood-principle" data-term="hollywood-principle" title="&quot;우리에게 전화하지 마라, 우리가 전화하겠다&quot; — 하위 코드는 상위 코드를 부르지 않고, 상위 코드(골격·프레임워크)가 언제 하위 코드를 부를지 정한다는 설계 원칙.">할리우드 원칙</dfn>, 곧 "우리에게 전화하지 마라, 우리가 전화하겠다"다. 하위 클래스는 골격을 부르지 않고, 골격이 언제 하위 클래스를 부를지 정한다.</p>
   <figure class="diagram">
@@ -341,7 +341,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;judge()가 시간 검사를 비교보다 먼저 하도록 정해 두면 하위 클래스는 무엇을 못 바꿀까?&quot;, &quot;finally로 정리를 골격이 보장하면 Java 채점기의 디스크 문제는 어떻게 될까?&quot;, &quot;&#x27;오차 허용 비교&#x27;가 필요해지면 상속만으로는 왜 클래스가 곱해질까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">먼저 골격을 보자. <code>judge()</code>가 단계를 부르는 순서, 그리고 <code>try/finally</code>가 정리를 보장하는 방식에 주목하라. 순진한 코드의 세 사본이 각자 들고 있던 책임이 이제 이 메서드 하나에 모인다. 추상 단계와 훅이 시각적으로도 분리되어 있다는 점도 보라. 이 패턴 코드는 두 부분으로 나눠 싣는다. 골격 메서드에 붙은 <dfn class="term" id="term-final" data-term="final" title="메서드·클래스를 재정의·상속하지 말라고 타입 검사기에 알리는 데코레이터. 런타임에는 아무것도 막지 않는다."><code>@final</code></dfn>(<code>typing.final</code>)은 "재정의하지 말라"고 타입 검사기에 알리는 데코레이터다. <code>run()</code>의 docstring에 나오는 <dfn class="term" id="term-interpreter" data-term="interpreter" title="소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램.">인터프리터</dfn>는 소스를 미리 실행 파일로 만들지 않고 읽어 가며 실행하는 프로그램이다(파이썬이 그렇다).</p>
   <figure class="diagram code-map">
   <svg viewBox="0 0 640 570" role="img" aria-label="패턴 코드 첫 조각의 흐름: Judge.judge()가 샌드박스 생성, 소스 쓰기, validate·compile 훅, _run_tests의 반복(run, 시간 검사, outputs_match)을 try 안에서 차례로 부르고, CompileError는 CE로, 그 밖의 예외는 RE로 번역하며, finally에서 샌드박스를 지운 뒤 판정을 기록한다"><defs>
@@ -1453,7 +1453,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;변경 축&#x27;이란 무엇일까? 이 장의 두 변경 축은 무엇일까?&quot;, &quot;단계를 주입(전략)하면 무엇을 얻고, 무엇을 잃을까?&quot;, &quot;데모 [2]에서 compile을 깜빡한 C++가 빈 소스를 통과시킨 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>채점기가 자리를 잡은 뒤, 동료 하은이 도윤에게 말했다. "준비-본문-정리 골격은 우리 코드 곳곳에 이미 있어요. 파이썬이 문법으로 제공하는 것도 있고요." 템플릿 메서드는 언어와 표준 라이브러리 안에 흔히 녹아 있다. 아래 코드는 그 세 가지 모습을 보여 준다.</p>
   <p class="lead-in">A 부분에서는 <code>@contextmanager</code> 제너레이터의 <code>yield</code> 앞뒤가 골격의 고정 단계이고, <code>with</code> 블록 본문이 가변 단계라는 점을 보라. B 부분에서는 <code>__init_subclass__</code>가 <em>클래스를 정의하는 순간</em> 규칙 위반을 거부하는 모습을, C 부분에서는 <code>unittest</code>가 우리 메서드를 부르는 순서를 출력으로 확인하라.</p>
   <figure class="diagram code-map">
@@ -1719,7 +1719,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;템플릿 메서드로 얻는 것을 말해 보자. 순서와 필수 단계를 어떻게 강제할까?&quot;, &quot;변경 축이 둘 이상이거나 단계를 실행 중에 바꿔야 한다면 왜 맞지 않을까?&quot;, &quot;전략(10장), 팩토리 메서드(1장)와 어떻게 다른지 한 줄씩 말해 보자.&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>얻는 것과 잃는 것</h3>
   <ul>
     <li><strong>얻는 것</strong>: 공통 절차가 한 곳에 있다(<dfn class="term" id="term-don-t-repeat-yourself" data-term="don-t-repeat-yourself" title="같은 지식을 두 곳 이상에 쓰지 말라는 원칙(Don&#x27;t Repeat Yourself).">DRY</dfn>, Don't Repeat Yourself: 같은 지식을 두 곳 이상에 쓰지 말라는 원칙). 순서와 필수 단계를 강제할 수 있다. 공통 요구사항이 변경 한 번으로 모든 하위 클래스에 반영된다(연습문제 4의 메모리 제한).</li>
@@ -2043,6 +2043,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

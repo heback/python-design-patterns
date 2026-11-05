@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;미리보기를 열 때마다 곡이 건너뛰어진 이유는 무엇일까?&quot;, &quot;2만 곡짜리 목록을 모두 받았더니 첫 곡이 나오기 전에 요청이 400번 오갔다. 왜 문제가 될까?&quot;, &quot;&#x27;커서&#x27;란 무엇일까? 커서가 재생기 안에 하나뿐이면 어떤 일이 생길까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>음악 스트리밍 앱 '멜로디'의 클라이언트 개발자 지안은 첫 버전에서 서버가 준 플레이리스트를 <code>list[Track]</code>으로 받았다. 그리고 <code>for i in range(len(tracks))</code>로 차례대로 재생했다. 재생기가 곧 인덱스였고, 그것으로 충분했다.</p>
   <p>두 번째 분기에는 재생 모드가 추가되었다. 셔플, 한 곡 반복, 전체 반복이다. 기획자는 한 가지 조건을 강조했다. <em>"재생 중에 모드를 바꿔도 지금 듣는 곡은 끊기면 안 돼요."</em> 지안은 재생기에 <code>mode</code> 문자열, 셔플 순서 리스트, 셔플 위치 변수를 추가했고, <code>next_track()</code>은 모드 분기로 가득 찼다.</p>
   <p>세 번째 요구는 성격이 달랐다. 헤비 유저의 '좋아요 표시한 곡'은 2만 곡이 넘고, 서버는 이를 50곡씩 <dfn class="term" id="term-pagination" data-term="pagination" title="큰 목록을 페이지 단위로 나눠 주고, 다음 페이지를 토큰으로 요청하게 하는 API 방식.">페이지 토큰</dfn>과 함께 준다. 큰 목록을 페이지로 나눠 주고 "다음 페이지는 이 토큰으로 요청하라"고 알려 주는 이런 방식을 페이지네이션이라 한다. 리스트만 다룰 줄 아는 재생기에 맞추려고 지안은 모든 페이지를 받아 리스트로 합쳤다. 그 결과 첫 곡이 나오기까지 요청이 400번 오갔고, 앱 시작이 눈에 띄게 느려졌다. 사용자는 대개 앞의 몇 곡만 듣고 앱을 닫는데도 말이다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;재생기가 들고 있는 상태(리스트, 커서, 모드, 셔플 순서)를 세어 보자.&quot;, &quot;peek(다음 곡을 들여다보기)이 왜 next_track()을 부를 수밖에 없을까?&quot;, &quot;self.tracks[self.index]는 어떤 것을 전제할까? 페이지로 오는 목록은 왜 맞지 않을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">아래는 세 요구를 모두 <code>Player</code> 한 클래스에 밀어 넣은 코드다. 재생기가 들고 있는 상태가 무엇인지(커서, 모드, 셔플 순서, 셔플 위치) 세어 보라. <code>from_api()</code>가 첫 곡 전에 무엇을 하는지, <code>UpNextPreview.<dfn class="term" id="term-peek" data-term="peek" title="다음 값을 소비하지 않고 미리 보기만 하는 연산.">peek</dfn>()</code>가 왜 <code>next_track()</code>을 부를 수밖에 없는지도 살펴라. peek은 다음 값을 소비하지 않고 미리 보기만 하는 연산을 가리키는 관용적 이름인데, 이 코드에는 소비 없이 볼 방법이 없다.</p>
   <figure class="diagram code-map">
   <svg viewBox="0 0 640 440" role="img" aria-label="순진한 코드의 구조: Player가 Track 리스트와 커서 index, 모드, 셔플 순서를 모두 들고, from_api()가 FakeLikedSongsAPI의 모든 페이지를 먼저 받으며, next_track()이 모드별로 분기한다. UpNextPreview.peek()는 next_track()을 불러 같은 커서를 움직인다"><defs>
@@ -254,7 +254,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;책과 책갈피 비유에서 책과 책갈피는 각각 코드의 무엇일까?&quot;, &quot;이터러블과 이터레이터는 각각 어떤 메서드를 가지고 있을까?&quot;, &quot;&#x27;커서를 컬렉션에서 떼어 낸다&#x27;는 말은 무슨 뜻일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도(intent)는 이렇다. <em>"집합 객체의 내부 표현을 노출하지 않고 그 원소에 순차적으로 접근하는 방법을 제공한다."</em> 구현의 핵심은 <strong>순회 상태(커서)를 컬렉션에서 떼어 내 별도 객체에 담는 것</strong>이다. 컬렉션은 반복자를 <em>만들기만</em> 한다. 이렇게 하면 반복자를 몇 개든 동시에 만들 수 있고, 순회 방식마다 다른 반복자 클래스를 둘 수 있다.</p>
   <figure class="diagram">
     <svg viewBox="0 0 720 330" role="img" aria-label="반복자 패턴 구조: Playlist가 PlaylistIterator를 생성하고 Player가 반복자를 사용한다"><defs>
@@ -321,7 +321,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;반복자마다 커서를 따로 가지면 미리보기의 버그가 어떻게 사라질까?&quot;, &quot;Playlist.__iter__()가 부를 때마다 새 반복자를 만드는 이유는 무엇일까?&quot;, &quot;이터러블과 이터레이터는 수명이 어떻게 다를까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">먼저 반복자를 클래스로 직접 쓴 교과서 버전이다. 세 가지에 주목하라. ① 반복자마다 커서(<code>index</code>, <code>_next</code>, <code>_order</code>)를 따로 가진다. ② <code>Playlist.__iter__()</code>는 호출될 때마다 <em>새</em> 반복자를 만든다. ③ <code>Player.set_mode()</code>는 반복자를 갈아 끼우되, 현재 위치를 새 반복자에 넘긴다. <code>ShuffleIterator</code>의 docstring에 나오는 <dfn class="term" id="term-big-o-notation" data-term="big-o-notation" title="입력 크기에 따라 비용이 늘어나는 정도를 나타내는 표기.">O(n)</dfn>은 빅오 표기로, 입력 크기 n에 따라 비용이 늘어나는 정도를 나타낸다(여기서는 곡 수에 비례).</p>
   <figure class="diagram code-map">
   <svg viewBox="0 0 640 600" role="img" aria-label="패턴 코드의 구조: Playlist가 __iter__와 iterator(mode)로 반복자를 새로 만들고, 추상 PlaylistIterator를 SequentialIterator·RepeatAllIterator·RepeatOneIterator·ShuffleIterator가 상속하며 각자 커서를 가진다. Player는 playlist와 현재 반복자 _it를 들고, set_mode()에서 index를 새 반복자에 넘긴다"><defs>
@@ -624,7 +624,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;yield가 있는 함수는 반복자 클래스의 어떤 부분을 대신해 줄까?&quot;, &quot;데모 [3]에서 제너레이터 객체로 두 번째 순회를 하면 왜 빈 결과가 나올까?&quot;, &quot;페이지 API를 yield from으로 이터러블로 만들면 &#x27;필요한 만큼만&#x27; 가져오는 것이 어떻게 가능할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>5.1 제너레이터와 itertools: 반복자 클래스가 사라진다</h3>
   <p>코드 리뷰에서 태오가 지안에게 말했다. "반복자 클래스 네 개, 전부 제너레이터 함수 한두 줄씩이에요." <code>yield</code>가 있는 함수를 호출하면 반복자 객체가 나온다. 커서 상태는 지역 변수와 "멈춘 실행 위치"로 표현되고, 함수가 끝나면 <code>StopIteration</code>은 파이썬이 대신 던진다. 패턴 코드의 클래스를 옮기면서 <code>raise StopIteration</code>을 그대로 쓰면 안 된다. 제너레이터 안에서 그렇게 하면 PEP 479에 따라 <code>RuntimeError</code>로 바뀐다. 제너레이터를 끝낼 때는 <code>return</code>을 쓴다.</p>
   <p class="lead-in">아래 코드를 패턴 코드와 나란히 놓고 보라. <code>SequentialIterator</code> 클래스 전체가 <code>sequential()</code>의 두 줄이 되었다. 전체 반복은 <code>cycle</code>+<code>islice</code>, 한 곡 반복은 <code>repeat</code>, 미리보기는 <code>chain</code>+<code>islice</code>로 조립된다. <code>Playlist</code>가 <dfn class="term" id="term-collections-abc" data-term="collections-abc" title="Iterator·Sequence 같은 컨테이너 추상 기반 클래스를 모은 표준 모듈. 필수 메서드만 구현하면 나머지를 믹스인으로 제공한다."><code>Sequence</code></dfn>를 상속하면서 <code>__iter__</code>를 직접 쓰지 않게 된 점, 그리고 컴포지트 구조의 폴더를 <code>yield from</code> 한 줄로 재귀 순회하는 점도 확인하라.</p>
@@ -1090,7 +1090,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;반복자로 얻는 것을 말해 보자. 여러 순회가 동시에 있을 수 있는 이유는 무엇일까?&quot;, &quot;내부 리스트를 감싸기만 할 때는 왜 return iter(self._items) 한 줄이면 될까?&quot;, &quot;옵저버(11장)는 밀어 주고 반복자는 당겨 온다. 무슨 뜻일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <h3>설계 선택지</h3>
   <div class="table-wrap"><table>
     <thead><tr><th>방법</th><th>쓸 때</th><th>대가</th></tr></thead>
@@ -1518,6 +1518,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

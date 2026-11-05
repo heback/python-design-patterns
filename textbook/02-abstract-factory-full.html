@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;썸네일 처리기는 왜 실패했을까? 코드에서 정확히 무엇이 빠졌을까?&quot;, &quot;저장소·작업 대기열·비밀 값 저장소는 왜 &#x27;같은 클라우드끼리&#x27;만 써야 할까?&quot;, &quot;&#x27;섞이면 안 된다&#x27;는 규칙은 코드의 어디에 있었을까? 그게 왜 위험할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>파일 공유 스타트업 '구름다리'의 플랫폼 엔지니어 도현은 <dfn class="term" id="term-amazon-web-services-google-cloud-platform" data-term="amazon-web-services-google-cloud-platform" title="대표적 퍼블릭 클라우드 두 곳.">AWS</dfn> 위에 업로드 서비스를 만들었다. 업로드 <dfn class="term" id="term-application-programming-interface" data-term="application-programming-interface" title="프로그램이 다른 프로그램·서비스의 기능을 호출하기 위해 약속한 인터페이스.">API</dfn>는 사용자가 올린 파일을 <dfn class="term" id="term-object-storage" data-term="object-storage" title="파일을 키로 식별되는 객체로 버킷에 저장하는 클라우드 저장 서비스(AWS S3, GCP Cloud Storage).">S3</dfn>에 저장하고, 작업 대기열인 <dfn class="term" id="term-queue" data-term="queue" title="먼저 넣은 것을 먼저 꺼내는 대기열 자료구조.">큐</dfn>에 "썸네일을 만들어 달라"는 메시지를 넣는다. 이 큐는 AWS가 제공하는 <dfn class="term" id="term-message-queue" data-term="message-queue" title="생산자가 넣은 메시지를 소비자가 나중에 꺼내 처리하게 하는 비동기 전달 통로.">메시지 큐</dfn> 서비스 <dfn class="term" id="term-sqs-pub-sub" data-term="sqs-pub-sub" title="AWS SQS와 GCP Pub/Sub — 각 클라우드가 제공하는 관리형 메시지 큐(발행-구독) 서비스.">SQS</dfn>다. 별도 프로세스로 도는 썸네일 <dfn class="term" id="term-worker" data-term="worker" title="큐의 작업이나 요청을 받아 처리하는 별도 프로세스·스레드.">워커</dfn>는 큐에서 메시지를 꺼내 원본을 S3에서 내려받는다. 둘 다 API 키를 <dfn class="term" id="term-secrets-manager" data-term="secrets-manager" title="API 키·비밀번호 같은 비밀 값을 안전하게 보관하고 꺼내 주는 서비스.">Secrets Manager</dfn>에서 꺼낸다. 코드 곳곳에서 <code>S3Storage()</code>, <code>SqsQueue()</code>, <code>SecretsManagerVault()</code>를 그냥 생성했고, AWS 하나뿐일 때는 아무 문제가 없었다.</p>
   <div class="callout">
     <span class="label">용어</span>
@@ -48,7 +48,7 @@
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;데모 [1]의 &#x27;시작 OK&#x27;가 왜 가장 위험하다고 했을까? 틀린 조합은 언제 드러날까?&quot;, &quot;새 클라우드를 하나 추가하면 몇 곳을 고쳐야 할까? (환경 수 × 생성 지점 수)&quot;, &quot;1장의 단순 팩토리 함수만으로는 왜 이 문제가 풀리지 않을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">GCP 전환을 반쯤 끝낸 시점의 코드다. 벤더 <dfn class="term" id="term-wrapper" data-term="wrapper" title="다른 객체나 함수를 감싸 호출을 받아 전달하면서 인터페이스를 바꾸거나(어댑터) 책임을 덧붙이는(데코레이터) 객체·함수.">래퍼</dfn>(다른 객체를 감싸 호출을 받아 전달하는 객체)는 실제 SDK 대신 메모리로 흉내 냈다. 코드 주석의 <code><dfn class="term" id="term-environment-variable" data-term="environment-variable" title="프로세스 밖에서 주입되는 이름=값 설정(파이썬에서는 `os.environ`); 배포 환경 선택 등에 쓴다.">os.environ</dfn></code>은 프로세스 바깥에서 주어지는 <code>이름=값</code> 설정인 환경 변수를 읽는 통로이고, Pub/Sub 래퍼 docstring의 <dfn class="term" id="term-publish-subscribe" data-term="publish-subscribe" title="발행자는 메시지를 토픽에 발행하고, 그 토픽을 구독한 수신자(구독자)들이 받아 가는 메시징 모델; 발행자는 누가 받는지 모른다.">토픽</dfn>은 발행-구독 방식의 수신 주소다. 발행자가 토픽에 메시지를 내보내면 그 토픽을 구독한 쪽들이 받아 가고, 발행자는 누가 받는지 모른다. <code>UploadService.__init__</code>의 세 줄이 "같은 환경이어야 한다"는 규칙을 어떻게 암묵적으로 지키는지, 그리고 <code>ThumbnailWorker.__init__</code>에서 무엇이 빠졌는지 보라. 데모 [2]에서는 실패가 <em>언제</em> 드러나는지가 핵심이다.</p>
   <figure class="diagram code-map">
     <svg viewBox="0 0 680 520" role="img" aria-label="순진한 코드의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다"><defs>
@@ -288,7 +288,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;팩토리 메서드와 추상 팩토리는 무엇이 다를까? (제품 하나 vs 제품군)&quot;, &quot;제품 종류 3가지와 제품군(클라우드) 3가지를 표로 떠올려 보자. 구체 제품은 모두 몇 개일까?&quot;, &quot;제품군 추가(열)와 제품 종류 추가(행) 중 어느 쪽이 쉽고, 왜 그럴까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도는 이렇다. "구체 클래스를 지정하지 않고, 서로 관련되거나 의존하는 객체들의 군(family)을 생성하기 위한 인터페이스를 제공한다." 1장의 팩토리 메서드가 "제품 하나"의 생성을 미뤘다면, 추상 팩토리는 제품군에 속한 모든 제품의 생성 메서드를 <strong>한 객체에 묶는다</strong>. 묶었기 때문에 클라이언트는 팩토리 하나만 받고, 팩토리 하나를 고르는 순간 제품군 전체가 정해진다.</p>
   <figure class="diagram">
     <svg viewBox="0 0 760 400" role="img" aria-label="클라우드 인프라에 적용한 추상 팩토리 구조"><defs>
@@ -387,7 +387,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;클라이언트 코드(UploadService 등)에 S3Storage 같은 구체 클래스 이름이 남아 있는지 찾아보자.&quot;, &quot;ThumbnailWorker는 왜 이제 다른 클라우드의 저장소를 가질 길이 없을까?&quot;, &quot;UploadService는 왜 제품 세 개 대신 팩토리 하나를 받을까? 분기(if)는 이제 어디에 남았을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">이제 제품군을 <code>CloudFactory</code> 계층으로 묶는다. 코드가 길므로 다음 순서로 읽기를 권한다. (1) 맨 위의 <code>CloudAccount</code>: 제품군이 일관되어야 하는 실제 이유인 "<dfn class="term" id="term-shared-context" data-term="shared-context" title="한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정·상태; 구체 팩토리가 소유해 모든 제품에 나눠 준다.">공유 컨텍스트</dfn>"다. 한 제품군의 제품들이 함께 써야 하는 자격 증명·리전·프로젝트 같은 공통 설정과 상태를 말하며, 구체 팩토리가 소유해 모든 제품에 나눠 준다. 주석의 <code><dfn class="term" id="term-boto3" data-term="boto3" title="AWS 서비스를 파이썬에서 쓰기 위한 공식 SDK.">boto3</dfn></code>는 AWS의 공식 파이썬 SDK이고, <dfn class="term" id="term-bucket" data-term="bucket" title="객체 저장소에서 객체들을 담는 최상위 컨테이너.">버킷</dfn>은 객체 저장소에서 객체들을 담는 최상위 그릇이다. (2) <code>CloudFactory</code>와 세 구체 팩토리: 각 팩토리가 계정 컨텍스트를 한 번 만들어 모든 제품에 나눠 주는 방식. (3) 클라이언트인 <code>UploadService</code>, <code>ThumbnailWorker</code>: 구체 클래스 이름이 하나라도 남아 있는지. (4) <code>make_cloud_factory()</code>: 분기가 남아 있는 유일한 곳.</p>
   <figure class="diagram code-map">
     <svg viewBox="0 0 640 590" role="img" aria-label="패턴 코드의 배치: 위 표의 각 행이 한 제품군이고 구체 팩토리가 그 행의 저장소·큐·시크릿을 만든다. 각 팩토리는 CloudAccount를 한 번 만들어 _AccountStorage·_AccountQueue 계열 제품에 나눠 준다. 아래에서 make_cloud_factory()가 팩토리 하나를 골라 UploadService와 ThumbnailWorker에 함께 넘긴다"><defs>
@@ -837,7 +837,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;클래스 16개짜리 계층을 어떻게 값 하나(CloudKit)로 줄였을까?&quot;, &quot;데모 [2]처럼 묶음 방식에서는 섞인 조합을 누구나 만들 수 있다. 이것을 어떻게 막을까?&quot;, &quot;그래도 클래스 계층이 더 나은 경우는 언제일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>패턴 코드의 클래스 수를 세어 보면 추상 4개, 구체 팩토리 3개, 구체 제품 9개다. 파이썬에는 이 무게를 줄일 도구가 둘 있다. 제품 인터페이스를 <code>typing.Protocol</code>로 정의하면 벤더 SDK 래퍼가 우리 ABC를 상속하지 않아도 된다. 그리고 팩토리를 "생성 함수 몇 개의 묶음"으로 보면 클래스 계층 대신 불변 값 하나로 표현할 수 있다. 같은 이름의 함수(<code>create_storage</code>, <code>create_queue</code>)를 가진 모듈 <code>aws.py</code>, <code>gcp.py</code>를 두고 모듈 객체 자체를 팩토리로 넘기는 방법도 같은 발상이다.</p>
   <p class="lead-in">아래 코드는 팩토리를 <code>@dataclass(frozen=True)</code> 번들 <code>CloudKit</code>으로, 구체 팩토리를 그 번들을 만드는 함수 <code>aws_kit()</code> 등으로 바꾼다. 환경 변수를 읽는 <code>composition_root()</code>가 하나뿐이라는 점과, 무엇보다 <code><dfn class="term" id="term-post-init" data-term="post-init" title="데이터클래스가 자동 생성한 `__init__`이 필드를 채운 직후 호출하는 훅; 교차 검증이나 파생 값 계산을 넣는다.">__post_init__</dfn></code>이 왜 필요한지에 주목하라. 데모 [2]와 [3]이 그 답이다. <code>__post_init__</code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검증을 넣는 자리다. 데모 [3]의 <code><dfn class="term" id="term-dataclasses-replace" data-term="dataclasses-replace" title="기존 데이터클래스 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수; 내부적으로 `__init__`을 다시 불러 `__post_init__` 검증도 다시 돈다.">dataclasses.replace</dfn></code>는 기존 인스턴스에서 일부 필드만 바꾼 새 인스턴스를 만드는 함수인데, 내부적으로 생성자를 다시 부르므로 <code>__post_init__</code> 검증도 다시 돈다.</p>
   <figure class="diagram code-map">
@@ -1120,7 +1120,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;제품군 안의 일관성이 구조로 보장된다&#x27;는 이득은 왜 이 패턴만의 것일까?&quot;, &quot;&#x27;제품 종류가 자주 바뀔 때&#x27;는 왜 쓰지 말라고 할까? 비대칭 비용이 무엇인지 말해 보자.&quot;, &quot;제품군이 하나뿐이고 테스트용 가짜만 필요하다면 무엇으로 충분할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p><strong>얻는 것.</strong> 클라이언트가 구체 클래스를 모른다(DIP). 제품군 교체가 팩토리 하나를 바꾸는 일로 끝난다. 그리고 이 패턴만의 이득으로, 제품군 내부의 일관성이 구조로 보장된다.</p>
   <p><strong>치르는 것.</strong> 3절 끝에서 본 비대칭이 가장 크다. 새 제품군은 기존 코드 수정 없이 추가되지만(OCP 충족), 새 제품 종류는 추상 팩토리와 <em>모든</em> 구체 팩토리를 수정해야 한다(그 축에서는 OCP가 깨진다). 따라서 이 패턴은 "제품 종류는 안정적이고 제품군은 늘어난다"는 예측에 거는 설계다. 예측이 반대라면 잘못된 축으로 확장성을 산 셈이다. 클래스 수가 제품 종류 × 제품군으로 늘어나는 것도 비용이다.</p>
   <div class="callout warn">
@@ -1357,6 +1357,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

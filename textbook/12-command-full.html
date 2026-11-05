@@ -36,7 +36,7 @@
 </section>
 
 <section id="context">
-<h2>1. 상황</h2>
+<h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;화면 가장자리에서 옮긴 도형을 되돌리면 왜 엉뚱한 곳으로 갈까?&quot;, &quot;화살표 키와 우클릭 삭제를 만들 때 툴바 코드를 복사하면 어떤 문제가 생길까?&quot;, &quot;매크로 녹화와 협업이 필요해지면, &#x27;동작&#x27;은 코드에서 어떤 모습이어야 할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>웹 기반 다이어그램 도구 '스케치보드'는 작은 스타트업의 첫 제품이다. 프런트와 백엔드를 겸하는 개발자 은우는 첫 버전에서 툴바 버튼 세 개를 만들었다. 도형 이동, 색 변경, 삭제. 각 버튼의 클릭 핸들러 안에서 도형 객체의 좌표와 색을 바로 바꿨다. 단순하고 빨랐다.</p>
 <p>베타 사용자들의 첫 피드백은 거의 같았다. "<dfn class="term" id="term-undo-redo" data-term="undo-redo" title="직전 작업을 되돌리기(undo)와 되돌린 작업을 다시 하기(redo).">실행 취소</dfn>가 없어요." 실행 취소(undo)는 직전 작업을 되돌리는 것, 다시 실행(redo)은 되돌린 작업을 다시 하는 것으로, 편집 도구라면 당연히 기대되는 기능이다. 그리고 "화살표 키로 도형을 옮기고 싶어요", "우클릭 메뉴에서 삭제하고 싶어요". 은우는 단축키 핸들러와 우클릭 메뉴 핸들러를 만들면서 툴바 핸들러의 코드를 복사해 왔고, Ctrl+Z를 위해 핸들러마다 "직전에 무엇을 했는지"를 <code>last_action</code> 튜플에 기록하게 했다.</p>
 <p>곧 버그 보고가 쌓였다. 화살표 키로 옮기면 도형이 캔버스 밖으로 사라진다(툴바 코드의 경계 검사를 복사하면서 빠뜨렸다). 우클릭으로 지운 도형은 Ctrl+Z로 돌아오지 않는다(그 핸들러는 기록을 잊었다). 색을 두 번 바꾸고 Ctrl+Z를 두 번 누르면 한 번만 돌아간다. 캔버스 가장자리에서 이동한 도형을 되돌리면 원래 자리가 아닌 엉뚱한 곳으로 간다.</p>
@@ -44,7 +44,7 @@
 </section>
 
 <section id="naive">
-<h2>2. 순진한 설계와 그 한계</h2>
+<h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;데모 [1]에서 도형은 20만 움직였는데 되돌리기는 30을 되돌렸다. 왜 이런 일이 생길까?&quot;, &quot;이동을 되돌리는 법이 on_undo()의 분기에 따로 있으면 새 동작마다 무엇을 해야 할까?&quot;, &quot;&#x27;요청이 값이 아니다&#x27;는 말은 무슨 뜻일까? 값이면 무엇을 할 수 있게 될까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p class="lead-in">아래가 은우의 편집기다. 이동 코드가 툴바와 단축키에 복제된 모습, 핸들러마다 <code>last_action</code>을 다른 모양으로 채우는 모습, 그리고 <code>on_undo()</code>가 모든 동작의 종류를 알아야 하는 구조에 주목하라. 코드 주석에 나오는 <dfn class="term" id="term-inverse-operation" data-term="inverse-operation" title="어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(예: +1 ↔ −1). 연산이 정보를 잃으면(자르기·삭제·반올림) 존재하지 않는다.">역연산</dfn>은 어떤 연산의 효과를 정확히 거꾸로 되돌리는 연산(+30 이동 ↔ −30 이동)이다. 연산이 정보를 잃으면(경계에서 자르기, 삭제, 반올림) 올바른 역연산은 존재하지 않는다 — 이 점이 첫 번째 버그의 원인이다. 데모는 베타 사용자의 버그 보고 네 건을 그대로 재현한다.</p>
 <figure class="diagram code-map">
   <svg viewBox="0 0 640 392" role="img" aria-label="순진한 코드의 구조: Editor 한 클래스가 도형 저장소이자 UI 핸들러 모음이다. 핸들러마다 last_action 한 칸을 다른 모양으로 채우거나 잊고, on_undo()가 동작 종류별로 분기해 역연산으로 되돌린다"><defs>
@@ -215,7 +215,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-<h2>3. 패턴의 구조</h2>
+<h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;식당 주문서 비유에서 손님, 직원, 주방은 각각 코드의 무엇일까?&quot;, &quot;Command, Receiver, Invoker는 이 장에서 각각 어떤 클래스일까?&quot;, &quot;주문서(명령)는 요리가 끝난 뒤에도 남는다. 이것이 왜 되돌리기와 이력에 중요할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>GoF의 의도는 <em>"요청을 객체로 캡슐화하여, 서로 다른 요청으로 클라이언트를 매개변수화하고, 요청을 큐에 넣거나 로그로 남기며, 되돌릴 수 있는 연산을 지원한다."</em> 요청이 객체가 되는 순간, 요청은 실행되기 전과 후에도 존재하는 <em>값</em>이 된다. 쌓고(이력), 묶고(매크로), 나중에 실행하고(큐), 보내는(로그) 모든 것이 그 한 가지 변화에서 나온다.</p>
 <figure class="diagram">
   <svg viewBox="0 0 720 420" role="img" aria-label="편집기 커맨드 패턴 구조: CommandHistory가 Command 목록을 보유하고, MoveShape·ChangeColor·DeleteShape·MacroCommand가 Command를 구현하며 Canvas에 작업을 위임한다"><defs>
@@ -296,7 +296,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-<h2>4. 패턴 적용</h2>
+<h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;MoveShape는 왜 거꾸로 빼는 대신 실행 직전의 x(스냅샷)를 기억할까?&quot;, &quot;CommandHistory가 실행과 기록을 한 곳에서 하면 어떤 실수가 사라질까?&quot;, &quot;역연산 방식과 스냅샷 방식은 각각 언제 알맞고, 어떤 한계가 있을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>은우가 먼저 정한 것은 책임의 경계다. 도형을 어떻게 옮기는지(경계 검사 포함)는 <code>Canvas</code>가 안다. 무엇을 옮겼고 어떻게 되돌리는지는 명령이 안다. 언제 실행되었고 무엇을 취소할 차례인지는 이력이 안다. 버튼·단축키·메뉴는 명령을 만들어 건네는 일만 한다. 이 패턴 코드는 세 부분으로 나눠 읽는다.</p>
 <p class="lead-in">먼저 수신자 <code>Canvas</code>다. naive 코드에서 핸들러마다 복제되던 "0에서 자르기" 규칙이 <code>move_to()</code> 한 곳에 있다는 점, 그리고 <code>remove()</code>와 <code>set_color()</code>가 되돌리기에 필요한 원래 위치·이전 색을 함께 돌려준다는 점을 보라. 여기서 "위치"는 <dfn class="term" id="term-z-order" data-term="z-order" title="화면에서 겹친 도형의 앞뒤(그리기) 순서.">z-순서</dfn>, 즉 겹친 도형들의 앞뒤(그리기) 순서다.</p>
 <figure class="code" data-full="&quot;&quot;&quot;커맨드 패턴 적용: 편집 동작을 &#x27;실행·취소할 수 있는 객체&#x27;로 만든다.
@@ -1577,7 +1577,7 @@ def context_menu_delete(history: CommandHistory, canvas: Canvas, shape_id: str) 
 </section>
 
 <section id="pythonic">
-<h2>5. 파이썬다운 변형</h2>
+<h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;partial은 &#x27;나중에 실행할 호출&#x27;을 담아 주지만 무엇은 해 주지 못할까?&quot;, &quot;명령이 Canvas를 필드로 들지 않고 execute(canvas)의 인자로 받으면 무엇이 달라질까?&quot;, &quot;되돌리기 정보(_before)는 왜 로그에 싣지 않고 실행한 쪽에 남을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>10장에서 "파이썬에서 전략의 상당수는 그냥 함수다"라고 했다. 커맨드도 그런가? 절반만 그렇다. "나중에 실행할 호출"을 객체로 만드는 것은 <code>functools.partial</code>이나 클로저가 공짜로 해 준다. 툴바 버튼에 콜백을 거는 것이 전부라면 커맨드 클래스는 필요 없다. 그러나 커맨드 패턴의 나머지 절반 — 되돌리기 정보를 담고, 이름을 갖고, 데이터로 보내지는 것 — 은 함수가 해 주지 않는다.</p>
 <p class="lead-in">은우는 매크로 녹화와 협업 로그를 위해 먼저 <code>partial</code>을 시험한다. 실행은 되지만 무엇이 안 되는지 보라.</p>
 <figure class="code" data-full="&quot;&quot;&quot;파이썬다운 변형: partial 커맨드의 한계, dataclass 커맨드와 직렬화, 매크로 녹화.
@@ -2719,7 +2719,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-<h2>6. 트레이드오프와 관련 패턴</h2>
+<h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;커맨드로 얻는 것(여러 단계 되돌리기, 매크로, 로그 재생)과 그 대가는 무엇일까?&quot;, &quot;이메일 발송이나 결제처럼 되돌릴 수 없는 동작은 어떻게 다뤄야 할까?&quot;, &quot;전략(10장)은 무엇을, 커맨드는 무엇을 객체로 만든다고 했을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p><strong>얻는 것.</strong> 호출 지점과 동작의 분리(같은 명령을 버튼·단축키·메뉴·스크립트에서), 다단계 undo/redo, 매크로, <dfn class="term" id="term-deferred-execution" data-term="deferred-execution" title="요청을 만들어 두고 실제 실행은 나중으로 미루는 것.">지연 실행</dfn>(요청을 만들어 두고 실제 실행은 나중으로 미루는 것)과 큐잉, 로그 기반 재생·감사·협업. 새 동작은 새 명령 클래스 하나로 추가된다.</p>
 <p><strong>치르는 것.</strong> 동작마다 클래스가 생긴다. 무엇보다 undo의 정확성은 각 명령 작성자의 책임이 된다. 수신자에 정보 손실 연산이 하나라도 있으면 역연산 undo는 조용히 틀리고, 스냅샷은 메모리를 먹는다. 그리고 명령이 수신자 바깥에서 상태를 바꾸므로, 수신자의 불변식을 명령이 우회하지 않도록 수신자 API를 신중히 설계해야 한다.</p>
 <div class="callout warn">
@@ -2999,6 +2999,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>

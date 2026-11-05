@@ -49,6 +49,19 @@ def load_terms() -> dict[str, dict]:
 
 TERMS = load_terms()
 
+# 절 제목 옆 [?] 아이콘의 "읽으며 생각할 질문". chapters/focus-questions.json: {"01-factory-method": {"context": ["질문", ...], ...}, ...}
+FOCUS_SECTIONS = ("context", "naive", "structure", "implementation", "pythonic", "tradeoffs")    # 패턴 장(01~15)이 질문을 가져야 하는 절
+FOCUS_ICON = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" '
+              'stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg>')
+
+
+def load_focus() -> dict[str, dict[str, list[str]]]:
+    path = CHAPTERS / "focus-questions.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+FOCUS = load_focus()
+
 
 @dataclass
 class Chapter:
@@ -137,12 +150,40 @@ def process_body(ch: Chapter) -> tuple[str, str]:
     body = re.sub(r"(<table\b.*?</table>)", r'<div class="table-wrap">\1</div>', body, flags=re.S)
     body = re.sub(r"(<svg\b[^>]*>)", lambda m: m.group(1) + SVG_DEFS, body)
     body = re.sub(r'<dfn\b[^>]*data-term="([^"]+)"[^>]*>', lambda m: render_dfn(m.group(1), ch), body)
+    body = inject_focus(body, ch)
     if ch.full:    # 긴 버전 안의 장 사이 링크는 긴 버전끼리 잇는다(요약 판에 없는 절 앵커로 가지 않도록)
         body = re.sub(r'href="(\d\d-[\w-]+)\.html', r'href="\1-full.html', body)
     toc = []
     for sid, h2 in re.findall(r'<section\s+id="([\w-]+)"[^>]*>\s*<h2[^>]*>(.*?)</h2>', body, re.S):
         toc.append(f'<li><a href="#{sid}">{re.sub(r"<[^>]+>", "", h2).strip()}</a></li>')
     return body, f"<ol>{''.join(toc)}</ol>"
+
+
+def inject_focus(body: str, ch: Chapter) -> str:
+    """질문이 있는 절의 제목(<h2>) 끝에 [?] 버튼을 붙인다. 질문은 버튼의 data-questions(JSON)에 담고 팝업은 focus-questions.js 가 연다."""
+    key = f"{ch.nn}-{ch.slug}"
+    qs = FOCUS.get(key, {})
+    if ch.nn.isdigit() and 1 <= int(ch.nn) <= 15:
+        for sid in FOCUS_SECTIONS:
+            if not qs.get(sid):
+                problems.append(f"{ch.out_name}: 절 '{sid}'의 읽기 질문이 focus-questions.json 에 없음")
+    placed: set[str] = set()
+
+    def add(m: re.Match) -> str:
+        sid = m.group(2)
+        if not qs.get(sid):
+            return m.group(0)
+        placed.add(sid)
+        data = html.escape(json.dumps(qs[sid], ensure_ascii=False), quote=True)
+        btn = (f'<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" '
+               f'title="읽으며 생각할 질문" data-questions="{data}">{FOCUS_ICON}</button>')
+        return m.group(1) + m.group(3) + btn + m.group(4)
+
+    body = re.sub(r'(<section\s+id="([\w-]+)"[^>]*>\s*<h2[^>]*>)(.*?)(</h2>)', add, body, flags=re.S)
+    for sid in qs:
+        if sid not in placed:
+            problems.append(f"{ch.out_name}: focus-questions.json 의 절 '{sid}'가 원고에 없음")
+    return body
 
 
 def render_dfn(term_id: str, ch: Chapter) -> str:
@@ -199,7 +240,7 @@ def build() -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
     (OUT / "assets").mkdir(parents=True)
-    for asset in ("style.css", "pyrun.css", "pyhl.js", "pyrun.js", "textbook-code.js"):    # 코드 실행·편집(Pyodide) 자산 포함
+    for asset in ("style.css", "pyrun.css", "pyhl.js", "pyrun.js", "textbook-code.js", "focus-questions.js"):    # 코드 실행·편집(Pyodide) 자산 포함
         shutil.copy(SKILL / "assets" / asset, OUT / "assets" / asset)
 
     fulls = [c for c in load_chapters(FULL, full=True) if (CHAPTERS / f"{c.nn}-{c.slug}.html").exists()]

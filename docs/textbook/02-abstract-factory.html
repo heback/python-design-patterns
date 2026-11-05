@@ -37,14 +37,14 @@
 </section>
 
 <section id="context">
-  <h2>1. 상황</h2>
+  <h2>1. 상황<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;썸네일 처리기는 왜 실패했을까? 코드에서 정확히 무엇이 빠졌을까?&quot;, &quot;저장소·작업 대기열·비밀 값 저장소는 왜 &#x27;같은 클라우드끼리&#x27;만 써야 할까?&quot;, &quot;&#x27;섞이면 안 된다&#x27;는 규칙은 코드의 어디에 있었을까? 그게 왜 위험할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>파일 공유 스타트업의 엔지니어 도현은 업로드 서비스를 만들었다. 사용자가 올린 파일은 클라우드 저장소에 들어가고, 별도 프로그램인 썸네일 처리기가 그 파일을 읽어 작은 그림을 만든다. 처음에는 <dfn class="term" id="term-amazon-web-services-google-cloud-platform" data-term="amazon-web-services-google-cloud-platform" title="대표적 퍼블릭 클라우드 두 곳.">AWS</dfn>(아마존의 클라우드. 구글의 것은 GCP다) 하나만 썼다. 저장소는 AWS의 파일 저장 서비스 <dfn class="term" id="term-object-storage" data-term="object-storage" title="파일을 키로 식별되는 객체로 버킷에 저장하는 클라우드 저장 서비스(AWS S3, GCP Cloud Storage).">S3</dfn>였고(GCP의 것은 GCS), 코드 곳곳에서 <code>S3Storage()</code>를 그냥 만들었다.</p>
   <p>그러다 큰 고객사가 "GCP에서만 돌려 달라"고 했다. 동료가 만드는 곳마다 <code>if CLOUD == "gcp"</code>를 붙여 나갔는데, 썸네일 처리기의 한 줄을 빠뜨렸다. 배포는 성공했다. 첫 파일이 올라오자 업로드는 GCP 형식의 <dfn class="term" id="term-uniform-resource-locator" data-term="uniform-resource-locator" title="웹 자원의 주소.">URL</dfn>(파일의 주소)을 넘겼고, 처리기는 AWS 저장소로 그 주소를 읽으려다 실패했다. 장애는 세 시간 뒤 고객의 전화로 알려졌다. 노트북에서 클라우드 없이 돌리는 세 번째 조합도 필요해졌다.</p>
   <p>핵심은 저장소·작업 대기열·비밀 값 저장소가 <strong>같은 클라우드끼리만 서로를 이해한다</strong>는 점이다. 그런데 "섞이면 안 된다"는 규칙이 코드 어디에도 없고, 사람의 기억에만 있었다.</p>
 </section>
 
 <section id="naive">
-  <h2>2. 순진한 설계와 그 한계</h2>
+  <h2>2. 순진한 설계와 그 한계<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;데모 [1]의 &#x27;시작 OK&#x27;가 왜 가장 위험하다고 했을까? 틀린 조합은 언제 드러날까?&quot;, &quot;새 클라우드를 하나 추가하면 몇 곳을 고쳐야 할까? (환경 수 × 생성 지점 수)&quot;, &quot;1장의 단순 팩토리 함수만으로는 왜 이 문제가 풀리지 않을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">GCP 전환을 반쯤 끝낸 코드다. 실제 클라우드 대신 주소 형식만 흉내 냈다. 맨 위 <code>CLOUD</code>는 배포 설정값으로, 실제로는 <dfn class="term" id="term-environment-variable" data-term="environment-variable" title="프로세스 밖에서 주입되는 이름=값 설정(파이썬에서는 `os.environ`); 배포 환경 선택 등에 쓴다.">환경 변수</dfn>(프로그램 바깥에서 <code>이름=값</code>으로 넣어 주는 설정)에서 읽는다. <code>UploadService</code>와 <code>ThumbnailWorker</code>의 <code>__init__</code>을 비교하고, 데모 [2]에서 실패가 <em>언제</em> 드러나는지 보라.</p>
   <figure class="code"><figcaption>순진한 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;02 추상 팩토리 — 순진한 코드: 생성 지점마다 클라우드를 따로 고른다.
 
@@ -122,7 +122,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="structure">
-  <h2>3. 패턴의 구조</h2>
+  <h2>3. 패턴의 구조<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;팩토리 메서드와 추상 팩토리는 무엇이 다를까? (제품 하나 vs 제품군)&quot;, &quot;제품 종류 3가지와 제품군(클라우드) 3가지를 표로 떠올려 보자. 구체 제품은 모두 몇 개일까?&quot;, &quot;제품군 추가(열)와 제품 종류 추가(행) 중 어느 쪽이 쉽고, 왜 그럴까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>GoF의 의도는 이렇다. "구체 클래스를 지정하지 않고, 서로 관련되거나 의존하는 객체들의 군(family)을 생성하기 위한 인터페이스를 제공한다." 팩토리 메서드가 제품 하나의 생성을 미뤘다면, 추상 팩토리는 제품군의 생성 메서드를 <strong>한 객체에 묶는다</strong>. 클라이언트는 팩토리 하나만 받으므로, 팩토리를 고르는 순간 제품군 전체가 정해진다.</p>
   <p>이 장의 제품 종류는 셋이다. 저장소, 작업 대기열인 <dfn class="term" id="term-queue" data-term="queue" title="먼저 넣은 것을 먼저 꺼내는 대기열 자료구조.">큐</dfn>(먼저 넣은 것을 먼저 꺼내는 대기열), 비밀 값 저장소다. 큐는 AWS에서는 <dfn class="term" id="term-sqs-pub-sub" data-term="sqs-pub-sub" title="AWS SQS와 GCP Pub/Sub — 각 클라우드가 제공하는 관리형 메시지 큐(발행-구독) 서비스.">SQS</dfn>, GCP에서는 Pub/Sub라는 서비스가 맡는다.</p>
   <figure class="diagram">
@@ -198,7 +198,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="implementation">
-  <h2>4. 패턴 적용</h2>
+  <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;클라이언트 코드(UploadService 등)에 S3Storage 같은 구체 클래스 이름이 남아 있는지 찾아보자.&quot;, &quot;ThumbnailWorker는 왜 이제 다른 클라우드의 저장소를 가질 길이 없을까?&quot;, &quot;UploadService는 왜 제품 세 개 대신 팩토리 하나를 받을까? 분기(if)는 이제 어디에 남았을까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p class="lead-in">제품군을 <code>CloudFactory</code> 계층으로 묶은 코드다. 길지만 구체 제품 부분은 같은 모양의 반복이다. 세 곳을 보라. 구체 팩토리가 자기 제품군만 만드는지, 클라이언트에 구체 클래스 이름이 남아 있는지, 분기가 어디에 남는지.</p>
   <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;02 추상 팩토리 — 패턴 코드: 한 클라우드의 제품들을 한 팩토리가 함께 만든다.
 
@@ -384,7 +384,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="pythonic">
-  <h2>5. 파이썬다운 변형</h2>
+  <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;클래스 16개짜리 계층을 어떻게 값 하나(CloudKit)로 줄였을까?&quot;, &quot;데모 [2]처럼 묶음 방식에서는 섞인 조합을 누구나 만들 수 있다. 이것을 어떻게 막을까?&quot;, &quot;그래도 클래스 계층이 더 나은 경우는 언제일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p>패턴 코드는 클래스가 16개다. 파이썬에서는 팩토리를 "생성 함수 몇 개의 묶음"으로 보고, 클래스 계층 대신 값 하나로 표현할 수 있다.</p>
   <p class="lead-in">아래 코드는 팩토리를 frozen 데이터클래스 <code>CloudKit</code>으로, 구체 팩토리를 묶음을 만드는 함수 <code>aws_kit()</code>, <code>gcp_kit()</code>로 바꾼다. <code><dfn class="term" id="term-post-init" data-term="post-init" title="데이터클래스가 자동 생성한 `__init__`이 필드를 채운 직후 호출하는 훅; 교차 검증이나 파생 값 계산을 넣는다.">__post_init__</dfn></code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검사를 넣는 자리다. 이것이 왜 필요한지는 데모 [2]가 답한다.</p>
   <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;02 추상 팩토리 — 파이썬다운 변형: 팩토리 계층 대신 &#x27;생성 함수 묶음&#x27; 하나.
@@ -459,7 +459,7 @@ if __name__ == &quot;__main__&quot;:
 </section>
 
 <section id="tradeoffs">
-  <h2>6. 트레이드오프와 관련 패턴</h2>
+  <h2>6. 트레이드오프와 관련 패턴<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;&#x27;제품군 안의 일관성이 구조로 보장된다&#x27;는 이득은 왜 이 패턴만의 것일까?&quot;, &quot;&#x27;제품 종류가 자주 바뀔 때&#x27;는 왜 쓰지 말라고 할까? 비대칭 비용이 무엇인지 말해 보자.&quot;, &quot;제품군이 하나뿐이고 테스트용 가짜만 필요하다면 무엇으로 충분할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
   <p><strong>얻는 것.</strong></p>
   <ul>
     <li>클라이언트가 구체 클래스를 모른다(DIP). 제품군 교체가 팩토리 하나를 바꾸는 일로 끝난다.</li>
@@ -690,6 +690,7 @@ if __name__ == &quot;__main__&quot;:
   });
 </script>
 <script src="assets/pyrun.js"></script>
+<script src="assets/focus-questions.js"></script>
 <script src="assets/textbook-code.js"></script>
 </body>
 </html>
