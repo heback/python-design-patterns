@@ -29,7 +29,7 @@ part: 생성 패턴
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">GCP 전환을 반쯤 끝낸 시점의 코드다. 벤더 <dfn data-term="wrapper">래퍼</dfn>(다른 객체를 감싸 호출을 받아 전달하는 객체)는 실제 SDK 대신 메모리로 흉내 냈다. 코드 주석의 <code><dfn data-term="environment-variable">os.environ</dfn></code>은 프로세스 바깥에서 주어지는 <code>이름=값</code> 설정인 환경 변수를 읽는 통로이고, Pub/Sub 래퍼 docstring의 <dfn data-term="publish-subscribe">토픽</dfn>은 발행-구독 방식의 수신 주소다. 발행자가 토픽에 메시지를 내보내면 그 토픽을 구독한 쪽들이 받아 가고, 발행자는 누가 받는지 모른다. <code>UploadService.__init__</code>의 세 줄이 "같은 환경이어야 한다"는 규칙을 어떻게 암묵적으로 지키는지, 그리고 <code>ThumbnailWorker.__init__</code>에서 무엇이 빠졌는지 보라. 데모 [2]에서는 실패가 <em>언제</em> 드러나는지가 핵심이다.</p>
   <figure class="diagram code-map">
-    <svg viewBox="0 0 640 520" role="img" aria-label="순진한 코드의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다">
+    <svg viewBox="0 0 680 520" role="img" aria-label="순진한 코드의 문제 지점: UploadService와 ThumbnailWorker가 전역 CLOUD를 각자 읽어 벤더 래퍼를 직접 만든다. GCP 배포에서 UploadService는 GCP 제품군을 만들지만 ThumbnailWorker는 S3Storage를 하드코딩해, 첫 메시지를 처리할 때 gs:// URL을 읽지 못해 실패한다">
       <g class="uml-func" transform="translate(20,36)">
         <rect width="180" height="48"/>
         <text class="uml-name" x="90" y="22">CLOUD = "aws"</text>
@@ -39,13 +39,13 @@ part: 생성 패턴
       <text class="uml-label" x="118" y="112">생성 지점마다 읽음</text>
       <text class="uml-note" x="290" y="60">데모 [2] CLOUD = "gcp"일 때 실제로 만들어지는 것</text>
       <text class="uml-note" x="290" y="120">GCP 제품군</text>
-      <text class="uml-note" x="464" y="120">AWS 제품군</text>
+      <text class="uml-note" x="504" y="120">AWS 제품군</text>
       <g class="uml-class" transform="translate(290,130)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">GcsStorage</text></g>
       <g class="uml-class" transform="translate(290,176)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">GcpSecretManagerVault</text></g>
       <g class="uml-class" transform="translate(290,222)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">PubSubQueue</text></g>
-      <g class="uml-class" transform="translate(464,130)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">S3Storage</text></g>
-      <g class="uml-class" transform="translate(464,176)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SecretsManagerVault</text></g>
-      <g class="uml-class" transform="translate(464,222)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SqsQueue</text></g>
+      <g class="uml-class" transform="translate(504,130)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">S3Storage</text></g>
+      <g class="uml-class" transform="translate(504,176)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SecretsManagerVault</text></g>
+      <g class="uml-class" transform="translate(504,222)"><rect width="160" height="32"/><text class="uml-member" x="80" y="21" text-anchor="middle">SqsQueue</text></g>
       <g class="uml-class warn" transform="translate(20,130)">
         <rect width="220" height="124"/>
         <text class="uml-name" x="110" y="22">UploadService</text>
@@ -70,19 +70,19 @@ part: 생성 패턴
         <text class="uml-member" x="10" y="98">+ process_one()</text>
       </g>
       <path class="uml-dep" d="M240 330 H370 V254" marker-end="url(#arrow)"/>
-      <path class="uml-dep" d="M240 370 H457 V146 H464" marker-end="url(#arrow)"/>
-      <text class="uml-label" x="268" y="362">분기 없이 하드코딩</text>
+      <path class="uml-dep" d="M240 370 H477 V146 H504" marker-end="url(#arrow)"/>
+      <text class="uml-label" x="268" y="362">분기 없이 하드코딩 → S3Storage</text>
 
-      <g class="uml-func warn" transform="translate(464,290)">
+      <g class="uml-func warn" transform="translate(504,290)">
         <rect width="160" height="56"/>
         <text class="uml-name" x="80" y="22">첫 메시지에서</text>
         <text class="uml-member" x="10" y="42">gs:// URL을 못 읽음</text>
       </g>
-      <text class="uml-note" x="464" y="366">시작 시점엔 오류 없음</text>
+      <text class="uml-note" x="504" y="366">시작 시점엔 오류 없음</text>
 
       <g class="uml-step"><circle cx="20" cy="130" r="9"/><text x="20" y="134">1</text></g>
       <g class="uml-step"><circle cx="20" cy="300" r="9"/><text x="20" y="304">2</text></g>
-      <g class="uml-step"><circle cx="464" cy="290" r="9"/><text x="464" y="294">3</text></g>
+      <g class="uml-step"><circle cx="504" cy="290" r="9"/><text x="504" y="294">3</text></g>
 
       <text class="uml-note" x="20" y="444"><tspan font-weight="700">읽는 순서</tspan> · 주황 테두리가 문제가 몰린 곳(⚠는 코드의 ⚠ 문제 주석)</text>
       <text class="uml-note" x="20" y="466">① UploadService: 생성 지점마다 같은 분기 → ② ThumbnailWorker: 한 줄을 빠뜨렸다</text>
