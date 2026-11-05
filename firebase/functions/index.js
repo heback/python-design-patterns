@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
-const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX, ASSISTANT_MINUTE_LIMIT } = require("./config");
+const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX, ASSISTANT_MINUTE_LIMIT, CONSENT_VERSION } = require("./config");
 const assistant = require("./assistant");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
 
@@ -160,6 +160,8 @@ exports.askAssistant = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
   if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
   const cfg = (await db.doc("config/assistant").get()).data();
   if (!cfg || cfg.on !== true) throw new HttpsError("failed-precondition", "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요.");
+  const noConsent = assistant.consentGate((await db.doc(`consents/${req.auth.uid}`).get()).data(), CONSENT_VERSION);      // 개인정보 동의(필수+AI 선택 항목)가 없으면 질문·사진을 Gemini 로 보내지 않는다
+  if (noConsent) throw new HttpsError("failed-precondition", noConsent);
   const v = assistant.validate(req.data);
   if (v.error) throw new HttpsError("invalid-argument", v.error);
 

@@ -1,7 +1,7 @@
 "use strict";
 /* 호스팅된 교재 페이지(각 장)용: 읽기 진도 자동 전달. 학습지의 monitor.js 와 같은 규칙이다.
    교사가 [진도 수집]을 켜 두었고 학생이 학교 Google 계정(@ts.hs.kr)으로 로그인했을 때만 보내며, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
-   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 이 장에서 읽은 절 수·마지막 절, 이 장과 절별 체류 시간(초),
+   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 따로 받지 않고 계정에 등록된 이름을 쓴다. 학생이 개인정보 수집·이용에 동의한 경우에만 — StudentAuth.get() 이 동의 전에는 null), 이 장에서 읽은 절 수·마지막 절, 이 장과 절별 체류 시간(초),
    활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각,
    이 화면을 보고 있는지(FocusTrack: 탭 가림·창 포커스)와 벗어난 횟수·시간.
    이 목록과 고지 줄(updateBar)의 문구는 항상 같게 유지한다. 전달하지 않는 것: 키 입력, 화면, 탭 전환.
@@ -76,12 +76,12 @@
       : loggedIn() && lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
     const stIco = barState === "err" ? ico("warning") : loggedIn() && lastSentAt ? ico("check_circle", "fill") : null;
     const kids = [ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
-      "어느 장의 어느 절까지 읽었는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)와 벗어난 횟수·시간이 로그인한 계정의 이름·이메일과 함께 전달돼요. 키 입력 내용이나 화면 내용은 보내지 않아요. "];
+      "어느 장의 어느 절까지 읽었는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)와 벗어난 횟수·시간이 로그인한 계정의 이름·이메일과 함께 전달돼요(개인정보 수집·이용에 동의한 경우에만). 키 입력 내용이나 화면 내용은 보내지 않아요. "];
     if (!loggedIn()) {
       const msg = el("span", { class: "monmsg" });
       kids.push(msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인"));
     } else {
-      kids.push(el("span", { class: "monacct" }, StudentAuth.get().email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃"), " ");
+      kids.push(el("span", { class: "monacct" }, StudentAuth.get().email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.manageConsent() }, ico("verified_user"), "개인정보 동의"), " ", el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃"), " ");
     }
     kids.push(el("span", { class: "monst" }, stIco, st));
     b.replaceChildren(...kids);

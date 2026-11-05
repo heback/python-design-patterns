@@ -30,3 +30,28 @@
 .qbtn.primary:hover:not(:disabled) { background: var(--accent-strong, var(--accent, #163a5a)); color: var(--on-accent, var(--accent-text, #fff)); }
 .qbtn:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
 @media print { .monbar { display: none !important; } }
+
+/* 개인정보 수집·이용 동의 창(student-auth.js Consent). 동의 전에는 화면을 가린다. */
+body.cs-lock { overflow: hidden; }
+.cs-overlay { position: fixed; inset: 0; z-index: 3000; background: rgba(22, 32, 46, .62); backdrop-filter: blur(3px); display: grid; place-items: center; padding: 12px; }
+.cs-box { background: var(--surface, var(--panel, #fff)); color: var(--text, var(--ink, #1a2332)); border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 16px; width: min(720px, 100%); max-height: calc(100vh - 24px); display: flex; flex-direction: column; padding: 18px 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, .35); font-size: 14px; line-height: 1.65; }
+.cs-box h3 { margin: 0 0 4px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.cs-box h3 .ms { color: var(--accent, #1f4f78); }
+.cs-lead { margin: 0 0 8px; }
+.cs-acct { color: var(--muted, var(--dim, #5a6372)); font-size: 12.5px; }
+.cs-scroll { overflow: auto; flex: 1 1 auto; min-height: 120px; border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 10px; padding: 4px 14px 10px; background: var(--surface-2, var(--panel-sunk, rgba(127, 127, 127, .07))); }
+.cs-sec h4 { margin: 12px 0 2px; font-size: 14px; color: var(--accent, #1f4f78); }
+.cs-sec p { margin: 3px 0; }
+.cs-sec ul { margin: 3px 0; padding-left: 20px; }
+.cs-sec li { margin: 2px 0; }
+.cs-dim { color: var(--muted, var(--dim, #5a6372)); font-size: 12.5px; margin: 8px 0 0; }
+.cs-ck { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; cursor: pointer; }
+.cs-ck input { margin-top: 5px; width: 18px; height: 18px; flex: none; accent-color: var(--accent, #1f4f78); }
+.cs-tag { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: 12px; color: var(--on-accent, var(--accent-text, #fff)); background: var(--accent, #1f4f78); margin-right: 4px; }
+.cs-tag.opt { background: var(--muted, var(--dim, #5a6372)); }
+.cs-msg { color: var(--bad, #a03a1c); font-weight: 600; margin-top: 6px; }
+.cs-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.cs-btns .grow { flex: 1; }
+.cs-go .ms { margin-right: 6px; }
+.qbtn.cs-bad { color: var(--bad, #a03a1c); border-color: var(--bad, #a03a1c); }
+@media print { .cs-overlay { display: none !important; } }

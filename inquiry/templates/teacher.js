@@ -1,7 +1,7 @@
 "use strict";
 /* 교사용 앱(디자인 패턴 학습 관리): 학교 Google 계정으로 로그인한 교사가 학생 진도를 실시간으로 본다.
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
-const M = { view: "", events: null, prog: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qSel: "", qFind: "", qErr: "",
+const M = { view: "", events: null, prog: null, consents: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qSel: "", qFind: "", qErr: "",
   lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
   group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
@@ -395,6 +395,9 @@ function renderMonitor(main) {
     rows.sort(M.sort === "slow" ? (a, b) => readAvg(a) - readAvg(b)
       : M.sort === "idle" ? (a, b) => (tsMs(a.lastActiveAt) || 0) - (tsMs(b.lastActiveAt) || 0)
       : (a, b) => key(a).localeCompare(key(b), "ko", { numeric: true }));
+    // 개인정보 동의 기록(consents/{uid}): 진도 행의 id(uid)로 찾는다. 동의가 없는 학생의 행은 동의 제도 이전에 쌓인 기록이거나 철회한 경우다.
+    const cons = new Map((M.consents || []).map(c => [c.id, c])), consOk = r => cons.has(r.id);
+    const consList = (M.consents || []).slice().sort((a, b) => (tsMs(b.agreedAt) || 0) - (tsMs(a.agreedAt) || 0));
     const cnt = { ok: 0, part: 0, none: 0 }; rows.forEach(r => { cnt[liveState(tsMs(r.lastActiveAt))[0]]++; });
     const grpSel = el("select", { onchange: e => { M.group = e.target.value; paintTbl(); } }, [["all", "전체"], ...Object.entries(GROUP_NAME)].map(([v, l]) => el("option", { value: v, ...(v === M.group ? { selected: "" } : {}) }, l)));
     const sortSel = el("select", { onchange: e => { M.sort = e.target.value; paintTbl(); } }, [["num", "번호순"], ["slow", "교재 진도 느린 순"], ["idle", "활동 오래된 순"]].map(([v, l]) => el("option", { value: v, ...(v === M.sort ? { selected: "" } : {}) }, l)));
@@ -405,17 +408,24 @@ function renderMonitor(main) {
       M.progErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "진도를 읽지 못했습니다."), el("div", {}, M.progErr),
         /permission|insufficient/i.test(M.progErr) ? el("div", {}, "Firestore 규칙이 이 계정을 교사로 인정하지 않는 경우입니다. 콘솔에서 config/teachers 문서의 emails 가 ‘배열(array)’ 유형인지, 지금 로그인한 이메일이 소문자·공백 없이 들어 있는지 확인하세요.") : null) : null,
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
+      M.consents === null ? null : el("p", { class: "lead" }, `개인정보 동의 ${consList.length}명 (AI 도우미 선택 동의 ${consList.filter(c => c.ai === true).length}명)` + (rows.some(r => !consOk(r)) ? ` · 동의 없는 진도 기록 ${rows.filter(r => !consOk(r)).length}건` : "")),
+      consList.length ? el("details", { style: "margin:4px 0 8px;font-size:13.5px" }, el("summary", { style: "cursor:pointer;font-weight:700" }, "개인정보 동의 현황"),
+        el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "이메일", "동의 일시", "AI 도우미(선택)", "문구 버전"].map(h => el("th", {}, h)))),
+          el("tbody", {}, consList.map(c => el("tr", {}, el("td", {}, (c.student || {}).name || c.id), el("td", {}, (c.student || {}).email || ""), el("td", {}, tsMs(c.agreedAt) ? stamp(new Date(tsMs(c.agreedAt))) : "—"), el("td", {}, c.ai === true ? "동의" : "동의 안 함"), el("td", {}, c.version || ""))))))) : null,
       el("p", { class: "lead", style: "font-size:13.5px" }, "칸의 숫자는 그 장에서 읽은 절의 비율이고 아래 작은 글씨는 그 장의 체류 시간입니다. 숫자를 누르면 절별 세부 정보를 볼 수 있습니다. 절이 화면 가운데에 2초 이상 머물면 읽은 것으로 세고, 체류 시간은 화면이 보이고 최근 60초 안에 조작이 있던 시간만 셉니다(줄어들지 않는 값). 교재의 호스팅 사본을 열어 읽을 때만 집계됩니다."),
       statusLegend(),
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;margin:6px 0" }, el("label", {}, "분류 ", grpSel), el("label", {}, "정렬 ", sortSel)),
       !rows.length ? el("p", { class: "lead" }, "아직 진도를 보낸 학생이 없습니다. 수집을 켜고, 학생이 학교 Google 계정으로 로그인하면 나타납니다.")
         : el("div", { style: "overflow-x:auto" }, el("table", { class: "ro prog" },
           el("thead", {},
-            el("tr", {}, ["학생", "상태", "화면", "마지막 활동", "지금 있는 곳", "학습지", "활동 시간"].map(h => el("th", { rowspan: 2 }, h)), groupHead.map(h => el("th", { colspan: h.n, style: "text-align:center" }, GROUP_NAME[h.g]))),
+            el("tr", {}, ["학생", "동의", "상태", "화면", "마지막 활동", "지금 있는 곳", "학습지", "활동 시간"].map(h => el("th", { rowspan: 2 }, h)), groupHead.map(h => el("th", { colspan: h.n, style: "text-align:center" }, GROUP_NAME[h.g]))),
             el("tr", {}, chs.map(c => el("th", { style: "font-weight:600;white-space:nowrap" }, c.title)))),
           el("tbody", {}, rows.map(r => {
             const ms = tsMs(r.lastActiveAt), [cls, lab] = liveState(ms), wp = wsTotal ? Math.round(100 * wsDone(r) / wsTotal) : 0;
+            const cs = cons.get(r.id);
             return el("tr", {}, el("td", { style: "white-space:nowrap" }, key(r)),
+              el("td", { style: "white-space:nowrap" }, M.consents === null ? "…" : cs ? el("span", { class: "pill ok", title: `개인정보 수집·이용 동의 ${tsMs(cs.agreedAt) ? stamp(new Date(tsMs(cs.agreedAt))) : ""} · AI 도우미(선택) ${cs.ai === true ? "동의" : "동의 안 함"}` }, ico("verified_user", "fill"), cs.ai === true ? "동의 · AI" : "동의")
+                : el("span", { class: "pill bad", title: "동의 기록이 없습니다(동의 제도 이전에 쌓인 기록이거나 철회). 이 학생의 새 진도는 서버가 받지 않습니다." }, ico("gpp_maybe", "fill"), "동의 없음")),
               el("td", {}, el("span", { class: "pill " + cls }, ico(cls === "ok" ? "check_circle" : cls === "part" ? "pause_circle" : "do_not_disturb_on", "fill"), lab)),
               el("td", { style: "white-space:nowrap" }, viewCell(r)),
               el("td", { style: "white-space:nowrap" }, ago(ms)), el("td", { style: "white-space:nowrap" }, r.where || "—"), el("td", {}, `${wp}%`), el("td", {}, `${Math.round((r.activeMs || 0) / 60000)}분`),
@@ -439,6 +449,7 @@ function renderMonitor(main) {
   liveSub(FB.watchChatQuota((rows, err) => { M.quota = rows || []; M.qErr = err ? errText(err) : ""; if (M.view === "quota") paintQuota(); }), tok);
   liveSub(FB.watchChatUsage((rows, err) => { M.usage = rows || []; if (err) M.logErr = errText(err); paintChat(); }), tok);
   liveSub(FB.watchChatLogs((rows, err) => { M.logs = rows || []; M.logErr = err ? errText(err) : ""; paintChat(); }, 30), tok);      // 최근 30건: 오류 알림용(전체 목록은 쪽 나누기로 따로 읽는다)
+  liveSub(FB.watchConsents((rows, err) => { M.consents = rows || []; if (err) M.progErr = M.progErr || errText(err); paintTbl(); }), tok);
   liveSub(FB.watchProgress((rows, err) => { M.prog = rows || []; M.progErr = err ? errText(err) : ""; paintTbl(); paintNav(); paintCtl(); }), tok);
   const timer = setInterval(paintTbl, 20000); T.live.push(() => clearInterval(timer));
 }

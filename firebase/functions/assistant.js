@@ -124,4 +124,12 @@ function logEntry({ uid, student, kind, where, v, reply, refused, error, usage, 
     reply: reply || "", refused: !!refused, error: error || "", failed: !!error, model, usage: usage || emptyUsage(), ms: Math.max(0, Math.round(ms || 0)) };
 }
 
-module.exports = { ETC, chapterKey, limitFor, int, LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize, usageFrom, addUsage, emptyUsage, logEntry };
+/** 학생의 개인정보 동의 문서(consents/{uid})로 AI 도우미를 쓸 수 있는지 판정한다. 현재 버전에 동의했고 선택 항목(ai)에도 동의해야 한다.
+ *  반환: null(허용) 또는 학생에게 보여 줄 거절 문장. */
+function consentGate(c, version) {
+  if (!c || c.version !== version) return "개인정보 수집·이용 동의가 필요해요. 화면의 안내에 따라 동의한 뒤 다시 시도해 주세요.";
+  if (c.ai !== true) return "AI 도우미는 ‘AI 도우미 이용(선택)’에 동의해야 쓸 수 있어요. 안내 줄의 [개인정보 동의]에서 선택 항목을 켜 주세요.";
+  return null;
+}
+
+module.exports = { consentGate, ETC, chapterKey, limitFor, int, LIMITS, IMAGE_TYPES, SYSTEM, REFUSAL, validate, buildContents, checkLimit, cleanReply, finalize, usageFrom, addUsage, emptyUsage, logEntry };

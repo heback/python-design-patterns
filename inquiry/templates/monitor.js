@@ -1,6 +1,6 @@
 "use strict";
 /* 학생용: 진도 자동 전달. 교사가 [진도 수집]을 켜 두었을 때만 동작하고, 켜져 있는 동안은 화면 위쪽에 항상 고지한다.
-   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 받지 않는다), 주차별 완료 문항 수·ID, 마지막으로 만진 문항, 활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각.
+   전달하는 것: 로그인한 계정의 이름·이메일(학번·성명은 따로 받지 않고 계정에 등록된 이름을 쓴다. 학생이 개인정보 수집·이용에 동의한 경우에만 — StudentAuth.get() 이 동의 전에는 null), 주차별 완료 문항 수·ID, 마지막으로 만진 문항, 활동 시간(화면이 보이고 최근 60초 안에 입력·스크롤·클릭이 있던 시간), 마지막 활동 시각.
    이 화면을 보고 있는지(FocusTrack: 탭 가림·창 포커스)와 벗어난 횟수·시간도 전달한다. 학생 고지 줄(updateBar)은 이 목록과 항상 같게 유지한다.
    전달하지 않는 것: 쓴 글의 내용(서버로 보내지 않는다. 브라우저에만 저장된다), 키 입력, 화면, 탭 전환.
    student.js 보다 먼저 실려서, 전역 S·CONTENT·LS_KEY 는 함수가 실제로 불릴 때 읽는다. */
@@ -16,7 +16,7 @@ const Mon = (() => {
   function accountBits() {
     const u = StudentAuth.get(), msg = el("span", { class: "monmsg" });
     if (!u) return [msg, "먼저 학교 Google 계정으로 로그인해 주세요. ", el("button", { class: "qbtn", type: "button", onclick: async () => { msg.textContent = (await StudentAuth.login()) || ""; } }, ico("login"), "로그인")];
-    return [el("span", { class: "monacct" }, u.email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃")];
+    return [el("span", { class: "monacct" }, u.email, " "), el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.manageConsent() }, ico("verified_user"), "개인정보 동의"), " ", el("button", { class: "qbtn small", type: "button", onclick: () => StudentAuth.logout() }, "로그아웃")];
   }
   const wkOf = id => { const m = /^w(\d+)-/.exec(id); return m ? Number(m[1]) : 0; };
 
@@ -36,7 +36,7 @@ const Mon = (() => {
       : lastSentAt ? "전달됨 " + stamp(new Date(lastSentAt)) : "";
     const stIco = barState === "err" ? ico("warning") : lastSentAt && loggedIn() ? ico("check_circle", "fill") : null;
     b.replaceChildren(ico("cell_tower"), el("b", {}, "진행 상황이 선생님께 자동으로 전달돼요. "),
-      "어느 문항을 마쳤는지·지금 어느 문항을 하고 있는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)와 벗어난 횟수·시간이 로그인한 계정의 이름·이메일과 함께 전달돼요. "
+      "어느 문항을 마쳤는지·지금 어느 문항을 하고 있는지·마지막 활동 시각·활동 시간(입력이나 스크롤이 있던 시간)·이 화면을 보고 있는지(다른 탭이나 창으로 옮겼는지)와 벗어난 횟수·시간이 로그인한 계정의 이름·이메일과 함께 전달돼요(개인정보 수집·이용에 동의한 경우에만). "
       + "쓴 글의 내용과 키 입력, 화면은 보내지 않아요. ", ...accountBits(), el("span", { class: "monst" }, stIco, st));
   }
 

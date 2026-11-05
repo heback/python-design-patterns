@@ -2,6 +2,8 @@
 // 교사 판정 설정. 도메인을 바꾸면 firestore.rules의 isTeacher()도 같이 바꾼다.
 module.exports = {
   TEACHER_DOMAIN: "ts.hs.kr",
+  // 개인정보 수집·이용 동의 문구의 버전. firestore.rules 의 consentVersion(), templates/student-auth.js 의 Consent.VERSION 과 같아야 한다(테스트가 확인).
+  CONSENT_VERSION: "2026-11-05",
   REGION: "asia-northeast3",
   MODEL: process.env.GEMINI_MODEL || "gemini-flash-latest",   // AI 코멘트 초안(generateFeedback)용. 운영 시 고정 ID로 바꾸는 것을 권장
   // 학생 AI 도우미(askAssistant)용: 가볍고 저렴한 Flash-Lite. -latest 는 Google 이 가리키는 최신 Flash-Lite 로 바뀌므로, 고정하려면 GEMINI_ASSISTANT_MODEL 에 모델 ID(예: gemini-3.5-flash-lite)를 지정한다.

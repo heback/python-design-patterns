@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert");
-const { validate, buildContents, checkLimit, chapterKey, limitFor, cleanReply, finalize, REFUSAL, SYSTEM, LIMITS } = require("./assistant");
+const { consentGate, validate, buildContents, checkLimit, chapterKey, limitFor, cleanReply, finalize, REFUSAL, SYSTEM, LIMITS } = require("./assistant");
 
 test("validate: 질문도 사진도 없으면 거부, 사진만 있으면 허용", () => {
   assert.match(validate({}).error, /질문/);
@@ -104,4 +104,19 @@ test("usageFrom·addUsage: Gemini usageMetadata 를 토큰 수로 바꾸고 합�
   assert.equal(e.hasImage, true); assert.equal(e.imageBytes, 300); assert.equal(e.where.length, 200); assert.equal(e.ms, 124); assert.equal(e.kind, "worksheet");
   assert.ok(!("image" in e) && !JSON.stringify(e).includes("AAAA"), "사진 자체는 기록에 없어야 한다");
   assert.equal(e.failed, false); assert.equal(logEntry({ uid: "u", student: {}, v: { question: "q" }, error: "boom", at: 1, day: "d" }).failed, true);      // 오류만 걸러 보는 쿼리용
+});
+
+test("consentGate: 현재 버전 + AI 선택 항목에 동의해야 통과", () => {
+  assert.equal(consentGate({ version: "v1", ai: true }, "v1"), null);
+  assert.match(consentGate(undefined, "v1"), /동의가 필요/);                 // 동의한 적 없음
+  assert.match(consentGate({ version: "v0", ai: true }, "v1"), /동의가 필요/);   // 옛 문구에 동의 → 다시 동의
+  assert.match(consentGate({ version: "v1", ai: false }, "v1"), /AI 도우미 이용/);    // 필수만 동의
+  assert.match(consentGate({ version: "v1" }, "v1"), /AI 도우미 이용/);
+});
+test("동의 문구 버전: 규칙·함수·학생 화면 세 곳이 같다", () => {
+  const fs = require("node:fs"), path = require("node:path"), { CONSENT_VERSION } = require("./config");
+  const rules = /consentVersion\(\) \{ return '([^']+)'/.exec(fs.readFileSync(path.join(__dirname, "../firestore.rules"), "utf8"));
+  const ui = /VERSION = "([^"]+)"/.exec(fs.readFileSync(path.join(__dirname, "../../inquiry/templates/student-auth.js"), "utf8"));
+  assert.ok(rules && ui, "버전 상수를 찾지 못했다");
+  assert.equal(rules[1], CONSENT_VERSION); assert.equal(ui[1], CONSENT_VERSION);
 });

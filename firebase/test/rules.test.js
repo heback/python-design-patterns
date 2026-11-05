@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, Timestamp } = require("firebase/firestore");
+const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, Timestamp, serverTimestamp } = require("firebase/firestore");
 
 let env;
 const T = { email: "teacher@ts.hs.kr", email_verified: true, firebase: { sign_in_provider: "google.com" } };
@@ -14,6 +14,9 @@ const student = uid => env.authenticatedContext(uid, { firebase: { sign_in_provi
 const pupil = uid => env.authenticatedContext(uid, { email: `${uid}@ts.hs.kr`, email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore();   // 학생 = 학교 Google 계정
 const settings = (over = {}) => env.withSecurityRulesDisabled(async c => { await setDoc(doc(c.firestore(), "config/submission"), Object.assign({ open: true, weeks: { 1: true, 2: false } }, over)); });
 const head = (uid, extra = {}) => Object.assign({ student: { name: "홍" }, uid, updatedAt: Timestamp.now() }, extra);
+const CONSENT_V = "2026-11-05";      // firestore.rules 의 consentVersion() 과 같아야 한다
+const seedConsent = (uid, over = {}) => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "consents/" + uid),
+  Object.assign({ uid, student: { name: "홍", email: `${uid}@ts.hs.kr` }, version: CONSENT_V, ai: false, agreedAt: Timestamp.now() }, over)));
 const wk = (extra = {}) => Object.assign({ json: "{}", updatedAt: Timestamp.now() }, extra);
 
 test.before(async () => {
@@ -23,6 +26,7 @@ test.after(() => env.cleanup());
 test.beforeEach(async () => {
   await env.clearFirestore();
   await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "config/teachers"), { emails: [T.email] }));    // 교사 허용 목록(필수)
+  await Promise.all(["a", "b"].map(u => seedConsent(u)));       // 진도 시험의 학생 a·b 는 개인정보 동의를 마친 학생(동의 시험은 맨 아래에서 따로 한다)
 });
 
 test("설정이 없으면 학생 제출 거부(기본 닫힘)", async () => {
@@ -247,4 +251,58 @@ test("AI 도우미 질문 한도 가감(chatQuota): 교사만 읽고, 아무도 
   await assertFails(deleteDoc(doc(pupil("a"), "chatQuota/a")));
   await assertFails(setDoc(doc(teacher(), "chatQuota/a"), { all: 1000 }));
   await assertFails(deleteDoc(doc(teacher(), "chatQuota/a")));
+});
+
+/* ---------- 개인정보 수집·이용 동의(consents) ---------- */
+const cdoc = (uid, extra = {}) => Object.assign({ uid, student: { name: "홍", email: `${uid}@ts.hs.kr` }, version: CONSENT_V, ai: true, agreedAt: serverTimestamp() }, extra);
+
+test("동의: 동의가 없으면 진도를 서버에 쓸 수 없고, 동의하면 쓸 수 있다", async () => {
+  await monitor(true);
+  const c = pupil("c");
+  await assertFails(setDoc(doc(c, "progress/c"), prog("c")));
+  await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c")));
+  await assertSucceeds(setDoc(doc(c, "progress/c"), prog("c")));
+});
+test("동의: 옛 문구(버전)에 동의한 학생은 다시 동의하기 전까지 진도를 쓸 수 없다", async () => {
+  await monitor(true); await seedConsent("c", { version: "2000-01-01" });
+  await assertFails(setDoc(doc(pupil("c"), "progress/c"), prog("c")));
+  await assertSucceeds(setDoc(doc(pupil("c"), "consents/c"), cdoc("c")));                 // 새 문구에 다시 동의(덮어쓰기)
+  await assertSucceeds(setDoc(doc(pupil("c"), "progress/c"), prog("c")));
+});
+test("동의: 철회(문서 삭제)하면 진도 쓰기가 다시 막힌다(이미 있던 진도 문서의 갱신도)", async () => {
+  await monitor(true);
+  const a = pupil("a");
+  await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a")));
+  await assertSucceeds(deleteDoc(doc(a, "consents/a")));
+  await assertFails(setDoc(doc(a, "progress/a"), prog("a", { activeMs: 9999 })));
+  await assertFails(setDoc(doc(pupil("b"), "consents/a"), cdoc("a")));                    // 남이 대신 동의할 수 없다
+});
+test("동의: 본인 uid·서버 시각·허용된 필드·본인 이메일만 쓸 수 있다", async () => {
+  const c = pupil("c");
+  await assertFails(setDoc(doc(c, "consents/d"), cdoc("d")));                              // 남의 문서
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("d")));                              // uid 위조
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { agreedAt: Timestamp.fromMillis(0) })));   // 클라이언트가 정한 시각
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { extra: 1 })));                // 허용 밖 필드
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { ai: "yes" })));               // 선택 항목은 true/false
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { version: "1999" })));         // 현재 문구가 아닌 버전
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { student: { name: "홍", email: "x@ts.hs.kr" } })));   // 다른 사람 이메일
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { student: { name: "홍", email: "c@ts.hs.kr", number: "10101" } })));
+  const noAi = cdoc("c"); delete noAi.ai;
+  await assertFails(setDoc(doc(c, "consents/c"), noAi));
+  await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c", { ai: false })));            // 필수만 동의
+  await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c", { ai: true })));             // 선택 항목 변경
+});
+test("동의: 익명·학교 밖 계정은 동의 문서를 쓸 수 없다", async () => {
+  await assertFails(setDoc(doc(student("c"), "consents/c"), cdoc("c")));
+  const gmail = env.authenticatedContext("g", { email: "g@gmail.com", email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore();
+  await assertFails(setDoc(doc(gmail, "consents/g"), cdoc("g", { student: { name: "홍", email: "g@gmail.com" } })));
+});
+test("동의: 읽기는 본인(한 건)과 교사(목록·삭제)만, 학생은 목록·남의 것을 못 본다", async () => {
+  await seedConsent("c");
+  await assertSucceeds(getDoc(doc(pupil("c"), "consents/c")));
+  await assertFails(getDoc(doc(pupil("b"), "consents/c")));
+  await assertFails(getDocs(collection(pupil("c"), "consents")));
+  await assertSucceeds(getDocs(collection(teacher(), "consents")));
+  await assertFails(deleteDoc(doc(pupil("b"), "consents/c")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "consents/c")));
 });

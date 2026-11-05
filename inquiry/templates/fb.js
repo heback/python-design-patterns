@@ -37,6 +37,20 @@ const FB = (() => {
   /* 이 화면의 장에서 남은 질문 수: {chapter, chapterTitle, limit, used, left} */
   const assistantQuota = chapter => call("getAssistantQuota", { chapter });
 
+  /* ---------- 개인정보 수집·이용 동의 ---------- */
+  /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
+  const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
+  /* 동의 저장. version = 동의한 문구의 버전, ai = 선택 항목(AI 도우미)에 동의했는지. 동의 일시는 서버 시각이다. */
+  async function saveConsent(version, ai) {
+    const user = await schoolUser(), m = await load(), { doc, setDoc, serverTimestamp } = m.fs, w = who(user);
+    await setDoc(doc(m.db, "consents", user.uid), { uid: user.uid, student: { name: w.name.slice(0, 80), email: w.email }, version, ai: !!ai, agreedAt: serverTimestamp() });
+  }
+  /* 동의 철회: 내 동의 문서를 지운다. 지우면 서버 규칙이 진도 쓰기를 거부하고 함수가 AI 도우미 질문을 거부한다. */
+  async function withdrawConsent() {
+    const user = await schoolUser(), m = await load();
+    await m.fs.deleteDoc(m.fs.doc(m.db, "consents", user.uid));
+  }
+
   /* ---------- 진도 수집(학생) ---------- */
   /* 문서 하나를 실시간으로 구독한다. 문서가 없으면 null, 읽기에 실패하면 undefined 를 콜백에 준다. */
   async function watchDoc(col, id, cb) {
@@ -85,6 +99,7 @@ const FB = (() => {
   const setAssistantQuota = (uid, chapter, value) => call("setAssistantQuota", { uid, chapter, value });
   /* AI 도우미 기록·집계(교사). 함수가 쓰고 교사만 읽는다. */
   const live = (col, cb, q) => load().then(m => m.fs.onSnapshot(q ? q(m) : m.fs.collection(m.db, col), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e)));
+  const watchConsents = cb => live("consents", cb);           // 학생들의 개인정보 동의 기록(교사)
   const watchChatUsage = cb => live("chatUsage", cb);
   const watchChatQuota = cb => live("chatQuota", cb);
   const watchChatLogs = (cb, n) => live("chatLogs", cb, m => m.fs.query(m.fs.collection(m.db, "chatLogs"), m.fs.orderBy("at", "desc"), m.fs.limit(n || 200)));
@@ -136,6 +151,7 @@ const FB = (() => {
   const teacherContent = () => call("getTeacherContent", {});
 
   return { who, domain: DOMAIN, fbErr, currentUser,
+           watchMyConsent, saveConsent, withdrawConsent, watchConsents,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };

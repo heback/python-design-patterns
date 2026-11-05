@@ -74,6 +74,7 @@ const Assistant = (() => {
     if (busy) return;
     const q = input.value.trim(); if (!q && !image) return;
     if (!StudentAuth.get()) { addMsg("err", "먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
+    if (!StudentAuth.aiOk()) { addMsg("err", "AI 도우미는 개인정보 동의의 ‘AI 도우미 이용(선택)’ 항목에 동의해야 쓸 수 있어요."); StudentAuth.manageConsent(); return; }
     const ctx = getContext() || {}, im = image;
     addMsg("me", q || "(사진)", im && im.url); input.value = ""; autosize(input); setImage(null);
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
@@ -86,7 +87,7 @@ const Assistant = (() => {
       wait.remove();
       const m = String(e.message || "");
       if (/resource-exhausted/.test(e.code) && /번을 모두|쓸 수 없어요/.test(m)) quotaFor = null;        // 한도에 걸렸다: 다음에 화면을 볼 때 남은 횟수를 다시 읽는다
-      addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
+      addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) && /동의/.test(m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
     setBusy(false); input.focus();
@@ -107,15 +108,18 @@ const Assistant = (() => {
     ctxChip = el("div", { class: "ai-ctx" }); leftEl = el("span", { class: "ai-left" });
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
-    const syncLogin = () => { login.hidden = !!StudentAuth.get(); };
+    /* 로그인했지만 AI 도우미(선택 항목)에 동의하지 않은 학생에게는 동의 설정을 안내한다 */
+    const needAi = el("div", { class: "ai-login", hidden: true }, "AI 도우미를 쓰려면 개인정보 동의의 ‘AI 도우미 이용(선택)’ 항목에 동의해야 해요. ",
+      el("button", { type: "button", class: "qbtn", onclick: () => StudentAuth.manageConsent() }, ico("verified_user"), "동의 설정"));
+    const syncLogin = () => { login.hidden = !!StudentAuth.get(); needAi.hidden = !(StudentAuth.get() && !StudentAuth.aiOk()); };
     StudentAuth.onChange(() => { syncLogin(); quotaFor = null; if (panel && !panel.hidden) loadQuota(true); }); syncLogin();
     panel = el("section", { class: "ai-panel", role: "dialog", "aria-label": "AI 도우미", hidden: true },
       el("header", {}, el("b", {}, ico("smart_toy", "fill"), "AI 도우미"),
         el("span", { class: "ai-hbtn" },
           el("button", { type: "button", class: "ai-ico", "aria-label": "새 대화 시작", title: "새 대화 시작 (화면만 비워요. 지난 질문과 답은 선생님이 볼 수 있도록 기록되어 남아요)", onclick: welcome }, ico("add_comment")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
-      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
-      log, login, ctxChip, preview,
+      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요. 개인정보 동의의 선택 항목에 동의한 경우에만 쓸 수 있어요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
+      log, login, needAi, ctxChip, preview,
       el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file),
       el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요."), leftEl);
     // 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다
