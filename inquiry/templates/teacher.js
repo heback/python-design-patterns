@@ -149,11 +149,11 @@ function statusLegend() {
 function renderMonitor(main) {
   const tok = T.liveTok = {};
   /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
-  /* 메뉴: 환경설정 · 진도표 · 학생 질문 · 대화기록 · 토큰 사용량 · 질문 한도 */
+  /* 메뉴: 환경설정 · 진도표 · 학생 질문 · AI 대화기록 · AI 사용량 · AI 질문한도 */
   const ctl = el("div", { class: "setrow" }), vAi = el("div", { class: "setrow" }), tbl = el("div", {});
   const vSet = el("section", { class: "panel", id: "v-settings" }, el("h3", {}, "환경설정"), ctl, vAi), vProg = el("section", { class: "panel", id: "v-progress" }, tbl),
     vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" }), vAsk = el("section", { class: "panel", id: "v-ask" });
-  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["ask", "contact_support", "학생 질문", vAsk], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok], ["quota", "tune", "질문 한도", vQuota]];
+  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["ask", "contact_support", "학생 질문", vAsk], ["logs", "forum", "AI 대화기록", vLog], ["tokens", "data_usage", "AI 사용량", vTok], ["quota", "tune", "AI 질문한도", vQuota]];
   const known = k => VIEWS.some(v => v[0] === k);
   if (!known(M.view)) { const h = location.hash.slice(1); M.view = known(h) ? h : "progress";   /* 처음 열면 항상 진도표. 마지막에 본 메뉴를 기억하지 않는다(주소 해시가 있을 때만 그 메뉴) */ }
   const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
@@ -204,12 +204,12 @@ function renderMonitor(main) {
     const re = recentChatErr();
     fill(vAi, el("h4", {}, "학생 AI 도우미"),
       re ? errBox(re) : null,
-      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 질문 횟수는 학생 한 명이 장(학습지는 주차)마다 기본 40번, 1분에 6번까지이며 기본값과 학생·장별 가감은 [질문 한도] 메뉴에서 바꿉니다. 학생과 AI가 주고받은 질문·답은 [대화기록] 메뉴에 기록되고 [토큰 사용량] 메뉴에 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
+      el("p", { class: "lead" }, "켜면 학생의 학습지·교재 화면 오른쪽 아래에 AI 아이콘이 나타납니다. 학생은 글이나 사진으로 질문하고, AI는 학생이 지금 보고 있는 화면(교재의 절·학습지 문항)과 고른 글을 참고해 글로 답합니다. 학습지 문항은 정답을 바로 알려 주지 않고 힌트를 줍니다. 질문 횟수는 학생 한 명이 장(학습지는 주차)마다 기본 40번, 1분에 6번까지이며 기본값과 학생·장별 가감은 [AI 질문한도] 메뉴에서 바꿉니다. 학생과 AI가 주고받은 질문·답은 [AI 대화기록] 메뉴에 기록되고 [AI 사용량] 메뉴에 집계됩니다(사진 파일은 저장하지 않고, 사진을 보냈는지만 남깁니다). 질문·사진·화면의 글은 Google Gemini로 전달되고, 학생 화면에 그 사실과 기록된다는 사실이 안내됩니다."),
       M.ai === undefined ? el("p", { class: "lead" }, "상태를 확인하는 중…") : el("p", { class: on ? "status-open" : "status-closed" }, ico("circle", "fill"), on ? "켜짐 — 학생 화면에 AI 아이콘이 보입니다" : "꺼짐 — 학생 화면에 AI 아이콘이 없습니다"),
       el("button", { class: "btn primary", onclick: async e => { e.target.disabled = true; try { await FB.saveAssistant(!on); } catch (err) { alert("저장하지 못했습니다: " + errText(err)); } } }, on ? [ico("stop"), "AI 도우미 끄기"] : [ico("play_arrow"), "AI 도우미 켜기"]));
   };
 
-  /* --- 토큰 사용량 화면: 기간(오늘·주간·월간·전체·직접 지정)별 반 전체·날짜별·학생별 --- */
+  /* --- AI 사용량 화면: 기간(오늘·주간·월간·전체·직접 지정)별 반 전체·날짜별·학생별 --- */
   const SUM_KEYS = ["count", "refused", "errors", "images", "promptTokens", "outputTokens", "thoughtTokens", "totalTokens"];
   const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400e3).toISOString().slice(0, 10);       // YYYY-MM-DD(한국 날짜 문자열)에 일수를 더한다
   const emptySum = () => Object.fromEntries(SUM_KEYS.map(k => [k, 0]));
@@ -241,7 +241,7 @@ function renderMonitor(main) {
     const seg = [["today", "오늘"], ["week", "주간"], ["month", "월간"], ["all", "전체"], ["custom", "기간 지정"]];
     const setRange = k => { M.tokRange = k; if (k === "custom") { M.tokFrom = M.tokFrom || addDays(today, -6); M.tokTo = M.tokTo || today; } paintTok(); };
     const dateIn = (key, val) => el("input", { type: "date", value: val, max: today, "aria-label": key === "tokFrom" ? "시작 날짜" : "끝 날짜", onchange: e => { if (e.target.value) { M[key] = e.target.value; paintTok(); } } });
-    fill(vTok, el("h3", {}, "토큰 사용량"),
+    fill(vTok, el("h3", {}, "AI 사용량"),
       el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 날짜는 한국 시간 기준입니다."),
       el("p", { class: "lead", style: "font-size:13px" }, `예상 비용은 ${PRICE.model} 요금(100만 토큰당 입력 $${PRICE.inUsd.toFixed(2)} · 출력과 생각 토큰 $${PRICE.outUsd.toFixed(2)}, 2026년 11월 Google 공시 기준)으로 계산한 추정치이고 원화는 1달러=${nf(PRICE.krwPerUsd)}원으로 가정했습니다. 실제 청구액과 다를 수 있으니 Google AI Studio의 결제 화면으로 확인하세요.`),
       M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "집계를 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
@@ -299,14 +299,14 @@ function renderMonitor(main) {
       usage.map(u => el("option", { value: u.id, ...(u.id === lg.uid ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
     const fltSel = el("select", { onchange: e => { lg.kind = e.target.value; resetLogs(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === lg.kind ? { selected: "" } : {}) }, l)));
     const sizeSel = el("select", { onchange: e => { lg.size = Number(e.target.value); resetLogs(); } }, [20, 50, 100].map(n => el("option", { value: n, ...(n === lg.size ? { selected: "" } : {}) }, `${n}건씩`)));
-    fill(vLog, el("h3", {}, "대화기록"),
+    fill(vLog, el("h3", {}, "AI 대화기록"),
       lg.err ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "기록을 읽지 못했습니다."), el("div", {}, lg.err)) : null,
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:6px 0 10px" }, el("label", {}, "학생 ", stuSel), el("label", {}, "보기 ", fltSel), el("label", {}, "쪽당 ", sizeSel),
         el("button", { class: "btn small", disabled: lg.busy, onclick: () => loadLogs(true) }, ico("refresh"), "새로고침"),
         el("button", { class: "btn small danger", style: "margin-left:auto", onclick: async () => {
           if (!confirm("서버에 저장된 모든 AI 대화 기록을 삭제합니다(토큰 집계는 그대로 남습니다). 계속할까요?")) return;
           try { toast(`대화 기록 ${await FB.clearChatLogs()}건을 삭제했습니다`); resetLogs(); } catch (err) { alert("삭제하지 못했습니다: " + errText(err)); }
-        } }, ico("delete"), "대화기록 삭제")),
+        } }, ico("delete"), "AI 대화기록 삭제")),
       el("p", { class: "lead", style: "font-size:13px" }, "최신 질문부터 보여 줍니다. 학생은 이 기록을 지우거나 고칠 수 없고(서버 규칙), 삭제는 교사만 할 수 있습니다. 오류만 걸러 보기는 이 기능을 넣은 뒤에 쌓인 기록부터 적용됩니다."),
       rows.length || lg.page > 0 ? pager() : null,
       lg.rows === null ? el("p", { class: "lead" }, "불러오는 중…") : null,
@@ -322,7 +322,7 @@ function renderMonitor(main) {
       rows.length > 8 ? pager() : null);
   };
 
-  /* --- 질문 한도 화면: 기본값 + 학생·장별 가감 --- */
+  /* --- AI 질문한도 화면: 기본값 + 학생·장별 가감 --- */
   const MAXQ = 1000, DEFQ = 40;
   const CAPS = () => [...(CONTENT.chapters || []).map(c => [c.slug, c.title]), ...CONTENT.weeks.map(w => ["week" + w.n, `학습지 ${w.n}주차`]), ["etc", "기타 화면"]];
   const baseLimit = () => { const n = M.ai && M.ai.limit; return Number.isInteger(n) && n >= 0 && n <= MAXQ ? n : DEFQ; };
@@ -372,7 +372,7 @@ function renderMonitor(main) {
         onclick: () => { M.qSel = x.uid; items.forEach(b => { const on = b === items[list.indexOf(x)]; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); }); paintDetail(); } },
         el("span", {}, nameOf(x)), el("small", {}, mark));
     });
-    fill(vQuota, el("h3", {}, "질문 한도"),
+    fill(vQuota, el("h3", {}, "AI 질문한도"),
       el("p", { class: "lead" }, "학생 한 명이 AI 도우미에게 물을 수 있는 횟수를 장(교재의 한 장, 학습지의 한 주차)마다 따로 정합니다. 기본값은 모든 학생에게 같고, 학생별로 모든 장 또는 한 장의 한도를 늘리거나 줄일 수 있습니다. 1분에 6번까지라는 속도 제한은 따로 있습니다."),
       M.qErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "한도 정보를 읽지 못했습니다."), el("div", {}, M.qErr)) : null,
       el("div", { class: "setrow" }, el("h4", {}, "기본 한도"),
