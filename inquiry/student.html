@@ -371,6 +371,37 @@ main.wide { max-width: 1380px; }
    font 단축 속성이 font-variant-ligatures를 초기화하므로 !important로 고정한다. 아이콘 글꼴(.ms)만 합자가 필요해 위에서 따로 켠다. */
 *, *::before, *::after { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
 
+/* 학생 질문(선생님께 질문) 화면 */
+.ask-shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 10px; }
+.ask-list { display: flex; flex-direction: column; gap: 4px; max-height: 68vh; overflow-y: auto; padding: 6px; background: var(--panel-sunk); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.ask-item { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; border: 1px solid transparent; background: var(--panel); color: var(--ink); border-radius: 10px; padding: 8px 10px; cursor: pointer; font: inherit; font-size: 14px; }
+.ask-item:hover { border-color: var(--accent-line); }
+.ask-item.on { border-color: var(--accent); background: var(--accent-soft); }
+.ask-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-item-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ask-item-last { color: var(--ink-soft); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-item small { color: var(--dim); }
+.ask-conv { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ask-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ask-msgs { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; min-height: 160px; overflow-y: auto; padding: 12px; background: var(--panel-sunk); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.ask-msg { max-width: 86%; border-radius: 12px; padding: 8px 12px; border: 1px solid var(--line); background: var(--panel); }
+.ask-msg.s { align-self: flex-start; }
+.ask-msg.t { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent-line); }
+.ask-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+.ask-txt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.ask-where { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 4px; }
+.ask-where .ms { font-size: 16px; margin: 0; vertical-align: 0; }
+.ask-sel { margin: 4px 0 6px; padding: 4px 10px; border-left: 3px solid var(--gold); background: var(--gold-soft); color: var(--ink-soft); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow-y: auto; }
+.ask-img { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid var(--line); margin: 4px 0; cursor: zoom-in; }
+.ask-big { max-width: min(96vw, 1400px); max-height: 92vh; border-radius: 8px; background: #fff; }
+.ask-ta { width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px; font: inherit; line-height: 1.55; padding: 8px 10px; border: 1px solid var(--line-control, var(--line)); border-radius: 10px; background: var(--panel); color: var(--ink); }
+.ask-ta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ask-ai-note { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--gold-soft); border: 1px solid var(--gold-line); font-size: 13px; color: var(--ink); }
+.ask-ai-note .ms { vertical-align: -4px; margin-right: 4px; }
+.ask-caution { margin-top: 4px; color: var(--bad); font-weight: 600; }
+@media (max-width: 860px) { .ask-shell { grid-template-columns: 1fr; } .ask-list { max-height: 30vh; } }
+
 /* 아이콘(Google Material Symbols)·진도 전달 고지·로그인 버튼. 학습지와 호스팅된 교재 페이지가 함께 쓴다.
    색은 두 곳이 공통으로 가진 변수(--surface, --text, --muted, --border, --accent, --ok …)만 쓰고, 없을 때를 위한 기본값을 둔다. */
 .ms {
@@ -430,11 +461,11 @@ body.cs-lock { overflow: hidden; }
 @media print { .cs-overlay { display: none !important; } }
 
 /* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
-.ai-fab { position: fixed; right: 20px; bottom: 20px; z-index: 1500; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
+.ai-fab { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
 .ai-fab:hover { transform: scale(1.06); }
 .ai-fab:focus-visible, .ai-ico:focus-visible, .ai-send:focus-visible, .ai-in:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
 .ai-fab .ms { font-size: 30px; margin: 0; vertical-align: 0; }
-.ai-panel { position: fixed; right: 20px; bottom: 88px; z-index: 1500; width: min(390px, calc(100vw - 24px)); height: min(600px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14.5px; line-height: 1.65; }
+.ai-panel { position: fixed; right: 88px; bottom: 20px; z-index: 1500; width: min(390px, calc(100vw - 108px)); height: min(600px, calc(100vh - 40px)); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14.5px; line-height: 1.65; }
 .ai-panel[hidden], .ai-fab[hidden] { display: none; }
 .ai-panel header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); border-bottom: 2px solid var(--gold, #d4ae55); }
 .ai-panel header b { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
@@ -470,8 +501,21 @@ body.cs-lock { overflow: hidden; }
 .ai-send { border: 0; background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-radius: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; }
 .ai-send:disabled { opacity: .5; cursor: default; }
 .ai-left { display: block; padding: 0 14px 8px; font-size: 12px; color: var(--muted, #5a6372); text-align: right; min-height: 1px; }
-@media (max-width: 640px) { .ai-panel { right: 8px; left: 8px; bottom: 82px; width: auto; height: min(70vh, 560px); } .ai-fab { right: 14px; bottom: 14px; } }
-@media print { .ai-fab, .ai-panel { display: none !important; } }
+@media (max-width: 640px) { .ai-panel { right: 8px; left: 8px; bottom: 150px; width: auto; height: min(70vh, 560px); } .fab-dock { right: 14px; bottom: 14px; } }
+@media print { .fab-dock, .ai-fab, .ai-panel { display: none !important; } }
+
+/* 오른쪽 아래 아이콘 묶음: 선생님께 질문(위) + AI 도우미(아래). 대화창은 묶음 왼쪽에 뜬다. */
+.fab-dock { position: fixed; right: 20px; bottom: 20px; z-index: 1500; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ask-fab { background: var(--gold, #d4ae55); color: var(--navy, #16202e); border-color: var(--navy, #16202e); }
+.fab-badge { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 11px; background: var(--bad, #c4391d); color: #fff; font: 700 12px/22px var(--font-sans, system-ui, sans-serif); text-align: center; border: 2px solid var(--surface, #fff); }
+.fab-badge[hidden] { display: none; }
+.ai-msg.teacher { align-self: flex-start; background: var(--gold-soft, #f6ecd6); border: 1px solid var(--gold-line, #e4d2a4); border-bottom-left-radius: 4px; }
+.ask-who { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
+.ask-who .ms { font-size: 16px; margin: 0; vertical-align: 0; }
+.ask-who span { margin-left: auto; padding-left: 10px; font-weight: 400; color: var(--muted, #5a6372); }
+.ask-time { margin-top: 2px; font-size: 11px; opacity: .8; text-align: right; }
+.ask-noimg { font-style: italic; opacity: .85; }
+.ai-msg.me.wait { opacity: .65; font-style: normal; color: var(--on-accent, var(--accent-text, #fff)); }
 </style>
 <style>/* 파이썬 실행·편집기(pyrun.js) 공용 스타일. 교재와 탐구 학습지의 색 토큰을 모두 받아 쓴다. */
 /* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
@@ -1031,6 +1075,32 @@ const FB = (() => {
   /* 이 화면의 장에서 남은 질문 수: {chapter, chapterTitle, limit, used, left} */
   const assistantQuota = chapter => call("getAssistantQuota", { chapter });
 
+  /* ---------- 선생님께 질문(학생 ↔ 교사) ----------
+     대화는 askThreads/{학생 uid}(요약·안 읽음 수)와 그 아래 msgs(한 건씩). 쓰기는 모두 함수가 하고 화면은 실시간으로 읽기만 한다(firestore.rules). */
+  /* 질문 보내기. p = {text, image?:{mime,data}, context:{kind, chapter, title, selection}}. 개수 제한은 없다(서버가 1분에 10번까지만 받는다). */
+  const askTeacher = p => call("askTeacher", p);
+  /* 읽음 처리: 학생은 uid 없이(내 '새 답변' 배지), 교사는 학생 uid 를 주어(그 학생의 '새 질문' 배지) 부른다. */
+  const markAskRead = uid => call("markAskRead", uid ? { uid } : {});
+  const watchMyThread = (uid, cb) => watchDoc("askThreads", uid, cb);
+  /* 한 학생 대화의 메시지를 오래된 순으로 실시간 구독(학생은 본인 것만, 교사는 누구 것이든). cb(rows) 또는 오류 시 cb(null, err). */
+  async function watchAskMsgs(uid, cb) {
+    const m = await load(), { collection, query, orderBy, onSnapshot } = m.fs;
+    return onSnapshot(query(collection(m.db, "askThreads", uid, "msgs"), orderBy("at")), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
+  }
+  /* 교사: 모든 학생의 대화 목록(요약), 답변, AI 추천 답변, 대화 삭제, AI 추천 사용 집계 */
+  const watchAskThreads = cb => live("askThreads", cb);
+  const replyToStudent = (uid, text, viaAi) => call("replyToStudent", { uid, text, viaAi: !!viaAi });
+  const suggestReply = uid => call("suggestReply", { uid });
+  async function deleteAskThread(uid) {
+    const m = await load(), { collection, getDocs, writeBatch, doc, limit, query } = m.fs;
+    for (;;) {
+      const snap = await getDocs(query(collection(m.db, "askThreads", uid, "msgs"), limit(200))); if (snap.empty) break;
+      const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit();
+    }
+    await m.fs.deleteDoc(doc(m.db, "askThreads", uid));
+  }
+  async function watchAskStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "askTeacher"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
+
   /* ---------- 개인정보 수집·이용 동의 ---------- */
   /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
   const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
@@ -1147,6 +1217,7 @@ const FB = (() => {
   return { who, domain: DOMAIN, fbErr, currentUser,
            watchMyConsent, saveConsent, resetConsent, watchConsents,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
+           askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();
@@ -1520,28 +1591,24 @@ const FocusTrack = (() => {
    필요한 전역: el, ico, $, FB(fb.js), StudentAuth(student-auth.js). 호스트가 getContext() => {kind, title, text, selection} 를 준다. */
 const Assistant = (() => {
   const MAX_SIDE = 1280, QUALITY = 0.82, MAX_BYTES = 1_300_000;
-  let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, input = null, send = null, attach = null, preview = null, ctxChip = null, leftEl = null;
-  let image = null, busy = false, history = [], started = false, quotaFor = null;
+  let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, cp = null, ctxChip = null, leftEl = null;
+  let busy = false, history = [], started = false, quotaFor = null;
 
   /* ---------- 사진: 크기를 줄여 JPEG 으로(전송량·비용 절약) ---------- */
-  async function shrink(file) {
+  /* sides: 시도할 가로세로 상한(앞에서부터), maxBytes: 이 크기 아래로 줄어들 때까지 화질을 낮춘다. AI 도우미는 한 번(1280px, 1.3MB), 선생님께 묻기는 문서 한도 때문에 더 작게 줄인다. */
+  async function shrink(file, maxBytes, sides) {
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("JPG·PNG·WebP 사진만 보낼 수 있어요.");
-    const bmp = await createImageBitmap(file), k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-    let q = QUALITY, url = c.toDataURL("image/jpeg", q);
-    while (url.length * 3 / 4 > MAX_BYTES && q > 0.4) { q -= 0.15; url = c.toDataURL("image/jpeg", q); }
-    if (url.length * 3 / 4 > MAX_BYTES) throw new Error("사진이 너무 커요. 더 작은 사진을 보내 주세요.");
+    const bmp = await createImageBitmap(file), max = maxBytes || MAX_BYTES; let url = "";
+    for (const side of (sides || [MAX_SIDE])) {
+      const k = Math.min(1, side / Math.max(bmp.width, bmp.height));
+      const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+      let q = QUALITY; url = c.toDataURL("image/jpeg", q);
+      while (url.length * 3 / 4 > max && q > 0.4) { q -= 0.15; url = c.toDataURL("image/jpeg", q); }
+      if (url.length * 3 / 4 <= max) break;
+    }
+    if (url.length * 3 / 4 > max) throw new Error("사진이 너무 커요. 더 작은 사진을 보내 주세요.");
     return { mime: "image/jpeg", data: url.split(",")[1], url };
-  }
-  function setImage(im) {
-    image = im; preview.replaceChildren();
-    if (im) preview.append(el("img", { src: im.url, alt: "첨부한 사진" }), el("button", { type: "button", class: "ai-x", "aria-label": "사진 빼기", onclick: () => setImage(null) }, ico("close")));
-    preview.hidden = !im;
-  }
-  async function pick(file) {
-    if (!file) return;
-    try { setImage(await shrink(file)); input.focus(); } catch (e) { addMsg("err", e.message || "사진을 불러오지 못했어요."); }
   }
   /* 붙여넣기·끌어다 놓기로 들어온 데이터에서 이미지 파일을 찾는다(스크린샷은 files 가 아니라 items 로만 오는 브라우저가 있다) */
   function imageFrom(dt) {
@@ -1549,14 +1616,56 @@ const Assistant = (() => {
     const f = [...(dt.files || [])].find(x => /^image\//.test(x.type)); if (f) return f;
     const it = [...(dt.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); return it ? it.getAsFile() : null;
   }
-  /* [붙여넣기] 버튼: 클립보드에 있는 이미지를 읽는다(브라우저가 허용할 때). 막히면 Ctrl/⌘+V 로 붙여넣는 방법을 알려 준다. */
-  async function pasteFromClipboard() {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const it of items) { const t = it.types.find(x => /^image\//.test(x)); if (t) { await pick(new File([await it.getType(t)], "clipboard", { type: t })); return; } }
-      addMsg("err", "클립보드에 이미지가 없어요. 이미지를 먼저 복사해 주세요(화면 캡처: Windows Win+Shift+S, Mac Cmd+Shift+Ctrl+4).");
-    } catch (e) { addMsg("err", "브라우저가 클립보드 읽기를 막았어요. 이미지를 복사한 뒤 입력란을 누르고 Ctrl+V(Mac은 Cmd+V)로 붙여넣어 보세요."); }
+
+  /* ---------- 글·사진 입력란: AI 도우미와 선생님께 묻기가 같은 방식으로 쓴다 ----------
+     o = {placeholder, onSend(): 보내기(Enter·버튼), onError(msg): 사진 오류 안내, maxBytes?, sides?}
+     돌려주는 것: input(글 입력란), row(입력 줄), hint(사진 안내 줄), preview(첨부 미리보기), image(첨부한 사진 또는 null), setImage, setBusy, grow, wire(panel: 붙여넣기·끌어다 놓기 연결) */
+  function composer(o) {
+    let image = null;
+    const grow = () => { input.style.height = "auto"; input.style.height = Math.max(96, Math.min(180, input.scrollHeight)) + "px"; };      // 늘 여러 줄(최소 4줄)이 보이고, 길어지면 6~7줄까지 자란다
+    const input = el("textarea", { class: "ai-in", rows: 4, placeholder: o.placeholder, "aria-label": "질문 입력",
+      oninput: grow, onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); o.onSend(); } } });
+    const preview = el("div", { class: "ai-prev", hidden: true });
+    const setImage = im => {
+      image = im; preview.replaceChildren();
+      if (im) preview.append(el("img", { src: im.url, alt: "첨부한 사진" }), el("button", { type: "button", class: "ai-x", "aria-label": "사진 빼기", onclick: () => setImage(null) }, ico("close")));
+      preview.hidden = !im;
+    };
+    const pick = async file => {
+      if (!file) return;
+      try { setImage(await shrink(file, o.maxBytes, o.sides)); input.focus(); } catch (e) { o.onError(e.message || "사진을 불러오지 못했어요."); }
+    };
+    /* [붙여넣기] 버튼: 클립보드에 있는 이미지를 읽는다(브라우저가 허용할 때). 막히면 Ctrl/⌘+V 로 붙여넣는 방법을 알려 준다. */
+    const pasteFromClipboard = async () => {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const it of items) { const t = it.types.find(x => /^image\//.test(x)); if (t) { await pick(new File([await it.getType(t)], "clipboard", { type: t })); return; } }
+        o.onError("클립보드에 이미지가 없어요. 이미지를 먼저 복사해 주세요(화면 캡처: Windows Win+Shift+S, Mac Cmd+Shift+Ctrl+4).");
+      } catch (e) { o.onError("브라우저가 클립보드 읽기를 막았어요. 이미지를 복사한 뒤 입력란을 누르고 Ctrl+V(Mac은 Cmd+V)로 붙여넣어 보세요."); }
+    };
+    const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
+    const attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 파일 첨부", title: "사진 파일 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
+    const pasteBtn = el("button", { type: "button", class: "ai-ico", "aria-label": "클립보드의 이미지 붙여넣기", title: "클립보드의 이미지 붙여넣기", onclick: pasteFromClipboard }, ico("content_paste"));
+    const send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: o.onSend }, ico("send"));
+    const row = el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file);
+    const hint = el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요.");
+    /* 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다 */
+    const wire = panel => {
+      panel.addEventListener("paste", e => { const f = imageFrom(e.clipboardData); if (f) { e.preventDefault(); pick(f); } });
+      panel.addEventListener("dragover", e => { if ([...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files")) { e.preventDefault(); panel.classList.add("drop"); } });
+      panel.addEventListener("dragleave", e => { if (e.target === panel) panel.classList.remove("drop"); });
+      panel.addEventListener("drop", e => { const f = imageFrom(e.dataTransfer); panel.classList.remove("drop"); if (f) { e.preventDefault(); pick(f); } });
+    };
+    return { input, row, hint, preview, grow, setImage, wire, get image() { return image; }, setBusy: b => { send.disabled = b; input.disabled = b; } };
   }
+  /* 오른쪽 아래 아이콘 묶음(선생님께 묻기가 위, AI 도우미가 아래). 처음 부르는 쪽이 만든다. */
+  function dock() {
+    let d = document.getElementById("fab-dock");
+    if (!d) { d = el("div", { id: "fab-dock", class: "fab-dock" }); document.body.append(d); }
+    return d;
+  }
+  /* 두 대화창은 같은 자리에 뜨므로 하나가 열리면 다른 하나는 닫는다 */
+  const announceOpen = who => document.dispatchEvent(new CustomEvent("dp-panel-open", { detail: who }));
 
   /* ---------- 대화 ---------- */
   function addMsg(who, text, img) {
@@ -1567,7 +1676,7 @@ const Assistant = (() => {
   }
   function welcome() {
     log.replaceChildren(); history = [];
-    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.");
+    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.\n선생님께 직접 묻고 싶을 때는 이 아이콘 바로 위의 [선생님께 질문]을 눌러요.");
   }
   function refreshCtx() {
     const c = getContext() || {};
@@ -1582,14 +1691,14 @@ const Assistant = (() => {
     quotaFor = ch;
     try { showLeft(await FB.assistantQuota(ch)); } catch (e) { leftEl.textContent = ""; }
   }
-  function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
+  function setBusy(b) { busy = b; cp.setBusy(b); }
   async function ask() {
     if (busy) return;
-    const q = input.value.trim(); if (!q && !image) return;
+    const q = cp.input.value.trim(); if (!q && !cp.image) return;
     if (!StudentAuth.get()) { addMsg("err", "먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
     if (!StudentAuth.aiOk()) { addMsg("err", "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 쓸 수 없어요. 쓰고 싶다면 선생님께 말씀드려 주세요."); return; }
-    const ctx = getContext() || {}, im = image;
-    addMsg("me", q || "(사진)", im && im.url); input.value = ""; autosize(input); setImage(null);
+    const ctx = getContext() || {}, im = cp.image;
+    addMsg("me", q || "(사진)", im && im.url); cp.input.value = ""; cp.grow(); cp.setImage(null);
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
     try {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
@@ -1603,21 +1712,14 @@ const Assistant = (() => {
       addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) && /동의/.test(m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
-    setBusy(false); input.focus();
+    setBusy(false); cp.input.focus();
   }
-  function autosize(t) { t.style.height = "auto"; t.style.height = Math.max(96, Math.min(180, t.scrollHeight)) + "px"; }      // 늘 여러 줄(최소 4줄)이 보이고, 길어지면 6~7줄까지 자란다
 
   /* ---------- 화면 ---------- */
   function build() {
     fab = el("button", { type: "button", class: "ai-fab", "aria-label": "AI 도우미 열기", title: "AI 도우미", hidden: true, onclick: toggle }, ico("smart_toy", "fill"));
     log = el("div", { class: "ai-log", role: "log", "aria-live": "polite" });
-    input = el("textarea", { class: "ai-in", rows: 4, placeholder: "궁금한 것을 물어보세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", "aria-label": "질문 입력",
-      oninput: () => autosize(input), onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } } });
-    const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
-    attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 파일 첨부", title: "사진 파일 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
-    const pasteBtn = el("button", { type: "button", class: "ai-ico", "aria-label": "클립보드의 이미지 붙여넣기", title: "클립보드의 이미지 붙여넣기", onclick: pasteFromClipboard }, ico("content_paste"));
-    send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: ask }, ico("send"));
-    preview = el("div", { class: "ai-prev", hidden: true });
+    cp = composer({ placeholder: "궁금한 것을 물어보세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", onSend: ask, onError: m => addMsg("err", m) });
     ctxChip = el("div", { class: "ai-ctx" }); leftEl = el("span", { class: "ai-left" });
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
@@ -1631,21 +1733,16 @@ const Assistant = (() => {
           el("button", { type: "button", class: "ai-ico", "aria-label": "새 대화 시작", title: "새 대화 시작 (화면만 비워요. 지난 질문과 답은 선생님이 볼 수 있도록 기록되어 남아요)", onclick: welcome }, ico("add_comment")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
       el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요. 개인정보 동의의 선택 항목에 동의한 경우에만 쓸 수 있어요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
-      log, login, needAi, ctxChip, preview,
-      el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file),
-      el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요."), leftEl);
-    // 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다
-    panel.addEventListener("paste", e => { const f = imageFrom(e.clipboardData); if (f) { e.preventDefault(); pick(f); } });
-    panel.addEventListener("dragover", e => { if ([...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files")) { e.preventDefault(); panel.classList.add("drop"); } });
-    panel.addEventListener("dragleave", e => { if (e.target === panel) panel.classList.remove("drop"); });
-    panel.addEventListener("drop", e => { const f = imageFrom(e.dataTransfer); panel.classList.remove("drop"); if (f) { e.preventDefault(); pick(f); } });
-    document.body.append(fab, panel);
+      log, login, needAi, ctxChip, cp.preview, cp.row, cp.hint, leftEl);
+    cp.wire(panel);
+    document.body.append(panel); dock().append(fab);
+    document.addEventListener("dp-panel-open", e => { if (e.detail !== "ai" && !panel.hidden) toggle(); });
     document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) toggle(); });
     welcome();
   }
   function toggle() {
     const open = panel.hidden; panel.hidden = !open; fab.setAttribute("aria-expanded", String(open));
-    if (open) { refreshCtx(); input.focus(); log.scrollTop = log.scrollHeight; } else fab.focus();
+    if (open) { announceOpen("ai"); refreshCtx(); cp.input.focus(); log.scrollTop = log.scrollHeight; } else if (document.activeElement && panel.contains(document.activeElement)) fab.focus();
   }
   function show() { if (fab) { fab.hidden = !enabled; if (!enabled && !panel.hidden) toggle(); } }
 
@@ -1675,10 +1772,138 @@ const Assistant = (() => {
   function init(o) {
     if (started || typeof FB === "undefined") return; started = true;
     getContext = o.getContext; build();
+    if (typeof AskTeacher !== "undefined") AskTeacher.init(o);          // 선생님께 묻기(같은 화면 맥락을 쓴다)
     setInterval(() => { if (!panel.hidden) refreshCtx(); }, 1500);                // 화면을 옮기거나 글을 고르면 안내가 따라간다
     FB.watchAssistant(s => { enabled = !!(s && s.on); show(); }).catch(() => {});
   }
-  return { init, readable, selectedText, nearestMid };
+  return { init, readable, selectedText, nearestMid, composer, dock, announceOpen };
+})();
+</script>
+<script>"use strict";
+/* 학생 '선생님께 질문'(학습지·호스팅 교재 공용). AI 도우미 아이콘 바로 위에 아이콘이 있고, 누르면 AI 도우미와 같은 모양의 대화창이 열린다.
+   입력 방식은 AI 도우미와 같다(글·사진 첨부·붙여넣기·끌어다 놓기, Enter 로 보내기) — Assistant.composer 를 그대로 쓴다.
+   AI 도우미와 달리 답은 AI 가 아니라 선생님이 쓴다. 질문 개수에는 제한이 없고, 선생님이 답하면 이 창에 실시간으로 나타나며 아이콘에 새 답변 수 배지가 뜬다.
+   서버에는 질문·사진·지금 보던 화면의 제목·고른 글이 선생님이 볼 수 있도록 저장된다. 선생님이 AI 추천 답변을 쓰면(AI 선택 동의를 한 학생만) 질문이 AI(Google Gemini)로 전달될 수 있다.
+   필요한 전역: el, ico, FB(fb.js), StudentAuth(student-auth.js), Assistant(assistant.js, init 에서 이 모듈을 함께 시작한다). 호스트의 getContext() => {kind, chapter, title, selection} 를 AI 도우미와 같이 쓴다. */
+const AskTeacher = (() => {
+  const MAX_BYTES = 500_000, SIDES = [1280, 1024, 800];       // 사진은 문서에 저장되므로(문서 1MiB 한도) AI 도우미보다 작게 줄인다
+  let getContext = () => ({}), fab = null, badge = null, panel = null, log = null, cp = null, ctxChip = null, loginBox = null;
+  let started = false, busy = false, uid = null, thread = null, msgs = [], unThread = null, unMsgs = null, marking = false, msgErr = "", pending = null;
+
+  const fmt = t => { const d = t && t.toMillis ? new Date(t.toMillis()) : null; if (!d) return ""; const p = n => String(n).padStart(2, "0"); return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const unread = () => (thread && Number(thread.studentUnread)) || 0;
+
+  /* ---------- 대화 그리기 ---------- */
+  function bubble(m) {
+    if (m.from === "teacher") return el("div", { class: "ai-msg teacher" }, el("div", { class: "ask-who" }, ico("school", "fill"), "선생님", el("span", {}, fmt(m.at))), el("div", { class: "ai-txt" }, m.text));
+    const b = el("div", { class: "ai-msg me" });
+    if (m.image && m.image.data) b.append(el("img", { src: `data:${m.image.mime};base64,${m.image.data}`, alt: "보낸 사진" }));
+    else if (m.hasImage) b.append(el("div", { class: "ask-noimg" }, "(사진)"));
+    if (m.text) b.append(el("div", { class: "ai-txt" }, m.text));
+    b.append(el("div", { class: "ask-time" }, fmt(m.at)));
+    return b;
+  }
+  function paint() {
+    const kids = [el("div", { class: "ai-msg bot" }, el("div", { class: "ai-txt" }, "선생님께 궁금한 것을 보내세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n선생님이 확인하면 이 창에 답이 나타나고, 아이콘에 새 답변 표시가 떠요. 바로 답하지 못할 수 있으니 기다리는 동안 AI 도우미에게 먼저 물어봐도 좋아요.\n질문 개수에는 제한이 없어요."))];
+    if (msgErr) kids.push(el("div", { class: "ai-msg err" }, msgErr));
+    msgs.forEach(m => kids.push(bubble(m)));
+    if (pending) kids.push(pending);
+    log.replaceChildren(...kids); log.scrollTop = log.scrollHeight;
+  }
+  function paintBadge() {
+    const n = unread();
+    badge.hidden = !n; badge.textContent = n > 9 ? "9+" : String(n);
+    fab.setAttribute("aria-label", n ? `선생님께 질문 열기 (새 답변 ${n}건)` : "선생님께 질문 열기");
+    fab.title = n ? `선생님께 질문 — 새 답변 ${n}건` : "선생님께 질문";
+  }
+  function refreshCtx() {
+    const c = getContext() || {};
+    ctxChip.replaceChildren(ico("visibility"), `선생님이 보게 되는 화면: ${c.title || "현재 화면"}${c.selection ? " · 선택한 글 포함" : ""}`);
+  }
+
+  /* ---------- 서버와 연결: 로그인(·동의)한 학생의 대화를 실시간으로 읽는다 ---------- */
+  function stop() { [unThread, unMsgs].forEach(f => { try { f && f(); } catch (e) {} }); unThread = unMsgs = null; }
+  function syncUser() {
+    const u = StudentAuth.get(), next = u ? u.uid : null;
+    loginBox.hidden = !!u;
+    if (next === uid) return;
+    stop(); uid = next; thread = null; msgs = []; msgErr = ""; pending = null; marking = false;
+    paintBadge(); paint();
+    if (!uid) return;
+    const me = uid;
+    FB.watchMyThread(me, t => { if (uid !== me) return; thread = t || null; paintBadge(); markReadIfOpen(); }).then(f => { if (uid === me && !unThread) unThread = f; else f(); }).catch(() => {});
+    if (!panel.hidden) watchMsgs();
+  }
+  function watchMsgs() {
+    if (unMsgs || !uid) return; const me = uid;
+    FB.watchAskMsgs(me, (rows, err) => { if (uid !== me) return; msgs = rows || []; msgErr = err ? "질문 기록을 불러오지 못했어요. 잠시 뒤 다시 열어 보세요." : ""; paint(); markReadIfOpen(); })
+      .then(f => { if (uid === me && !unMsgs) unMsgs = f; else f(); }).catch(() => {});
+  }
+  /* 창을 열어 둔 동안 새 답변이 오면 곧바로 읽음 처리한다(배지가 계속 남지 않게) */
+  function markReadIfOpen() {
+    if (panel.hidden || marking || !unread()) return;
+    marking = true; FB.markAskRead().catch(() => {}).then(() => { marking = false; });
+  }
+
+  /* ---------- 보내기 ---------- */
+  function addErr(text) { msgErr = text; paint(); }
+  async function send() {
+    if (busy) return;
+    const text = cp.input.value.trim(), im = cp.image; if (!text && !im) return;
+    if (!StudentAuth.get()) { addErr("먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
+    const c = getContext() || {};
+    msgErr = ""; busy = true; cp.setBusy(true);
+    pending = el("div", { class: "ai-msg me wait" }, im ? el("img", { src: im.url, alt: "보내는 사진" }) : null, el("div", { class: "ai-txt" }, (text || "(사진)") + "\n보내는 중…")); paint();
+    try {
+      await FB.askTeacher({ text, image: im ? { mime: im.mime, data: im.data } : null, context: { kind: c.kind, chapter: c.chapter, title: c.title, selection: c.selection } });
+      cp.input.value = ""; cp.grow(); cp.setImage(null); pending = null;           // 성공했을 때만 입력란을 비운다(실패하면 쓴 글을 지키려고 그대로 둔다)
+      paint();
+    } catch (e) {
+      pending = null;
+      const m = String(e.message || ""), code = String(e.code || "");
+      msgErr = /resource-exhausted/.test(code) ? "질문이 너무 빨라요. 잠시 뒤에 다시 보내 주세요."
+        : /failed-precondition/.test(code) && /동의/.test(m) ? m.replace(/^.*?: /, "")
+        : /invalid-argument/.test(code) ? m.replace(/^.*?: /, "")
+        : /permission|unauth/.test(code) ? "학교 Google 계정으로 로그인해야 해요." : "보내지 못했어요. 쓴 글은 그대로 두었으니 잠시 뒤에 다시 보내 주세요.";
+      paint();
+    }
+    busy = false; cp.setBusy(false); cp.input.focus();
+  }
+
+  /* ---------- 화면 ---------- */
+  function build() {
+    fab = el("button", { type: "button", class: "ai-fab ask-fab", "aria-label": "선생님께 질문 열기", title: "선생님께 질문", onclick: toggle }, ico("contact_support", "fill"));
+    badge = el("span", { class: "fab-badge", hidden: true, "aria-hidden": "true" }); fab.append(badge);
+    log = el("div", { class: "ai-log", role: "log", "aria-live": "polite" });
+    cp = Assistant.composer({ placeholder: "선생님께 궁금한 것을 적어 주세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", onSend: send, onError: addErr, maxBytes: MAX_BYTES, sides: SIDES });
+    ctxChip = el("div", { class: "ai-ctx" });
+    loginBox = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 질문할 수 있어요. ",
+      el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addErr(m); } }, ico("login"), "로그인"));
+    panel = el("section", { class: "ai-panel ask-panel", role: "dialog", "aria-label": "선생님께 질문", hidden: true },
+      el("header", {}, el("b", {}, ico("contact_support", "fill"), "선생님께 질문"),
+        el("span", { class: "ai-hbtn" }, el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
+      el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 제목·고른 글은 선생님이 볼 수 있게 저장돼요(이름·이메일과 함께). ‘AI 도우미 이용(선택)’에 동의했다면, 선생님이 답을 쓸 때 AI(Google Gemini)의 추천 답변을 참고하면서 질문 내용이 AI로 전달될 수 있어요. 전화번호 같은 개인정보는 쓰지 마세요."),
+      log, loginBox, ctxChip, cp.preview, cp.row, cp.hint);
+    cp.wire(panel);
+    document.body.append(panel); Assistant.dock().prepend(fab);                  // AI 도우미 아이콘 바로 위
+    document.addEventListener("dp-panel-open", e => { if (e.detail !== "ask" && !panel.hidden) toggle(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) toggle(); });
+    paint(); paintBadge();
+  }
+  function toggle() {
+    const open = panel.hidden; panel.hidden = !open; fab.setAttribute("aria-expanded", String(open));
+    if (open) { Assistant.announceOpen("ask"); refreshCtx(); watchMsgs(); markReadIfOpen(); cp.input.focus(); log.scrollTop = log.scrollHeight; }
+    else if (document.activeElement && panel.contains(document.activeElement)) fab.focus();
+  }
+
+  /* o = {getContext}. 로그인한 학생에게는 항상 보인다(AI 도우미와 달리 교사가 켜고 끄지 않는다). */
+  function init(o) {
+    if (started || typeof FB === "undefined" || typeof Assistant === "undefined") return; started = true;
+    getContext = o.getContext; build();
+    setInterval(() => { if (!panel.hidden) refreshCtx(); }, 1500);                // 화면을 옮기거나 글을 고르면 안내가 따라간다
+    StudentAuth.onChange(syncUser); syncUser();
+  }
+  return { init };
 })();
 </script>
 <script>"use strict";

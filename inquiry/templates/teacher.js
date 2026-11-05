@@ -3,7 +3,9 @@
    학생 응답 본문은 서버로 오지 않으므로 응답 검토·코멘트·제출 관리 화면은 없다. */
 const M = { view: "", events: null, prog: null, consents: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qSel: "", qFind: "", qErr: "",
   lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
-  group: "all", sort: "num" };   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+  group: "all", sort: "num",   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+  ask: { threads: null, sel: "", msgs: null, err: "", stats: undefined, draft: {}, via: {}, cau: {}, marking: "", unMsgs: null } };   // 학생 질문 화면의 상태(draft·via·cau: 학생별로 쓰던 답변·AI 추천 사용 여부·AI 확인 사항)
+const BASE_TITLE = document.title;
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
 
 let booted = false;
@@ -51,7 +53,7 @@ const errText = e => FB.fbErr(e).replace(/^.*?: /, "");
 /* 학생이 보내는 것은 교재 장별 읽은 절 수, 학습지 완료 문항 수·ID, 지금 있는 곳, 활동 시간, 마지막 활동 시각뿐이다(응답 본문 없음). 수집 스위치는 config/monitor.
    교재의 분류(서론·종합 / 생성 / 구조 / 행위)는 CONTENT.chapters 의 group 으로 나눈다. */
 const GROUP_NAME = { intro: "서론·종합", create: "생성 패턴", struct: "구조 패턴", behave: "행위 패턴" };
-function stopLive() { (T.live || []).forEach(f => { try { f(); } catch (e) {} }); T.live = []; T.liveTok = null; M.unAns = null; }
+function stopLive() { (T.live || []).forEach(f => { try { f(); } catch (e) {} }); T.live = []; T.liveTok = null; M.unAns = null; if (M.ask.unMsgs) { try { M.ask.unMsgs(); } catch (e) {} M.ask.unMsgs = null; } }
 function liveSub(p, tok, onUn) {
   p.then(u => { if (T.liveTok === tok) { T.live.push(u); if (onUn) onUn(u); } else u(); }).catch(() => {});
 }
@@ -147,11 +149,11 @@ function statusLegend() {
 function renderMonitor(main) {
   const tok = T.liveTok = {};
   /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
-  /* 메뉴: 환경설정 · 진도표 · 대화기록 · 토큰 사용량 · 질문 한도 */
+  /* 메뉴: 환경설정 · 진도표 · 학생 질문 · 대화기록 · 토큰 사용량 · 질문 한도 */
   const ctl = el("div", { class: "setrow" }), vAi = el("div", { class: "setrow" }), tbl = el("div", {});
   const vSet = el("section", { class: "panel", id: "v-settings" }, el("h3", {}, "환경설정"), ctl, vAi), vProg = el("section", { class: "panel", id: "v-progress" }, tbl),
-    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" });
-  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok], ["quota", "tune", "질문 한도", vQuota]];
+    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" }), vAsk = el("section", { class: "panel", id: "v-ask" });
+  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["ask", "contact_support", "학생 질문", vAsk], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok], ["quota", "tune", "질문 한도", vQuota]];
   const known = k => VIEWS.some(v => v[0] === k);
   if (!known(M.view)) { const h = location.hash.slice(1); M.view = known(h) ? h : "progress";   /* 처음 열면 항상 진도표. 마지막에 본 메뉴를 기억하지 않는다(주소 해시가 있을 때만 그 메뉴) */ }
   const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
@@ -159,10 +161,12 @@ function renderMonitor(main) {
     const act = (M.prog || []).filter(r => liveState(tsMs(r.lastActiveAt))[0] === "ok").length, aiOn = !!(M.ai && M.ai.on), monOn = !!(M.mon && M.mon.on), err = !!recentChatErr();
     const badge = k => k === "progress" ? el("span", { class: "nb " + (monOn ? "ok" : "off"), title: monOn ? "수집 중(활동 중인 학생 수)" : "진도 수집이 꺼져 있어요" }, monOn ? `${act}명` : "수집 꺼짐")
       : k === "settings" ? (err ? el("span", { class: "nb bad", title: "최근 AI 호출 오류" }, "오류") : null)
+      : k === "ask" ? (askUnread() ? el("span", { class: "nb bad", title: `선생님이 아직 보지 않은 새 질문 ${askUnread()}건` }, `새 질문 ${askUnread()}`) : null)
       : null;
+    document.title = askUnread() ? `(${askUnread()}) ${BASE_TITLE}` : BASE_TITLE;       // 다른 탭에 있어도 새 질문이 보이도록
     fill(nav, VIEWS.map(([k, ic, lab]) => el("button", { type: "button", class: "side-item", "aria-current": M.view === k ? "page" : null, onclick: () => go(k) }, ico(ic, M.view === k ? "fill" : ""), el("span", { class: "side-lab" }, lab), badge(k))));
   };
-  const go = k => { M.view = k; try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); if (k === "quota") paintQuota(); paintNav(); scrollTo(0, 0); };
+  const go = k => { M.view = k; try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); if (k === "quota") paintQuota(); if (k === "ask") { paintAsk(); markAskRead(); } paintNav(); scrollTo(0, 0); };
   main.append(el("div", { class: "shell" }, nav, el("div", { class: "view" }, VIEWS.map(v => v[3]))));
   VIEWS.forEach(v => { v[3].hidden = v[0] !== M.view; });
 
@@ -382,6 +386,108 @@ function renderMonitor(main) {
       list.length ? el("div", { class: "qsplit" }, el("div", { class: "qpick" }, find, el("div", { class: "qlist" }, items)), detail) : el("p", { class: "lead" }, "아직 AI 도우미를 쓰거나 진도를 보낸 학생이 없습니다."));
     paintDetail(); applyFind();
   };
+  /* --- 학생 질문(선생님께 질문): 왼쪽 학생별 대화 목록(새 질문 배지), 오른쪽 대화와 답변 ---
+     학생이 보낸 질문은 askThreads/{학생 uid} 에 쌓이고, 선생님이 열어 보면 '새 질문'이 읽음으로 바뀐다. 답변은 직접 쓰거나 [AI 추천 답변]으로 초안을 받아 고쳐서 보낸다(보내기 전에는 학생에게 가지 않는다). */
+  const A = M.ask;
+  function askUnread() { return (A.threads || []).reduce((n, t) => n + (Number(t.unread) || 0), 0); }
+  const askThread = () => (A.threads || []).find(x => x.id === A.sel);
+  const askSorted = () => [...(A.threads || [])].sort((a, b) => ((Number(b.unread) > 0) - (Number(a.unread) > 0)) || ((tsMs(b.lastAt) || 0) - (tsMs(a.lastAt) || 0)));
+  const askListBox = el("div", { class: "ask-list", role: "list" }), askConvBox = el("div", { class: "ask-conv" }), askFoot = el("p", { class: "lead", style: "font-size:13px" });
+  fill(vAsk, el("h3", {}, "학생 질문"),
+    el("p", { class: "lead" }, "학생이 화면 오른쪽 아래의 [선생님께 질문] 아이콘으로 보낸 질문이 학생별 대화로 쌓입니다. 새 질문은 이 메뉴의 빨간 배지와 브라우저 탭 제목의 숫자로 알려 주고, 질문 개수에는 제한이 없습니다(도배를 막으려고 1분에 10번까지만 받습니다). 직접 답하거나 [AI 추천 답변]으로 초안을 받아 고쳐서 보낼 수 있고, 보내기 전에는 학생에게 전달되지 않습니다. AI 추천 답변은 질문 내용(이름·이메일 제외)을 Gemini로 보내므로 개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의한 학생에게만 쓸 수 있습니다."),
+    el("div", { class: "ask-shell" }, el("div", {}, askListBox, askFoot), askConvBox));
+  let conv = null;       // 열려 있는 대화의 화면 요소(답변 입력란은 대화를 고를 때 한 번만 만들어, 실시간 갱신에도 쓰던 글이 지워지지 않게 한다)
+
+  const lightbox = src => {
+    const close = () => { ov.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = e => { if (e.key === "Escape") close(); };
+    const ov = el("div", { class: "dlg-overlay", onclick: close }, el("img", { src, alt: "학생이 보낸 사진", class: "ask-big" }));
+    document.addEventListener("keydown", onKey); document.body.append(ov);
+  };
+  function markAskRead() {      // 선택한 대화에 새 질문이 있고 이 화면을 보고 있으면 읽음으로 바꾼다
+    const t = askThread();
+    if (!t || !(Number(t.unread) > 0) || M.view !== "ask" || document.visibilityState !== "visible") return;
+    const key = `${t.id}:${t.unread}`; if (A.marking === key) return;
+    A.marking = key; FB.markAskRead(t.id).catch(() => { if (A.marking === key) A.marking = ""; });
+  }
+  function selectAsk(uid) {
+    A.sel = uid; A.msgs = null; A.err = ""; A.marking = ""; conv = null;
+    if (A.unMsgs) { try { A.unMsgs(); } catch (e) {} A.unMsgs = null; }
+    paintAskList(); paintAsk();
+    if (!uid) return;
+    FB.watchAskMsgs(uid, (rows, err) => { if (A.sel !== uid) return; A.msgs = rows || []; A.err = err ? errText(err) : ""; paintAskMsgs(); })
+      .then(f => { if (A.sel === uid && !A.unMsgs) A.unMsgs = f; else f(); }).catch(() => {});
+    markAskRead();
+  }
+  function paintAskList() {
+    const rows = askSorted();
+    fill(askListBox, rows.length ? rows.map(t => {
+      const un = Number(t.unread) || 0, wait = t.lastFrom === "student";
+      return el("button", { type: "button", role: "listitem", class: "ask-item" + (A.sel === t.id ? " on" : ""), onclick: () => selectAsk(t.id) },
+        el("span", { class: "ask-item-top" }, el("b", {}, stuName(t)), un ? el("span", { class: "nb bad" }, `새 질문 ${un}`) : wait ? el("span", { class: "nb" }, "답변 대기") : null),
+        el("span", { class: "ask-item-last" }, (t.lastFrom === "teacher" ? "나: " : "") + (t.lastText || "")),
+        el("small", {}, ago(tsMs(t.lastAt))));
+    }) : el("p", { class: "lead", style: "padding:6px 8px" }, A.threads === null ? "불러오는 중…" : "아직 학생이 보낸 질문이 없어요."));
+    const st = A.stats;
+    askFoot.textContent = st ? `AI 추천 답변 사용 ${nf(st.suggestions)}회 · 토큰 ${nf(st.totalTokens)} (입력 ${nf(st.promptTokens)} · 출력 ${nf(st.outputTokens)} · 생각 ${nf(st.thoughtTokens)})` : "";
+  }
+  function paintAskMsgs() {
+    if (!conv) return;
+    const near = conv.box.scrollHeight - conv.box.scrollTop - conv.box.clientHeight < 80, first = !conv.shown; conv.shown = true;
+    fill(conv.box, A.err ? el("div", { class: "err-box" }, A.err) : null,
+      A.msgs === null ? el("p", { class: "lead" }, "불러오는 중…") : A.msgs.map(m => {
+        if (m.from === "teacher") return el("div", { class: "ask-msg t" }, el("div", { class: "ask-meta" }, `${(m.by || "").split("@")[0] || "선생님"} · ${stamp(new Date(tsMs(m.at) || Date.now()))}`, m.viaAi ? el("span", { class: "nb", title: "AI 추천 답변을 바탕으로 보낸 답변입니다(학생 화면에는 표시되지 않습니다)" }, "AI 추천 사용") : null), el("div", { class: "ask-txt" }, m.text));
+        const im = m.image && m.image.data ? `data:${m.image.mime};base64,${m.image.data}` : "";
+        return el("div", { class: "ask-msg s" }, el("div", { class: "ask-meta" }, `학생 · ${stamp(new Date(tsMs(m.at) || Date.now()))}`),
+          m.where ? el("div", { class: "ask-where" }, ico("visibility"), `${m.kind === "worksheet" ? "학습지" : "교재"} · ${m.where}`) : null,
+          m.selection ? el("blockquote", { class: "ask-sel" }, m.selection) : null,
+          im ? el("img", { src: im, alt: "학생이 보낸 사진(눌러서 크게 보기)", class: "ask-img", title: "눌러서 크게 보기", onclick: () => lightbox(im) }) : m.hasImage ? el("div", { class: "lead" }, "(사진)") : null,
+          m.text ? el("div", { class: "ask-txt" }, m.text) : null);
+      }));
+    if (first || near) conv.box.scrollTop = conv.box.scrollHeight;
+  }
+  function paintAsk() {
+    const t = askThread();
+    if (!A.sel || !t) { conv = null; fill(askConvBox, el("p", { class: "lead" }, A.sel ? "대화를 찾을 수 없어요(삭제되었을 수 있어요)." : "왼쪽에서 학생을 고르면 질문과 답변이 보여요.")); return; }
+    if (conv && conv.uid === A.sel) { conv.sync(); return; }
+    const uid = A.sel, box = el("div", { class: "ask-msgs", role: "log" }), note = el("p", { class: "ask-ai-note", hidden: true });
+    const ta = el("textarea", { class: "ask-ta", rows: 4, placeholder: "답변을 입력하세요. (Ctrl+Enter: 보내기)", "aria-label": "답변 입력" });
+    ta.value = A.draft[uid] || "";
+    ta.addEventListener("input", () => { A.draft[uid] = ta.value; if (!ta.value.trim()) { A.via[uid] = false; A.cau[uid] = ""; } c.sync(); });
+    ta.addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); sendReply(); } });
+    const aiBtn = el("button", { type: "button", class: "btn", onclick: () => suggest() }, ico("auto_awesome"), "AI 추천 답변");
+    const sendBtn = el("button", { type: "button", class: "btn primary", onclick: () => sendReply() }, ico("send"), "답변 보내기");
+    const c = conv = { uid, box, ta, shown: false, sync() {
+      const th = (A.threads || []).find(x => x.id === uid);
+      aiBtn.disabled = c.busyAi || !th || th.lastFrom !== "student";
+      aiBtn.title = th && th.lastFrom !== "student" ? "학생의 새 질문이 없어서 추천 답변을 만들 수 없어요" : "학생과 주고받은 대화로 답변 초안을 만들어 입력란에 넣어 줘요(보내기 전에 고칠 수 있어요)";
+      sendBtn.disabled = c.busySend || !ta.value.trim();
+      note.hidden = !A.via[uid]; fill(note, ico("auto_awesome", "fill"), "AI 추천 답변을 바탕으로 한 글이에요. 보내기 전에 내용이 맞는지 읽고 고쳐 주세요.", A.cau[uid] ? el("div", { class: "ask-caution" }, ico("warning", "fill"), "AI가 짚은 확인 사항: " + A.cau[uid]) : null);
+    } };
+    async function suggest() {
+      if (ta.value.trim() && !confirm("입력한 내용을 AI 추천 답변으로 바꿀까요?")) return;
+      c.busyAi = true; aiBtn.disabled = true; aiBtn.replaceChildren(ico("hourglass_top"), "만드는 중…");
+      try { const r = await FB.suggestReply(uid); A.draft[uid] = r.draft; A.via[uid] = true; A.cau[uid] = r.caution || ""; if (conv === c) ta.value = r.draft; }
+      catch (e) { alert("AI 추천 답변을 만들지 못했습니다: " + errText(e)); }
+      c.busyAi = false; aiBtn.replaceChildren(ico("auto_awesome"), "AI 추천 답변"); if (conv === c) c.sync();
+    }
+    async function sendReply() {
+      const text = ta.value.trim(); if (!text || c.busySend) return;
+      c.busySend = true; c.sync();
+      try { await FB.replyToStudent(uid, text, !!A.via[uid]); A.draft[uid] = ""; A.via[uid] = false; A.cau[uid] = ""; if (conv === c) ta.value = ""; toast("답변을 보냈습니다"); }
+      catch (e) { alert("답변을 보내지 못했습니다: " + errText(e)); }
+      c.busySend = false; if (conv === c) c.sync();
+    }
+    fill(askConvBox,
+      el("div", { class: "ask-head" }, el("h4", { style: "margin:0" }, stuName(t)),
+        el("button", { type: "button", class: "btn small danger", title: "이 학생과의 질문·답변 기록을 모두 지웁니다", onclick: async () => {
+          if (!confirm(`${(t.student || {}).name || uid}(${(t.student || {}).email || ""})와 주고받은 질문·답변을 모두 삭제합니다. 학생 화면에서도 사라지며 되돌릴 수 없습니다. 계속할까요?`)) return;
+          try { await FB.deleteAskThread(uid); toast("대화를 삭제했습니다"); } catch (e) { alert("삭제하지 못했습니다: " + errText(e)); }
+        } }, ico("delete"), "대화 삭제")),
+      box, note, ta, el("div", { class: "ask-actions" }, aiBtn, sendBtn));
+    c.sync(); paintAskMsgs();
+  }
+
   const paintChat = () => { paintTok(); paintLog(); paintAi(); if (M.view === "quota") paintQuota(); paintNav(); };
 
   /* --- 진도 표: 교재 장별 읽기 진도(분류별로 묶음) + 학습지 진행 --- */
@@ -442,8 +548,16 @@ function renderMonitor(main) {
           })))));
   };
 
-  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);
+  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintAskList(); paintAsk(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);
+  document.addEventListener("visibilitychange", markAskRead);
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); paintNav(); }), tok);
+  liveSub(FB.watchAskThreads((rows, err) => {
+    A.threads = rows || []; if (err) A.err = errText(err);
+    if (A.sel && !askThread()) selectAsk("");                                      // 선택한 대화가 삭제되었다
+    const t = askThread(); if (t && !(Number(t.unread) > 0)) A.marking = "";
+    paintAskList(); paintAsk(); paintNav(); markAskRead();
+  }), tok);
+  liveSub(FB.watchAskStats(s => { A.stats = s; paintAskList(); }), tok);
   liveSub(FB.watchMonitorEvents((rows, err) => { M.events = rows || []; paintCtl(); }), tok);
   liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); paintNav(); }), tok);
   liveSub(FB.watchStats((s, err) => {

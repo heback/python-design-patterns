@@ -130,6 +130,7 @@ def render(tpl_name, content_js, app_js):
                 .replace("/*@FB@*/", fb_snippet())
                 .replace("/*@MONITOR@*/", (t / "monitor.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@ASSISTANT@*/", (t / "assistant.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
+                .replace("/*@ASKTEACHER@*/", (t / "ask-teacher.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@STUDENTAUTH@*/", (t / "student-auth.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
@@ -179,6 +180,7 @@ def inject_textbook_monitor(dest):
             "<script>const TB_DATA = " + js({"chapters": CHAPTERS}) + ";</script>\n"
             "<script>" + (t / "student-auth.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "assistant.js").read_text(encoding="utf-8") + "</script>\n"
+            "<script>" + (t / "ask-teacher.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
     (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")

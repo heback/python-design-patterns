@@ -360,3 +360,34 @@ main.wide { max-width: 1380px; }
 /* 코드 폰트(JetBrains Mono 등)의 합자 끄기: `->`가 `→`로, `!=`가 `≠`로 보이면 소스와 화면이 달라진다.
    font 단축 속성이 font-variant-ligatures를 초기화하므로 !important로 고정한다. 아이콘 글꼴(.ms)만 합자가 필요해 위에서 따로 켠다. */
 *, *::before, *::after { font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
+
+/* 학생 질문(선생님께 질문) 화면 */
+.ask-shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 10px; }
+.ask-list { display: flex; flex-direction: column; gap: 4px; max-height: 68vh; overflow-y: auto; padding: 6px; background: var(--panel-sunk); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.ask-item { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; border: 1px solid transparent; background: var(--panel); color: var(--ink); border-radius: 10px; padding: 8px 10px; cursor: pointer; font: inherit; font-size: 14px; }
+.ask-item:hover { border-color: var(--accent-line); }
+.ask-item.on { border-color: var(--accent); background: var(--accent-soft); }
+.ask-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-item-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ask-item-last { color: var(--ink-soft); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-item small { color: var(--dim); }
+.ask-conv { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ask-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ask-msgs { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; min-height: 160px; overflow-y: auto; padding: 12px; background: var(--panel-sunk); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.ask-msg { max-width: 86%; border-radius: 12px; padding: 8px 12px; border: 1px solid var(--line); background: var(--panel); }
+.ask-msg.s { align-self: flex-start; }
+.ask-msg.t { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent-line); }
+.ask-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+.ask-txt { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.ask-where { display: flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 4px; }
+.ask-where .ms { font-size: 16px; margin: 0; vertical-align: 0; }
+.ask-sel { margin: 4px 0 6px; padding: 4px 10px; border-left: 3px solid var(--gold); background: var(--gold-soft); color: var(--ink-soft); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow-y: auto; }
+.ask-img { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; border: 1px solid var(--line); margin: 4px 0; cursor: zoom-in; }
+.ask-big { max-width: min(96vw, 1400px); max-height: 92vh; border-radius: 8px; background: #fff; }
+.ask-ta { width: 100%; box-sizing: border-box; resize: vertical; min-height: 96px; font: inherit; line-height: 1.55; padding: 8px 10px; border: 1px solid var(--line-control, var(--line)); border-radius: 10px; background: var(--panel); color: var(--ink); }
+.ask-ta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ask-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ask-ai-note { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--gold-soft); border: 1px solid var(--gold-line); font-size: 13px; color: var(--ink); }
+.ask-ai-note .ms { vertical-align: -4px; margin-right: 4px; }
+.ask-caution { margin-top: 4px; color: var(--bad); font-weight: 600; }
+@media (max-width: 860px) { .ask-shell { grid-template-columns: 1fr; } .ask-list { max-height: 30vh; } }

@@ -37,6 +37,32 @@ const FB = (() => {
   /* 이 화면의 장에서 남은 질문 수: {chapter, chapterTitle, limit, used, left} */
   const assistantQuota = chapter => call("getAssistantQuota", { chapter });
 
+  /* ---------- 선생님께 질문(학생 ↔ 교사) ----------
+     대화는 askThreads/{학생 uid}(요약·안 읽음 수)와 그 아래 msgs(한 건씩). 쓰기는 모두 함수가 하고 화면은 실시간으로 읽기만 한다(firestore.rules). */
+  /* 질문 보내기. p = {text, image?:{mime,data}, context:{kind, chapter, title, selection}}. 개수 제한은 없다(서버가 1분에 10번까지만 받는다). */
+  const askTeacher = p => call("askTeacher", p);
+  /* 읽음 처리: 학생은 uid 없이(내 '새 답변' 배지), 교사는 학생 uid 를 주어(그 학생의 '새 질문' 배지) 부른다. */
+  const markAskRead = uid => call("markAskRead", uid ? { uid } : {});
+  const watchMyThread = (uid, cb) => watchDoc("askThreads", uid, cb);
+  /* 한 학생 대화의 메시지를 오래된 순으로 실시간 구독(학생은 본인 것만, 교사는 누구 것이든). cb(rows) 또는 오류 시 cb(null, err). */
+  async function watchAskMsgs(uid, cb) {
+    const m = await load(), { collection, query, orderBy, onSnapshot } = m.fs;
+    return onSnapshot(query(collection(m.db, "askThreads", uid, "msgs"), orderBy("at")), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
+  }
+  /* 교사: 모든 학생의 대화 목록(요약), 답변, AI 추천 답변, 대화 삭제, AI 추천 사용 집계 */
+  const watchAskThreads = cb => live("askThreads", cb);
+  const replyToStudent = (uid, text, viaAi) => call("replyToStudent", { uid, text, viaAi: !!viaAi });
+  const suggestReply = uid => call("suggestReply", { uid });
+  async function deleteAskThread(uid) {
+    const m = await load(), { collection, getDocs, writeBatch, doc, limit, query } = m.fs;
+    for (;;) {
+      const snap = await getDocs(query(collection(m.db, "askThreads", uid, "msgs"), limit(200))); if (snap.empty) break;
+      const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit();
+    }
+    await m.fs.deleteDoc(doc(m.db, "askThreads", uid));
+  }
+  async function watchAskStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "askTeacher"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
+
   /* ---------- 개인정보 수집·이용 동의 ---------- */
   /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
   const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
@@ -153,6 +179,7 @@ const FB = (() => {
   return { who, domain: DOMAIN, fbErr, currentUser,
            watchMyConsent, saveConsent, resetConsent, watchConsents,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
+           askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

@@ -35,6 +35,7 @@
 <script>/*@CORE@*/</script>
 <script>/*@STUDENTAUTH@*/</script>
 <script>/*@ASSISTANT@*/</script>
+<script>/*@ASKTEACHER@*/</script>
 <script>/*@MONITOR@*/</script>
 <script>/*@APP@*/</script>
 </body>

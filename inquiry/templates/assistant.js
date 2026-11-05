@@ -7,28 +7,24 @@
    필요한 전역: el, ico, $, FB(fb.js), StudentAuth(student-auth.js). 호스트가 getContext() => {kind, title, text, selection} 를 준다. */
 const Assistant = (() => {
   const MAX_SIDE = 1280, QUALITY = 0.82, MAX_BYTES = 1_300_000;
-  let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, input = null, send = null, attach = null, preview = null, ctxChip = null, leftEl = null;
-  let image = null, busy = false, history = [], started = false, quotaFor = null;
+  let enabled = false, getContext = () => ({}), fab = null, panel = null, log = null, cp = null, ctxChip = null, leftEl = null;
+  let busy = false, history = [], started = false, quotaFor = null;
 
   /* ---------- 사진: 크기를 줄여 JPEG 으로(전송량·비용 절약) ---------- */
-  async function shrink(file) {
+  /* sides: 시도할 가로세로 상한(앞에서부터), maxBytes: 이 크기 아래로 줄어들 때까지 화질을 낮춘다. AI 도우미는 한 번(1280px, 1.3MB), 선생님께 묻기는 문서 한도 때문에 더 작게 줄인다. */
+  async function shrink(file, maxBytes, sides) {
     if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("JPG·PNG·WebP 사진만 보낼 수 있어요.");
-    const bmp = await createImageBitmap(file), k = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-    const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
-    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
-    let q = QUALITY, url = c.toDataURL("image/jpeg", q);
-    while (url.length * 3 / 4 > MAX_BYTES && q > 0.4) { q -= 0.15; url = c.toDataURL("image/jpeg", q); }
-    if (url.length * 3 / 4 > MAX_BYTES) throw new Error("사진이 너무 커요. 더 작은 사진을 보내 주세요.");
+    const bmp = await createImageBitmap(file), max = maxBytes || MAX_BYTES; let url = "";
+    for (const side of (sides || [MAX_SIDE])) {
+      const k = Math.min(1, side / Math.max(bmp.width, bmp.height));
+      const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+      let q = QUALITY; url = c.toDataURL("image/jpeg", q);
+      while (url.length * 3 / 4 > max && q > 0.4) { q -= 0.15; url = c.toDataURL("image/jpeg", q); }
+      if (url.length * 3 / 4 <= max) break;
+    }
+    if (url.length * 3 / 4 > max) throw new Error("사진이 너무 커요. 더 작은 사진을 보내 주세요.");
     return { mime: "image/jpeg", data: url.split(",")[1], url };
-  }
-  function setImage(im) {
-    image = im; preview.replaceChildren();
-    if (im) preview.append(el("img", { src: im.url, alt: "첨부한 사진" }), el("button", { type: "button", class: "ai-x", "aria-label": "사진 빼기", onclick: () => setImage(null) }, ico("close")));
-    preview.hidden = !im;
-  }
-  async function pick(file) {
-    if (!file) return;
-    try { setImage(await shrink(file)); input.focus(); } catch (e) { addMsg("err", e.message || "사진을 불러오지 못했어요."); }
   }
   /* 붙여넣기·끌어다 놓기로 들어온 데이터에서 이미지 파일을 찾는다(스크린샷은 files 가 아니라 items 로만 오는 브라우저가 있다) */
   function imageFrom(dt) {
@@ -36,14 +32,56 @@ const Assistant = (() => {
     const f = [...(dt.files || [])].find(x => /^image\//.test(x.type)); if (f) return f;
     const it = [...(dt.items || [])].find(x => x.kind === "file" && /^image\//.test(x.type)); return it ? it.getAsFile() : null;
   }
-  /* [붙여넣기] 버튼: 클립보드에 있는 이미지를 읽는다(브라우저가 허용할 때). 막히면 Ctrl/⌘+V 로 붙여넣는 방법을 알려 준다. */
-  async function pasteFromClipboard() {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const it of items) { const t = it.types.find(x => /^image\//.test(x)); if (t) { await pick(new File([await it.getType(t)], "clipboard", { type: t })); return; } }
-      addMsg("err", "클립보드에 이미지가 없어요. 이미지를 먼저 복사해 주세요(화면 캡처: Windows Win+Shift+S, Mac Cmd+Shift+Ctrl+4).");
-    } catch (e) { addMsg("err", "브라우저가 클립보드 읽기를 막았어요. 이미지를 복사한 뒤 입력란을 누르고 Ctrl+V(Mac은 Cmd+V)로 붙여넣어 보세요."); }
+
+  /* ---------- 글·사진 입력란: AI 도우미와 선생님께 묻기가 같은 방식으로 쓴다 ----------
+     o = {placeholder, onSend(): 보내기(Enter·버튼), onError(msg): 사진 오류 안내, maxBytes?, sides?}
+     돌려주는 것: input(글 입력란), row(입력 줄), hint(사진 안내 줄), preview(첨부 미리보기), image(첨부한 사진 또는 null), setImage, setBusy, grow, wire(panel: 붙여넣기·끌어다 놓기 연결) */
+  function composer(o) {
+    let image = null;
+    const grow = () => { input.style.height = "auto"; input.style.height = Math.max(96, Math.min(180, input.scrollHeight)) + "px"; };      // 늘 여러 줄(최소 4줄)이 보이고, 길어지면 6~7줄까지 자란다
+    const input = el("textarea", { class: "ai-in", rows: 4, placeholder: o.placeholder, "aria-label": "질문 입력",
+      oninput: grow, onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); o.onSend(); } } });
+    const preview = el("div", { class: "ai-prev", hidden: true });
+    const setImage = im => {
+      image = im; preview.replaceChildren();
+      if (im) preview.append(el("img", { src: im.url, alt: "첨부한 사진" }), el("button", { type: "button", class: "ai-x", "aria-label": "사진 빼기", onclick: () => setImage(null) }, ico("close")));
+      preview.hidden = !im;
+    };
+    const pick = async file => {
+      if (!file) return;
+      try { setImage(await shrink(file, o.maxBytes, o.sides)); input.focus(); } catch (e) { o.onError(e.message || "사진을 불러오지 못했어요."); }
+    };
+    /* [붙여넣기] 버튼: 클립보드에 있는 이미지를 읽는다(브라우저가 허용할 때). 막히면 Ctrl/⌘+V 로 붙여넣는 방법을 알려 준다. */
+    const pasteFromClipboard = async () => {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const it of items) { const t = it.types.find(x => /^image\//.test(x)); if (t) { await pick(new File([await it.getType(t)], "clipboard", { type: t })); return; } }
+        o.onError("클립보드에 이미지가 없어요. 이미지를 먼저 복사해 주세요(화면 캡처: Windows Win+Shift+S, Mac Cmd+Shift+Ctrl+4).");
+      } catch (e) { o.onError("브라우저가 클립보드 읽기를 막았어요. 이미지를 복사한 뒤 입력란을 누르고 Ctrl+V(Mac은 Cmd+V)로 붙여넣어 보세요."); }
+    };
+    const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
+    const attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 파일 첨부", title: "사진 파일 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
+    const pasteBtn = el("button", { type: "button", class: "ai-ico", "aria-label": "클립보드의 이미지 붙여넣기", title: "클립보드의 이미지 붙여넣기", onclick: pasteFromClipboard }, ico("content_paste"));
+    const send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: o.onSend }, ico("send"));
+    const row = el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file);
+    const hint = el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요.");
+    /* 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다 */
+    const wire = panel => {
+      panel.addEventListener("paste", e => { const f = imageFrom(e.clipboardData); if (f) { e.preventDefault(); pick(f); } });
+      panel.addEventListener("dragover", e => { if ([...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files")) { e.preventDefault(); panel.classList.add("drop"); } });
+      panel.addEventListener("dragleave", e => { if (e.target === panel) panel.classList.remove("drop"); });
+      panel.addEventListener("drop", e => { const f = imageFrom(e.dataTransfer); panel.classList.remove("drop"); if (f) { e.preventDefault(); pick(f); } });
+    };
+    return { input, row, hint, preview, grow, setImage, wire, get image() { return image; }, setBusy: b => { send.disabled = b; input.disabled = b; } };
   }
+  /* 오른쪽 아래 아이콘 묶음(선생님께 묻기가 위, AI 도우미가 아래). 처음 부르는 쪽이 만든다. */
+  function dock() {
+    let d = document.getElementById("fab-dock");
+    if (!d) { d = el("div", { id: "fab-dock", class: "fab-dock" }); document.body.append(d); }
+    return d;
+  }
+  /* 두 대화창은 같은 자리에 뜨므로 하나가 열리면 다른 하나는 닫는다 */
+  const announceOpen = who => document.dispatchEvent(new CustomEvent("dp-panel-open", { detail: who }));
 
   /* ---------- 대화 ---------- */
   function addMsg(who, text, img) {
@@ -54,7 +92,7 @@ const Assistant = (() => {
   }
   function welcome() {
     log.replaceChildren(); history = [];
-    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.");
+    addMsg("bot", "안녕하세요! 지금 보고 있는 화면에 대해 궁금한 것을 물어보세요. 글로 묻거나 사진(오류 화면, 필기)을 보낼 수 있어요.\n탐구 학습지 문항은 정답을 바로 알려 주지 않고, 생각할 단서를 드려요.\n질문 횟수는 장(주차)마다 따로 세요. 아래에서 이 장에 남은 횟수를 볼 수 있어요.\n선생님께 직접 묻고 싶을 때는 이 아이콘 바로 위의 [선생님께 질문]을 눌러요.");
   }
   function refreshCtx() {
     const c = getContext() || {};
@@ -69,14 +107,14 @@ const Assistant = (() => {
     quotaFor = ch;
     try { showLeft(await FB.assistantQuota(ch)); } catch (e) { leftEl.textContent = ""; }
   }
-  function setBusy(b) { busy = b; send.disabled = b; input.disabled = b; }
+  function setBusy(b) { busy = b; cp.setBusy(b); }
   async function ask() {
     if (busy) return;
-    const q = input.value.trim(); if (!q && !image) return;
+    const q = cp.input.value.trim(); if (!q && !cp.image) return;
     if (!StudentAuth.get()) { addMsg("err", "먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
     if (!StudentAuth.aiOk()) { addMsg("err", "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 쓸 수 없어요. 쓰고 싶다면 선생님께 말씀드려 주세요."); return; }
-    const ctx = getContext() || {}, im = image;
-    addMsg("me", q || "(사진)", im && im.url); input.value = ""; autosize(input); setImage(null);
+    const ctx = getContext() || {}, im = cp.image;
+    addMsg("me", q || "(사진)", im && im.url); cp.input.value = ""; cp.grow(); cp.setImage(null);
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
     try {
       const r = await FB.askAssistant({ question: q, image: im ? { mime: im.mime, data: im.data } : null, context: ctx, history });
@@ -90,21 +128,14 @@ const Assistant = (() => {
       addMsg("err", /resource-exhausted|너무 빨라|번까지|unavailable/.test(e.code + m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) && /동의/.test(m) ? m.replace(/^.*?: /, "") : /failed-precondition/.test(e.code) ? "지금은 AI 도우미를 쓸 수 없어요. 선생님이 켜 주면 쓸 수 있어요."
         : /permission|unauth/.test(e.code) ? "학교 Google 계정으로 로그인해야 해요." : "답을 받지 못했어요. 잠시 뒤에 다시 시도해 주세요.");
     }
-    setBusy(false); input.focus();
+    setBusy(false); cp.input.focus();
   }
-  function autosize(t) { t.style.height = "auto"; t.style.height = Math.max(96, Math.min(180, t.scrollHeight)) + "px"; }      // 늘 여러 줄(최소 4줄)이 보이고, 길어지면 6~7줄까지 자란다
 
   /* ---------- 화면 ---------- */
   function build() {
     fab = el("button", { type: "button", class: "ai-fab", "aria-label": "AI 도우미 열기", title: "AI 도우미", hidden: true, onclick: toggle }, ico("smart_toy", "fill"));
     log = el("div", { class: "ai-log", role: "log", "aria-live": "polite" });
-    input = el("textarea", { class: "ai-in", rows: 4, placeholder: "궁금한 것을 물어보세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", "aria-label": "질문 입력",
-      oninput: () => autosize(input), onkeydown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); } } });
-    const file = el("input", { type: "file", accept: "image/jpeg,image/png,image/webp", hidden: true, onchange: e => { pick(e.target.files[0]); e.target.value = ""; } });
-    attach = el("button", { type: "button", class: "ai-ico", "aria-label": "사진 파일 첨부", title: "사진 파일 첨부", onclick: () => file.click() }, ico("add_photo_alternate"));
-    const pasteBtn = el("button", { type: "button", class: "ai-ico", "aria-label": "클립보드의 이미지 붙여넣기", title: "클립보드의 이미지 붙여넣기", onclick: pasteFromClipboard }, ico("content_paste"));
-    send = el("button", { type: "button", class: "ai-send", "aria-label": "보내기", title: "보내기", onclick: ask }, ico("send"));
-    preview = el("div", { class: "ai-prev", hidden: true });
+    cp = composer({ placeholder: "궁금한 것을 물어보세요.\n(Enter: 보내기 · Shift+Enter: 줄바꿈)", onSend: ask, onError: m => addMsg("err", m) });
     ctxChip = el("div", { class: "ai-ctx" }); leftEl = el("span", { class: "ai-left" });
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
@@ -118,21 +149,16 @@ const Assistant = (() => {
           el("button", { type: "button", class: "ai-ico", "aria-label": "새 대화 시작", title: "새 대화 시작 (화면만 비워요. 지난 질문과 답은 선생님이 볼 수 있도록 기록되어 남아요)", onclick: welcome }, ico("add_comment")),
           el("button", { type: "button", class: "ai-ico", "aria-label": "닫기", title: "닫기", onclick: toggle }, ico("close")))),
       el("p", { class: "ai-note" }, "질문과 사진, 지금 보는 화면의 글이 AI(Google Gemini)로 전달돼요. 주고받은 질문과 AI의 답은 선생님이 볼 수 있도록 기록돼요(사진 파일은 저장하지 않아요. 개인정보 동의의 선택 항목에 동의한 경우에만 쓸 수 있어요). 이름·학번·연락처 같은 개인정보는 쓰지 마세요. AI의 답은 틀릴 수 있으니 교재와 함께 확인하세요."),
-      log, login, needAi, ctxChip, preview,
-      el("div", { class: "ai-row" }, el("span", { class: "ai-tools" }, attach, pasteBtn), input, send, file),
-      el("p", { class: "ai-hint" }, ico("image"), "사진: 이미지를 복사한 뒤 이 창에서 Ctrl+V(Mac은 Cmd+V), [붙여넣기] 버튼, 또는 끌어다 놓기로 올려요."), leftEl);
-    // 창 어디에서든 이미지를 붙여넣거나(Ctrl/Cmd+V) 끌어다 놓을 수 있다
-    panel.addEventListener("paste", e => { const f = imageFrom(e.clipboardData); if (f) { e.preventDefault(); pick(f); } });
-    panel.addEventListener("dragover", e => { if ([...(e.dataTransfer ? e.dataTransfer.types : [])].includes("Files")) { e.preventDefault(); panel.classList.add("drop"); } });
-    panel.addEventListener("dragleave", e => { if (e.target === panel) panel.classList.remove("drop"); });
-    panel.addEventListener("drop", e => { const f = imageFrom(e.dataTransfer); panel.classList.remove("drop"); if (f) { e.preventDefault(); pick(f); } });
-    document.body.append(fab, panel);
+      log, login, needAi, ctxChip, cp.preview, cp.row, cp.hint, leftEl);
+    cp.wire(panel);
+    document.body.append(panel); dock().append(fab);
+    document.addEventListener("dp-panel-open", e => { if (e.detail !== "ai" && !panel.hidden) toggle(); });
     document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) toggle(); });
     welcome();
   }
   function toggle() {
     const open = panel.hidden; panel.hidden = !open; fab.setAttribute("aria-expanded", String(open));
-    if (open) { refreshCtx(); input.focus(); log.scrollTop = log.scrollHeight; } else fab.focus();
+    if (open) { announceOpen("ai"); refreshCtx(); cp.input.focus(); log.scrollTop = log.scrollHeight; } else if (document.activeElement && panel.contains(document.activeElement)) fab.focus();
   }
   function show() { if (fab) { fab.hidden = !enabled; if (!enabled && !panel.hidden) toggle(); } }
 
@@ -162,8 +188,9 @@ const Assistant = (() => {
   function init(o) {
     if (started || typeof FB === "undefined") return; started = true;
     getContext = o.getContext; build();
+    if (typeof AskTeacher !== "undefined") AskTeacher.init(o);          // 선생님께 묻기(같은 화면 맥락을 쓴다)
     setInterval(() => { if (!panel.hidden) refreshCtx(); }, 1500);                // 화면을 옮기거나 글을 고르면 안내가 따라간다
     FB.watchAssistant(s => { enabled = !!(s && s.on); show(); }).catch(() => {});
   }
-  return { init, readable, selectedText, nearestMid };
+  return { init, readable, selectedText, nearestMid, composer, dock, announceOpen };
 })();

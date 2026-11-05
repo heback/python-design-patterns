@@ -6,6 +6,7 @@ const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 const { GoogleGenAI, Type } = require("@google/genai");
 const { TEACHER_DOMAIN, REGION, MODEL, MAX_ITEMS, ASSISTANT_MODEL, ASSISTANT_CHAPTER_LIMIT, ASSISTANT_LIMIT_MAX, ASSISTANT_MINUTE_LIMIT, CONSENT_VERSION } = require("./config");
 const assistant = require("./assistant");
+const askTeacher = require("./askteacher");
 const { answerText, isBlank, buildPrompt, SYSTEM } = require("./prompt");
 
 admin.initializeApp();
@@ -230,5 +231,93 @@ async function recordChat(e) {
   batch.set(db.doc("stats/assistant"), Object.assign({ updatedAt: e.at }, sums, { byDay: { [e.day]: sums } }), { merge: true });
   await batch.commit();
 }
+
+/* ===================== 선생님께 질문 (askThreads) =====================
+   학생 한 명당 대화 하나: askThreads/{uid}(목록용 요약·안 읽음 수)와 그 아래 msgs/{id}(질문·답변 한 건씩).
+   쓰기는 모두 아래 함수만 한다(규칙: 클라이언트는 읽기만, 학생은 자기 대화만). 질문 개수 제한은 없고 1분에 10번까지만 받는다(도배 방지).
+   unread = 선생님이 아직 안 본 학생 질문 수(교사 화면 배지), studentUnread = 학생이 아직 안 본 선생님 답변 수(학생 화면 배지). */
+const threadRef = uid => db.doc(`askThreads/${uid}`);
+
+exports.askTeacher = onCall({ region: REGION, maxInstances: 10, timeoutSeconds: 30 }, async req => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "로그인이 필요합니다.");
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
+  const noConsent = askTeacher.consentGate((await db.doc(`consents/${req.auth.uid}`).get()).data(), CONSENT_VERSION);
+  if (noConsent) throw new HttpsError("failed-precondition", noConsent);
+  const v = askTeacher.validateQuestion(req.data);
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+  const uid = req.auth.uid, tk = req.auth.token, student = { name: (tk.name || "").trim() || (tk.email || "").split("@")[0], email: (tk.email || "").toLowerCase() };
+  const ref = threadRef(uid), msgRef = ref.collection("msgs").doc();
+  const ok = await db.runTransaction(async tx => {
+    const snap = await tx.get(ref), r = askTeacher.checkRate(snap.exists ? snap.data() : null, Date.now(), askTeacher.LIMITS.minute);
+    if (!r.ok) return false;
+    const at = Timestamp.now();
+    tx.set(msgRef, askTeacher.studentMessage(v.value, at));
+    tx.set(ref, Object.assign({ uid, student }, askTeacher.threadHead("student", v.value.text, !!v.value.image, at), r.next, { unread: FieldValue.increment(1), msgCount: FieldValue.increment(1) }), { merge: true });
+    return true;
+  });
+  if (!ok) throw new HttpsError("resource-exhausted", "질문이 너무 빨라요. 잠시 뒤에 다시 보내 주세요.");
+  return { id: msgRef.id };
+});
+
+/** 교사가 학생에게 답한다. 직접 쓴 답이든 AI 추천을 고친 답이든 같은 경로이고, viaAi 로 AI 추천을 거쳤는지만 남긴다. */
+exports.replyToStudent = onCall({ region: REGION, maxInstances: 5 }, async req => {
+  await assertTeacher(req.auth);
+  const v = askTeacher.validateReply(req.data);
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+  const ref = threadRef(v.value.uid);
+  if (!(await ref.get()).exists) throw new HttpsError("not-found", "이 학생의 질문 대화가 없습니다.");
+  const at = Timestamp.now(), msgRef = ref.collection("msgs").doc(), batch = db.batch();
+  batch.set(msgRef, askTeacher.teacherMessage(v.value, req.auth.token.email, at));
+  batch.set(ref, Object.assign(askTeacher.threadHead("teacher", v.value.text, false, at), { unread: 0, studentUnread: FieldValue.increment(1), msgCount: FieldValue.increment(1) }), { merge: true });
+  await batch.commit();
+  return { id: msgRef.id };
+});
+
+/** 읽음 처리. 교사가 uid 를 주면 그 학생의 '새 질문' 배지를, 학생은(uid 없이) 자기 '새 답변' 배지를 0 으로 한다. 대화가 없으면 아무것도 하지 않는다. */
+exports.markAskRead = onCall({ region: REGION, maxInstances: 10 }, async req => {
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", `학교 계정(@${TEACHER_DOMAIN})으로 로그인해야 합니다.`);
+  const target = (req.data || {}).uid;
+  let uid = req.auth.uid, field = "studentUnread";
+  if (target != null) {
+    await assertTeacher(req.auth);
+    if (typeof target !== "string" || !target || target.includes("/") || target.length > 128) throw new HttpsError("invalid-argument", "학생(uid)이 필요합니다.");
+    uid = target; field = "unread";
+  }
+  const ref = threadRef(uid);
+  await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists && (s.data()[field] || 0) !== 0) tx.update(ref, { [field]: 0 }); });
+  return { ok: true };
+});
+
+/** 교사용 AI 추천 답변. 학생과 주고받은 최근 대화(이름·이메일 제외)와 마지막 질문의 사진·화면 정보를 Gemini 로 보내 초안을 받는다. 초안은 교사 화면의 입력란에만 들어가고, 교사가 보내기 전에는 학생에게 가지 않는다. */
+async function suggestModel(apiKey, msgs) {
+  if (!apiKey && process.env.FUNCTIONS_EMULATOR) {            // 에뮬레이터에는 키가 없다: 시험용 초안
+    const last = [...msgs].reverse().find(m => m.from === "student"), draft = "(에뮬레이터 시험 추천 답변) " + ((last && last.text) || "").slice(0, 60);
+    return { ok: true, draft, caution: "시험용 답변입니다.", usage: { prompt: 10, output: draft.length, thoughts: 0, total: 10 + draft.length } };
+  }
+  return require("./askteacher-model").suggest(apiKey, msgs);
+}
+
+exports.suggestReply = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxInstances: 5, timeoutSeconds: 60 }, async req => {
+  await assertTeacher(req.auth);
+  const uid = (req.data || {}).uid;
+  if (typeof uid !== "string" || !uid || uid.includes("/") || uid.length > 128) throw new HttpsError("invalid-argument", "학생(uid)이 필요합니다.");
+  const noAi = askTeacher.aiConsentGate((await db.doc(`consents/${uid}`).get()).data(), CONSENT_VERSION);      // AI(선택 항목)에 동의하지 않은 학생의 질문은 Gemini 로 보내지 않는다
+  if (noAi) throw new HttpsError("failed-precondition", noAi);
+  const snap = await threadRef(uid).collection("msgs").orderBy("at", "desc").limit(askTeacher.LIMITS.hist).get();
+  const msgs = snap.docs.map(d => d.data()).reverse();
+  if (!msgs.length || msgs[msgs.length - 1].from !== "student") throw new HttpsError("failed-precondition", "답할 새 질문이 없습니다(마지막 메시지가 이미 선생님의 답변입니다).");
+  let r;
+  try { r = await suggestModel(GEMINI_API_KEY.value(), msgs); }
+  catch (e) {
+    console.error("suggestReply 실패:", e && e.message);
+    const exhausted = /credit|billing|prepay|quota|RESOURCE_EXHAUSTED|"code":\s*(402|429)/i.test(String(e && e.message || e));
+    throw new HttpsError("unavailable", exhausted ? "AI의 사용량(크레딧)이 모두 소진되어 추천 답변을 만들 수 없습니다. Google AI Studio의 결제 설정을 확인하세요." : "추천 답변을 만들지 못했습니다. 잠시 뒤에 다시 시도해 주세요.");
+  }
+  const u = r.usage, inc = FieldValue.increment, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const sums = { suggestions: inc(1), failed: inc(r.ok ? 0 : 1), promptTokens: inc(u.prompt), outputTokens: inc(u.output), thoughtTokens: inc(u.thoughts), totalTokens: inc(u.total) };
+  await db.doc("stats/askTeacher").set(Object.assign({ updatedAt: Timestamp.now() }, sums, { byDay: { [day]: sums } }), { merge: true }).catch(err => console.error("추천 답변 집계 실패:", err && err.message));
+  if (!r.ok) throw new HttpsError("internal", "AI 응답을 해석하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
+  return { draft: r.draft, caution: r.caution };
+});
 
 exports._test = { sanitize, isSchoolAccount };

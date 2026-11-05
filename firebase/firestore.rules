@@ -109,6 +109,16 @@ service cloud.firestore {
     match /chatUsage/{uid} { allow read: if isTeacher(); }
     // 학생별·장별 질문 한도 가감(chatQuota/{uid}): 함수(setAssistantQuota)만 쓰고 교사만 읽는다. 학생이 자기 한도를 올릴 수 없다.
     match /chatQuota/{uid} { allow read: if isTeacher(); }
+    // 선생님께 질문(askThreads): 학생 한 명당 대화 하나. 학생은 본인 대화만 읽고, 교사는 모두 읽고 지운다. 쓰기는 함수(askTeacher·replyToStudent·markAskRead)만 한다
+    // — 학생이 남의 대화를 읽거나, 답변을 위조하거나, 안 읽음 수·시각을 꾸밀 수 없다. 질문 개수 제한은 없다(함수가 1분에 10번까지만 받는다).
+    match /askThreads/{uid} {
+      allow get: if isTeacher() || (isSchoolAccount() && uid == request.auth.uid);
+      allow list, delete: if isTeacher();
+      match /msgs/{id} {
+        allow read: if isTeacher() || (isSchoolAccount() && uid == request.auth.uid);
+        allow delete: if isTeacher();
+      }
+    }
     match /stats/{id} { allow read: if isTeacher(); }
     match /config/submissionSecret { allow read, write: if isTeacher(); }
     match /config/teachers { allow read, write: if isTeacher(); }

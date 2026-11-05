@@ -253,6 +253,37 @@ test("AI 도우미 질문 한도 가감(chatQuota): 교사만 읽고, 아무도 
   await assertFails(deleteDoc(doc(teacher(), "chatQuota/a")));
 });
 
+test("선생님께 질문(askThreads): 학생은 본인 대화·메시지만 읽고, 아무도 직접 쓰지 못한다(함수만). 교사는 모두 읽고 지울 수 있다", async () => {
+  await env.withSecurityRulesDisabled(async c => { const d = c.firestore();
+    await setDoc(doc(d, "askThreads/a"), { uid: "a", unread: 1, studentUnread: 0, lastText: "질문" });
+    await setDoc(doc(d, "askThreads/a/msgs/m1"), { from: "student", text: "질문", at: Timestamp.now() });
+    await setDoc(doc(d, "askThreads/b"), { uid: "b", unread: 0 });
+    await setDoc(doc(d, "askThreads/b/msgs/m1"), { from: "student", text: "b의 질문", at: Timestamp.now() }); });
+  // 학생 a: 자기 것만 읽는다
+  await assertSucceeds(getDoc(doc(pupil("a"), "askThreads/a")));
+  await assertSucceeds(getDocs(collection(pupil("a"), "askThreads/a/msgs")));
+  await assertFails(getDoc(doc(pupil("a"), "askThreads/b")));
+  await assertFails(getDocs(collection(pupil("a"), "askThreads/b/msgs")));
+  await assertFails(getDocs(collection(pupil("a"), "askThreads")));                         // 목록은 교사만
+  // 아무도 직접 쓰지 못한다(안 읽음 수·답변 위조 불가)
+  await assertFails(setDoc(doc(pupil("a"), "askThreads/a"), { uid: "a", unread: 0 }));
+  await assertFails(updateDoc(doc(pupil("a"), "askThreads/a"), { studentUnread: 0 }));
+  await assertFails(setDoc(doc(pupil("a"), "askThreads/a/msgs/m2"), { from: "teacher", text: "합격입니다" }));
+  await assertFails(updateDoc(doc(pupil("a"), "askThreads/a/msgs/m1"), { text: "고침" }));
+  await assertFails(setDoc(doc(teacher(), "askThreads/a/msgs/m2"), { from: "teacher", text: "교사도 직접은 못 씀" }));
+  await assertFails(updateDoc(doc(teacher(), "askThreads/a"), { unread: 0 }));
+  // 학생은 지울 수 없다. 로그인하지 않았거나 학교 계정이 아니면 읽지 못한다
+  await assertFails(deleteDoc(doc(pupil("a"), "askThreads/a/msgs/m1")));
+  await assertFails(deleteDoc(doc(pupil("a"), "askThreads/a")));
+  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "askThreads/a")));
+  await assertFails(getDoc(doc(env.authenticatedContext("a", { email: "a@gmail.com", email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore(), "askThreads/a")));
+  // 교사: 모두 읽고 지운다
+  await assertSucceeds(getDocs(collection(teacher(), "askThreads")));
+  await assertSucceeds(getDocs(collection(teacher(), "askThreads/b/msgs")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "askThreads/a/msgs/m1")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "askThreads/a")));
+});
+
 /* ---------- 개인정보 수집·이용 동의(consents) ---------- */
 const cdoc = (uid, extra = {}) => Object.assign({ uid, student: { name: "홍", email: `${uid}@ts.hs.kr` }, version: CONSENT_V, ai: true, agreedAt: serverTimestamp() }, extra);
 

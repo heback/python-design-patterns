@@ -1,9 +1,9 @@
 /* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
-.ai-fab { position: fixed; right: 20px; bottom: 20px; z-index: 1500; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
+.ai-fab { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
 .ai-fab:hover { transform: scale(1.06); }
 .ai-fab:focus-visible, .ai-ico:focus-visible, .ai-send:focus-visible, .ai-in:focus-visible { outline: 2px solid var(--accent, #1f4f78); outline-offset: 2px; }
 .ai-fab .ms { font-size: 30px; margin: 0; vertical-align: 0; }
-.ai-panel { position: fixed; right: 20px; bottom: 88px; z-index: 1500; width: min(390px, calc(100vw - 24px)); height: min(600px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14.5px; line-height: 1.65; }
+.ai-panel { position: fixed; right: 88px; bottom: 20px; z-index: 1500; width: min(390px, calc(100vw - 108px)); height: min(600px, calc(100vh - 40px)); display: flex; flex-direction: column; background: var(--surface, #fff); color: var(--text, #1a2332); border: 1px solid var(--border, #dcd5c6); border-radius: 16px; box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .5); overflow: hidden; font-size: 14.5px; line-height: 1.65; }
 .ai-panel[hidden], .ai-fab[hidden] { display: none; }
 .ai-panel header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); border-bottom: 2px solid var(--gold, #d4ae55); }
 .ai-panel header b { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
@@ -39,5 +39,18 @@
 .ai-send { border: 0; background: var(--accent, #1f4f78); color: var(--on-accent, var(--accent-text, #fff)); border-radius: 10px; width: 38px; height: 38px; display: grid; place-items: center; cursor: pointer; }
 .ai-send:disabled { opacity: .5; cursor: default; }
 .ai-left { display: block; padding: 0 14px 8px; font-size: 12px; color: var(--muted, #5a6372); text-align: right; min-height: 1px; }
-@media (max-width: 640px) { .ai-panel { right: 8px; left: 8px; bottom: 82px; width: auto; height: min(70vh, 560px); } .ai-fab { right: 14px; bottom: 14px; } }
-@media print { .ai-fab, .ai-panel { display: none !important; } }
+@media (max-width: 640px) { .ai-panel { right: 8px; left: 8px; bottom: 150px; width: auto; height: min(70vh, 560px); } .fab-dock { right: 14px; bottom: 14px; } }
+@media print { .fab-dock, .ai-fab, .ai-panel { display: none !important; } }
+
+/* 오른쪽 아래 아이콘 묶음: 선생님께 질문(위) + AI 도우미(아래). 대화창은 묶음 왼쪽에 뜬다. */
+.fab-dock { position: fixed; right: 20px; bottom: 20px; z-index: 1500; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.ask-fab { background: var(--gold, #d4ae55); color: var(--navy, #16202e); border-color: var(--navy, #16202e); }
+.fab-badge { position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px; box-sizing: border-box; border-radius: 11px; background: var(--bad, #c4391d); color: #fff; font: 700 12px/22px var(--font-sans, system-ui, sans-serif); text-align: center; border: 2px solid var(--surface, #fff); }
+.fab-badge[hidden] { display: none; }
+.ai-msg.teacher { align-self: flex-start; background: var(--gold-soft, #f6ecd6); border: 1px solid var(--gold-line, #e4d2a4); border-bottom-left-radius: 4px; }
+.ask-who { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
+.ask-who .ms { font-size: 16px; margin: 0; vertical-align: 0; }
+.ask-who span { margin-left: auto; padding-left: 10px; font-weight: 400; color: var(--muted, #5a6372); }
+.ask-time { margin-top: 2px; font-size: 11px; opacity: .8; text-align: right; }
+.ask-noimg { font-style: italic; opacity: .85; }
+.ai-msg.me.wait { opacity: .65; font-style: normal; color: var(--on-accent, var(--accent-text, #fff)); }
