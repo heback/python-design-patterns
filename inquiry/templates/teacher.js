@@ -153,7 +153,7 @@ function renderMonitor(main) {
     vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" });
   const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["logs", "forum", "대화기록", vLog], ["tokens", "data_usage", "토큰 사용량", vTok], ["quota", "tune", "질문 한도", vQuota]];
   const known = k => VIEWS.some(v => v[0] === k);
-  if (!known(M.view)) { const h = location.hash.slice(1), saved = lsGet("dp-teacher-view"); M.view = known(h) ? h : known(saved) ? saved : "progress"; }
+  if (!known(M.view)) { const h = location.hash.slice(1); M.view = known(h) ? h : "progress";   /* 처음 열면 항상 진도표. 마지막에 본 메뉴를 기억하지 않는다(주소 해시가 있을 때만 그 메뉴) */ }
   const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
   const paintNav = () => {
     const act = (M.prog || []).filter(r => liveState(tsMs(r.lastActiveAt))[0] === "ok").length, aiOn = !!(M.ai && M.ai.on), monOn = !!(M.mon && M.mon.on), err = !!recentChatErr();
@@ -162,7 +162,7 @@ function renderMonitor(main) {
       : null;
     fill(nav, VIEWS.map(([k, ic, lab]) => el("button", { type: "button", class: "side-item", "aria-current": M.view === k ? "page" : null, onclick: () => go(k) }, ico(ic, M.view === k ? "fill" : ""), el("span", { class: "side-lab" }, lab), badge(k))));
   };
-  const go = k => { M.view = k; lsSet("dp-teacher-view", k); try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); if (k === "quota") paintQuota(); paintNav(); scrollTo(0, 0); };
+  const go = k => { M.view = k; try { history.replaceState(null, "", "#" + k); } catch (e) {} VIEWS.forEach(v => { v[3].hidden = v[0] !== k; }); if (k === "quota") paintQuota(); paintNav(); scrollTo(0, 0); };
   main.append(el("div", { class: "shell" }, nav, el("div", { class: "view" }, VIEWS.map(v => v[3]))));
   VIEWS.forEach(v => { v[3].hidden = v[0] !== M.view; });
 
