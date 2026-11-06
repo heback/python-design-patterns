@@ -34,6 +34,14 @@
   <li>재귀로 원가·중량 같은 연산을 구현하고, 순회와 연산을 나누는 파이썬다운 방법을 쓸 수 있다.</li>
 </ol>
 <div class="callout"><strong>핵심 한 줄</strong> 깊이를 모르는 트리에서 부분과 전체에 같은 질문("원가가 얼마냐")을 던진다면 컴포지트를 떠올린다.</div>
+<div class="callout"><strong>처음이라면 이 그림부터</strong> 컴퓨터의 폴더를 떠올려 보자. 폴더 안에는 파일도 있고 또 다른 폴더도 있다. "크기가 얼마냐"고 물으면 파일은 자기 크기를 답하고, 폴더는 안에 든 것들에게 똑같이 물어 그 합을 답한다. 안에 든 것이 파일인지 폴더인지, 폴더가 몇 겹인지는 묻는 사람이 알 필요가 없다. 컴포지트가 이것이다. <strong>파일(단품)과 폴더(묶음)가 같은 질문에 답하고, 묶음은 그 질문을 자식에게 그대로 다시 던진다.</strong> 아래 부품표 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+<div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+  <ul>
+    <li><strong>꼭 알아야 하는 것</strong> ① 단품(<code>Part</code>)과 조립품(<code>Assembly</code>)이 같은 타입(<code>BomItem</code>)이라 쓰는 쪽은 <code>isinstance</code>로 구별하지 않는다. ② 조립품의 연산은 "내 몫 + 자식들에게 같은 질문을 던진 결과의 합"이고, 단품은 자기 값만 답해 재귀가 멈춘다. ③ 그래서 트리가 몇 단계든 코드는 그대로다.</li>
+    <li><strong>알면 좋은 것</strong> <code>add()</code>를 어디에 둘지(투명성 대 안전성), 연산이 늘 때 순회를 <code>walk()</code> 하나로 모으는 5절의 방법.</li>
+    <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 고리(순환) 방지, <code>Counter</code>와 <code>most_common()</code>, 연습문제의 런타임 검사. 연습문제를 풀 때 다시 찾아보면 된다.</li>
+  </ul>
+</div>
 </section>
 
 <section id="context">
@@ -183,7 +191,7 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
 <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;Part.cost()와 Assembly.cost()는 각각 어떻게 계산할까? 자식이 단품인지 묻는 코드가 있을까?&quot;, &quot;볼트 객체 하나를 엔진과 프레임이 함께 쓸 수 있는 이유는 무엇일까? (수량이 어디에 있을까?)&quot;, &quot;깊이가 다섯 단계로 늘어났는데 코드를 고치지 않아도 된 이유는 무엇일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
-<p class="lead-in">패턴 코드다. 데모의 BOM에는 순진한 코드를 무너뜨린 '링 세트'가 들어 있어 다섯 단계 깊이다. <code>Assembly.cost()</code>와 <code>weight_g()</code>가 똑같이 "자식에게 같은 질문을 던져 합친다"는 모양이라는 점을 보라.</p>
+<p class="lead-in">패턴 코드다. 데모의 BOM에는 순진한 코드를 무너뜨린 '링 세트'가 들어 있어 다섯 단계 깊이다. <code>Assembly.cost()</code>와 <code>weight_g()</code>가 똑같이 "자식에게 같은 질문을 던져 합친다"는 모양이라는 점을 보라. 코드에 처음 나오는 모양을 미리 읽어 두자. <code>list[tuple[BomItem, int]]</code>은 "(항목, 수량) 쌍들의 목록"이다. <code>for item, qty in self._children</code>은 쌍을 꺼내며 두 변수로 바로 나눠 담는다. <code>sum(item.cost() * qty for ...)</code>은 괄호 안에서 값을 하나씩 만들어 더한다. <code>add()</code>가 <code>self</code>를 돌려주는 것은 <code>Assembly(...).add(a).add(b)</code>처럼 이어 쓰려는 것이고, <code>{n:,}</code>는 숫자에 천 단위 쉼표를 붙인다.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 패턴 코드: BomItem 하나로 단품과 조립품을 똑같이 다룬다.
 
 상황: 소연은 깊이 가정을 버린다. Part(단품)와 Assembly(조립품)가 공통 타입 BomItem을
@@ -282,13 +290,22 @@ if __name__ == &quot;__main__&quot;:
   <li>수량이 자식 객체가 아니라 <code>(항목, 수량)</code> 쌍에 있다. 그래서 볼트 객체 하나를 엔진(16개)과 프레임(24개)이 함께 쓴다. 단가가 오르면 한 곳만 고친다.</li>
   <li><code>report()</code>: 데모 [1]에서 볼트 하나, 엔진, 경운기 전체를 같은 코드로 처리한다. <code>isinstance</code>도 루프 중첩도 없다.</li>
 </ul>
+<div class="callout"><strong>데모 [1]의 엔진 원가 73,520원을 풀면</strong> 안쪽 조립품부터 값이 올라온다.
+  <ol>
+    <li>링 세트 = 공임 500 + 링 3개 × 1,200 = <strong>4,100</strong> (링은 단품이라 자기 단가만 답한다).</li>
+    <li>피스톤 조립품 = 공임 9,600 + 링 세트 4,100 + 핀 2,100 = <strong>15,800</strong>. 링 세트가 조립품이어도 <code>cost()</code>를 부르는 코드는 똑같다.</li>
+    <li>엔진 = 공임 40,000 + 피스톤 조립품 2개 × 15,800 + 볼트 16개 × 120 = 40,000 + 31,600 + 1,920 = <strong>73,520</strong>.</li>
+  </ol>
+</div>
+<div class="callout"><strong>왜 <code>Part</code>와 <code>Assembly</code>가 공통 타입을 가질까? <code>isinstance</code>로 가르면 안 될까?</strong> 가르면 쓰는 쪽이 항목마다 "단품이냐 조립품이냐"를 묻고, 새 종류가 생기면 그 분기를 모두 고쳐야 한다(순진한 코드가 그랬다). 공통 타입이 있으면 쓰는 쪽은 <code>cost()</code> 하나만 부르고, "자식이 단품인지 조립품인지"는 각 객체가 자기 방식으로 답한다. 새 종류는 클래스를 <em>더하는</em> 것으로 끝난다.</div>
 <p>실제 BOM에는 "A 아래 B, B 아래 A" 같은 입력 실수로 고리가 생기기도 한다. 그러면 재귀가 끝나지 않으므로, 실무 코드라면 <code>add()</code>에서 미리 막는다.</p>
 </section>
 
 <section id="pythonic">
 <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;walk()는 트리를 어떤 모양의 흐름으로 바꿔 줄까? 그러면 무엇이 편해질까?&quot;, &quot;데모 [2]의 볼트 400개는 어떻게 계산된 값일까?&quot;, &quot;평평한 흐름으로는 쓰기 어렵고 재귀 메서드가 나은 연산은 어떤 것일까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
+<div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. 부분과 전체를 같은 방식으로 다루는 것이다. 4절은 연산(<code>cost</code>, <code>weight_g</code>)마다 클래스 안에 <strong>재귀 메서드</strong>를 쓴다. 연산이 늘면 클래스들을 다시 연다. 5절은 재귀를 <strong><code>walk()</code> 한 곳</strong>에 가두고, 원가·소요량은 그 흐름을 읽는 짧은 <strong>바깥 함수</strong>로 쓴다. 연산이 늘어도 클래스는 그대로다.</div>
 <p>구매팀이 "경운기 10대에 볼트가 몇 개 필요한가"를 물었다. 이런 계산을 <dfn class="term" id="term-bom-explosion" data-term="bom-explosion" title="BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 계산하는 것.">소요량 전개</dfn>라 한다. BOM을 펼쳐 완제품 n개에 필요한 단품별 총수량을 구하는 일이다. 연산이 늘 때마다 세 클래스를 여는 대신, 순회는 한 번만 쓰고 연산은 순회 결과 위에서 하면 어떨까?</p>
-<p class="lead-in">아래 코드의 <code>walk()</code>는 트리를 (항목, 누적 수량)의 평평한 흐름으로 바꾼다. 두 가지 도구가 나온다. <dfn class="term" id="term-yield-from" data-term="yield-from" title="하위 이터러블의 값을 하나씩 그대로 흘려보내는(순회를 위임하는) 제너레이터 문법."><code>yield from</code></dfn>은 하위 제너레이터가 내는 값을 하나씩 그대로 흘려보내는 문법이다. 반환 타입 <dfn class="term" id="term-iterator" data-term="iterator" title="__next__()로 다음 값을 주고 끝나면 StopIteration을 던지는, &#x27;한 번 쓰면 닳는 커서&#x27; 객체. __iter__()는 자기 자신을 돌려준다."><code>Iterator</code></dfn>는 <code>next()</code>를 부를 때마다 다음 값을 주는 값의 흐름이라는 뜻이다. <dfn class="term" id="term-counter" data-term="counter" title="키별 개수를 세는 딕셔너리 하위 클래스; `+=`로 누적하고 `most_common()`으로 많은 순서대로 꺼낸다."><code>collections.Counter</code></dfn>는 키별 개수를 세는 딕셔너리로, <code>most_common()</code>으로 많은 순서대로 꺼낸다.</p>
+<p class="lead-in">아래 코드의 <code>walk()</code>는 트리를 (항목, 누적 수량)의 평평한 흐름으로 바꾼다. 두 가지 도구가 나온다. <dfn class="term" id="term-yield-from" data-term="yield-from" title="하위 이터러블의 값을 하나씩 그대로 흘려보내는(순회를 위임하는) 제너레이터 문법."><code>yield from</code></dfn>은 하위 제너레이터가 내는 값을 하나씩 그대로 흘려보내는 문법이다. 반환 타입 <dfn class="term" id="term-iterator" data-term="iterator" title="__next__()로 다음 값을 주고 끝나면 StopIteration을 던지는, &#x27;한 번 쓰면 닳는 커서&#x27; 객체. __iter__()는 자기 자신을 돌려준다."><code>Iterator</code></dfn>는 <code>next()</code>를 부를 때마다 다음 값을 주는 값의 흐름이라는 뜻이다. <dfn class="term" id="term-counter" data-term="counter" title="키별 개수를 세는 딕셔너리 하위 클래스; `+=`로 누적하고 `most_common()`으로 많은 순서대로 꺼낸다."><code>collections.Counter</code></dfn>는 키별 개수를 세는 딕셔너리로, <code>most_common()</code>으로 많은 순서대로 꺼낸다. 처음 보는 <code>yield</code>부터 읽는 법을 적는다. 함수 안에 <code>yield</code>가 있으면 <code>return</code>처럼 한 번에 끝나지 않고 <strong>값을 하나씩 내놓는 함수</strong>가 되고, 그 결과를 <code>for</code>로 돌며 받는다. <code>yield self, qty</code>는 "나 자신과 누적 수량 한 쌍을 하나 내놓는다"이다.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;07 컴포지트 — 파이썬다운 변형: 순회는 walk() 한 번만 쓰고, 연산은 그 위에서 한다.
 
 상황: 구매팀이 &quot;경운기 10대에 볼트가 몇 개 필요한가&quot;(소요량 전개)를 물었다.
@@ -362,6 +379,7 @@ if __name__ == &quot;__main__&quot;:
     print(f&quot;[2] 경운기 10대 소요량: {explode(tiller, 10).most_common()}&quot;)   # 볼트는 (16 + 24) × 10</code></pre></figure>
 <ul>
   <li><strong>재귀를 한 곳에 가둔다.</strong> 재귀는 <code>Assembly.walk()</code>에만 있다. <code>total_cost()</code>는 <code>sum</code> 한 줄, <code>explode()</code>는 <code>Counter</code>에 더하기뿐이다. 데모 [2]의 볼트 400개는 (16 + 24) × 10대로, 공유 부품이 저절로 합산된 결과다.</li>
+  <li><strong>누적 수량</strong>은 <code>walk(qty * n)</code>으로 내려가며 곱해진다. 데모 [2]에서 <code>tiller.walk(10)</code>은 경운기 10, 엔진 10, 피스톤 10 × 2 = 20, 볼트 10 × 16 = 160, 프레임 10, 볼트 10 × 24 = 240을 차례로 내놓는다. <code>explode()</code>는 단품만 골라 같은 이름끼리 더하므로 볼트는 160 + 240 = 400이다.</li>
   <li><strong><code>explode()</code>의 <code>isinstance</code>는 필터다.</strong> 타입마다 다른 계산을 하는 분기가 아니라 "단품만 골라라"는 조건이다.</li>
   <li><strong>한계도 있다.</strong> 자식 결과를 더하는 연산에는 잘 맞는다. 하지만 "형제 중 가장 늦은 것 + 내 조립 기간"처럼 트리 모양을 써야 하는 연산은 평평한 흐름으로 쓰기 어렵다. 그런 연산은 패턴 코드처럼 재귀 메서드가 낫다.</li>
 </ul>

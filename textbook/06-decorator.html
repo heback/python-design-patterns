@@ -34,6 +34,14 @@
   <li>GoF 데코레이터 패턴과 파이썬 <code>@decorator</code> 문법이 어디서 겹치고 어디서 다른지 구분할 수 있다.</li>
 </ol>
 <div class="callout"><strong>핵심 한 줄</strong> 기능을 켜고 끄는 조합이 많고, 그 조합을 실행 중에 바꿔야 한다면 기능 하나를 래퍼 하나로 만들어 겹쳐 쌓는다.</div>
+<div class="callout"><strong>처음이라면 이 그림부터</strong> 선물을 포장한다고 하자. 선물을 비닐로 싸고, 상자에 넣고, 리본을 묶는다. 어느 단계에서든 겉모습이 어떻든 그것은 여전히 "건넬 수 있는 선물"이다. 겹마다 하는 일은 하나뿐이고, 상자 없이 리본만 묶을 수도 있다. 다만 순서가 있다. 리본을 먼저 묶고 상자에 넣으면 리본이 눌려 버린다. 데코레이터가 이것이다. <strong>같은 모양을 유지한 채, 겹 하나가 기능 하나를 맡아 필요한 만큼 순서대로 쌓는다.</strong> 아래 농장 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+<div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+  <ul>
+    <li><strong>꼭 알아야 하는 것</strong> ① 래퍼는 진짜 채널과 <em>같은 인터페이스</em>를 지키면서 안쪽 채널을 하나 들고, 자기 일을 한 뒤 안쪽으로 넘긴다. ② 기능 하나가 래퍼 하나이고 조합은 "감싸는 순서"로 표현된다. 순서가 바뀌면 결과가 달라질 수 있다. ③ 같은 모양이라서 몇 겹이든 겹칠 수 있고, 쓰는 쪽은 몇 겹인지 모른다.</li>
+    <li><strong>알면 좋은 것</strong> 메서드 하나짜리라면 함수로 감싸도 되고, 파이썬의 <code>@</code> 문법이 그 함수를 정의 직후에 감싼다(5절). <code>@</code>가 곧 GoF 데코레이터는 아니다.</li>
+    <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 교육용 암호(<code>toy_encrypt</code>)의 계산, SHA-256과 <code>zlib</code> 내부, <code>functools.wraps</code>. 순서가 결과를 바꾼다는 것만 이해하면 된다.</li>
+  </ul>
+</div>
 </section>
 
 <section id="context">
@@ -174,7 +182,7 @@ if __name__ == &quot;__main__&quot;:
 
 <section id="implementation">
 <h2>4. 패턴 적용<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;조립 코드의 중첩을 바깥에서 안쪽으로 읽으면 무엇을 알 수 있을까?&quot;, &quot;데모 [2]에서 같은 두 래퍼의 순서만 바꿨더니 크기가 다섯 배 넘게 차이 났다. 왜일까?&quot;, &quot;쓰는 쪽이 맨 채널인지 다섯 겹 감싼 채널인지 모르는 성질을 무엇이라 부를까? 이 성질이 왜 필요할까?&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
-<p class="lead-in">기능 넷이 각각 구체 데코레이터 하나가 된다. 압축·암호화는 데이터를 바꾸고, 로그는 보기만 하는 '관찰형'이며, 배치는 버퍼를 가진다. 맨 아래 조립 부분의 중첩을 바깥에서 안쪽으로 읽으면 그것이 처리 순서다.</p>
+<p class="lead-in">기능 넷이 각각 구체 데코레이터 하나가 된다. 압축·암호화는 데이터를 바꾸고, 로그는 보기만 하는 '관찰형'이며, 배치는 버퍼를 가진다. 맨 아래 조립 부분의 중첩을 바깥에서 안쪽으로 읽으면 그것이 처리 순서다. 코드에 처음 나오는 모양을 미리 읽어 두자. <code>self._size, self._buffer = size, []</code>는 두 변수에 한 줄로 대입하는 것이다(<code>_size = size</code>, <code>_buffer = []</code>). <code>super().__init__(inner)</code>는 부모(<code>ChannelDecorator</code>)의 생성자를 불러 <code>_inner</code>를 채운다. 데모 [2]의 <code>outer(inner(sink))</code>는 클래스도 변수에 담아 함수처럼 부를 수 있다는 점을 쓴다. 괄호가 겹친 조립 코드는 <strong>만들어지는 순서는 안쪽부터, 데이터가 지나는 순서는 바깥부터</strong>다.</p>
 <figure class="code"><figcaption>패턴 코드</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 패턴 코드: 같은 Channel 인터페이스를 지키는 래퍼를 겹쳐 쌓는다.
 
 상황: 준호는 기능 하나를 래퍼 클래스 하나로 만든다. 모든 래퍼가 MqttChannel과 같은
@@ -330,13 +338,23 @@ if __name__ == &quot;__main__&quot;:
   <li>데모 [1]의 로그 두 줄: 같은 <code>LoggingChannel</code>을 두 위치에 꽂아 압축 전·후 크기를 함께 본다.</li>
   <li>데모 [2]: 같은 두 래퍼를 순서만 바꿨더니 크기가 다섯 배 넘게 차이 난다. 암호문은 무작위처럼 보여 압축할 반복이 없다.</li>
 </ul>
+<div class="callout"><strong>데모 [1]을 한 줄씩 풀면</strong> (15건을 보내고 배치 크기는 10)
+  <ol>
+    <li><code>farm.send()</code>를 처음 9번 부르면 배치 래퍼가 버퍼에 쌓기만 한다. 아무것도 안쪽으로 내려가지 않는다.</li>
+    <li>10번째에 버퍼가 차서 10건을 한 덩어리(499바이트)로 안쪽에 보낸다. 그러자 "압축 전" 로그가 <code>499 bytes</code>를 찍고, 압축 래퍼가 줄이고, "압축 후" 로그가 <code>94 bytes</code>를 찍는다. 암호화는 길이를 바꾸지 않고, MQTT가 94를 기록한다.</li>
+    <li>11~15번째 5건은 다시 버퍼에만 쌓인다.</li>
+    <li><code>farm.flush()</code>가 남은 5건(254바이트 → 압축 후 77바이트)을 같은 길로 내려보내고, 안쪽 래퍼들에도 <code>flush()</code>를 전한다. 그래서 마지막 출력이 <code>[94, 77]</code>이다.</li>
+  </ol>
+</div>
 <p>쓰는 쪽은 자기가 받은 것이 맨 채널인지 다섯 겹 감싼 채널인지 모른다. 이렇게 감싼 객체가 원래 객체와 똑같이 보여 쓰는 쪽이 차이를 알 필요가 없는 성질을 <dfn class="term" id="term-transparency" data-term="transparency" title="대리 객체가 실제 객체와 완전히 똑같이 보여서, 클라이언트가 그 차이를 알 수도 알 필요도 없는 성질.">투명성</dfn>이라 한다. 래퍼들은 서로를 모르지만 함께 내는 결과는 순서에 달려 있다. 순서가 중요하면 그 규칙을 조립 코드의 주석이나 설정 검사로 드러내야 한다. 또 감싼 객체는 원래 객체와 다른 객체라서, 원래 <code>mqtt</code>를 들고 있는 코드는 래퍼를 건너뛸 수 있다.</p>
+<div class="callout"><strong>왜 래퍼를 겹칠까? 플래그나 서브클래스면 안 될까?</strong> 플래그는 기능이 늘 때마다 <code>send()</code> 한 메서드를 고치게 하고, 순서가 줄 순서에 숨는다. 서브클래스는 조합마다 클래스가 필요해 기능이 넷이면 열여섯이 된다(2절). 래퍼는 기능마다 클래스 하나이고 조합은 <em>끼우는 순서</em>로 정해 클래스가 늘지 않는다. 한편 <code>ChannelDecorator</code>가 <code>Channel</code>을 상속하면서 <code>Channel</code>을 또 하나 갖는 것이 헷갈릴 수 있다. 상속은 "나도 <code>Channel</code>이다"(그래서 다른 래퍼가 나를 감쌀 수 있다), 필드는 "안쪽에 <code>Channel</code>이 하나 있다"(그래서 일을 넘긴다)로 역할이 다르다.</div>
 </section>
 
 <section id="pythonic">
 <h2>5. 파이썬다운 변형<button type="button" class="focus-q" aria-haspopup="dialog" aria-label="이 절을 읽으며 생각할 질문 보기" title="읽으며 생각할 질문" data-questions="[&quot;send 하나짜리라면 클래스 없이 어떻게 같은 일을 할 수 있을까?&quot;, &quot;@ 문법은 설정 파일로 조합을 바꾸고 싶다는 요구에 왜 맞지 않을까?&quot;, &quot;함수 래퍼 대신 클래스가 더 나은 경우는 언제일까? (예: 배치)&quot;]"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-1 .6-1.5 1.2-1.5 2.4"/><circle cx="12" cy="18.2" r=".6" fill="currentColor"/></svg></button></h2>
 <p>선배 미정이 물었다. "<code>send</code> 하나짜리면 함수를 감싸면 되잖아. 파이썬엔 <code>@</code>도 있고."</p>
-<p class="lead-in">아래 코드는 (1) <code>Send</code> 함수 타입을 Component로 삼은 함수 래퍼, (2) <dfn class="term" id="term-decorator-syntax" data-term="decorator-syntax" title="정의 바로 위에 `@deco`를 쓰면 정의 직후 `f = deco(f)`로 이름을 다시 묶는 문법 설탕; 결과가 무엇이어야 하는지는 강제하지 않으므로 GoF 데코레이터 패턴과는 범주가 다르다."><code>@</code> 문법</dfn>, (3) 설정 목록으로 실행 중에 체인을 만드는 <code>build_chain()</code>을 차례로 보여 준다. <code>@</code> 문법은 함수 정의 위에 <code>@이름</code>을 붙이면 정의 직후 그 함수를 넘겨 받은 결과로 이름을 다시 묶는 파이썬 문법이다. <dfn class="term" id="term-functools-reduce" data-term="functools-reduce" title="이항 함수를 시퀀스에 왼쪽부터 차례로 적용해 하나의 값으로 접는 함수; 래퍼 목록을 한 체인으로 조립하는 데 쓸 수 있다."><code>functools.reduce</code></dfn>는 두 값을 받는 함수를 목록에 차례로 적용해 하나로 접는 함수다.</p>
+<div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. 기능 하나를 겹 하나로 만들어 순서대로 쌓는 것이다. 4절은 <strong>클래스</strong>로 한다. <code>send</code>와 <code>flush</code> 두 메서드가 있고, 배치처럼 상태(버퍼)를 가진 래퍼도 된다. 5절은 <strong>함수</strong>로 한다. 함수를 받아 함수를 돌려주므로 메서드 하나짜리에만 맞고, 상태가 필요하면 클래스로 돌아간다. 또 <code>@</code>는 "정의 순간에 한 번 감싸 고정하는" 문법이라 실행 중에 조합을 바꾸는 4절의 장점과는 다르다.</div>
+<p class="lead-in">아래 코드는 (1) <code>Send</code> 함수 타입을 Component로 삼은 함수 래퍼, (2) <dfn class="term" id="term-decorator-syntax" data-term="decorator-syntax" title="정의 바로 위에 `@deco`를 쓰면 정의 직후 `f = deco(f)`로 이름을 다시 묶는 문법 설탕; 결과가 무엇이어야 하는지는 강제하지 않으므로 GoF 데코레이터 패턴과는 범주가 다르다."><code>@</code> 문법</dfn>, (3) 설정 목록으로 실행 중에 체인을 만드는 <code>build_chain()</code>을 차례로 보여 준다. <code>@</code> 문법은 함수 정의 위에 <code>@이름</code>을 붙이면 정의 직후 그 함수를 넘겨 받은 결과로 이름을 다시 묶는 파이썬 문법이다. <dfn class="term" id="term-functools-reduce" data-term="functools-reduce" title="이항 함수를 시퀀스에 왼쪽부터 차례로 적용해 하나의 값으로 접는 함수; 래퍼 목록을 한 체인으로 조립하는 데 쓸 수 있다."><code>functools.reduce</code></dfn>는 두 값을 받는 함수를 목록에 차례로 적용해 하나로 접는 함수다. 타입 힌트부터 읽는 법을 적는다. <code>Send = Callable[[bytes], None]</code>은 "맨 끝이 돌려주는 값(<code>None</code>), 앞 대괄호가 받는 인자 목록(<code>bytes</code> 하나)"이니 <strong>바이트를 받아 아무것도 돌려주지 않는 함수</strong>다. <code>compressed(send: Send) -&gt; Send</code>는 그런 함수를 받아 같은 모양의 함수를 돌려주므로 몇 겹이든 겹칠 수 있다. <code>logged("debug")</code>처럼 설정이 필요하면 <code>logged</code>가 "래퍼를 만드는 함수"를 돌려주는 한 겹 더 깊은 모양이 된다. <code>@logged("debug")</code> 아래에 <code>@compressed</code>가 있으면 <strong>가까운 것부터</strong>(압축 먼저, 로그가 바깥) 감싼다.</p>
 <figure class="code"><figcaption>파이썬다운 변형</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 파이썬다운 변형: 함수 래퍼, @ 문법, 설정 목록으로 체인 조립.
 
 상황: 선배 미정이 묻는다. &quot;send 하나짜리면 함수를 감싸면 되잖아. 파이썬엔 @도 있고.&quot;
@@ -408,6 +426,14 @@ if __name__ == &quot;__main__&quot;:
   <li><strong>함수 래퍼도 GoF의 의도를 그대로 따른다.</strong> 같은 모양(<code>Send</code>)을 받아 같은 모양을 돌려주고, 기능 하나를 덧붙이며, 몇 겹이든 겹친다. 다만 배치처럼 <code>send</code>와 <code>flush</code>가 버퍼를 함께 써야 하면 클래스가 낫다. 실무에서는 안쪽 <code>wrapper</code>에 <dfn class="term" id="term-functools-wraps" data-term="functools-wraps" title="래퍼 함수가 원래 함수의 `__name__`·`__doc__` 등을 물려받고 `__wrapped__`로 원본에 닿게 해 주는 데코레이터."><code>functools.wraps</code></dfn>(래퍼가 원래 함수의 이름과 docstring을 물려받게 하는 도구)를 붙인다.</li>
   <li><strong><code>@</code> 문법은 패턴이 아니라 문법이다.</strong> 데모 [2]의 <code>debug_send</code>는 정의되는 순간 감싸지고 조합이 소스 코드에 박혀, "설정 파일로 조합을 바꾼다"는 요구에 맞지 않는다. 그럴 때는 데모 [3]처럼 래퍼 함수만 가져와 실행 중에 조립한다. 또 함수를 감싸지 않고 등록만 하는 <code>@</code>도 흔하니, <code>@</code>가 곧 GoF 데코레이터는 아니다.</li>
 </ul>
+<div class="callout"><strong>데모 [3]의 <code>build_chain(["log", "compress"], mqtt_send)</code>를 풀면</strong> 목록의 첫 이름이 가장 바깥이 되어야 하므로 <code>reversed</code>로 뒤집어 <em>안쪽부터</em> 감싼다.
+  <ol>
+    <li>시작값은 <code>sink</code>(= <code>mqtt_send</code>)다. 뒤집은 목록은 <code>["compress", "log"]</code>.</li>
+    <li><code>"compress"</code>: <code>compressed(mqtt_send)</code>를 만든다.</li>
+    <li><code>"log"</code>: <code>logged("config")(위 결과)</code>를 만든다. 최종 체인은 "로그 → 압축 → 전송"이다.</li>
+    <li>이 함수에 데이터를 넣으면 로그가 원본 크기(390바이트)를 찍고, 압축 후 MQTT에 51바이트가 도착한다.</li>
+  </ol>
+</div>
 </section>
 
 <section id="tradeoffs">

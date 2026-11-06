@@ -12,6 +12,14 @@ part: 생성 패턴
     <li>파이썬에서 생성 함수 묶음으로 제품군을 가볍게 표현하고, 그 대가로 무엇을 잃는지 판단할 수 있다.</li>
   </ol>
   <div class="callout"><strong>핵심 한 줄</strong> 제품들이 서로 섞이면 안 될 때, "어느 제품군인가"를 팩토리 하나를 고르는 결정으로 <em>단 한 번만</em> 내리게 한다.</div>
+  <div class="callout"><strong>처음이라면 이 그림부터</strong> 이사 간 집의 방을 꾸민다고 하자. 가구 브랜드가 "원목 세트"와 "화이트 세트" 두 가지이고, 각 브랜드 매장에는 침대·책상·의자가 그 브랜드 스타일로 다 갖춰져 있다. 나는 "어느 매장에서 살까"를 한 번만 정하고, 그다음에는 그 매장에 "침대 주세요, 책상 주세요"라고만 말한다. 그러면 침대는 원목, 책상은 화이트처럼 섞일 수가 없다. 추상 팩토리가 이것이다. 매장(팩토리)이 한 세트의 제품을 모두 만들어 주고, 손님(클라이언트 코드)은 어느 매장인지만 고를 뿐 제품의 구체적인 이름은 모른다. 아래 클라우드 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+  <div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+    <ul>
+      <li><strong>꼭 알아야 하는 것</strong> ① 서로 맞아야 하는 제품들(제품군)이 섞이면 사고가 나는데, 순진한 코드는 "섞지 말자"를 사람의 기억에 맡긴다. ② 팩토리 객체 하나를 받아 거기서만 제품을 꺼내면, "어느 제품군인가"는 팩토리를 고르는 한 번의 결정으로 끝난다. ③ 비대칭: 새 제품군(클라우드)은 클래스를 <em>더하기만</em> 하면 되지만, 새 제품 종류(CDN)는 모든 팩토리를 고쳐야 한다.</li>
+      <li><strong>알면 좋은 것</strong> 5절처럼 클래스 대신 "생성 함수 묶음"(데이터)으로 만들면 가볍지만, 섞임 검사를 직접 해야 한다. 팩토리를 생성자 인자로 받는 방식은 테스트에 가짜를 끼우는 데도 쓰인다.</li>
+      <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 구체 제품 9개의 이름(같은 모양의 반복이다), <code>ABC</code>·<code>@abstractmethod</code>의 세부, <code>frozen</code>과 <code>__post_init__</code>의 내부 동작, composition root라는 말("프로그램 시작 지점"으로 읽으면 된다). 연습문제를 풀 때 다시 찾아보면 된다.</li>
+    </ul>
+  </div>
 </section>
 
 <section id="context">
@@ -105,7 +113,7 @@ part: 생성 패턴
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">제품군을 <code>CloudFactory</code> 계층으로 묶은 코드다. 길지만 구체 제품 부분은 같은 모양의 반복이다. 세 곳을 보라. 구체 팩토리가 자기 제품군만 만드는지, 클라이언트에 구체 클래스 이름이 남아 있는지, 분기가 어디에 남는지.</p>
+  <p class="lead-in">제품군을 <code>CloudFactory</code> 계층으로 묶은 코드다. 길지만 구체 제품 부분은 같은 모양의 반복이다. 세 곳을 보라. 구체 팩토리가 자기 제품군만 만드는지, 클라이언트에 구체 클래스 이름이 남아 있는지, 분기가 어디에 남는지. 문법 몇 가지: <code>@abstractmethod</code>를 붙인 메서드는 "본문이 비어 있고, 구체 팩토리가 반드시 채워야 하는 약속"이다. 하나라도 빠뜨리면 팩토리를 만드는 순간 <code>TypeError</code>가 난다. <code>class SqsQueue(MessageQueue):</code>처럼 설명글만 있는 클래스는 "부모와 같은 모양에 이름만 다른 제품"이라는 뜻이고, 클래스 안에 바로 쓴 <code>scheme = "s3"</code>는 그 클래스의 모든 객체가 공유하는 값이다. 데모 [1]의 <code>{env:5}</code>는 글자 수가 모자라면 공백을 채워 5칸으로 맞추라는 출력 서식이다.</p>
   <pre data-src="02_abstract_factory/easy/e2_pattern.py" data-title="패턴 코드"></pre>
   <ul>
     <li>데모 [1]에서 같은 클라이언트 코드가 세 환경에서 그대로 돈다. <code>ThumbnailWorker</code>는 저장소를 업로드와 같은 팩토리에서 받으므로 다른 클라우드의 저장소를 가질 길이 없다.</li>
@@ -113,13 +121,23 @@ part: 생성 패턴
     <li><code>UploadService</code>는 <code>__init__(self, cloud)</code>의 인자로 팩토리를 <em>받기만</em> 한다. 순진한 코드는 <code>__init__</code> 안에서 <code>GcsStorage()</code> 같은 객체를 직접 만들었다. 이렇게 필요한 객체를 안에서 만들지 않고 바깥에서 생성자 인자로 받는 방식을 <strong>생성자 주입</strong>(의존성 주입의 가장 흔한 형태)이라 한다. 쓰는 쪽이 구체 클래스 이름을 몰라도 되고, 테스트에서는 가짜 객체를 넘겨 바꿔 끼울 수 있다. 다만 제품 세 개를 따로 받으면 호출자가 다시 섞어 넘길 수 있어서, 제품 대신 팩토리 하나를 받게 했다.</li>
     <li><code>make_cloud_factory()</code>에는 분기가 남는다. 괜찮다. 문제는 분기가 <em>복제</em>되는 것이었다. 프로그램 시작 지점(composition root) 한 곳에서 팩토리를 하나 만들어 모두에게 나눠 준다. 팩토리가 하나면 된다고 싱글턴으로 만들 필요는 없다(4장).</li>
   </ul>
+  <div class="callout"><strong>왜 팩토리 "하나"를 받을까? 더 단순한 방법이면 안 될까?</strong> 두 가지 쉬운 길이 있지만 둘 다 섞임을 막지 못한다. ① 저장소와 큐를 각자 인자로 받는 방법(<code>UploadService(storage, queue)</code>)은 간단하지만, 호출자가 GCP 저장소와 AWS 큐를 넘겨도 막을 수 없다. ② 1장의 단순 팩토리로 <code>make_storage(cloud)</code>, <code>make_queue(cloud)</code>를 따로 두면 분기는 모이지만, 호출자가 두 함수에 서로 다른 <code>cloud</code> 값을 줄 수 있다. 팩토리 하나를 받으면 저장소와 큐가 <em>같은 객체</em>에서 나오므로 섞을 길 자체가 없다. 생성 코드를 한곳에 모으는 것이 핵심이 아니라, 한 세트를 한 객체에서만 꺼내게 하는 것이 핵심이다.</div>
 </section>
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
   <p>패턴 코드는 클래스가 16개다. 파이썬에서는 팩토리를 "생성 함수 몇 개의 묶음"으로 보고, 클래스 계층 대신 값 하나로 표현할 수 있다.</p>
-  <p class="lead-in">아래 코드는 팩토리를 frozen 데이터클래스 <code>CloudKit</code>으로, 구체 팩토리를 묶음을 만드는 함수 <code>aws_kit()</code>, <code>gcp_kit()</code>로 바꾼다. <code><dfn data-term="post-init">__post_init__</dfn></code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검사를 넣는 자리다. 이것이 왜 필요한지는 데모 [2]가 답한다.</p>
+  <div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. 한 클라우드의 제품을 한꺼번에 만들어 섞이지 않게 하는 것이다. 4절은 팩토리를 <strong>클래스</strong>(<code>CloudFactory</code> 계층)로 만든다. "GCP 제품만 만든다"는 보장이 <code>GcpFactory</code>라는 클래스의 정의에서 나오고, 섞이면 그 정의가 틀린 것이다. 5절은 팩토리를 <strong>생성 함수들을 담은 데이터</strong>(<code>CloudKit</code>)로 만든다. 클래스가 훨씬 적지만, 데이터는 누구나 섞어 만들 수 있어서 같은 보장을 실행 중 검사로 직접 지켜야 한다.</div>
+  <p class="lead-in">아래 코드는 팩토리를 frozen 데이터클래스 <code>CloudKit</code>으로, 구체 팩토리를 묶음을 만드는 함수 <code>aws_kit()</code>, <code>gcp_kit()</code>로 바꾼다. <code><dfn data-term="post-init">__post_init__</dfn></code>은 데이터클래스가 자동으로 만든 생성자가 필드를 채운 직후 불러 주는 메서드로, 여러 필드에 걸친 검사를 넣는 자리다. 이것이 왜 필요한지는 데모 [2]가 답한다. 처음 나오는 표기도 읽어 두자. <code>Callable[[], SchemeStorage]</code>는 "인자 없이 부르면 <code>SchemeStorage</code>를 돌려주는 것"이다(맨 끝이 돌려주는 값, 앞 대괄호가 받는 인자 목록). <code>lambda: SchemeStorage("aws", "s3")</code>는 그런 함수를 이름 없이 한 줄로 만든 것이고, 이 함수 자체가 <code>storage</code> 필드에 담긴다. 중괄호에 값만 나열한 <code>{a, b}</code>는 집합이라 같은 값은 하나로 합쳐진다.</p>
   <pre data-src="02_abstract_factory/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
+  <div class="callout"><strong>데모 [2]를 한 줄씩 풀면</strong>
+    <ol>
+      <li><code>gcp_kit().storage</code> — <code>gcp_kit()</code>이 GCP 묶음을 만들고, 거기서 <code>storage</code> 필드(GCP 저장소를 만드는 함수)만 꺼낸다. 끝에 <code>()</code>가 없으므로 저장소를 만들지는 않고 함수만 꺼낸 것이다.</li>
+      <li><code>aws_kit().queue</code> — 같은 방식으로 AWS 큐를 만드는 함수를 꺼낸다.</li>
+      <li><code>CloudKit("gcp", storage=…, queue=…)</code> — 이름표는 <code>"gcp"</code>인데 큐는 AWS 것인 묶음을 만든다. 생성자가 필드를 채운 직후 <code>__post_init__</code>이 자동으로 불린다.</li>
+      <li><code>__post_init__</code>은 <code>storage()</code>와 <code>queue()</code>를 한 번씩 불러 각 제품이 밝힌 클라우드를 집합에 모은다. 결과는 <code>{"gcp", "aws"}</code>이고 이것은 <code>{"gcp"}</code>와 다르므로 <code>ValueError</code>를 낸다. 마지막 줄의 <code>sorted(made)</code>는 그 집합을 정렬해 <code>['aws', 'gcp']</code>로 보여 준다.</li>
+    </ol>
+  </div>
   <p>데모 [2]가 핵심이다. 묶음은 데이터이므로 누구나 GCP 저장소와 AWS 큐를 섞어 새 묶음을 만들 수 있다. 클래스 계층에서는 <code>GcpFactory</code>라는 <em>타입</em>이 제품군 정의를 독점해 이런 일이 불가능했다. 묶음 방식은 그 보장을 실행 중 검사로 되찾아야 한다. 검사하려면 제품을 미리 만들어 봐야 하므로, 생성이 비싼 제품에는 쓰기 어렵다.</p>
   <p>그래서 제품군이 두세 개이고 시작 지점에서만 조립된다면 묶음이 읽기 쉽다. 여러 팀이 제품군을 따로 추가하고 타입으로 일관성을 강제하고 싶거나, 제품을 만들 때 <dfn data-term="instrumentation">계측</dfn>(실행 시간·호출 수 같은 지표를 재는 코드) 같은 공통 처리를 덧씌워야 한다면 클래스 계층이 낫다.</p>
 </section>

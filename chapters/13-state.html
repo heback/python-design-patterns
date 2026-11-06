@@ -11,6 +11,14 @@ part: 행위 패턴
     <li>상태 패턴과 <code>Enum</code> + 전이표 가운데 무엇이 맞는지 판단할 수 있다.</li>
   </ul>
   <div class="callout"><strong>핵심 한 줄</strong> 메서드마다 "지금 무슨 상태냐"를 묻는 if가 되풀이되면, 상태를 객체로 만들고 그 객체에게 묻지 말고 맡긴다.</div>
+  <div class="callout"><strong>처음이라면 이 그림부터</strong> 엘리베이터의 [열림] 버튼을 떠올려 보자. 같은 버튼인데 엘리베이터가 서 있을 때는 문이 열리고, 올라가는 중에는 아무 일도 없다. 버튼(요청)은 하나여도 <em>지금 어떤 상태인가</em>에 따라 반응이 다르다. 또 "도착했다"는 사건이 오면 다음에 어떤 상태가 될지(문 열림, 대기)는 지금의 상태가 안다. 상태 패턴이 이것이다. <strong>상태마다 반응 규칙을 따로 갖고, 바깥은 "지금 상태야, 이 요청을 처리해"라고 맡기기만 한다. 다음 상태는 지금 상태가 스스로 고른다.</strong></div>
+  <div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+    <ul>
+      <li><strong>꼭 알아야 하는 것</strong> ① 메서드마다 "지금 무슨 상태냐"를 묻는 <code>if</code>를 없애고, 상태마다 클래스를 하나 두어 현재 상태 객체에게 일을 맡긴다. ② 기본 구현은 <em>거부</em>이고, 허용하는 동작만 재정의한다. 그래서 새 상태에서 깜빡해도 사고가 아니라 거부가 된다. ③ 다음 상태는 상태 객체가 스스로 정한다(전략과 다른 점).</li>
+      <li><strong>알면 좋은 것</strong> 전략 패턴과 구조가 같지만 <em>누가 교체하는가</em>가 다르다(4절 표). 규칙 전체를 한 장으로 보고 싶으면 <code>Enum</code>과 전이표를 쓸 수도 있다(5절).</li>
+      <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 진입 동작 <code>_enter()</code>, 조건부 전이를 사건 둘로 쪼개는 이유, 바이트코드·간선 같은 연습문제용 용어.</li>
+    </ul>
+  </div>
 </section>
 
 <section id="context">
@@ -78,7 +86,7 @@ part: 행위 패턴
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">서진은 분기를 상태 클래스로 옮겼다. <code>Maintenance</code>에 <code>unlock()</code>이 없다는 점이 사고의 해답이다. <code>Reserved.unlock()</code>의 if는 <dfn data-term="guard-condition">가드 조건</dfn>이다. 사건이 와도 추가 조건(여기서는 "예약자 본인")이 맞아야 전이가 일어난다.</p>
+  <p class="lead-in">서진은 분기를 상태 클래스로 옮겼다. <code>Maintenance</code>에 <code>unlock()</code>이 없다는 점이 사고의 해답이다. <code>Reserved.unlock()</code>의 if는 <dfn data-term="guard-condition">가드 조건</dfn>이다. 사건이 와도 추가 조건(여기서는 "예약자 본인")이 맞아야 전이가 일어난다. 코드에서 처음 나오는 문법도 읽어 두자. <code>class Available(ScooterState)</code>가 <code>label = "대여 가능"</code>이라고 적으면 부모의 <code>label = "?"</code>을 덮어쓴 것이고, 상태 객체는 자기 <code>self.label</code>로 그것을 읽는다. <code>LowBattery() if scooter.battery &lt; 15 else Available()</code>은 한 줄짜리 if-else로 "배터리가 15 미만이면 앞의 객체, 아니면 뒤의 객체"를 고른다. <code>raise IllegalTransition(...)</code>은 거부를 예외로 알리는 것이고, 데모의 <code>try/except</code>가 그것을 받아 출력한다.</p>
   <pre data-src="13_state/easy/e2_pattern.py" data-title="패턴 코드"></pre>
   <ul>
     <li><code>ScooterState</code>: 기본이 거부다. 새 상태에서 <code>unlock()</code>을 깜빡 잊어도 데모 [2]처럼 거부된다. 잊어버림이 안전한 쪽으로 실패한다.</li>
@@ -86,6 +94,16 @@ part: 행위 패턴
     <li><code>Reserved.user</code>: 예약자는 이 객체에만 있다. 상태를 떠나면 함께 사라져 찌꺼기가 남지 않는다.</li>
     <li><code>Scooter</code>: 공개 메서드는 한 줄짜리 위임이다. 새 상태를 넣을 때 고칠 곳은 새 클래스와 그 상태로 <em>들어가는</em> 이웃뿐이다.</li>
   </ul>
+  <div class="callout"><strong>데모 [1]과 [2]를 한 줄씩 풀면</strong>
+    <ol>
+      <li>데모 [1]의 킥보드 <code>s</code>는 배터리 10이다. <code>reserve("민지")</code>에서 <code>Available.reserve()</code>가 <code>Reserved("민지")</code>를 만들어 <code>change_state()</code>에 넘기고, <code>change_state()</code>가 "대여 가능 -> 예약됨"을 찍고 상태 객체를 갈아 끼운다.</li>
+      <li><code>unlock("민지")</code>는 이제 <code>Reserved.unlock()</code>이 받는다. 예약자와 같아서 <code>Riding()</code>으로 간다.</li>
+      <li><code>end_ride()</code>는 <code>Riding.end_ride()</code>가 받는다. 배터리 10이 15 미만이라 <code>LowBattery()</code>를 골라 "주행 중 -> 배터리 부족"이 된다. 이어 정비 입고도 <code>LowBattery</code>가 허용하는 동작이라 "정비 중"으로 간다.</li>
+      <li>데모 [2]의 <code>s</code>는 이제 <code>Maintenance</code>다. 이 클래스는 <code>unlock()</code>을 따로 쓰지 않았으므로 부모(<code>ScooterState</code>)의 기본 구현이 불려 <code>IllegalTransition</code>이 난다. 순진한 코드의 <code>else</code>가 허용해 버리던 자리가 이제 거부다.</li>
+      <li>두 번째 줄도 같다. <code>other</code>는 민지가 예약한 상태이고, 도윤이 <code>unlock</code>하면 <code>Reserved</code>의 가드 조건이 맞지 않아 거부된다. 이때는 "상태가 허용하지만 사람이 달라서" 거부된 경우다.</li>
+    </ol>
+  </div>
+  <div class="callout"><strong>왜 상태를 클래스로 나눌까? <code>Enum</code> 상태에 메서드마다 <code>if</code>를 두면 안 될까?</strong> 되기는 한다. 하지만 동작이 4개, 상태가 5개면 확인할 조합이 20개이고, 각 조합이 흩어진 <code>if</code>에 있다. 새 상태를 하나 넣으면 모든 메서드를 다시 열어야 하고, 하나라도 빠뜨리면 2절처럼 <code>else</code>로 흘러 들어간다. 상태 클래스로 나누면 상태 하나의 규칙이 한 클래스에 모이고, 안 쓴 동작은 기본 거부가 된다. 다만 상태마다 행동 차이가 작고 전이 규칙을 한눈에 보는 것이 중요하다면 5절처럼 표로 만드는 편이 낫다.</div>
   <h3>전략 패턴과 무엇이 다른가</h3>
   <p>그림 13-1은 10장의 전략 그림과 모양이 같다. 다른 것은 <strong>누가, 언제 교체하는가</strong>다. 상태를 바꾸는 사건에는 <dfn data-term="global-positioning-system">GPS</dfn>(위성 신호로 위치를 재는 장치)가 알려 주는 위치 변화도 있다.</p>
   <table>
@@ -98,20 +116,29 @@ part: 행위 패턴
     </tbody>
   </table>
   <p>판별 질문은 하나다. "다음 것을 고르는 지식이 바뀌는 객체들 자신에게 있는가?" 있으면 상태, 바깥에 있으면 전략이다. 이름이 <code>XxxState</code>이고 <code>set_state()</code>가 있어도, 바깥만 그것을 부른다면 전략이다. </p>
-  <p class="lead-in">두 패턴은 한 객체 안에서 함께 쓸 수 있다. 아래 <code>Scooter</code>는 요금 정책 슬롯(전략)과 대여 단계 슬롯(상태)을 함께 가진다. <code>set_pricing()</code>은 바깥이 부르고, <code>change_state()</code>는 상태 객체만 부른다는 차이를 보라.</p>
+  <p class="lead-in">두 패턴은 한 객체 안에서 함께 쓸 수 있다. 아래 <code>Scooter</code>는 요금 정책 슬롯(전략)과 대여 단계 슬롯(상태)을 함께 가진다. <code>set_pricing()</code>은 바깥이 부르고, <code>change_state()</code>는 상태 객체만 부른다는 차이를 보라. 표기 둘을 읽어 두자. <code>Callable[[int], int]</code>는 "<code>int</code> 하나를 받아 <code>int</code>를 돌려주는 호출 가능한 것"(맨 끝이 돌려주는 값, 앞 대괄호가 받는 인자 목록)이고, <code>Available | Riding</code>은 "둘 중 하나의 타입"이다.</p>
   <pre data-src="13_state/easy/e4_state_vs_strategy.py" data-title="전략·상태 비교 코드"></pre>
   <p>데모 [1]에서 주행 중 야간 정책으로 바꿔도 주간 요금이 나온다. <code>Riding</code>이 출발 때의 정책을 붙잡아 두었기 때문이다. 두 종류의 변화는 이렇게 슬롯 두 개로 나눈다.</p>
 </section>
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
+  <div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. 상태에 따라 허용되는 동작을 바꾸고, 규칙에 없는 전이를 막는 것이다. 다른 점은 <em>규칙을 어디에 두느냐</em>다. 4절은 규칙이 <strong>상태 클래스 다섯 개에 나뉘어</strong> 있고, 다음 상태도 각 상태 객체가 고른다. 5절은 규칙이 <strong>표 하나(<code>TRANSITIONS</code>)에 모여</strong> 있고, 표를 보고 다음 상태를 정하는 것은 <code>Scooter</code>다. 표에 없는 조합은 거부된다.</div>
   <p>관제팀장 유나가 물었다. "전이 규칙 전체를 한 장으로 볼 수 없나요?" 패턴 코드는 규칙을 상태 클래스 다섯 개에 나눠 둔다. 반대로 규칙을 표 하나에 모을 수도 있다. 상태들과 "(현재 상태, 사건) → 다음 상태" 규칙으로 동작을 적는 모델을 <dfn data-term="state-machine">상태 기계</dfn>라 하는데, 상태 패턴은 이것을 객체로, 아래 코드는 표로 만든다. 상태는 <code>Enum</code> 값이 되고, 전이는 다시 <code>Scooter</code>가 표를 보고 정한다.</p>
-  <p class="lead-in">아래 코드에서 "기본은 거부"는 <code>TRANSITIONS</code>에 <em>키가 없음</em>으로 표현된다. <code>_enter()</code>는 <dfn data-term="entry-action">진입 동작</dfn>이다. 어떤 상태에 들어갈 때마다 실행되는 동작으로, 여기서는 찌꺼기 정리와 정비 입고 때의 충전을 맡는다.</p>
+  <p class="lead-in">먼저 문법 셋을 읽어 두자. <code>Enum</code>은 이름 붙은 값의 닫힌 집합이고, <code>Status.RIDING.value</code>는 그 값(여기서는 "주행 중")이다. <code>auto()</code>는 값을 자동으로 매겨 준다. <code>TRANSITIONS</code>는 <code>(현재 상태, 사건)</code> 묶음을 키로, 다음 상태를 값으로 하는 dict라서 <code>TRANSITIONS.get(키)</code>는 키가 없으면 <code>None</code>을 돌려준다. 그리고 <code>new is None</code>의 <code>is</code>는 "같은 것인가"를 묻는 비교다. 아래 코드에서 "기본은 거부"는 <code>TRANSITIONS</code>에 <em>키가 없음</em>으로 표현된다. <code>_enter()</code>는 <dfn data-term="entry-action">진입 동작</dfn>이다. 어떤 상태에 들어갈 때마다 실행되는 동작으로, 여기서는 찌꺼기 정리와 정비 입고 때의 충전을 맡는다.</p>
   <pre data-src="13_state/easy/e3_pythonic.py" data-title="전이표 변형"></pre>
   <ul>
     <li><strong>얻는 것</strong>: 규칙 전체가 데모 [1]처럼 한 장에 보이고, 데이터라서 검사할 수도 있다. 상태끼리는 서로를 모른다.</li>
     <li><strong>잃는 것</strong>: 가드(예약자 확인)는 표에 담기지 않아 <code>unlock()</code>의 if로 남는다. 예약자도 다시 <code>Scooter</code> 필드가 되었다. 조건부 전이 <code>end_ride</code>는 사건 두 개로 쪼개져, 데모 [2]처럼 방전 반납이 잠깐 '대여 가능'을 거친다.</li>
   </ul>
+  <div class="callout"><strong>데모 [2]를 한 줄씩 풀면</strong> (<code>s</code>는 배터리 10)
+    <ol>
+      <li><code>unlock("민지")</code>: 상태는 <code>AVAILABLE</code>이라 예약자 확인(가드)을 건너뛰고 <code>_fire(UNLOCK)</code>을 부른다. 표에서 <code>(AVAILABLE, UNLOCK)</code>을 찾아 <code>RIDING</code>이 된다.</li>
+      <li><code>end_ride()</code>는 먼저 <code>_fire(END_RIDE)</code>를 한다. 표에는 <code>(RIDING, END_RIDE) → AVAILABLE</code>뿐이라서 <em>일단 "대여 가능"</em>이 된다.</li>
+      <li>그다음 <code>if self.battery &lt; 15</code>가 참이므로 <code>_fire(BATTERY_LOW)</code>를 한다. 표의 <code>(AVAILABLE, BATTERY_LOW) → LOW_BATTERY</code>로 "배터리 부족"이 된다. 4절에서는 <code>Riding</code>이 한 번에 골랐지만, 표는 조건을 담지 못해 사건을 둘로 쪼갰고, 그래서 중간에 "대여 가능"이 찍힌다.</li>
+      <li>데모 [3]에서 정비 중에 <code>UNLOCK</code>을 하면 <code>(MAINTENANCE, UNLOCK)</code> 키가 표에 없어 <code>.get()</code>이 <code>None</code>을 돌려주고 거부된다.</li>
+    </ol>
+  </div>
   <p>상태마다 <em>행동</em>이 크게 다를수록 상태 패턴이, <em>전이 구조</em>가 핵심일수록 표가 유리하다.</p>
 </section>
 

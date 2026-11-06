@@ -12,6 +12,14 @@ part: 생성 패턴
     <li>싱글턴을 composition root에서 하나만 만들어 주입하는 설계로 바꿀 수 있고, 싱글턴이 정당한 드문 경우를 판단할 수 있다.</li>
   </ol>
   <div class="callout"><strong>핵심 한 줄</strong> "하나면 충분하다"는 싱글턴의 이유가 아니다. "둘이면 틀린다"일 때만 유일성을 강제하고, 그때도 전역 접근은 따로 판단한다.</div>
+  <div class="callout"><strong>처음이라면 이 그림부터</strong> 학급 출석부는 한 권뿐이어야 한다. 두 권이면 서로 다른 내용을 적어서 어느 것이 맞는지 알 수 없다. 이것이 <strong>유일성</strong>이다. 그런데 출석부를 교탁 위에 늘 펼쳐 두어 누구나 아무 때나 집어 쓰게 하면(<strong>전역 접근</strong>), 누가 언제 고쳤는지 알 수 없고 연습 수업의 낙서가 진짜 출석부에 남는다. 싱글턴은 이 두 가지를 한 클래스에 묶어 한꺼번에 해결하려는 패턴이다. 이 장이 권하는 길은 둘을 떼어 놓는 것이다. 담임이 출석부를 한 권만 만들어 필요한 선생님에게 <em>직접 건네준다</em>. 아래 병원 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+  <div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+    <ul>
+      <li><strong>꼭 알아야 하는 것</strong> ① 싱글턴은 요구가 둘이다. "하나여야 한다"(유일성)와 "어디서든 얻는다"(전역 접근). ② 싱글턴의 비용(숨은 의존성, 테스트끼리 간섭, 리셋 뒷문) 대부분은 유일성이 아니라 전역 접근에서 나온다. ③ 필요한 것이 유일성뿐이면, 프로그램 시작 지점에서 하나만 만들어 생성자로 건네주면 된다(5.2).</li>
+      <li><strong>알면 좋은 것</strong> 모듈 수준 객체는 이미 싱글턴이라는 것(5.1), <code>__init__</code>이 다시 불려 상태가 지워지는 함정(4절).</li>
+      <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 잠금(<code>threading.Lock</code>)과 스레드의 세부, 메타클래스 방식의 내부, <code>type.__call__</code>. "하나"는 프로세스당 하나라는 주의. 연습문제를 풀 때 다시 찾아보면 된다.</li>
+    </ul>
+  </div>
 </section>
 
 <section id="context">
@@ -23,8 +31,17 @@ part: 생성 패턴
 
 <section id="naive">
   <h2>2. 순진한 설계와 그 한계</h2>
-  <p class="lead-in">싱글턴 도입 전, 모듈마다 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다. 문제는 <code>_last</code>라는 상태가 인스턴스마다 따로 있다는 점과, 세 모듈이 각자 인스턴스를 만든다는 점이 겹칠 때 생긴다. 데모 [2]의 <code>prev</code>를 위에서 아래로 따라가 보라.</p>
+  <p class="lead-in">싱글턴 도입 전, 모듈마다 기록기를 만들던 코드다. <code>AuditLogger</code> 자체는 결함이 없다. 문제는 <code>_last</code>라는 상태가 인스턴스마다 따로 있다는 점과, 세 모듈이 각자 인스턴스를 만든다는 점이 겹칠 때 생긴다. 데모 [2]의 <code>prev</code>를 위에서 아래로 따라가 보라. 문법 두 가지: <code>int | None</code>은 "정수이거나 None"이고, <code>_last</code>처럼 <code>_</code>로 시작하는 이름은 "클래스 밖에서는 건드리지 말라"는 표시다.</p>
   <pre data-src="04_singleton/easy/e1_naive.py" data-title="순진한 코드"></pre>
+  <div class="callout"><strong>데모 [2]의 출력을 한 줄씩 풀면</strong> (<code>prev</code>는 "이 기록기가 마지막으로 쓴 번호"다)
+    <ol>
+      <li>세 기록기를 만든 직후 각자의 <code>_last</code>는 <code>None</code>이다. 서로의 존재를 모른다.</li>
+      <li><code>prescription.record</code>: 파일이 비었으니 번호는 <code>#0</code>, 이 기록기의 <code>_last</code>가 <code>None</code>이므로 <code>prev=None</code>. 쓴 뒤 처방 기록기의 <code>_last</code>는 <code>0</code>이 된다.</li>
+      <li><code>lab.record</code>는 <code>#1</code>이다. 파일상 직전은 <code>#0</code>이지만 검사 기록기의 <code>_last</code>는 아직 <code>None</code>이라 <code>prev=None</code>. <code>billing.record</code>도 <code>#2</code>에 <code>prev=None</code>이다.</li>
+      <li>마지막으로 <code>prescription.record</code>가 <code>#3</code>을 쓴다. 이 기록기의 <code>_last</code>는 <code>0</code>이므로 <code>prev=0</code>이다. 파일상 직전인 <code>#2</code>가 아니라 자기가 마지막으로 쓴 <code>#0</code>을 가리킨다.</li>
+      <li>그래서 <code>#0←#3</code>, <code>#1</code>, <code>#2</code>가 서로 이어지지 않는 세 갈래가 된다.</li>
+    </ol>
+  </div>
   <ul>
     <li><strong>상태가 여러 벌이다.</strong> 기록기마다 "내가 마지막으로 쓴 번호"를 따로 들고 있어 #1, #2는 자기가 첫 기록이라 믿는다.</li>
     <li><strong>각자는 정확하다.</strong> 기록기 하나만 쓰면 완벽하다. 파일 하나를 함께 쓰는 순간 서로를 모른다.</li>
@@ -76,7 +93,7 @@ part: 생성 패턴
 
 <section id="implementation">
   <h2>4. 패턴 적용</h2>
-  <p class="lead-in">태윤이 적용한 싱글턴이다. <code>__new__</code>의 <dfn data-term="lock">잠금</dfn>(<code>threading.Lock</code>)은 한 번에 한 <dfn data-term="thread">스레드</dfn>(한 프로그램 안에서 동시에 도는 실행 흐름)만 그 구간에 들어가게 하는 도구다. 잠금이 없으면 서버 재시작 직후 동시에 온 두 요청이 각자 "처음" 만들 수 있다. 앞부분에서는 <code>__init__</code>의 <code>_initialized</code> 가드가 무엇을 막는지, 뒷부분에서는 <code>prescribe()</code>의 시그니처와 두 테스트의 결과를 보라. <dfn data-term="pytest">pytest</dfn> 같은 테스트 도구는 여러 테스트를 한 프로세스에서 차례로 돌리므로, 데모 [2]처럼 테스트들이 같은 싱글턴을 공유한다.</p>
+  <p class="lead-in">태윤이 적용한 싱글턴이다. <code>__new__</code>의 <dfn data-term="lock">잠금</dfn>(<code>threading.Lock</code>)은 한 번에 한 <dfn data-term="thread">스레드</dfn>(한 프로그램 안에서 동시에 도는 실행 흐름)만 그 구간에 들어가게 하는 도구다. 잠금이 없으면 서버 재시작 직후 동시에 온 두 요청이 각자 "처음" 만들 수 있다. 앞부분에서는 <code>__init__</code>의 <code>_initialized</code> 가드가 무엇을 막는지, 뒷부분에서는 <code>prescribe()</code>의 시그니처와 두 테스트의 결과를 보라. <dfn data-term="pytest">pytest</dfn> 같은 테스트 도구는 여러 테스트를 한 프로세스에서 차례로 돌리므로, 데모 [2]처럼 테스트들이 같은 싱글턴을 공유한다. 문법도 읽어 두자. <code>__new__(cls)</code>의 <code>cls</code>는 클래스 자신이고, <code>super().__new__(cls)</code>가 비어 있는 객체를 실제로 하나 만든다. <code>with cls._lock:</code>은 블록에 들어갈 때 잠그고 나올 때 푼다. <code>getattr(self, "_initialized", False)</code>는 그 속성이 있으면 값을, 없으면 <code>False</code>를 준다(처음 부를 때는 아직 없다). <code>'통과' if count == 1 else '실패'</code>는 조건이 참이면 앞 값, 아니면 뒤 값이다.</p>
   <pre data-src="04_singleton/easy/e2_pattern.py" data-title="패턴 코드"></pre>
   <ul>
     <li>데모 [1]: 몇 번을 부르든 같은 객체다. 첫 고통은 풀렸다.</li>
@@ -85,17 +102,28 @@ part: 생성 패턴
     <li>데모 [3]: 리셋 뒷문은 증상만 가린다. 운영 코드에 "유일한 인스턴스를 지우는" 문이 생겼다.</li>
   </ul>
   <p><code>prescribe()</code>의 생성자도 인자도 감사 로그를 말하지 않는다. 본문을 읽어야만 전역 상태에 쓴다는 것을 알고, 호출자는 그것을 바꿀 수 없다. 이것이 숨은 의존성이다. 진단을 정리하면, 첫 고통을 푸는 데 필요했던 것은 <strong>유일성</strong>뿐이었다. 두 번째 고통은 모두 <strong>전역 접근</strong>에서 나왔다.</p>
+  <div class="callout"><strong>데모 [2]와 [3]을 한 줄씩 풀면</strong>
+    <ol>
+      <li>테스트A: 처방 모듈이 기록을 한 줄 쓴다. 기록기는 하나뿐이므로 <code>entries</code>의 길이는 1이고 기대와 같아 통과한다.</li>
+      <li>테스트B: 같은 기록기를 다시 쓰므로 A가 남긴 한 줄이 그대로 있다. B가 한 줄을 더하면 길이가 2가 되어 기대(1)와 달라 실패한다. 코드가 틀린 것이 아니라 앞 테스트의 흔적 때문이다.</li>
+      <li>데모 [3]: <code>AuditLogger._instance = None</code>이 유일한 인스턴스를 지운다. 다음 <code>AuditLogger()</code>는 <code>_instance</code>가 비어 있으니 새 객체를 만들고, 새 객체는 <code>entries</code>가 비어 있어 이번 테스트는 통과한다.</li>
+      <li>이렇게 "유일한 인스턴스를 지우는 문"이 운영 코드에 필요해지는 것이 리셋 뒷문이다. 테스트 때문에 운영 코드에 구멍을 낸 셈이다.</li>
+    </ol>
+  </div>
+  <div class="callout"><strong>왜 클래스가 스스로 하나를 강제할까? 모듈 맨 위에 <code>logger = AuditLogger()</code> 한 줄이면 안 될까?</strong> 되는 경우가 많다(5.1 데모 [2]). 클래스에 강제를 넣는 이점은 누가 <code>AuditLogger()</code>를 또 불러도 둘이 생기지 않는다는 것 하나다. 대가는 테스트에서도 하나뿐이라는 점이다. 그러니 필요한 것이 "둘이면 틀린다"가 아니라 "하나면 충분하다"일 뿐이라면 클래스가 강제할 이유가 없다.</div>
+  <div class="callout"><strong>규칙(목표) vs 패턴(방법)</strong> "체인 파일 하나에 기록기 상태는 하나여야 한다"는 <em>규칙</em>이고, 싱글턴은 그것을 지키는 여러 <em>방법</em> 중 하나다. 5.2의 주입도 같은 규칙을 지키는 다른 방법이다. 그래서 이 장이 묻는 것은 "하나여야 하는가"가 아니라 "이 방법의 비용이 맞는가"이다.</div>
 </section>
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
+  <div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 4절은 클래스 하나가 "하나뿐"과 "어디서든 얻기"를 함께 맡는 고전 싱글턴이다. 5.1은 같은 목적을 다른 도구(클래스 호출을 가로채는 방법, 모듈 변수)로 이룬 것이라, <code>__init__</code> 함정은 사라져도 전역 접근의 비용은 그대로 남는다. 5.2는 패턴 자체에서 벗어난다. 클래스는 평범하게 두고, "하나"는 시작 지점이 만들어 건네준다.</div>
   <h3>5.1 "하나"를 만드는 다른 방법</h3>
-  <p class="lead-in">아래 구현 비교 코드는 두 방법을 나란히 놓는다. <dfn data-term="metaclass">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 호출되는 방식 자체를 바꿀 수 있다. 각 방식에서 유일성을 보장하는 주체가 누구인지 보라.</p>
+  <p class="lead-in">아래 구현 비교 코드는 두 방법을 나란히 놓는다. <dfn data-term="metaclass">메타클래스</dfn>는 클래스를 만들어 내는 클래스(기본은 <code>type</code>)로, 클래스가 호출되는 방식 자체를 바꿀 수 있다. 각 방식에서 유일성을 보장하는 주체가 누구인지 보라. 읽는 법: 메타클래스 방식에서는 <code>MetaLogger()</code>를 부를 때 <code>type</code> 대신 <code>SingletonMeta.__call__</code>이 대신 불린다. <code>*args, **kwargs</code>는 받은 인자를 위치든 이름이든 가리지 않고 모두 받아 그대로 넘긴다는 표기다. <code>_instances</code>는 클래스를 열쇠로 그 클래스의 유일한 객체를 적어 두는 딕셔너리다.</p>
   <pre data-src="04_singleton/easy/e3_variants.py" data-title="구현 비교 코드"></pre>
   <p>데모 [1]의 메타클래스 방식에는 <code>__init__</code> 재호출 함정이 없다. 인스턴스가 이미 있으면 원래의 생성 절차 자체를 건너뛰기 때문이다. 대신 상속 계층 전체에 퍼지고 다른 메타클래스와 섞기 어렵다.</p>
   <p>데모 [2]가 더 중요하다. <strong>모듈은 이미 싱글턴이다.</strong> 모듈은 첫 import 때 한 번만 실행되므로, 모듈 수준에 만든 <code>audit_logger</code>는 프로세스에 하나다. 클래스는 평범하고, 테스트는 언제든 새 객체를 만들 수 있다. 다만 함수 본문에서 그 변수를 가져다 쓰면 숨은 의존성은 그대로다.</p>
   <h3>5.2 두 요구를 떼어 놓기: composition root에서 주입</h3>
-  <p class="lead-in">태윤의 최종 설계다. <code>AuditLogger</code>는 평범한 클래스로 돌아가고, 유일성은 조립 지점 <code>build_app()</code> 하나가 맡으며, 모듈들은 기록기를 생성자로 받는다. 데모 [3]이 보여 주는 대가도 놓치지 말라.</p>
+  <p class="lead-in">태윤의 최종 설계다. <code>AuditLogger</code>는 평범한 클래스로 돌아가고, 유일성은 조립 지점 <code>build_app()</code> 하나가 맡으며, 모듈들은 기록기를 생성자로 받는다. 데모 [3]이 보여 주는 대가도 놓치지 말라. <code>rx, lab = build_app()</code>은 돌려받은 두 값을 이름 두 개로 한 번에 받고, <code>rx.audit is lab.audit</code>의 <code>is</code>는 "같은 객체인가"를 묻는다.</p>
   <pre data-src="04_singleton/easy/e4_injection.py" data-title="주입 코드"></pre>
   <p>데모 [1]에서 운영 앱의 체인은 하나다. 데모 [2]에서 테스트는 각자 기록기를 넣고, 간섭도 리셋 뒷문도 없다. 이 차이를 만든 것은 <code>PrescriptionModule.__init__(self, audit)</code>이라는 시그니처 한 줄이다. 의존성이 드러나자 바꿀 수 있게 되었다. 대가는 데모 [3]이다. 이제 유일성은 "운영 코드에서 <code>AuditLogger()</code>를 부르는 곳은 <code>build_app</code> 하나"라는 규칙이고, 코드 리뷰로 지킨다.</p>
 </section>

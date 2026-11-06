@@ -32,7 +32,7 @@ part:
     <li>클래스 상속보다 객체 합성을 선호하라.</li>
   </ol>
 </div>
-<p class="lead-in">지민의 코드다. <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트 평가를 미루는 선언으로 모든 예제에 있다. <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자·<code>__repr__</code>·<code>__eq__</code>를 만들고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>면 만든 뒤 바꿀 수 없다. 자료 유형은 짧게 문자열로 두었다. 실무라면 이름 붙은 상수의 닫힌 집합인 <dfn data-term="enum-enum"><code>Enum</code></dfn>을 써서 오타를 바로 오류로 만든다. <code># ⚠ 문제:</code> 세 곳을 보라.</p>
+<p class="lead-in">지민의 코드다. <code><dfn data-term="postponed-evaluation-of-annotations">from __future__ import annotations</dfn></code>는 타입 힌트 평가를 미루는 선언으로 모든 예제에 있다. <code><dfn data-term="dataclasses-dataclass">@dataclass</dfn></code>는 필드 선언만으로 생성자·<code>__repr__</code>·<code>__eq__</code>를 만들고, <code><dfn data-term="frozen-true">frozen=True</dfn></code>면 만든 뒤 바꿀 수 없다. 자료 유형은 짧게 문자열로 두었다. 실무라면 이름 붙은 상수의 닫힌 집합인 <dfn data-term="enum-enum"><code>Enum</code></dfn>을 써서 오타를 바로 오류로 만든다. 코드에 나오는 <code><dfn data-term="floor-division">fee //= 2</dfn></code>는 몫만 남기는 정수 나눗셈으로 <code>fee</code>를 2로 나눈 뒤 그 몫을 다시 <code>fee</code>에 넣으라는 뜻이다. <code># ⚠ 문제:</code> 세 곳을 보라.</p>
 <pre data-src="00_intro/easy/e1_naive.py" data-title="순진한 코드"></pre>
 <p>데모 [2]처럼 이 함수는 바뀔 이유가 여섯이다. 세 질문을 차례로 던진다.</p>
 <ol>
@@ -49,6 +49,15 @@ part:
 <h2>3. 패턴을 읽는 법</h2>
 <p>GoF는 모든 패턴을 같은 <dfn data-term="pattern-description-template">패턴 기술 항목</dfn>으로 쓴다. 그중 넷을 찾으면 된다. <strong>의도</strong>(한 문장으로 무엇을 하나), <strong>동기</strong>(어떤 상황에서 나오나), <strong>구조와 참여자</strong>(누가 누구를 아나), <strong>결과</strong>(무엇을 얻고 치르나). 동기는 유연성과 단순성처럼 반대로 당기는 요구, 곧 <dfn data-term="forces">힘(forces)</dfn>을 그린다. 코드 docstring 첫 줄의 <code><dfn data-term="context">[Context]</dfn></code> 같은 역할 태그는 그 클래스가 맡은 역할 이름이다. Context는 바꿔 끼우는 객체를 들고 일을 맡기는 쪽이다(10·13장).</p>
 <p>가장 많이 틀리는 것은 의도다. 어댑터·데코레이터·프록시는 모두 "감싸는 객체"라 모양으로는 못 가른다. 인터페이스를 바꾸나, 책임을 더하나, 접근을 막나로 가른다. 패턴은 목적에 따라 <dfn data-term="creational-structural-behavioral-patterns">생성 패턴</dfn>(만드는 일), 구조 패턴(엮는 일), 행위 패턴(책임을 나누는 일)으로 나뉜다.</p>
+<div class="callout"><strong>원칙과 패턴은 층이 다르다</strong> 2절의 세 원칙이나 OCP·DIP 같은 설계 원칙은 <em>지켜야 할 목표</em>("고치지 말고 더해서 늘려라", "구체 클래스가 아니라 추상에 기대라")이고, 패턴은 그 목표를 특정한 상황에서 이루는 <em>구체적인 방법</em>이다. 그래서 여러 패턴이 모두 "확장하기 쉽다"고 말해도 이상하지 않다. 목표는 같고 방법이 다를 뿐이다. 패턴을 공부할 때는 "이 패턴은 어떤 원칙을 어떤 방식으로 지키게 해 주나"를 같이 물어라.</div>
+<div class="callout"><strong>코드가 막히면 이렇게 읽는다</strong>
+  <ol>
+    <li>이 코드가 <em>왜</em> 있는지(docstring 첫머리의 상황)를 먼저 읽는다.</li>
+    <li>문법이 낯설면 그 줄만 따로 떼어 [▶ 실행]이나 코드 칸에서 값을 바꿔 보며 확인한다. 점선 밑줄이 있는 말은 용어집에서 뜻을 찾을 수 있다.</li>
+    <li>데모의 출력은 "어느 줄이 만든 값인가"를 한 줄씩 거슬러 올라가며 맞춘다. 값이 예상과 다르면 중간 값을 <code>print()</code>로 찍어 본다.</li>
+    <li>그래도 막히면 오른쪽 아래의 AI 도우미나 [선생님께 질문]을 쓴다. 질문할 때는 막힌 코드 줄을 그대로 붙여 넣으면 정확한 답을 얻는다.</li>
+  </ol>
+</div>
 </section>
 
 <section id="python-lens">

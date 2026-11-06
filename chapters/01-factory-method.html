@@ -12,6 +12,14 @@ part: 생성 패턴
     <li>파이썬의 생성 함수 넘기기, <code>classmethod</code> 대체 생성자, <code>__init_subclass__</code> 자동 등록으로 같은 목적을 이루고, 각각이 GoF 원래 의도와 얼마나 다른지 판단할 수 있다.</li>
   </ol>
   <div class="callout"><strong>핵심 한 줄</strong> 새 제품을 추가할 때 기존 클래스를 고쳐야 한다면 아직 패턴이 아니다. 하위 클래스를 <em>추가</em>하는 것만으로 끝나야 팩토리 메서드다.</div>
+  <div class="callout"><strong>처음이라면 이 그림부터</strong> 피자 가게 본사를 떠올려 보자. 본사 매뉴얼은 "주문 받기 → 피자 만들기 → 굽기 → 포장하기"라는 <em>순서</em>를 정해 둔다. 그런데 "어떤 피자를 만들까"는 지점마다 다르다. 그래서 본사는 그 자리를 비워 두고, 지점이 자기 방식으로 채운다. 새 지점이 생겨도 본사 매뉴얼은 한 글자도 고치지 않는다. 팩토리 메서드가 이것이다. <strong>순서(흐름)는 상위 클래스가 쥐고, "무엇을 만들지"는 하위 클래스가 정한다.</strong> 아래 장비 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+  <div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+    <ul>
+      <li><strong>꼭 알아야 하는 것</strong> ① 흐름(언제 만들지)은 상위 클래스가, 선택(무엇을 만들지)은 하위 클래스가 맡는다. ② 순진한 설계의 문제 세 가지: 새 장비마다 공용 코드를 고쳐야 하고, 한 장비의 설정이 모두에게 번지고, 테스트용 가짜를 끼울 자리가 없다. ③ 새 종류는 하위 클래스를 <em>추가</em>하는 것만으로 끝나야 한다(단순 팩토리는 그 함수를 고쳐야 해서 아니다).</li>
+      <li><strong>알면 좋은 것</strong> 파이썬에서는 하위 클래스 대신 "만드는 방법"을 값으로 넘기거나(5절), 클래스가 정의될 때 스스로 등록하게 해서도 같은 목적을 이룰 수 있다. OCP·DIP와의 관계는 4절 끝에 있다.</li>
+      <li><strong>처음 읽을 때는 몰라도 되는 것</strong> <code>functools.partial</code>, <code>ClassVar</code>·<code>Any</code>, <code>python -O</code>와 <code>assert</code>의 주의점. 연습문제를 풀 때 다시 찾아보면 된다.</li>
+    </ul>
+  </div>
 </section>
 
 <section id="context">
@@ -26,6 +34,15 @@ part: 생성 패턴
   <h2>2. 순진한 설계와 그 한계</h2>
   <p class="lead-in">서윤이 분기를 붙인 직후의 코드다. 리더는 장비가 내보낸 글자를 읽어 숫자로 바꿔 주는 클래스다(이런 코드를 <dfn data-term="parser">파서</dfn>라고도 부른다). 리더들 자체는 멀쩡하다. 눈여겨볼 곳은 <code>__init__</code>의 <code>port</code>, <code>run()</code> 맨 앞의 <code>if</code> 목록, 그리고 데모 [3]이다. 데모 [3]은 테스트를 하려고 진짜 리더 이름 <code>CsvSpectrumReader</code>가 가짜 리더를 가리키도록 몰래 바꿔 놓았다가, 끝나면 원래대로 되돌린다. 이렇게 이름을 바꿔 끼우는 데 쓴 <code><dfn data-term="globals">globals()</dfn></code>는 이 파일에서 쓰는 이름표(클래스·함수 이름)와 그 대상을 모아 둔 목록을 돌려주는 함수라서, 여기에 다른 값을 넣으면 같은 이름표가 다른 클래스를 가리키게 된다. 파이썬 개발자들은 이렇게 실행 중에 이름이 가리키는 대상을 몰래 바꿔 끼우는 일을 <dfn data-term="monkeypatch">몽키패치</dfn>(monkeypatch)라고 부른다.</p>
   <pre data-src="01_factory_method/easy/e1_naive.py" data-title="순진한 코드"></pre>
+  <div class="callout"><strong>데모 [3]을 한 줄씩 풀면</strong> (<code>FakeReader</code>는 데모 [3] 코드 안에 바로 정의되어 있다)
+    <ol>
+      <li><code>original = CsvSpectrumReader</code> — 진짜 리더를 <code>original</code>이라는 다른 이름으로 잠깐 맡겨 둔다.</li>
+      <li><code>globals()["CsvSpectrumReader"] = FakeReader</code> — 이제 <code>CsvSpectrumReader</code>라는 이름을 부르면 <em>가짜</em> 리더가 나온다. 이 파일 전체에서 그 이름을 쓰는 모든 곳이 바뀐다는 점이 위험하다.</li>
+      <li><code>AcquisitionJob(...).run()</code> — <code>run()</code> 안에서 <code>CsvSpectrumReader</code>를 부르면 가짜가 만들어져 장비 없이 테스트된다.</li>
+      <li><code>globals()["CsvSpectrumReader"] = original</code> — 이름을 원래대로 돌려 놓는다. 이 줄을 빼먹으면 이 뒤로는 <code>CsvSpectrumReader</code>를 부르는 모든 곳이 계속 가짜를 쓴다.</li>
+    </ol>
+    이렇게 이름을 몰래 바꿔 끼우는 방법밖에 없다는 것이 이 코드의 약점이다.
+  </div>
   <p>데모 [1]은 잘 돈다. 문제는 변경 때 드러난다.</p>
   <ul>
     <li><strong>확장할 자리가 공용 코드 안에만 있다.</strong> 데모 [2]처럼 옆 연구실은 자기 장비인 <dfn data-term="x-ray-diffractometer">X선 회절계(XRD)</dfn>(결정 구조를 재는 장비)를 누구보다 잘 안다. 그런데 그 장비를 연결할 곳이 남이 관리하는 공용 <code>run()</code>의 <code>if</code> 목록뿐이다.</li>
@@ -105,13 +122,16 @@ part: 생성 패턴
     <li>데모 [2]의 <code>XrdJob</code>은 추가만으로 생겼다. 확장할 지식을 가진 쪽이 자기 코드 안에서 확장을 끝낸다(OCP).</li>
     <li>데모 [3]의 <code>FakeJob</code>은 공식으로 열린 자리 <code>create_reader()</code>로 들어온다. 이음새가 설계의 일부가 되었다.</li>
   </ul>
+  <div class="callout"><strong>왜 하위 클래스에 맡길까? 그냥 한 곳(함수나 클래스 하나)에 맡기면 안 될까?</strong> 한 곳이 모든 장비를 알아야 하면 새 장비마다 <em>그 한 곳</em>을 고쳐야 하는데, 그 곳은 공용 코드라서 남의 것이다. 하위 클래스에 맡기면 장비를 아는 연구실이 자기 파일에 클래스를 <em>더하기만</em> 하면 된다. 고치는 것이 아니라 더하는 것이 이 패턴의 핵심이다. 다만 파이썬에서는 하위 클래스 말고 "만드는 방법"을 값으로 넘겨도 비슷하게 되는데, 그것이 5절이다.</div>
+  <div class="callout"><strong>OCP·DIP와 팩토리 메서드는 무엇이 다를까</strong> OCP("고치지 말고 더해서 늘려라")와 DIP("구체 클래스 말고 추상에 기대라")는 <em>규칙</em>, 곧 지켜야 할 목표다. 팩토리 메서드는 그 규칙을 "객체를 만드는 부분"에 적용하는 한 가지 <em>방법</em>이다. 그래서 셋 모두 "확장하기 쉽다"는 말이 나오지만 층이 다르다. 규칙은 무엇을 지킬지, 패턴은 어떻게 지킬지를 말한다.</div>
 </section>
 
 <section id="pythonic">
   <h2>5. 파이썬다운 변형</h2>
   <p>패턴 코드의 <code>UvVisJob</code>은 <code>create_reader()</code> 한 줄만 한다. 파이썬에서는 클래스도 함수처럼 부를 수 있다. 그렇다면 하위 클래스 대신 "만드는 방법"을 값으로 넘기면 된다.</p>
+  <div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. "무엇을 만들지"를 흐름 코드 밖에서 정하는 것이다. 다른 점은 <em>방법</em>이다. 4절은 <strong>상속</strong>으로 한다. 하위 클래스를 만들고 <code>create_reader()</code>를 오버라이드한다. 5절은 <strong>값 넘기기</strong>로 한다. 만드는 방법(함수나 클래스)을 인자로 건네고, 하위 클래스는 만들지 않는다. 클래스 수는 줄지만, "새 종류를 추가할 때 어디를 고치나"를 늘 확인해야 한다.</div>
   <h3>생성 함수 넘기기와 <dfn data-term="alternative-constructor">대체 생성자</dfn></h3>
-  <p class="lead-in">아래 코드는 <code>reader_factory</code> 인자로 만드는 방법을 받는다. 두 가지 도구가 새로 나온다. <code><dfn data-term="functools-partial">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 함수를 만든다. 대체 생성자는 같은 클래스를 다른 입력(예: 설정 dict)에서 만드는 이름 붙은 생성 진입점이다. 파이썬에서는 보통 <code><dfn data-term="classmethod">@classmethod</dfn></code>로 만든다. 이 장식을 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받는다. 데모 [3]에서 리더가 <em>언제</em> 만들어지는지 보라.</p>
+  <p class="lead-in">아래 코드는 <code>reader_factory</code> 인자로 만드는 방법을 받는다. 타입 힌트 <code>Callable</code>(서론에서 본 호출 가능 객체의 타입)이 먼저 나온다. <code>Callable[[], Reader]</code>는 "인자 없이 부르면 <code>Reader</code>를 돌려주는 것"이고, <code>Callable[..., Reader]</code>는 "인자는 무엇이든 받고 <code>Reader</code>를 돌려주는 것"이다. 읽는 법은 하나다. <strong>맨 끝이 돌려주는 값이고, 그 앞의 대괄호가 받는 인자 목록이며, <code>...</code>은 무엇이든 받는다는 뜻이다.</strong> 클래스(<code>CsvSpectrumReader</code>)도 부르면 객체를 돌려주므로 <code>Callable</code>로 쓸 수 있다. 그다음 두 가지 도구가 새로 나온다. <code><dfn data-term="functools-partial">functools.partial</dfn></code>은 함수의 인자 일부를 미리 채운 새 함수를 만든다. 대체 생성자는 같은 클래스를 다른 입력(예: 설정 dict)에서 만드는 이름 붙은 생성 진입점이다. 파이썬에서는 보통 <code><dfn data-term="classmethod">@classmethod</dfn></code>로 만든다. 이 장식을 붙인 메서드는 인스턴스 대신 클래스 자체를 첫 인자 <code>cls</code>로 받는다. 데모 [3]에서 리더가 <em>언제</em> 만들어지는지 보라.</p>
   <pre data-src="01_factory_method/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
   <p>데모 [3]이 중요하다. 리더는 <code>run()</code>이 불릴 때 비로소 만들어진다. 인스턴스를 바로 넘겼다면 만드는 시점을 호출자가 정해 버렸을 것이다. 모양은 10장의 전략 패턴과 같다. 상속 대신 합성을 쓴 것이다.</p>
   <p>데모 [4]의 <code>from_config()</code>는 흔히 "팩토리 메서드"라 불리지만 GoF의 팩토리 메서드가 아니다. 무엇을 만들지 정하는 것이 하위 클래스가 아니라 설정 데이터이고, 속은 표를 찾는 단순 팩토리다. 그래서 새 장비 <code>"xrd"</code>를 붙이려면 결국 <code>DEVICES</code> 표를 고쳐야 한다.</p>

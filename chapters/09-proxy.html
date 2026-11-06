@@ -12,6 +12,14 @@ part: 구조 패턴
   <li>파이썬의 <code>cached_property</code>, <code>lru_cache</code>로 프록시 없이 같은 효과를 내는 방법과 그 조건을 설명할 수 있다.</li>
 </ol>
 <div class="callout"><strong>핵심 한 줄</strong> 고칠 수 없는 객체에 "언제 만들지, 누구에게 보여 줄지, 무엇을 재사용할지"를 정해야 하는데 그 검사가 쓰는 곳마다 흩어진다면 프록시를 떠올린다.</div>
+<div class="callout"><strong>처음이라면 이 그림부터</strong> 도서관 사서를 떠올려 보자. 이용자는 "이 책을 보여 주세요"라고만 말한다. 사서는 책 이름은 카드로 바로 알려 주고, 두꺼운 본문은 창고에서 정말 필요할 때 가져온다. 열람 제한 자료는 자격을 확인하고, 이미 꺼내 둔 책은 다시 가져오지 않고 카운터에서 건넨다. 이용자 입장에서는 늘 같은 방식으로 책을 달라고 할 뿐이다. 프록시가 이것이다. <strong>진짜 객체와 같은 얼굴로 앞에 서서, 언제 만들고 누구에게 보여 주고 무엇을 재사용할지를 대신 정한다.</strong> 아래 위성 사진 이야기는 이 그림을 코드로 옮긴 것이다.</div>
+<div class="callout"><strong>이 장에서 무엇을 챙길까</strong>
+  <ul>
+    <li><strong>꼭 알아야 하는 것</strong> ① 프록시는 진짜 객체와 <em>같은 인터페이스</em>라서 쓰는 쪽이 둘을 구별하지 않고, 접근을 통제한다. ② 통제의 이유에 따라 가상(필요할 때 만든다)·보호(누구에게 허용하나)·캐싱(받은 것을 재사용한다)으로 나뉜다. ③ 데코레이터와 달리 프록시는 진짜 객체를 받아 감싸지 않고 <em>스스로 만들 수</em> 있어서 "언제 만들지"를 정할 수 있다.</li>
+    <li><strong>알면 좋은 것</strong> 프록시를 겹치는 순서(보호가 가상의 바깥이어야 다운로드 전에 막는다), 진짜 객체로 가는 통로를 하나로 만드는 이유, 클래스를 직접 고칠 수 있으면 <code>cached_property</code>·<code>lru_cache</code>로 충분하다는 것(5절).</li>
+    <li><strong>처음 읽을 때는 몰라도 되는 것</strong> 원격 프록시, UML 스테레오타입(«create»), <code>lru_cache</code>가 무엇을 버리는지의 세부. 연습문제를 풀 때 다시 찾아보면 된다.</li>
+  </ul>
+</div>
 </section>
 
 <section id="context">
@@ -94,7 +102,7 @@ part: 구조 패턴
 
 <section id="implementation">
 <h2>4. 패턴 적용</h2>
-<p class="lead-in">수아는 프록시를 두 층에 두었다. 저장소 층의 <code>CachingArchiveProxy</code>가 재사용을, 사진 층의 두 프록시가 지연과 권한을 맡는다. 데모 [3]의 <dfn data-term="cache-hit">캐시 적중</dfn>은 요청한 원본이 이미 캐시에 있어 다시 받지 않은 경우다. <code>open_image()</code>가 왜 있는지도 보라.</p>
+<p class="lead-in">수아는 프록시를 두 층에 두었다. 저장소 층의 <code>CachingArchiveProxy</code>가 재사용을, 사진 층의 두 프록시가 지연과 권한을 맡는다. 데모 [3]의 <dfn data-term="cache-hit">캐시 적중</dfn>은 요청한 원본이 이미 캐시에 있어 다시 받지 않은 경우다. <code>open_image()</code>가 왜 있는지도 보라. 코드에 처음 나오는 모양을 미리 읽어 두자. <code>RealSatelliteImage | None</code>은 "진짜 사진이거나 아직 없음(<code>None</code>)"이고, 가상 프록시는 처음에 <code>None</code>으로 두었다가 필요할 때 채운다. <code>ALLOWED = {"분석관"}</code>은 허용할 사용자를 담은 집합이다. <code>f"K3-{i:04}"</code>는 숫자를 네 자리로 0을 채워 적는다(<code>K3-0007</code>). 데모의 <code>[open_image(...) for i in range(2000)]</code>는 사진 2,000장을 만드는데, <code>i == 0</code>일 때만 보안 사진(<code>secret</code>)이다.</p>
 <pre data-src="09_proxy/easy/e2_pattern.py" data-title="패턴 코드"></pre>
 <p>어디를 보면 되는가.</p>
 <ul>
@@ -103,17 +111,35 @@ part: 구조 패턴
   <li><code>CachingArchiveProxy</code>가 저장소 앞에 있다: 데모 [3]에서 다른 화면이 새 프록시로 열어도 원격 다운로드는 늘지 않는다.</li>
   <li><code>open_image()</code>: 사진을 얻는 유일한 통로다. 화면이 <code>RealSatelliteImage</code>를 직접 만들 수 있으면 보호 프록시를 우회할 수 있다.</li>
 </ul>
+<div class="callout"><strong>데모 [2]와 [3]을 한 줄씩 풀면</strong> (<code>images[0]</code>은 보호 프록시가 가상 프록시를 감싼 것이다)
+  <ol>
+    <li><code>zoom("중심부", "분석관")</code>: 바깥 보호 프록시가 사용자를 확인하고 통과시킨다. 안쪽 가상 프록시는 <code>_real</code>이 <code>None</code>이라 그제야 <code>RealSatelliteImage</code>를 만든다. 그 생성자가 저장소를 불러 원본을 받으므로 400MB가 올라간다.</li>
+    <li><code>zoom("중심부", "인턴")</code>: 보호 프록시에서 <code>PermissionError</code>가 나고 안쪽으로 넘어가지 않는다. 가상 프록시와 저장소에 닿지 않으니 "다운로드 전에" 막힌 것이다.</li>
+    <li><code>again = open_image("K3-0000", ...)</code>: 새 프록시 둘을 만들 뿐, 진짜 사진은 아직 없다. <code>again.zoom(...)</code>이 진짜 사진을 새로 만들며 저장소에 원본을 달라고 한다.</li>
+    <li>그런데 저장소 앞에는 <code>CachingArchiveProxy</code>가 있고 이미 그 사진을 기억하고 있다. 그래서 캐시 적중이 1회 늘고 누적 다운로드는 400MB 그대로다. 캐시가 화면이 아니라 <em>저장소 앞</em>에 있어서 새 화면도 같은 캐시를 쓴다.</li>
+  </ol>
+</div>
+<div class="callout"><strong>왜 프록시를 진짜 객체와 같은 모양으로 만들까? 그냥 "지연 로더" 함수를 따로 두면 안 될까?</strong> 같은 모양이어야 화면이 "이게 진짜 사진인가, 대리인인가"를 구별하지 않고 똑같이 <code>zoom()</code>을 부른다. 함수를 따로 두면 화면마다 "아직 로더인가, 사진이 되었나"를 따져야 하고, 권한 검사를 빼먹는 길이 다시 생긴다. 같은 모양이면 나중에 프록시를 빼거나 다른 프록시로 바꿔 끼워도 화면은 한 줄도 바뀌지 않는다.</div>
 </section>
 
 <section id="pythonic">
 <h2>5. 파이썬다운 변형</h2>
 <p>프록시는 고칠 수 없는 객체 앞에 서는 해법이다. 클래스를 우리가 직접 설계한다면 바깥에 대리인을 세우지 않아도 된다.</p>
-<p class="lead-in"><dfn data-term="lazy-initialization">지연 로딩</dfn>은 비싼 데이터를 미리 만들지 않고 처음 필요할 때 불러오는 방식이다. 프록시 없이도 이것을 얻을 수 있다. 아래 코드는 두 도구를 보인다. <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>는 첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 두고 이후에는 보통 속성처럼 읽히게 하는 도구다. <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>는 함수의 인자를 열쇠로 결과를 기억하고, 가득 차면 가장 오래 쓰이지 않은 것부터 버리는 도구다. <code>LOADS</code> 목록이 무거운 로딩이 언제 일어났는지 보여 준다.</p>
+<div class="callout"><strong>4절(패턴 적용)과 5절(파이썬다운 변형)은 무엇이 다를까</strong> 목적은 같다. 지연·재사용 같은 접근 규칙을 쓰는 쪽에서 떼어 놓는 것이다. 4절은 고칠 수 없는 클래스 앞에 <strong>대리인 객체</strong>(프록시 클래스)를 세운다. 5절은 클래스를 우리가 고칠 수 있다면 <strong>객체 안에서</strong> 해결한다. 대리인 객체가 없으니 타입도 그대로고 코드도 짧다. 고칠 수 없으면 5절의 방법을 쓸 수 없다.</div>
+<p class="lead-in"><dfn data-term="lazy-initialization">지연 로딩</dfn>은 비싼 데이터를 미리 만들지 않고 처음 필요할 때 불러오는 방식이다. 프록시 없이도 이것을 얻을 수 있다. 아래 코드는 두 도구를 보인다. <dfn data-term="functools-cached-property"><code>cached_property</code></dfn>는 첫 접근 때 한 번 계산한 값을 인스턴스에 저장해 두고 이후에는 보통 속성처럼 읽히게 하는 도구다. <dfn data-term="functools-lru-cache"><code>lru_cache</code></dfn>는 함수의 인자를 열쇠로 결과를 기억하고, 가득 차면 가장 오래 쓰이지 않은 것부터 버리는 도구다. <code>LOADS</code> 목록이 무거운 로딩이 언제 일어났는지 보여 준다. 둘 다 함수나 메서드 위에 <code>@</code>로 붙이는 데코레이터(6장)다. <code>@cached_property</code>를 붙인 <code>data</code>는 메서드로 정의했지만 <code>scene.data</code>처럼 괄호 없이 속성으로 읽고, 처음 읽을 때만 본문이 실행된다. 데모에서 <code>scene.data</code>만 적힌 줄은 값을 쓰려는 것이 아니라 접근해서 로딩을 일으키는 것이다.</p>
 <pre data-src="09_proxy/easy/e3_pythonic.py" data-title="파이썬다운 변형"></pre>
 <ul>
   <li><strong><code>cached_property</code>는 가상 프록시를 대신한다.</strong> 데모 [1]에서 만든 직후에는 아무것도 로딩하지 않고, <code>data</code>에 처음 접근할 때 한 번만 로딩한다. 별도 객체가 없으니 타입도 그대로다. 조건은 하나, <strong>그 클래스를 우리가 고칠 수 있어야 한다.</strong> <code>SatelliteImage</code>처럼 생성자가 이미 다운로드하는 외부 클래스라면 프록시가 필요하다.</li>
   <li><strong><code>lru_cache</code>는 함수 하나짜리 캐싱 프록시다.</strong> 데모 [2]에서 A는 재사용되고, C가 들어오며 B가 밀려나 마지막 B는 다시 받는다. 특정 사진만 지우는 등 세밀한 관리가 필요하면 객체로 된 캐싱 프록시가 낫다.</li>
 </ul>
+<div class="callout"><strong>데모 [2]의 <code>A B A C A B</code>를 풀면</strong> (<code>maxsize=2</code>, 기억 칸이 둘)
+  <ol>
+    <li>A: 처음이라 로딩한다. 기억 {A}. B: 로딩한다. 기억 {A, B}.</li>
+    <li>A: 기억에 있어 재사용(로딩 없음). 이때 A가 "방금 쓴 것"이 되어 B가 가장 오래 안 쓴 것이 된다.</li>
+    <li>C: 처음이라 로딩하고, 칸이 가득 차서 가장 오래 안 쓴 B를 버린다. 기억 {A, C}.</li>
+    <li>A: 재사용. 마지막 B: 버려졌으므로 다시 로딩한다. 그래서 실제 로딩은 <code>['A', 'B', 'C', 'B']</code>이고, 적중 2회(A 두 번)·실패 4회다.</li>
+  </ol>
+</div>
 </section>
 
 <section id="tradeoffs">
