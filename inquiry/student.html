@@ -555,6 +555,15 @@ body.qz-lock { overflow: hidden; }
 .qz-menu-top { display: none; text-decoration: none; font-size: .82em; color: var(--accent, #1f4f78); white-space: nowrap; }
 @media (max-width: 900px) { .qz-menu-top { display: inline-flex; } .qz-menu-li { display: none; } }
 
+/* 돌발퀴즈 피드백 구역(각 패턴 장 맨 아래, quiz-ui.js): 팝업이 아니라 페이지 안의 한 구역 */
+.qz-section { margin: 48px 0 24px; padding-top: 24px; border-top: 1px solid var(--border, var(--line, #dcd5c6)); }
+.qz-section h2 { margin-top: 0; }
+.qz-intro, .qz-empty { color: var(--muted, var(--dim, #5a6372)); }
+.qz-section .qz-item { background: var(--surface, #fff); }
+.qz-section .qz-q { padding: 10px 0; border-top: 1px dashed var(--border, var(--line, #dcd5c6)); }
+.qz-lab { margin: 8px 0 2px; font-size: 12.5px; font-weight: 700; color: var(--muted, var(--dim, #5a6372)); }
+.qz-sum b { margin-right: 4px; }
+
 /* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
 .ai-fab { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
 .ai-fab:hover { transform: scale(1.06); }
@@ -1269,6 +1278,7 @@ const FB = (() => {
     const m = await load(), { collection, query, where, onSnapshot } = m.fs;
     return onSnapshot(query(collection(m.db, "quizResults"), where("uid", "==", uid)), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), () => cb(null));
   }
+  const quizResultDetail = sid => call("quizResultDetail", { sid });       // 내가 받은 피드백의 자세한 내용(내 답·채점 기준별 충족)
   const startQuiz = p => call("startQuiz", p);
   const closeQuiz = sid => call("closeQuiz", { sid });
   const watchQuizSessions = cb => live("quizSessions", cb, m => m.fs.query(m.fs.collection(m.db, "quizSessions"), m.fs.orderBy("startedAt", "desc"), m.fs.limit(30)));
@@ -1407,7 +1417,7 @@ const FB = (() => {
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            loadMyCode, saveCodeBlock, deleteCodeBlock, watchCodeStudents, loadStudentCode, deleteStudentCode,
-           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
+           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, quizResultDetail, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

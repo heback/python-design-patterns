@@ -69,74 +69,89 @@ const QuizUI = (() => {
     quiz.finish = finish;
   }
 
-  /* ---------- 피드백 팝업·피드백 보기 ----------
-     처음 도착했을 때는 팝업이 한 번 뜨고, 그 뒤에는 각 패턴 장의 왼쪽 메뉴 [돌발퀴즈 피드백]에서 언제든 다시 본다(교사 화면에서 보는 것과 같은 내용: 문제·내 답·채점 기준별 충족·점수·피드백·총평). */
+  /* ---------- 피드백: 도착 팝업 + 각 패턴 장 맨 아래 [돌발퀴즈 피드백] 구역 ----------
+     처음 도착했을 때는 팝업이 한 번 뜨고, 그 뒤에는 각 패턴 장의 왼쪽 목차 [돌발퀴즈 피드백](팝업이 아니라 이 장 맨 아래의 한 구역으로 이동)에서 언제든 다시 본다.
+     보이는 내용은 교사 화면과 같다: 문제·내 답·채점 기준별 충족·점수·피드백·총평. 내 답과 채점 기준 충족은 함수 quizResultDetail 이 채워 준다(예전 형식으로 보낸 결과도 자세히 보이도록). */
   function closeFb() { if (fb) { fb.remove(); fb = null; } }
   const pips = (n, max) => el("span", { class: "qz-pips", title: `${n}/${max}점`, "aria-label": `${n}점 / ${max}점` }, Array.from({ length: max }, (_, i) => el("i", { class: i < n ? "on" : "" })));
-  const when = r => { const ms = r.releasedAt && r.releasedAt.toMillis ? r.releasedAt.toMillis() : 0; return ms ? stamp(new Date(ms)) : ""; };
-  /* 결과 한 건의 본문. 예전 결과(답안·채점 기준이 없는 것)도 있는 것만 보인다. */
-  function resultBody(r) {
-    const max = 3;
-    return [el("div", { class: "qz-score" }, el("b", {}, `총점 ${r.total} / ${r.max}`)),
-      r.summary ? el("p", { class: "qz-sum" }, r.summary) : null,
-      ...r.items.map((x, i) => el("section", { class: "qz-q" },
-        el("div", { class: "qz-qt" }, el("b", {}, `${i + 1}.`), " ", x.q, pips(x.score, max)),
-        typeof x.answer === "string" ? el("pre", { class: "qz-ans" + (x.answer ? "" : " empty") }, x.answer || "(무응답)") : null,
-        x.criteria && x.criteria.length ? el("ul", { class: "qz-crit" }, x.criteria.map(c => el("li", { class: c.ok === true ? "y" : c.ok === false ? "n" : "" }, c.ok === null ? ico("radio_button_unchecked") : ico(c.ok ? "check_circle" : "cancel", "fill"), c.t))) : null,
-        x.feedback ? el("div", { class: "qz-fbtxt" }, x.feedback) : null))];
+  const ms = r => r.releasedAt && r.releasedAt.toMillis ? r.releasedAt.toMillis() : 0;
+  const when = r => ms(r) ? stamp(new Date(ms(r))) : "";
+  /* 자세한 내용(내 답·채점 기준)을 받아 온다. 저장된 결과에 이미 있으면(새 형식) 부르지 않는다. */
+  const detail = {};
+  const need = r => r.items.some(x => x.answer === undefined && x.criteria === undefined);
+  const ready = r => !need(r) || !!(detail[r.sid] && (detail[r.sid].items || detail[r.sid].failed));
+  function loadDetail(r) {
+    if (!need(r) || detail[r.sid]) return; detail[r.sid] = {};
+    FB.quizResultDetail(r.sid).then(d => { detail[r.sid] = { items: new Map((d.items || []).map(x => [x.id, x])) }; }).catch(() => { detail[r.sid] = { failed: true }; }).then(() => { paintSection(); next(); });
   }
+  const view = r => { const d = detail[r.sid]; return d && d.items ? Object.assign({}, r, { items: r.items.map(x => (x.answer === undefined && d.items.has(x.id)) ? Object.assign({}, x, d.items.get(x.id)) : x) }) : r; };
+  /* 결과 한 건의 본문 */
+  function resultBody(r0) {
+    const r = view(r0), max = 3;
+    return [el("div", { class: "qz-score" }, el("b", {}, `총점 ${r.total} / ${r.max}`)),
+      r.summary ? el("div", { class: "qz-sum" }, el("b", {}, "총평 "), r.summary) : null,
+      ...r.items.map((x, i) => el("div", { class: "qz-q" },
+        el("div", { class: "qz-qt" }, el("b", {}, `${i + 1}.`), " ", x.q, pips(x.score, max)),
+        typeof x.answer === "string" ? el("div", { class: "qz-lab" }, "내 답") : null,
+        typeof x.answer === "string" ? el("pre", { class: "qz-ans" + (x.answer ? "" : " empty") }, x.answer || "(무응답)") : null,
+        x.criteria && x.criteria.length ? el("div", { class: "qz-lab" }, "채점 기준") : null,
+        x.criteria && x.criteria.length ? el("ul", { class: "qz-crit" }, x.criteria.map(c => el("li", { class: c.ok === true ? "y" : c.ok === false ? "n" : "" }, c.ok === null ? ico("radio_button_unchecked") : ico(c.ok ? "check_circle" : "cancel", "fill"), c.t))) : null,
+        x.feedback ? el("div", { class: "qz-lab" }, "피드백") : null, x.feedback ? el("div", { class: "qz-fbtxt" }, x.feedback) : null))];
+  }
+  /* 도착 팝업(처음 한 번). 이 장이 그 패턴이면 맨 아래 구역에서 다시 볼 수 있고, 다른 장이면 그 패턴 장의 같은 구역으로 가는 링크가 있다. */
   function showFeedback(r) {
     if (fb) return;
     const bOk = el("button", { type: "button", class: "qbtn primary" }, ico("check"), "확인했어요");
     bOk.addEventListener("click", () => { markSeen(r.id); closeFb(); next(); });
+    const here = r.slug === SLUG, link = here ? el("a", { class: "qbtn", href: "#qz-feedback", onclick: () => { markSeen(r.id); closeFb(); next(); } }, "이 장 맨 아래에서 다시 보기")
+      : el("a", { class: "qbtn", href: r.slug + ".html#qz-feedback", onclick: () => markSeen(r.id) }, "그 장에서 다시 보기");
     const box = el("div", { class: "qz-box qz-fb", role: "dialog", "aria-modal": "true", "aria-labelledby": "qz-fb-title" },
       el("div", { class: "qz-head" }, el("h3", { id: "qz-fb-title" }, ico("rate_review", "fill"), `돌발 퀴즈 피드백 · ${r.title}`)),
-      el("p", { class: "qz-note" }, "이 피드백은 이 장의 왼쪽 메뉴 [돌발퀴즈 피드백]에서 언제든 다시 볼 수 있어요."),
+      el("p", { class: "qz-note" }, "이 피드백은 해당 패턴 장의 왼쪽 메뉴 [돌발퀴즈 피드백]에서 언제든 다시 볼 수 있어요."),
       el("div", { class: "qz-body" }, resultBody(r)),
-      el("div", { class: "qz-btns" }, el("span", { class: "qz-grow" }), bOk));
+      el("div", { class: "qz-btns" }, link, el("span", { class: "qz-grow" }), bOk));
     fb = el("div", { class: "qz-overlay" }, box); document.body.append(fb); bOk.focus();
   }
-  /* 이 장(패턴)의 받은 피드백 모두 보기: 최신이 위, 최신 것만 펼쳐 둔다. */
-  const mine = () => results.filter(r => r.slug === SLUG).sort((a, b) => (b.releasedAt && b.releasedAt.toMillis ? b.releasedAt.toMillis() : 0) - (a.releasedAt && a.releasedAt.toMillis ? a.releasedAt.toMillis() : 0));
-  function showCenter() {
-    if (fb) return;
-    const list = mine(), ch = (TB_DATA.chapters || []).find(c => c.slug === SLUG);
-    const bClose = el("button", { type: "button", class: "qbtn primary" }, "닫기");
-    const onKey = e => { if (e.key === "Escape") done(); };
-    const done = () => { document.removeEventListener("keydown", onKey); list.forEach(r => markSeen(r.id)); closeFb(); next(); };
-    bClose.addEventListener("click", done); document.addEventListener("keydown", onKey);
-    const box = el("div", { class: "qz-box qz-fb", role: "dialog", "aria-modal": "true", "aria-labelledby": "qz-fb-title" },
-      el("div", { class: "qz-head" }, el("h3", { id: "qz-fb-title" }, ico("rate_review", "fill"), `돌발퀴즈 피드백${ch ? " · " + ch.title : ""}`)),
-      el("div", { class: "qz-body" }, !uid ? el("p", {}, "로그인한 뒤에 볼 수 있어요.") : !loaded ? el("p", {}, "불러오는 중이에요…")
-        : !list.length ? el("p", {}, "아직 받은 피드백이 없어요. 선생님이 이 패턴의 돌발퀴즈를 내고 채점해서 보내 주면 여기에 나타나요.")
-        : list.map((r, i) => el("details", { class: "qz-item", ...(i === 0 ? { open: "" } : {}) },
-            el("summary", {}, el("b", {}, `${r.title} 돌발퀴즈`), el("span", { class: "qz-when" }, when(r)), el("span", { class: "qz-chip" }, `${r.total} / ${r.max}점`)), ...resultBody(r)))),
-      el("div", { class: "qz-btns" }, el("span", { class: "qz-grow" }), bClose));
-    fb = el("div", { class: "qz-overlay" }, box); document.body.append(fb); bClose.focus();
-    fb.addEventListener("mousedown", e => { if (e.target === fb) done(); });
-  }
-  /* 아직 안 본 결과가 있고 퀴즈를 풀고 있지 않으면 하나씩 보인다 */
+  /* 아직 안 본 결과가 있고 퀴즈를 풀고 있지 않으면 하나씩 보인다(자세한 내용을 받아 온 뒤에) */
   function next() {
-    paintMenu();
+    paintBadges(); paintSection();
     if (fb || (quiz && !quiz.state.final)) return;
-    const seen = seenIds(), r = results.filter(x => !seen.has(x.id)).sort((a, b) => ((a.releasedAt && a.releasedAt.toMillis ? a.releasedAt.toMillis() : 0) - (b.releasedAt && b.releasedAt.toMillis ? b.releasedAt.toMillis() : 0)))[0];
+    const unseen = results.filter(x => !seenIds().has(x.id)).sort((a, b) => ms(a) - ms(b));
+    unseen.forEach(loadDetail);
+    const r = unseen.find(ready);
     if (r) showFeedback(r);
   }
+  const mine = () => results.filter(r => r.slug === SLUG).sort((a, b) => ms(b) - ms(a));
 
-  /* ---------- 왼쪽 메뉴 [돌발퀴즈 피드백] (패턴 장에만) ----------
-     목차(.side-toc) 맨 아래에 항목을 달고, 목차가 보이지 않는 좁은 화면을 위해 상단 바에도 같은 버튼을 둔다(CSS 가 화면 폭에 따라 하나만 보인다). */
-  let menuLinks = [];
+  /* ---------- 이 장 맨 아래 구역 + 왼쪽 목차 메뉴 (패턴 장에만) ---------- */
+  let section = null, menuLinks = [], io = null;
+  function paintSection() {
+    if (!section) return;
+    const list = mine(); list.forEach(loadDetail);
+    const kids = [el("h2", {}, "돌발퀴즈 피드백"),
+      el("p", { class: "qz-intro" }, "선생님이 이 패턴의 돌발퀴즈를 채점해서 보내 준 피드백이에요. 내가 쓴 답, 채점 기준을 충족했는지, 점수와 피드백을 언제든 다시 볼 수 있어요.")];
+    if (!uid) kids.push(el("p", {}, "로그인한 뒤에 볼 수 있어요."));
+    else if (!loaded) kids.push(el("p", {}, "불러오는 중이에요…"));
+    else if (!list.length) kids.push(el("p", { class: "qz-empty" }, "아직 받은 피드백이 없어요. 선생님이 이 패턴의 돌발퀴즈를 내고 채점해서 보내 주면 여기에 나타나요."));
+    else list.forEach((r, i) => kids.push(el("details", { class: "qz-item", ...(i === 0 || !ready(r) ? { open: "" } : {}) },
+      el("summary", {}, el("b", {}, `${r.title} 돌발퀴즈`), el("span", { class: "qz-when" }, when(r)), el("span", { class: "qz-chip" }, `${r.total} / ${r.max}점`)),
+      ...(ready(r) ? resultBody(r) : [el("p", {}, "자세한 내용을 불러오는 중이에요…")]))));
+    section.replaceChildren(...kids);
+  }
   function installMenu() {
     const ch = (TB_DATA.chapters || []).find(c => c.slug === SLUG);
     if (!ch || ch.group === "intro") return;
-    const mk = cls => { const a = el("a", { href: "#", class: cls, role: "button" }, ico("rate_review"), "돌발퀴즈 피드백 ", el("span", { class: "qz-cnt", hidden: true })); a.addEventListener("click", e => { e.preventDefault(); showCenter(); }); menuLinks.push(a); return a; };
+    const main = document.querySelector("main.content");
+    if (main) { section = el("div", { id: "qz-feedback", class: "qz-section" }); const pager = main.querySelector(".pager"); if (pager) main.insertBefore(section, pager); else main.append(section); paintSection();
+      if (typeof IntersectionObserver !== "undefined") { io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { const l = mine(); if (l.length) { l.forEach(r => markSeen(r.id)); paintBadges(); } } }, { threshold: 0.25 }); io.observe(section); } }
+    const mk = cls => { const a = el("a", { href: "#qz-feedback", class: cls }, ico("rate_review"), "돌발퀴즈 피드백 ", el("span", { class: "qz-cnt", hidden: true })); menuLinks.push(a); return a; };
     const ol = document.querySelector("nav.side-toc ol"); if (ol) ol.append(el("li", { class: "qz-menu-li" }, mk("qz-menu")));
     const top = document.querySelector(".topbar"); if (top) top.insertBefore(mk("qz-menu qz-menu-top"), top.querySelector(".glossary-link") || top.querySelector(".theme-toggle"));
-    paintMenu();
+    paintBadges();
   }
-  function paintMenu() {
-    const n = uid ? mine().length : 0, seen = seenIds(), fresh = mine().filter(r => !seen.has(r.id)).length;
-    menuLinks.forEach(a => { const c = a.querySelector(".qz-cnt"); c.hidden = !n; c.textContent = String(n); c.classList.toggle("new", fresh > 0); a.title = n ? `받은 돌발퀴즈 피드백 ${n}건` : "받은 돌발퀴즈 피드백 보기"; });
+  function paintBadges() {
+    const l = uid ? mine() : [], seen = seenIds(), fresh = l.filter(r => !seen.has(r.id)).length;
+    menuLinks.forEach(a => { const c = a.querySelector(".qz-cnt"); c.hidden = !l.length; c.textContent = String(l.length); c.classList.toggle("new", fresh > 0); a.title = l.length ? `받은 돌발퀴즈 피드백 ${l.length}건` : "받은 돌발퀴즈 피드백 보기"; });
   }
 
   /* ---------- 서버와 연결 ---------- */
@@ -151,7 +166,7 @@ const QuizUI = (() => {
     else if (quiz && c && quiz.sid === c.sid && !quiz.state.final) quiz.finish();       // 시간이 끝났거나 교사가 마감했다
     next();
   }
-  function stop() { [unCfg, unRes].forEach(f => { try { f && f(); } catch (e) {} }); unCfg = unRes = null; cfg = null; results = []; loaded = false; closeQuiz(); closeFb(); paintMenu(); }
+  function stop() { [unCfg, unRes].forEach(f => { try { f && f(); } catch (e) {} }); unCfg = unRes = null; cfg = null; results = []; loaded = false; closeQuiz(); closeFb(); paintBadges(); paintSection(); }
   function syncUser() {
     const u = StudentAuth.get(), nextUid = u ? u.uid : null;
     if (nextUid === uid) return; stop(); uid = nextUid; if (!uid) return;

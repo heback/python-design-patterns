@@ -105,6 +105,7 @@ const FB = (() => {
     const m = await load(), { collection, query, where, onSnapshot } = m.fs;
     return onSnapshot(query(collection(m.db, "quizResults"), where("uid", "==", uid)), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), () => cb(null));
   }
+  const quizResultDetail = sid => call("quizResultDetail", { sid });       // 내가 받은 피드백의 자세한 내용(내 답·채점 기준별 충족)
   const startQuiz = p => call("startQuiz", p);
   const closeQuiz = sid => call("closeQuiz", { sid });
   const watchQuizSessions = cb => live("quizSessions", cb, m => m.fs.query(m.fs.collection(m.db, "quizSessions"), m.fs.orderBy("startedAt", "desc"), m.fs.limit(30)));
@@ -243,7 +244,7 @@ const FB = (() => {
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            loadMyCode, saveCodeBlock, deleteCodeBlock, watchCodeStudents, loadStudentCode, deleteStudentCode,
-           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
+           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, quizResultDetail, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

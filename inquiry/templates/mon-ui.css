@@ -105,3 +105,12 @@ body.qz-lock { overflow: hidden; }
 .qz-cnt.new { background: var(--bad, #b3352b); }
 .qz-menu-top { display: none; text-decoration: none; font-size: .82em; color: var(--accent, #1f4f78); white-space: nowrap; }
 @media (max-width: 900px) { .qz-menu-top { display: inline-flex; } .qz-menu-li { display: none; } }
+
+/* 돌발퀴즈 피드백 구역(각 패턴 장 맨 아래, quiz-ui.js): 팝업이 아니라 페이지 안의 한 구역 */
+.qz-section { margin: 48px 0 24px; padding-top: 24px; border-top: 1px solid var(--border, var(--line, #dcd5c6)); }
+.qz-section h2 { margin-top: 0; }
+.qz-intro, .qz-empty { color: var(--muted, var(--dim, #5a6372)); }
+.qz-section .qz-item { background: var(--surface, #fff); }
+.qz-section .qz-q { padding: 10px 0; border-top: 1px dashed var(--border, var(--line, #dcd5c6)); }
+.qz-lab { margin: 8px 0 2px; font-size: 12.5px; font-weight: 700; color: var(--muted, var(--dim, #5a6372)); }
+.qz-sum b { margin-right: 4px; }

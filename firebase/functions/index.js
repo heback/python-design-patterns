@@ -431,6 +431,22 @@ exports.saveQuizGrade = onCall({ region: REGION }, async req => {
   return { ok: true };
 });
 
+/** 학생이 자기 결과(quizResults)의 자세한 내용을 다시 볼 때 부른다: 본인의 답과 채점 기준별 충족 여부(교사 화면과 같은 내용, 모범 답안 제외).
+ *  교사가 보낸 결과(quizResults/{sid}__{uid})가 있을 때만 준다. 예전 형식으로 보낸 결과에도 내용을 채워 줄 수 있도록 저장된 결과가 아니라 답안·채점 기록에서 읽는다. */
+exports.quizResultDetail = onCall({ region: REGION }, async req => {
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", "학교 계정으로 로그인해야 합니다.");
+  const sid = sidOf((req.data || {}).sid), uid = req.auth.uid;
+  const res = await db.doc(`quizResults/${sid}__${uid}`).get();
+  if (!res.exists) throw new HttpsError("not-found", "받은 피드백이 없습니다.");
+  const [ss, as, gs] = await Promise.all([quizRef(sid).get(), quizRef(sid).collection("answers").doc(uid).get(), quizRef(sid).collection("grades").doc(uid).get()]);
+  if (!ss.exists) return { items: [] };
+  const bank = ((loadContent().quiz || {})[ss.data().slug]) || [], ans = (as.data() || {}).answers || {}, g = gs.data() || {};
+  return { items: res.data().items.map(x => {
+    const it = (g.items || []).find(y => y.id === x.id) || {}, keys = (bank.find(b => b.id === x.id) || {}).key || [];
+    return { id: x.id, answer: String(ans[x.id] || "").slice(0, quizLib.LIMITS.answer), criteria: keys.map((t, j) => ({ t, ok: Array.isArray(it.hits) ? it.hits[j] === true : null })) };
+  }) };
+});
+
 /** grades 를 학생에게 보낸다(quizResults/{sid}__{uid}). uids 를 주면 그 학생만, 없으면 점수가 있는 모든 학생. */
 exports.releaseQuiz = onCall({ region: REGION }, async req => {
   await assertTeacher(req.auth);
