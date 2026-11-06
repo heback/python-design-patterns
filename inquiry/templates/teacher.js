@@ -513,13 +513,15 @@ function renderMonitor(main) {
     const sortSel = el("select", { onchange: e => { M.sort = e.target.value; paintTbl(); } }, [["num", "번호순"], ["slow", "교재 진도 느린 순"], ["idle", "활동 오래된 순"]].map(([v, l]) => el("option", { value: v, ...(v === M.sort ? { selected: "" } : {}) }, l)));
     // 분류 머리줄: 같은 분류의 장을 한 칸으로 묶는다
     const groupHead = []; chs.forEach(c => { const last = groupHead[groupHead.length - 1]; if (last && last.g === c.group) last.n++; else groupHead.push({ g: c.group, n: 1 }); });
+    // 상태가 바뀔 때마다 표를 새로 그리므로, 그리기 전의 가로·세로 스크롤 위치와 '동의 현황' 펼침 상태를 기억했다가 되돌린다(안 그러면 표가 맨 왼쪽으로 돌아간다).
+    const shown = !vProg.hidden, oldWrap = tbl.querySelector(".prog-wrap"), keepX = oldWrap ? oldWrap.scrollLeft : 0, keepY = window.scrollY, keepPX = window.scrollX, keepOpen = !!tbl.querySelector("details[open]");
     fill(tbl, el("h3", {}, "진도표"),
       M.mon !== undefined && !(M.mon && M.mon.on) ? el("div", { class: "note-box" }, ico("info"), "진도 수집이 꺼져 있어 새 진도는 들어오지 않습니다. ", el("button", { type: "button", class: "btn small", onclick: () => go("settings") }, "환경설정으로 가기")) : null,
       M.progErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "진도를 읽지 못했습니다."), el("div", {}, M.progErr),
         /permission|insufficient/i.test(M.progErr) ? el("div", {}, "Firestore 규칙이 이 계정을 교사로 인정하지 않는 경우입니다. 콘솔에서 config/teachers 문서의 emails 가 ‘배열(array)’ 유형인지, 지금 로그인한 이메일이 소문자·공백 없이 들어 있는지 확인하세요.") : null) : null,
       M.prog === null ? el("p", { class: "lead" }, "불러오는 중…") : el("p", { class: "lead" }, `접속 기록 ${rows.length}명 · 활동 중 ${cnt.ok} · 잠시 멈춤 ${cnt.part} · 멈춤 ${cnt.none}`),
       M.consents === null ? null : el("p", { class: "lead" }, `개인정보 동의 ${consList.length}명 (AI 도우미 선택 동의 ${consList.filter(c => c.ai === true).length}명)` + (rows.some(r => !consOk(r)) ? ` · 동의 없는 진도 기록 ${rows.filter(r => !consOk(r)).length}건` : "")),
-      consList.length ? el("details", { style: "margin:4px 0 8px;font-size:13.5px" }, el("summary", { style: "cursor:pointer;font-weight:700" }, "개인정보 동의 현황"),
+      consList.length ? el("details", { style: "margin:4px 0 8px;font-size:13.5px", ...(keepOpen ? { open: "" } : {}) }, el("summary", { style: "cursor:pointer;font-weight:700" }, "개인정보 동의 현황"),
         el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "이메일", "동의 일시", "AI 도우미(선택)", "문구 버전", "관리"].map(h => el("th", {}, h)))),
           el("tbody", {}, consList.map(c => el("tr", {}, el("td", {}, (c.student || {}).name || c.id), el("td", {}, (c.student || {}).email || ""), el("td", {}, tsMs(c.agreedAt) ? stamp(new Date(tsMs(c.agreedAt))) : "—"), el("td", {}, c.ai === true ? "동의" : "동의 안 함"), el("td", {}, c.version || ""),
             el("td", {}, el("button", { type: "button", class: "btn small", title: "이 학생의 동의 기록을 지웁니다. 학생은 다시 동의해야 하고, 그 전까지 진도 전송과 AI 질문이 막힙니다.", onclick: async () => {
@@ -531,7 +533,7 @@ function renderMonitor(main) {
       statusLegend(),
       el("div", { style: "display:flex;gap:12px;flex-wrap:wrap;margin:6px 0" }, el("label", {}, "분류 ", grpSel), el("label", {}, "정렬 ", sortSel)),
       !rows.length ? el("p", { class: "lead" }, "아직 진도를 보낸 학생이 없습니다. 수집을 켜고, 학생이 학교 Google 계정으로 로그인하면 나타납니다.")
-        : el("div", { style: "overflow-x:auto" }, el("table", { class: "ro prog" },
+        : el("div", { class: "prog-wrap", style: "overflow-x:auto" }, el("table", { class: "ro prog" },
           el("thead", {},
             el("tr", {}, ["학생", "동의", "상태", "화면", "마지막 활동", "지금 있는 곳", "학습지", "활동 시간"].map(h => el("th", { rowspan: 2 }, h)), groupHead.map(h => el("th", { colspan: h.n, style: "text-align:center" }, GROUP_NAME[h.g]))),
             el("tr", {}, chs.map(c => el("th", { style: "font-weight:600;white-space:nowrap" }, c.title)))),
@@ -550,6 +552,8 @@ function renderMonitor(main) {
                   x ? el("button", { type: "button", class: "pct", title: `${c.title} 세부 정보 보기`, onclick: () => openDetail(r, c) }, f ? pct + "%" : "0%", x.sec ? el("small", {}, fmtDur(x.sec)) : null) : "—");
               }));
           })))));
+    // html 에 scroll-behavior:smooth 가 있어 그냥 scrollTo 는 천천히 움직이므로 behavior 를 instant 로 준다.
+    if (shown) { const w = tbl.querySelector(".prog-wrap"); if (w) w.scrollLeft = keepX; if (window.scrollY !== keepY || window.scrollX !== keepPX) window.scrollTo({ left: keepPX, top: keepY, behavior: "instant" }); }
   };
 
   paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintAskList(); paintAsk(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);

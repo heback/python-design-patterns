@@ -328,7 +328,7 @@ main.wide { max-width: 1380px; }
 .note-box { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; background: var(--gold-soft); border: 1px solid var(--gold-line); border-radius: var(--radius-lg); padding: 8px 14px; margin: 8px 0; font-size: 14px; }
 .panel h4 { margin: 18px 0 6px; font-size: 14.5px; color: var(--ink-soft); }
 @media (max-width: 860px) {
-  .shell { grid-template-columns: 1fr; }
+  .shell { grid-template-columns: minmax(0, 1fr); }      /* 1fr 만 쓰면 넓은 표가 칸을 밀어 페이지 전체가 가로로 넓어진다(표는 자기 상자 안에서 스크롤해야 한다) */
   .side { position: static; flex-direction: row; overflow-x: auto; padding: 6px; }
   .side-item { width: auto; white-space: nowrap; }
 }

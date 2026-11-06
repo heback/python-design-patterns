@@ -86,3 +86,4 @@ open textbook/00-intro.html
 | 2026-11-06 | 교사 메뉴 이름 변경: 대화기록→AI 대화기록, 토큰 사용량→AI 사용량, 질문 한도→AI 질문한도 | inquiry/templates/teacher.js | AI 도우미 관련 메뉴임을 구분 |
 | 2026-11-06 | AI 추천 답변의 토큰·횟수를 [AI 사용량]에 합산(학생별 chatUsage·반 전체 stats/assistant의 sug* 필드, 추천 답변 열 추가) | firebase/functions/index.js, inquiry/templates/teacher.js | 추천 답변 비용도 사용량에 반영 |
 | 2026-11-06 | 개인정보 동의의 ‘AI 도우미 이용(선택)’에 동의하지 않은 학생이 AI 도우미 창의 [AI 도우미 이용에 동의하기]로 나중에 직접 동의(false→true)할 수 있게 함. 철회(true→false)는 여전히 교사만 | firebase/firestore.rules·test, inquiry/templates/student-auth.js·assistant.js | 선택 항목을 거절한 학생의 재동의 요청 |
+| 2026-11-06 | 교사 [진도표]: 학생 상태가 바뀌어 표가 다시 그려져도 가로·세로 스크롤 위치와 동의 현황 펼침 상태를 유지(전에는 표가 맨 왼쪽으로 돌아감). 좁은 화면에서 넓은 표가 페이지 전체를 넓히던 레이아웃(`.shell` 1fr)도 표 안 스크롤로 수정 | inquiry/templates/teacher.js·style.css | 진도를 확인하는 중에 계속 첫 열로 이동 |
