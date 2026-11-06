@@ -281,3 +281,34 @@ table.glossary tr:target { background: var(--accent-soft); }
 .fq-list li::marker { color: var(--accent); font-weight: 700; }
 .fq-note { margin: 6px 0 0; padding-top: 10px; border-top: 1px dashed var(--border); font-size: .85em; color: var(--muted); }
 @media print { .focus-q, .fq-overlay { display: none; } }
+
+/* ---- 편집기를 화면 오른쪽에 고정하는 창(textbook-code.js 의 Pin) ----
+   고정하면 본문이 그 너비만큼 밀려 가려지지 않는다. 좁은 화면(≤900px)에서는 아래쪽 창으로 바뀐다. */
+:root { --pin-w: 40vw; --pin-top: 56px; }
+.code-pin {
+  position: fixed; top: var(--pin-top); right: 0; bottom: 0; width: var(--pin-w); z-index: 8; display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: -6px 0 24px rgba(0, 0, 0, .12);
+}
+.code-pin[hidden] { display: none; }
+.pin-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.pin-title { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-body { flex: 1; overflow: auto; padding: 10px; }
+.pin-body > .pr { margin: 0; }
+.pin-grip { position: absolute; left: -4px; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 2; touch-action: none; }
+.pin-grip:hover, body.pin-drag .pin-grip { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+body.pin-drag { user-select: none; cursor: col-resize; }
+.pin-holder { border: 1px dashed var(--border); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0; color: var(--muted); font-size: 14px; }
+.pin-holder .pr-btn { margin-left: 6px; }
+body.code-pinned { padding-right: var(--pin-w); }
+body.code-pinned .topbar { margin-right: calc(-1 * var(--pin-w)); }
+body.code-pinned .side-toc { display: none; }
+body.code-pinned .layout { grid-template-columns: minmax(0, 1fr); }
+body.code-pinned .ver-switch { right: var(--pin-w); }
+@media (max-width: 900px) {
+  .code-pin { top: auto; left: 0; width: auto; height: 55vh; border-left: 0; border-top: 1px solid var(--border); box-shadow: 0 -6px 24px rgba(0, 0, 0, .12); }
+  .pin-grip { display: none; }
+  body.code-pinned { padding-right: 0; padding-bottom: 55vh; }
+  body.code-pinned .topbar { margin-right: 0; }
+  body.code-pinned .ver-switch { display: none; }
+}
+@media print { .code-pin { display: none !important; } }

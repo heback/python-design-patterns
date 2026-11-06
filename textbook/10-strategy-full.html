@@ -702,7 +702,7 @@ if __name__ == &quot;__main__&quot;:
     try:
         build_policy({&quot;type&quot;: &quot;flatt&quot;, &quot;fee&quot;: 1000})
     except ValueError as e:
-        print(&quot;    ValueError:&quot;, e)"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+        print(&quot;    ValueError:&quot;, e)" data-from="23" data-to="154"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 전략에게 넘길 &#x27;좁은 입력&#x27;
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
@@ -1110,7 +1110,7 @@ if __name__ == &quot;__main__&quot;:
     try:
         build_policy({&quot;type&quot;: &quot;flatt&quot;, &quot;fee&quot;: 1000})
     except ValueError as e:
-        print(&quot;    ValueError:&quot;, e)"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+        print(&quot;    ValueError:&quot;, e)" data-from="157" data-to="200"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 도메인 객체 — 이제 요금 정책을 모른다
 # ---------------------------------------------------------------------------
 @dataclass
@@ -1429,7 +1429,7 @@ if __name__ == &quot;__main__&quot;:
     try:
         build_policy({&quot;type&quot;: &quot;flatt&quot;, &quot;fee&quot;: 1000})
     except ValueError as e:
-        print(&quot;    ValueError:&quot;, e)"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+        print(&quot;    ValueError:&quot;, e)" data-from="203" data-to="238"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 선택 로직: 설정 → 정책 객체 (Context 바깥, 조립 지점)
 # ---------------------------------------------------------------------------
 # 이름 → 정책 클래스 등록부. 새 정책은 클래스 하나 + 이 dict 한 줄로 끝난다(OCP).
@@ -1699,7 +1699,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[4] 런타임 교체도 필드 대입 한 번&quot;)
     services[&quot;jeju&quot;].policy = standard_distance
-    print(&quot;    jeju(정액 이벤트 종료 후) →&quot;, services[&quot;jeju&quot;].quote(q), &quot;원&quot;)"><figcaption>파이썬다운 변형 (1/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    print(&quot;    jeju(정액 이벤트 종료 후) →&quot;, services[&quot;jeju&quot;].quote(q), &quot;원&quot;)" data-from="20" data-to="109"><figcaption>파이썬다운 변형 (1/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 공통 재료 (이 코드만으로 실행되도록 패턴 코드와 같은 정의를 다시 둔다)
 # ---------------------------------------------------------------------------
 
@@ -2011,7 +2011,7 @@ if __name__ == &quot;__main__&quot;:
 
     print(&quot;[4] 런타임 교체도 필드 대입 한 번&quot;)
     services[&quot;jeju&quot;].policy = standard_distance
-    print(&quot;    jeju(정액 이벤트 종료 후) →&quot;, services[&quot;jeju&quot;].quote(q), &quot;원&quot;)"><figcaption>파이썬다운 변형 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    print(&quot;    jeju(정액 이벤트 종료 후) →&quot;, services[&quot;jeju&quot;].quote(q), &quot;원&quot;)" data-from="112" data-to="196"><figcaption>파이썬다운 변형 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 설정 연결: 이름 → &#x27;정책 팩토리&#x27; 등록부 + 등록 데코레이터
 # ---------------------------------------------------------------------------
 # 값이 FeePolicy가 아니라 &#x27;FeePolicy를 만드는 함수&#x27;인 이유: 설정에 요율 같은 인자가

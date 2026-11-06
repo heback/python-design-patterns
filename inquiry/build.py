@@ -181,7 +181,8 @@ def inject_textbook_monitor(dest):
             "<script>" + (t / "student-auth.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "assistant.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "ask-teacher.js").read_text(encoding="utf-8") + "</script>\n"
-            "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n")
+            "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n"
+            "<script>" + (t / "code-sync.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
     (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")
     for f in sorted(dest.glob("[0-9][0-9]-*.html")) + [dest / "glossary.html"]:

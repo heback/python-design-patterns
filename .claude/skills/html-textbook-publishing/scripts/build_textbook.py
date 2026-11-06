@@ -119,8 +119,8 @@ def render_src(match: re.Match, chapter: Chapter, part: tuple[int, int] = (1, 1)
     full = ""    # 일부 행만 보여 줄 때, 브라우저에서 실행·편집하려면 코드 전체가 필요하다
     caption = title
     if lines:
-        full = f' data-full="{html.escape(chr(10).join(code_lines))}"'
         a, b = (int(x) for x in lines.split("-"))
+        full = f' data-full="{html.escape(chr(10).join(code_lines))}" data-from="{a}" data-to="{b}"'      # 보이는 줄은 a~b행. 편집기가 고친 줄을 파일 전체의 같은 자리에 끼워 넣어 실행한다
         code_lines = code_lines[a - 1:b]
     if part[1] > 1:
         caption += f" ({part[0]}/{part[1]})"

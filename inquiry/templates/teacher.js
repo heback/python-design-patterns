@@ -4,6 +4,7 @@
 const M = { view: "", events: null, prog: null, consents: null, progErr: "", mon: undefined, ai: undefined, stats: undefined, usage: null, logs: null, logErr: "", tokRange: "today", tokFrom: "", tokTo: "", quota: null, qSel: "", qFind: "", qErr: "",
   lg: { uid: "", kind: "all", size: 20, page: 0, cursors: [null], rows: null, more: false, total: null, err: "", busy: false, seq: 0 },   // 대화기록 쪽 나누기 상태(cursors[n] = n쪽의 시작 커서)
   group: "all", sort: "num",   // 진도 화면의 상태(boot 보다 먼저 있어야 한다)
+  code: { students: null, sel: "", blocks: null, err: "", seq: 0 },   // 학생 코드 화면의 상태(학생이 교재 코드 편집기에서 단 주석·고친 코드)
   ask: { threads: null, sel: "", msgs: null, err: "", stats: undefined, draft: {}, via: {}, cau: {}, marking: "", unMsgs: null } };   // 학생 질문 화면의 상태(draft·via·cau: 학생별로 쓰던 답변·AI 추천 사용 여부·AI 확인 사항)
 const BASE_TITLE = document.title;
 const T = { live: [], liveTok: null };   // 실시간 구독 해제 함수 목록
@@ -149,11 +150,11 @@ function statusLegend() {
 function renderMonitor(main) {
   const tok = T.liveTok = {};
   /* 메뉴: 왼쪽(좁은 화면에서는 위쪽)에 메뉴를 두고, 한 번에 한 가지 기능만 보여 준다. 선택한 화면은 주소 해시(#progress …)와 이 브라우저에 기억한다. */
-  /* 메뉴: 환경설정 · 진도표 · 학생 질문 · AI 대화기록 · AI 사용량 · AI 질문한도 */
+  /* 메뉴: 환경설정 · 진도표 · 학생 질문 · 학생 코드 · AI 대화기록 · AI 사용량 · AI 질문한도 */
   const ctl = el("div", { class: "setrow" }), vAi = el("div", { class: "setrow" }), tbl = el("div", {});
   const vSet = el("section", { class: "panel", id: "v-settings" }, el("h3", {}, "환경설정"), ctl, vAi), vProg = el("section", { class: "panel", id: "v-progress" }, tbl),
-    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" }), vAsk = el("section", { class: "panel", id: "v-ask" });
-  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["ask", "contact_support", "학생 질문", vAsk], ["logs", "forum", "AI 대화기록", vLog], ["tokens", "data_usage", "AI 사용량", vTok], ["quota", "tune", "AI 질문한도", vQuota]];
+    vLog = el("section", { class: "panel", id: "v-logs" }), vTok = el("section", { class: "panel", id: "v-tokens" }), vQuota = el("section", { class: "panel", id: "v-quota" }), vAsk = el("section", { class: "panel", id: "v-ask" }), vCode = el("section", { class: "panel", id: "v-code" });
+  const VIEWS = [["settings", "settings", "환경설정", vSet], ["progress", "monitoring", "진도표", vProg], ["ask", "contact_support", "학생 질문", vAsk], ["code", "code", "학생 코드", vCode], ["logs", "forum", "AI 대화기록", vLog], ["tokens", "data_usage", "AI 사용량", vTok], ["quota", "tune", "AI 질문한도", vQuota]];
   const known = k => VIEWS.some(v => v[0] === k);
   if (!known(M.view)) { const h = location.hash.slice(1); M.view = known(h) ? h : "progress";   /* 처음 열면 항상 진도표. 마지막에 본 메뉴를 기억하지 않는다(주소 해시가 있을 때만 그 메뉴) */ }
   const nav = el("nav", { class: "side", "aria-label": "교사 메뉴" });
@@ -495,6 +496,41 @@ function renderMonitor(main) {
   const paintChat = () => { paintTok(); paintLog(); paintAi(); if (M.view === "quota") paintQuota(); paintNav(); };
 
   /* --- 진도 표: 교재 장별 읽기 진도(분류별로 묶음) + 학습지 진행 --- */
+  /* --- 학생 코드 화면: 학생이 교재 코드 편집기에서 단 주석·고친 코드(codeNotes) --- */
+  const C = M.code;
+  const chapterLabel = page => { const slug = page.replace(/-full$/, ""), ch = (CONTENT.chapters || []).find(c => c.slug === slug); return (ch ? ch.title : page) + (/-full$/.test(page) ? " (긴 버전)" : ""); };
+  async function loadCode(uid) {
+    const seq = ++C.seq; C.blocks = null; C.err = ""; paintCode();
+    try { const rows = await FB.loadStudentCode(uid); if (seq !== C.seq) return; C.blocks = rows; }
+    catch (e) { if (seq !== C.seq) return; C.blocks = []; C.err = errText(e); }
+    paintCode();
+  }
+  const selectCode = uid => { C.sel = uid; if (uid) loadCode(uid); else { C.seq++; C.blocks = null; paintCode(); } };
+  function paintCode() {
+    const list = (C.students || []).slice().sort((a, b) => (tsMs(b.updatedAt) || 0) - (tsMs(a.updatedAt) || 0)), cur = list.find(x => x.id === C.sel);
+    const blocks = (C.blocks || []).slice().sort((a, b) => a.page.localeCompare(b.page) || (a.kind === b.kind ? a.idx - b.idx : a.kind === "code" ? -1 : 1));
+    const marked = blocks.filter(b => b.addedN > 0).length;
+    const block = b => el("details", { class: "code-blk", ...(b.addedN > 0 ? { open: "" } : {}) },
+      el("summary", {}, el("b", {}, chapterLabel(b.page)), " · ", b.kind === "exercise" ? "연습문제 " : "", b.title, " ", b.addedN > 0 ? el("span", { class: "nb ok" }, `고치거나 쓴 줄 ${b.addedN}`) : el("span", { class: "nb" }, "원본과 같음"), el("small", { style: "margin-left:8px;color:var(--dim)" }, ago(tsMs(b.updatedAt)))),
+      b.addedN > 0 ? el("div", {}, el("div", { class: "code-cap" }, "학생이 새로 쓰거나 고친 줄"), el("pre", { class: "code-added" }, b.added)) : null,
+      el("details", { class: "code-full" }, el("summary", {}, "고친 코드 전체 보기"), el("pre", { class: "code-all" }, b.code)));
+    fill(vCode, el("h3", {}, "학생 코드"),
+      el("p", { class: "lead" }, "학생이 교재의 코드 편집기에서 주석(#)을 달거나 고친 코드입니다. 입력하는 대로 자동 저장되어 이 화면에 나타납니다(학생이 학교 계정으로 로그인하고 개인정보 동의를 한 경우). 원본과 다른 줄만 따로 보여 주고, 코드 전체는 펼쳐서 봅니다. 학생이 [처음 코드]로 되돌리면 그 블록의 기록은 사라집니다."),
+      C.students === null ? el("p", { class: "lead" }, "불러오는 중…") : null,
+      el("div", { class: "ask-shell" },
+        el("div", { class: "ask-list", role: "list", "aria-label": "코드를 고친 학생" }, list.length ? list.map(x => el("button", { type: "button", role: "listitem", class: "ask-item" + (C.sel === x.id ? " on" : ""), onclick: () => selectCode(x.id) },
+          el("span", { class: "ask-item-top" }, el("b", {}, stuName(x))), el("small", {}, "마지막 저장 " + ago(tsMs(x.updatedAt))))) : el("p", { class: "lead", style: "padding:6px 8px" }, C.students === null ? "" : "아직 코드를 저장한 학생이 없어요.")),
+        el("div", {}, !cur ? el("p", { class: "lead" }, "왼쪽에서 학생을 고르세요.")
+          : [el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px" }, el("b", {}, stuName(cur)),
+              C.blocks ? el("span", { class: "nb" }, `블록 ${blocks.length}개 · 고친 곳 ${marked}개`) : null, el("span", { style: "flex:1" }),
+              el("button", { type: "button", class: "btn small", title: "이 학생의 코드 저장 기록을 모두 지웁니다(수업이 끝난 뒤 개인정보 삭제용).", onclick: async () => {
+                if (!confirm(`${stuName(cur)} 학생의 코드 저장 기록을 모두 지울까요? 되돌릴 수 없습니다.`)) return;
+                try { await FB.deleteStudentCode(cur.id); toast("지웠습니다."); selectCode(""); } catch (e) { alert("지우지 못했습니다: " + errText(e)); }
+              } }, ico("delete"), "코드 기록 삭제")),
+            C.err ? el("div", { class: "err-box" }, C.err) : null,
+            C.blocks === null ? el("p", { class: "lead" }, "불러오는 중…") : blocks.length ? el("div", {}, blocks.map(block)) : el("p", { class: "lead" }, "저장된 블록이 없어요.")])));
+  }
+
   const paintTbl = () => {
     const rows = (M.prog || []).slice(), chs = (CONTENT.chapters || []).filter(c => M.group === "all" || c.group === M.group);
     const key = r => `${r.student.name || "(이름 없음)"}${r.student.email ? " · " + r.student.email.split("@")[0] : ""}`;       // 학생 = 로그인 계정(이름·이메일)
@@ -556,7 +592,7 @@ function renderMonitor(main) {
     if (shown) { const w = tbl.querySelector(".prog-wrap"); if (w) w.scrollLeft = keepX; if (window.scrollY !== keepY || window.scrollX !== keepPX) window.scrollTo({ left: keepPX, top: keepY, behavior: "instant" }); }
   };
 
-  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintAskList(); paintAsk(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);
+  paintCtl(); paintAi(); paintTok(); paintLog(); paintTbl(); paintCode(); paintAskList(); paintAsk(); paintNav(); if (M.view === "quota") paintQuota(); loadLogs(true);
   document.addEventListener("visibilitychange", markAskRead);
   liveSub(FB.watchMonitor(s => { M.mon = s; paintCtl(); paintNav(); }), tok);
   liveSub(FB.watchAskThreads((rows, err) => {
@@ -566,6 +602,13 @@ function renderMonitor(main) {
     paintAskList(); paintAsk(); paintNav(); markAskRead();
   }), tok);
   liveSub(FB.watchAskStats(s => { A.stats = s; paintAskList(); }), tok);
+  liveSub(FB.watchCodeStudents((rows, err) => {
+    const prev = (C.students || []).find(x => x.id === C.sel);
+    C.students = rows || []; if (err) { C.err = errText(err); }
+    const now = C.students.find(x => x.id === C.sel);
+    if (C.sel && !now) selectCode(""); else if (now && prev && tsMs(now.updatedAt) !== tsMs(prev.updatedAt)) loadCode(C.sel);      // 선택한 학생이 새로 저장하면 다시 읽는다
+    else paintCode();
+  }), tok);
   liveSub(FB.watchMonitorEvents((rows, err) => { M.events = rows || []; paintCtl(); }), tok);
   liveSub(FB.watchAssistant(s => { M.ai = s; paintAi(); paintNav(); }), tok);
   liveSub(FB.watchStats((s, err) => {

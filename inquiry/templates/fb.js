@@ -63,6 +63,38 @@ const FB = (() => {
   }
   async function watchAskStats(cb) { const m = await load(); return m.fs.onSnapshot(m.fs.doc(m.db, "stats", "askTeacher"), s => cb(s.exists() ? s.data() : null, null), e => cb(null, e)); }
 
+  /* ---------- 교재 코드 편집기에서 학생이 단 주석·고친 코드(codeNotes) ----------
+     학생: 내 블록 전부 읽기(loadMyCode), 블록 하나 저장(saveCodeBlock: 학생 요약 문서와 블록을 한 묶음으로 쓴다), 블록 삭제(처음 코드로 되돌렸을 때).
+     교사: 학생 목록(watchCodeStudents)과 한 학생의 블록(loadStudentCode), 한 학생의 코드 기록 삭제(deleteStudentCode). 규칙이 서버에서 권한·모양·서버 시각을 강제한다. */
+  async function loadMyCode() {
+    const user = await schoolUser(), m = await load(), { collection, getDocs } = m.fs;
+    const snap = await getDocs(collection(m.db, "codeNotes", user.uid, "blocks"));
+    return Object.fromEntries(snap.docs.map(d => [d.id, d.data()]));
+  }
+  async function saveCodeBlock(bid, rec) {
+    const user = await schoolUser(), m = await load(), { doc, writeBatch, serverTimestamp } = m.fs, w = who(user), b = writeBatch(m.db);
+    b.set(doc(m.db, "codeNotes", user.uid), { uid: user.uid, student: { name: w.name.slice(0, 80), email: w.email }, updatedAt: serverTimestamp() });
+    b.set(doc(m.db, "codeNotes", user.uid, "blocks", bid), { page: rec.page, kind: rec.kind, idx: rec.idx, title: String(rec.title || "").slice(0, 200), h: rec.h, code: rec.code, added: rec.added, addedN: rec.addedN, updatedAt: serverTimestamp() });
+    await b.commit();
+  }
+  async function deleteCodeBlock(bid) {
+    const user = await schoolUser(), m = await load();
+    await m.fs.deleteDoc(m.fs.doc(m.db, "codeNotes", user.uid, "blocks", bid));
+  }
+  const watchCodeStudents = cb => live("codeNotes", cb);
+  async function loadStudentCode(uid) {
+    const m = await load(), snap = await m.fs.getDocs(m.fs.collection(m.db, "codeNotes", uid, "blocks"));
+    return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  }
+  async function deleteStudentCode(uid) {
+    const m = await load(), { collection, getDocs, writeBatch, doc, limit, query } = m.fs;
+    for (;;) {
+      const snap = await getDocs(query(collection(m.db, "codeNotes", uid, "blocks"), limit(200))); if (snap.empty) break;
+      const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit();
+    }
+    await m.fs.deleteDoc(doc(m.db, "codeNotes", uid));
+  }
+
   /* ---------- 개인정보 수집·이용 동의 ---------- */
   /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
   const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
@@ -180,6 +212,7 @@ const FB = (() => {
            watchMyConsent, saveConsent, resetConsent, watchConsents,
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
+           loadMyCode, saveCodeBlock, deleteCodeBlock, watchCodeStudents, loadStudentCode, deleteStudentCode,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

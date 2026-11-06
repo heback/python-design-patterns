@@ -62,7 +62,7 @@
 - **사진은 저장한다**: AI 도우미와 달리 선생님이 봐야 하므로 사진을 메시지 문서에 base64로 저장한다. 문서 한도(1MiB) 때문에 학생 브라우저가 **500KB 이하 JPEG**(1280→1024→800px 순으로 줄임)로 줄여 보내고 함수도 600KB로 검증한다. 화면 본문 글은 저장하지 않고 **보던 화면의 제목과 학생이 드래그해 고른 글**만 저장한다(학생 대화창에 항상 "선생님이 보게 되는 화면"이 보인다).
 - **교사 화면 [학생 질문]**: 왼쪽 학생별 목록(새 질문 학생이 위로, `새 질문 N`·`답변 대기` 표시), 오른쪽에 대화(사진은 눌러서 크게)와 답변 입력(Ctrl+Enter 전송). **새 질문 배지**는 메뉴 항목과 브라우저 탭 제목의 숫자로 나타나고, 그 학생의 대화를 열어 보면(선택한 대화에서 새 질문이 오면 즉시) `markAskRead`로 읽음 처리된다. 답변은 직접 쓰거나 **[AI 추천 답변]**으로 초안을 받아 입력란에서 고쳐 보낸다(보내기 전에는 학생에게 가지 않는다. AI를 거쳤으면 `viaAi: true`로 남기고 교사 화면에만 "AI 추천 사용"으로 표시하며 학생 화면에는 표시하지 않는다). 학생별로 쓰던 답변은 대화를 옮겨 다녀도 유지된다. [대화 삭제]는 그 학생의 질문·답변 기록을 모두 지운다(수업이 끝난 뒤 개인정보 삭제용).
 - **AI 추천 답변(`suggestReply`)**: 교사만. 최근 대화 12건(이름·이메일 제외, `<thread>` 태그로 감싸 지시문으로 따르지 않게 함)과 마지막 질문의 사진·화면 제목·고른 글을 Gemini(`MODEL`, 기본 `gemini-flash-latest`)에 보내 `{draft, caution}`을 받는다. `caution`은 모델이 짚은 확인 사항(개인 상담성 질문, 불확실한 사실 등)이다. **그 학생이 개인정보 동의의 ‘AI 도우미 이용(선택)’에 동의하지 않았으면 서버가 거부한다**(질문이 Gemini로 가므로). 학생 대화창 안내문에도 이 사실이 있다. 마지막 메시지가 이미 교사의 답변이면 만들지 않는다. 사용 횟수·토큰은 `stats/askTeacher`에 쌓여 [학생 질문] 목록 아래에 한 줄로 나오고, 같은 값이 [AI 사용량]에도 합산된다: 그 학생의 `chatUsage/{uid}`(`total_sug*`, `byDay.{날짜}.sug*`)와 반 전체 `stats/assistant`(`sug*`)에 `sugCount`·`sugPrompt`·`sugOutput`·`sugThought`·`sugTotal`로 쌓는다(질문 수 `count`와 섞이지 않게 따로 둠). 화면은 토큰·예상 비용에 AI 도우미 질문과 추천 답변을 합치고, 건수는 ‘질문’·‘추천 답변’ 열로 나눠 보인다. 모델 호출이 실패해도 이미 쓴 토큰은 센다.
-- **동의 문구**: 현재 동의 문구(2026-11-05판)는 이 기능의 저장 항목(질문·사진·보던 화면 제목·고른 글)을 따로 적고 있지 않다. 학교의 개인정보 방침에 맞게 문구에 넣을지 판단하고, 넣는다면 `Consent.VERSION`·`consentVersion()`·`CONSENT_VERSION`(`functions/config.js`)을 함께 올린다(모든 학생이 다시 동의해야 한다).
+- **동의 문구**: 2026-11-06판부터 이 기능의 저장 항목(질문·사진·보던 화면 제목·고른 글)과 교재 코드 편집기의 학생 코드를 필수 항목 목록에 적는다. 문구를 바꿀 때는 `Consent.VERSION`·`consentVersion()`·`CONSENT_VERSION`(`functions/config.js`)·`test/rules.test.js`의 `CONSENT_V`를 함께 올린다(모든 학생이 다시 동의해야 한다).
 - **시험**: `functions/askteacher.test.js`(검증·분당 제한·프롬프트·초안 해석·AI 동의 판정), `test/rules.test.js`(대화 읽기·쓰기 권한). 에뮬레이터에는 키가 없어서 `suggestReply`는 시험용 초안을 돌려준다.
 - **배포**: 새 함수와 규칙이 있어야 화면이 동작하므로 `python3 inquiry/build.py` 뒤 `firebase deploy --only firestore:rules,functions,hosting`로 **함께** 배포한다(호스팅만 먼저 올리면 질문 전송이 실패한다).
 
@@ -80,3 +80,13 @@ cd firebase/test && npm install && cd .. && \
   firebase emulators:exec --only firestore --project demo-inquiry "npm --prefix test test"   # 규칙 테스트
 ```
 로컬 시험: `firebase emulators:start --project demo-inquiry` 후 `http://localhost:5005/?emulator`(웹 config의 projectId를 `demo-inquiry`로).
+
+## 교재 코드 저장 (codeNotes)
+
+교재의 모든 예제 코드·연습문제 시작 코드는 코드 편집기이고, 학생이 단 주석·고친 코드는 입력 0.5초 뒤 자동 저장된다.
+- **저장 위치**: ① 학생 브라우저 `localStorage`(`dp-code:{쪽}:{번호}`, `dp-ex:…`; 값 = `{h(원본 해시), v(코드), t}`), ② 호스팅된 교재 사본에서 **학교 계정 로그인 + 현재 문구 동의**를 마친 학생은 서버 `codeNotes/{uid}`(이름·이메일·마지막 저장 시각)와 `codeNotes/{uid}/blocks/{쪽__c번호 | 쪽__e번호}`(`page`·`kind`(code|exercise)·`idx`·`title`·`h`·`code`(≤30000자)·`added`(원본에 없는 줄, ≤6000자)·`addedN`·`updatedAt`)에도 쓴다. GitHub Pages 사본(`docs/textbook`)에는 서버 코드가 없어 ①만 된다.
+- **동작**(`textbook-code.js`의 `DPCode`, 서버 연결은 `templates/code-sync.js`): 편집하면 로컬에 쓰고 곧 서버에 올린다(같은 블록은 차례대로). 원본 그대로로 되돌리면(또는 [처음 코드]) 로컬·서버 기록을 지운다. 로그인·동의가 끝나면 `DPCode.pull`이 서버 저장본과 로컬을 맞춘다: **나중에 고친 쪽이 이기고**, 서버에 없는 로컬 편집은 올린다. 원본 코드가 바뀌어 해시가 달라지면 옛 저장본은 쓰지 않는다. 서버 저장이 실패하면 편집기에 안내가 뜨고 로컬 저장은 유지된다.
+- **규칙**: 학생은 본인 `codeNotes/{uid}`와 `blocks`를 읽고 쓰고 지울 수 있다(쓰기는 현재 문구 동의 + 필드·크기 검사 + 서버 시각, 요약 문서 삭제는 교사만). 교사는 모두 읽고 지운다. 진도 수집 스위치(`config/monitor`)와는 무관하다.
+- **교사 화면 [학생 코드]**: 코드를 저장한 학생 목록 → 그 학생의 블록(원본과 다른 줄은 따로 강조, 코드 전체는 펼쳐 보기). [코드 기록 삭제]는 그 학생의 `codeNotes`를 모두 지운다(수업이 끝난 뒤 개인정보 삭제용).
+- **동의 문구**: 이 항목은 2026-11-06판 동의 문구의 필수 항목에 적혀 있다(문구를 올렸으므로 학생은 다시 동의한다).
+- **배포**: 규칙·함수(`CONSENT_VERSION`)·호스팅을 함께 올린다(`firebase deploy --only firestore:rules,functions,hosting`). 시험: `test/rules.test.js`의 "학생 코드" 3개.

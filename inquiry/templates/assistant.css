@@ -54,3 +54,7 @@
 .ask-time { margin-top: 2px; font-size: 11px; opacity: .8; text-align: right; }
 .ask-noimg { font-style: italic; opacity: .85; }
 .ai-msg.me.wait { opacity: .65; font-style: normal; color: var(--on-accent, var(--accent-text, #fff)); }
+/* 교재에서 코드 편집기를 오른쪽에 고정했을 때(textbook-code.js): 아이콘 묶음과 대화창이 고정 창에 가리지 않도록 왼쪽으로 비킨다. 좁은 화면에서는 아래쪽 고정 창 위로 올린다. */
+body.code-pinned .fab-dock { right: calc(var(--pin-w, 0px) + 20px); }
+body.code-pinned .ai-panel { right: calc(var(--pin-w, 0px) + 88px); }
+@media (max-width: 900px) { body.code-pinned .fab-dock { right: 20px; bottom: calc(55vh + 20px); } }

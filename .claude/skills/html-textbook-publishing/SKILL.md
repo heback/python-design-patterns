@@ -13,7 +13,7 @@ python3 .claude/skills/html-textbook-publishing/scripts/build_textbook.py
 
 ## 스크립트가 하는 일
 1. `chapters/{nn}-{slug}.html`의 `<!--meta title/subtitle/part-->`를 읽는다. `part`는 `생성 패턴`/`구조 패턴`/`행위 패턴` 중 하나이거나 비워 둔다(서론·종합).
-2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 제목 캡션(`data-title`, 경로·행 번호는 싣지 않음) + 복사 버튼이 붙은 코드 블록. 실행 결과는 미리 싣지 않는다. 브라우저에서 코드 블록의 [▶ 실행]을 누르면 코드 아래에 출력이 나타난다(`textbook-code.js`, 일부 행만 보이는 블록은 파일 전체를 실행). 연습문제 시작 코드만 편집기(`PyRun.mountEditor`)이고, 고친 코드는 저장하지 않는다.
+2. `<pre data-src="경로" [data-lines="a-b"]></pre>` → 제목 캡션(`data-title`, 경로·행 번호는 싣지 않음) + 복사 버튼이 붙은 코드 블록. 실행 결과는 미리 싣지 않는다. 브라우저에서 코드 블록의 [▶ 실행]을 누르면 코드 아래에 출력이 나타난다(`textbook-code.js`, 일부 행만 보이는 블록은 파일 전체를 실행). 본문 코드와 연습문제 시작 코드는 모두 편집기(`PyRun.mountEditor`, 연습문제 해설 안의 코드만 읽기 전용)이며 학생이 주석을 달 수 있다. 고친 내용은 localStorage에 자동 저장된다(호스팅 사본은 서버에도: `DPCode`). [📌 오른쪽 고정]은 편집기를 오른쪽 고정 창(`.code-pin`)으로 옮긴다.
 3. 모든 `<svg>`에 UML 마커 정의(`#triangle` 상속, `#arrow` 연관/의존, `#diamond` 집약, `#diamond-fill` 합성)를 주입한다.
 4. `<section id><h2>`로 장 내부 목차(사이드바), 이전/다음 페이저를 만든다. 목차 페이지(`textbook/index.html`)는 만들지 않고, 상단 바의 교재 이름 링크는 배포 첫 화면(`https://heback.github.io/python-design-patterns/`)으로 간다.
 5. `<dfn data-term="id">`에 앵커(`#term-id`)와 툴팁(terms.json의 `short`)을 붙이고, `chapters/terms.json`으로 `glossary.html`(용어집)을 만든다. 상단 바에 용어집 링크가 있다. 등록되지 않은 `<dfn>`이나 정의 위치가 없는 등록 용어는 PROBLEM이다.

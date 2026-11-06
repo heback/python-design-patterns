@@ -111,3 +111,8 @@ figure.code figcaption .pr-btn.run ~ .copy { margin-left: 0; }
 figure.code figcaption .pr-status { font-family: var(--font-body, inherit); margin-left: 0; }
 figure.code > .pr-out { border-top: 1px solid var(--border); }
 .exercise .pr { margin: 18px 0; }
+
+/* 교재: 본문 예제 코드는 편집기로 보인다(주석을 달 수 있고 자동 저장). 상자 테두리는 figure.code 가 이미 두르므로 편집기의 것은 없앤다. */
+figure.code > .pr { margin: 0; border: 0; border-radius: 0; }
+figure.code textarea.pr-ta, .code-pin textarea.pr-ta { max-height: none; }
+.pr-saved { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }

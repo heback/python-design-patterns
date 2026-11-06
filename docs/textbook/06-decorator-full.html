@@ -516,7 +516,7 @@ if __name__ == &quot;__main__&quot;:
         collect(BatchingChannel(build(sink), size=10), 10)
         print(f&quot;    {name}: {sink.sent_sizes[0]} bytes&quot;)
     raw = sum(len(reading(i)) for i in range(10)) + 9   # 줄바꿈 9개
-    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python">class Channel(ABC):
+    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)" data-from="27" data-to="81"><figcaption>패턴 코드 (1/3)</figcaption><pre><code class="language-python">class Channel(ABC):
     &quot;&quot;&quot;[Component] 텔레메트리 전송 채널의 공통 인터페이스.
 
     데코레이터 패턴의 전제 조건이 바로 이 클래스다. 실제 채널과 모든 래퍼가 이 타입이므로
@@ -764,7 +764,7 @@ if __name__ == &quot;__main__&quot;:
         collect(BatchingChannel(build(sink), size=10), 10)
         print(f&quot;    {name}: {sink.sent_sizes[0]} bytes&quot;)
     raw = sum(len(reading(i)) for i in range(10)) + 9   # 줄바꿈 9개
-    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python">class CompressingChannel(ChannelDecorator):
+    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)" data-from="82" data-to="151"><figcaption>패턴 코드 (2/3)</figcaption><pre><code class="language-python">class CompressingChannel(ChannelDecorator):
     &quot;&quot;&quot;[Concrete Decorator] 압축. SRP: 이 클래스는 zlib 말고는 아무것도 모른다.&quot;&quot;&quot;
 
     def send(self, payload: bytes) -&gt; None:
@@ -1027,7 +1027,7 @@ if __name__ == &quot;__main__&quot;:
         collect(BatchingChannel(build(sink), size=10), 10)
         print(f&quot;    {name}: {sink.sent_sizes[0]} bytes&quot;)
     raw = sum(len(reading(i)) for i in range(10)) + 9   # 줄바꿈 9개
-    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python">def reading(i: int) -&gt; bytes:
+    print(f&quot;    (원본 {raw} bytes. 암호문은 무작위처럼 보여 압축이 거의 안 된다)&quot;)" data-from="152" data-to="192"><figcaption>패턴 코드 (3/3)</figcaption><pre><code class="language-python">def reading(i: int) -&gt; bytes:
     &quot;&quot;&quot;토양 수분 센서 측정값 하나(JSON).&quot;&quot;&quot;
     return json.dumps({&quot;sensor&quot;: &quot;soil-07&quot;, &quot;seq&quot;: i, &quot;moisture&quot;: 31.5 + i % 3, &quot;unit&quot;: &quot;%&quot;}).encode()
 
@@ -1303,7 +1303,7 @@ if __name__ == &quot;__main__&quot;:
             pass
     except TypeError as e:
         print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
-    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)"><figcaption>파이썬다운 변형 (1/4)</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 파이썬다운 변형: 함수 데코레이터, @ 문법, reduce 조립, __getattr__ 위임의 함정.
+    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)" data-from="1" data-to="76"><figcaption>파이썬다운 변형 (1/4)</figcaption><pre><code class="language-python">&quot;&quot;&quot;06 데코레이터 — 파이썬다운 변형: 함수 데코레이터, @ 문법, reduce 조립, __getattr__ 위임의 함정.
 
 상황: 게이트웨이 펌웨어 팀의 선배 미정은 준호의 클래스 체인을 보고 묻는다. &quot;send 하나뿐인
 인터페이스라면 그냥 함수를 감싸면 되지 않아? 파이썬엔 @ 데코레이터도 있잖아.&quot;
@@ -1604,7 +1604,7 @@ if __name__ == &quot;__main__&quot;:
             pass
     except TypeError as e:
         print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
-    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)"><figcaption>파이썬다운 변형 (2/4)</figcaption><pre><code class="language-python"># --- (2) @ 문법: 정의 시점에 한 번 적용되고 이름이 다시 묶인다 ----------------
+    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)" data-from="77" data-to="112"><figcaption>파이썬다운 변형 (2/4)</figcaption><pre><code class="language-python"># --- (2) @ 문법: 정의 시점에 한 번 적용되고 이름이 다시 묶인다 ----------------
 
 @logged(&quot;debug&quot;)
 @compressed
@@ -1879,7 +1879,7 @@ if __name__ == &quot;__main__&quot;:
             pass
     except TypeError as e:
         print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
-    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)"><figcaption>파이썬다운 변형 (3/4)</figcaption><pre><code class="language-python"># --- (3) 런타임 조립: 설정 파일의 목록 → reduce로 체인 -----------------------
+    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)" data-from="113" data-to="131"><figcaption>파이썬다운 변형 (3/4)</figcaption><pre><code class="language-python"># --- (3) 런타임 조립: 설정 파일의 목록 → reduce로 체인 -----------------------
 
 DECORATORS: dict[str, Callable[[Send], Send]] = {
     &quot;compress&quot;: compressed,
@@ -2122,7 +2122,7 @@ if __name__ == &quot;__main__&quot;:
             pass
     except TypeError as e:
         print(f&quot;    with w: 실패 → TypeError: {e}&quot;)
-    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)"><figcaption>파이썬다운 변형 (4/4)</figcaption><pre><code class="language-python"># --- (4) 인터페이스가 넓을 때의 __getattr__ 투명 위임과 그 함정 ---------------
+    print(f&quot;    isinstance(w, MqttClient) = {isinstance(w, MqttClient)}&quot;)" data-from="132" data-to="221"><figcaption>파이썬다운 변형 (4/4)</figcaption><pre><code class="language-python"># --- (4) 인터페이스가 넓을 때의 __getattr__ 투명 위임과 그 함정 ---------------
 
 class MqttClient:
     &quot;&quot;&quot;메서드가 많은 실제 클라이언트(흉내). send 외에도 connect, 컨텍스트 매니저, len을 지원한다.&quot;&quot;&quot;

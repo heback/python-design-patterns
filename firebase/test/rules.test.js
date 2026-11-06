@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, Timestamp, serverTimestamp } = require("firebase/firestore");
+const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, writeBatch, Timestamp, serverTimestamp } = require("firebase/firestore");
 
 let env;
 const T = { email: "teacher@ts.hs.kr", email_verified: true, firebase: { sign_in_provider: "google.com" } };
@@ -14,7 +14,7 @@ const student = uid => env.authenticatedContext(uid, { firebase: { sign_in_provi
 const pupil = uid => env.authenticatedContext(uid, { email: `${uid}@ts.hs.kr`, email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore();   // 학생 = 학교 Google 계정
 const settings = (over = {}) => env.withSecurityRulesDisabled(async c => { await setDoc(doc(c.firestore(), "config/submission"), Object.assign({ open: true, weeks: { 1: true, 2: false } }, over)); });
 const head = (uid, extra = {}) => Object.assign({ student: { name: "홍" }, uid, updatedAt: Timestamp.now() }, extra);
-const CONSENT_V = "2026-11-05";      // firestore.rules 의 consentVersion() 과 같아야 한다
+const CONSENT_V = "2026-11-06";      // firestore.rules 의 consentVersion() 과 같아야 한다
 const seedConsent = (uid, over = {}) => env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), "consents/" + uid),
   Object.assign({ uid, student: { name: "홍", email: `${uid}@ts.hs.kr` }, version: CONSENT_V, ai: false, agreedAt: Timestamp.now() }, over)));
 const wk = (extra = {}) => Object.assign({ json: "{}", updatedAt: Timestamp.now() }, extra);
@@ -331,6 +331,48 @@ test("동의: 본인 uid·서버 시각·허용된 필드·본인 이메일만 �
   await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c", { ai: true })));             // 선택 항목에 동의하지 않았던 학생은 나중에 동의(false → true)할 수 있다
   await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { ai: false })));               // 동의한 선택 항목의 철회(true → false)는 학생이 못 한다
   await assertFails(deleteDoc(doc(c, "consents/c")));                                      // 지우기도 불가
+});
+/* ---------- 교재 코드 편집기에서 학생이 단 주석·고친 코드(codeNotes) ---------- */
+const cHead = (uid, extra = {}) => Object.assign({ uid, student: { name: "홍", email: `${uid}@ts.hs.kr` }, updatedAt: serverTimestamp() }, extra);
+const cBlk = (extra = {}) => Object.assign({ page: "01-factory-method", kind: "code", idx: 0, title: "순진한 코드", h: "abc123", code: "x = 1\n# 내 주석\n", added: "# 내 주석", addedN: 1, updatedAt: serverTimestamp() }, extra);
+const saveCode = (db, uid, bid, blk, head) => { const b = writeBatch(db); b.set(doc(db, "codeNotes/" + uid), head || cHead(uid)); b.set(doc(db, `codeNotes/${uid}/blocks/${bid}`), blk || cBlk()); return b.commit(); };
+test("학생 코드: 동의한 학생은 본인의 코드 블록을 저장·읽기·지울 수 있고, 동의가 없으면 저장할 수 없다", async () => {
+  const c = pupil("c");
+  await assertFails(saveCode(c, "c", "p__c0"));                                             // 동의 전
+  await seedConsent("c", { version: CONSENT_V });
+  await assertSucceeds(saveCode(c, "c", "p__c0"));
+  await assertSucceeds(saveCode(c, "c", "p__c0", cBlk({ code: "y = 2", added: "y = 2" })));  // 같은 블록 다시 저장(덮어쓰기)
+  await assertSucceeds(getDoc(doc(c, "codeNotes/c/blocks/p__c0")));
+  await assertSucceeds(getDocs(collection(c, "codeNotes/c/blocks")));
+  await assertSucceeds(getDoc(doc(c, "codeNotes/c")));
+  await assertSucceeds(deleteDoc(doc(c, "codeNotes/c/blocks/p__c0")));                      // 처음 코드로 되돌리면 지운다
+  await assertFails(deleteDoc(doc(c, "codeNotes/c")));                                       // 요약 문서는 교사만 지운다
+});
+test("학생 코드: 옛 문구에만 동의했거나 남의 문서·잘못된 모양·클라이언트 시각은 거부한다", async () => {
+  const c = pupil("c");
+  await seedConsent("c", { version: "2000-01-01" });
+  await assertFails(saveCode(c, "c", "p__c0"));                                              // 옛 문구
+  await seedConsent("c", { version: CONSENT_V });
+  await assertFails(saveCode(c, "d", "p__c0"));                                              // 남의 uid
+  await assertFails(saveCode(c, "c", "p__c0", cBlk({ extra: 1 })));                          // 허용 밖 필드
+  await assertFails(saveCode(c, "c", "p__c0", cBlk({ updatedAt: Timestamp.fromMillis(0) })));  // 클라이언트가 정한 시각
+  await assertFails(saveCode(c, "c", "p__c0", cBlk({ kind: "other" })));
+  await assertFails(saveCode(c, "c", "p__c0", cBlk({ code: "x".repeat(30001) })));            // 너무 긺
+  await assertFails(saveCode(c, "c", "bad.id", cBlk()));                                      // 블록 id 모양
+  await assertFails(saveCode(c, "c", "p__c0", cBlk(), cHead("c", { student: { name: "홍", email: "x@ts.hs.kr" } })));   // 다른 사람 이메일
+  await assertSucceeds(saveCode(c, "c", "p__c0"));
+});
+test("학생 코드: 교사는 모두 읽고 지우고, 다른 학생은 읽지·지우지 못하며 익명은 쓰지 못한다", async () => {
+  await seedConsent("c", { version: CONSENT_V });
+  await assertSucceeds(saveCode(pupil("c"), "c", "p__c0"));
+  await assertSucceeds(getDocs(collection(teacher(), "codeNotes")));
+  await assertSucceeds(getDocs(collection(teacher(), "codeNotes/c/blocks")));
+  await assertFails(getDocs(collection(pupil("c"), "codeNotes")));                           // 학생은 목록을 못 읽는다
+  await assertFails(getDoc(doc(pupil("b"), "codeNotes/c/blocks/p__c0")));
+  await assertFails(deleteDoc(doc(pupil("b"), "codeNotes/c/blocks/p__c0")));
+  await assertFails(saveCode(student("c"), "c", "p__c1"));                                    // 익명
+  await assertSucceeds(deleteDoc(doc(teacher(), "codeNotes/c/blocks/p__c0")));
+  await assertSucceeds(deleteDoc(doc(teacher(), "codeNotes/c")));
 });
 test("동의: 익명·학교 밖 계정은 동의 문서를 쓸 수 없다", async () => {
   await assertFails(setDoc(doc(student("c"), "consents/c"), cdoc("c")));

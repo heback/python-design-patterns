@@ -702,7 +702,7 @@ if __name__ == &quot;__main__&quot;:
             &quot;&quot;&quot;인자를 빠뜨린 실행 단계 — mypy는 override 오류로 잡지만 런타임은 모른다.&quot;&quot;&quot;
             return &quot;&quot;
     print(&quot;     시그니처가 틀린 run →&quot;, SloppyJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, add), tests),
-          &quot;← 채점기 결함이 학생의 런타임 에러로 오판된다&quot;)"><figcaption>패턴 코드 (1/2)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 패턴 적용] 채점 절차의 골격을 상위 클래스 한 곳에 고정한다.
+          &quot;← 채점기 결함이 학생의 런타임 에러로 오판된다&quot;)" data-from="1" data-to="122"><figcaption>패턴 코드 (1/2)</figcaption><pre><code class="language-python">&quot;&quot;&quot;[14장 템플릿 메서드 · 패턴 적용] 채점 절차의 골격을 상위 클래스 한 곳에 고정한다.
 
 상황: 순진한 코드에서 도윤의 채점기 세 개는 같은 절차를 세 벌로 가졌다. 그 결과 Java 채점기는
 샌드박스를 정리하지 않았고, C++ 채점기는 시간 검사와 출력 비교의 순서가 뒤바뀌어 같은
@@ -1096,7 +1096,7 @@ if __name__ == &quot;__main__&quot;:
             &quot;&quot;&quot;인자를 빠뜨린 실행 단계 — mypy는 override 오류로 잡지만 런타임은 모른다.&quot;&quot;&quot;
             return &quot;&quot;
     print(&quot;     시그니처가 틀린 run →&quot;, SloppyJudge().judge(Submission(&quot;py&quot;, &quot;...&quot;, add), tests),
-          &quot;← 채점기 결함이 학생의 런타임 에러로 오판된다&quot;)"><figcaption>패턴 코드 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+          &quot;← 채점기 결함이 학생의 런타임 에러로 오판된다&quot;)" data-from="124" data-to="204"><figcaption>패턴 코드 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # 구체 채점기: 각자 &#x27;다른 부분&#x27;만 쓴다. 공통 절차는 한 줄도 없다.
 # ---------------------------------------------------------------------------
 

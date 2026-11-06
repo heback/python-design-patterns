@@ -514,7 +514,7 @@ if __name__ == &quot;__main__&quot;:
     feed.push_price(&quot;005930&quot;, 72100)
 
     print(&quot;[6] 72,300원 — 일회성 알림은 더 이상 오지 않는다&quot;)
-    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>패턴 코드 (1/2)</figcaption><pre><code class="language-python">ALL = &quot;*&quot;   # 모든 종목을 구독할 때 쓰는 키. 로거처럼 종목을 가리지 않는 관찰자용.
+    feed.push_price(&quot;005930&quot;, 72300)" data-from="21" data-to="103"><figcaption>패턴 코드 (1/2)</figcaption><pre><code class="language-python">ALL = &quot;*&quot;   # 모든 종목을 구독할 때 쓰는 키. 로거처럼 종목을 가리지 않는 관찰자용.
 
 
 @dataclass(frozen=True)
@@ -814,7 +814,7 @@ if __name__ == &quot;__main__&quot;:
     feed.push_price(&quot;005930&quot;, 72100)
 
     print(&quot;[6] 72,300원 — 일회성 알림은 더 이상 오지 않는다&quot;)
-    feed.push_price(&quot;005930&quot;, 72300)"><figcaption>패턴 코드 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
+    feed.push_price(&quot;005930&quot;, 72300)" data-from="106" data-to="182"><figcaption>패턴 코드 (2/2)</figcaption><pre><code class="language-python"># ---------------------------------------------------------------------------
 # [Concrete Observer] 들 — PriceFeed를 수정하지 않고 얼마든지 추가된다(OCP)
 # ---------------------------------------------------------------------------
 class ChartView(PriceObserver):
@@ -1071,7 +1071,7 @@ if __name__ == &quot;__main__&quot;:
 
     hub.on(&quot;halt:005930&quot;, broken_halt_handler)
     hub.on(&quot;halt:005930&quot;, lambda symbol, reason: print(f&quot;    [배너] {symbol} 거래정지: {reason}&quot;))
-    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>파이썬다운 변형 (1/2)</figcaption><pre><code class="language-python">Callback = Callable[..., None]
+    samsung.halt(&quot;변동성 완화장치 발동&quot;)" data-from="21" data-to="85"><figcaption>파이썬다운 변형 (1/2)</figcaption><pre><code class="language-python">Callback = Callable[..., None]
 # 보관용 참조의 공통 모양: 호출하면 콜백(살아 있으면) 또는 None(죽었으면)을 돌려준다.
 # weakref.WeakMethod 객체가 바로 이 모양이라, 강한 참조도 같은 모양으로 맞춰 둔다.
 Ref = Callable[[], &quot;Callback | None&quot;]
@@ -1307,7 +1307,7 @@ if __name__ == &quot;__main__&quot;:
 
     hub.on(&quot;halt:005930&quot;, broken_halt_handler)
     hub.on(&quot;halt:005930&quot;, lambda symbol, reason: print(f&quot;    [배너] {symbol} 거래정지: {reason}&quot;))
-    samsung.halt(&quot;변동성 완화장치 발동&quot;)"><figcaption>파이썬다운 변형 (2/2)</figcaption><pre><code class="language-python">class Quote:
+    samsung.halt(&quot;변동성 완화장치 발동&quot;)" data-from="88" data-to="129"><figcaption>파이썬다운 변형 (2/2)</figcaption><pre><code class="language-python">class Quote:
     &quot;&quot;&quot;[Concrete Subject] 종목 시세. price에 값을 대입하면 그 자체가 통지가 된다.
 
     property setter에서 통지하는 이유: 호출자가 &#x27;price를 바꾼 뒤 notify()를 부르는 것&#x27;을

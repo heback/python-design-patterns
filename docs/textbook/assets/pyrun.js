@@ -129,7 +129,7 @@ const PyRun = (function () {
   }
   function flash(btn, text) { if (!btn._orig) btn._orig = Array.from(btn.childNodes).map(n => n.cloneNode(true)); btn.textContent = text; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.replaceChildren(...btn._orig.map(n => n.cloneNode(true))); }, 1300); }   // 아이콘이 든 버튼도 원래 모양으로 되돌린다
   /* 높이를 내용에 맞춘다. 가로 스크롤바가 생기면 그만큼 더 키워야 세로 스크롤바가 덩달아 생기지 않는다. */
-  function fit(t) { t.style.height = "auto"; const bar = t.offsetHeight - t.clientHeight; t.style.height = Math.min(t.scrollHeight + bar + 2, 560) + "px"; }
+  function fit(t) { t.style.height = "auto"; const bar = t.offsetHeight - t.clientHeight; t.style.height = Math.min(t.scrollHeight + bar + 2, Number(t.dataset.maxh) || 560) + "px"; }      // data-maxh: 이 칸이 커질 수 있는 최대 높이(교재의 예제 코드는 스크롤 없이 다 보이도록 크게 둔다)
 
   const NOTES = [
     [/\bthreading\b/, NOTE + "브라우저에서는 스레드를 만들 수 없어, 스레드를 차례대로 실행하는 방식으로 대신합니다. (경쟁 상태는 재현되지 않습니다)"],
@@ -170,14 +170,16 @@ const PyRun = (function () {
   }
 
   /* 편집 가능한 코드 칸 + 실행 + 출력 (+ 예시 코드 버튼).
-     opts: {code, starter, example, exampleTitle, onChange, minRows, label, resettable} */
+     opts: {code, starter, example, exampleTitle, onChange, minRows, label, resettable, runCode}
+     runCode(value) 가 있으면 [실행] 때 편집기의 글 대신 그 결과를 실행한다(교재에서 일부 줄만 보이는 코드를 파일 전체에 끼워 넣어 실행할 때 쓴다). */
   function mountEditor(opts) {
     const starter = opts.starter == null ? opts.code || "" : opts.starter;
     const ta = h("textarea", { class: "pr-ta", spellcheck: "false", autocapitalize: "off", autocomplete: "off", "aria-label": opts.label || "파이썬 코드 편집기", rows: opts.minRows || 6 });
     ta.value = opts.code == null ? starter : opts.code;
-    const { bRun, bStop, status, outBox, go } = makeRunner(() => ta.value);
+    const { bRun, bStop, status, outBox, go } = makeRunner(() => opts.runCode ? opts.runCode(ta.value) : ta.value);
     const bReset = h("button", { class: "pr-btn", type: "button", title: "처음 코드로 되돌리기" }, lab("restart_alt", "처음 코드", "↺ "));
     const bCopy = h("button", { class: "pr-btn", type: "button", title: "내 코드 복사" }, "복사");
+    const bCmt = h("button", { class: "pr-btn", type: "button", title: "고른 줄(고른 것이 없으면 커서가 있는 줄)을 주석으로 바꾸거나 되돌립니다 (Ctrl/⌘ + /). 주석은 # 로 시작하는 메모입니다." }, lab("comment", "주석", "# "));
     const bEx = opts.example ? h("button", { class: "pr-btn ex", type: "button", title: "정답 예시 코드를 팝업으로 보기" }, lab("lightbulb", "예시 코드", "💡 ")) : null;
     /* 문법 강조: 글자를 투명하게 만든 textarea 뒤에 같은 글꼴의 색칠된 <pre> 를 깔고 스크롤을 맞춘다. */
     const hlCode = h("code", {}), hl = h("pre", { class: "pr-hl", "aria-hidden": "true" }, hlCode);
@@ -204,7 +206,7 @@ const PyRun = (function () {
     };
     ta.addEventListener("scroll", syncScroll);
     if (typeof ResizeObserver !== "undefined") new ResizeObserver(syncScroll).observe(ta);   // 크기 조절·높이 맞춤 뒤에도 다시 맞춘다
-    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bEx, status), h("div", { class: "pr-edit" }, gutter, stack), outBox);
+    const root = h("div", { class: "pr" }, h("div", { class: "pr-bar" }, bRun, bStop, opts.resettable === false ? null : bReset, bCopy, bCmt, bEx, status), h("div", { class: "pr-edit" }, gutter, stack), outBox);
 
     ta.addEventListener("input", () => { fit(ta); paint(); opts.onChange && opts.onChange(ta.value); });
     /* [a, b) 를 text 로 바꾼다. execCommand 를 쓰면 브라우저의 실행 취소(Ctrl+Z)가 유지된다. 막혀 있으면 setRangeText 로 대신한다. */
@@ -227,6 +229,25 @@ const PyRun = (function () {
       replaceRange(a, b, out.join("\n"));
       const ns = Math.max(a, s + first); ta.setSelectionRange(ns, Math.max(ns, en + total));
     }
+    /* 고른 줄(없으면 커서가 있는 줄)을 주석으로 바꾸거나, 모두 주석이면 되돌린다. 글자 앞 들여쓰기는 건드리지 않고 그 위치에 "# "를 넣는다. */
+    function toggleComment() {
+      const v = ta.value, s = ta.selectionStart, en = ta.selectionEnd, a = v.lastIndexOf("\n", s - 1) + 1;
+      const last = en > s && v[en - 1] === "\n" ? en - 1 : en;
+      let b = v.indexOf("\n", last); if (b < 0) b = v.length;
+      const lines = v.slice(a, b).split("\n"), body = lines.filter(l => l.trim());
+      const allCmt = body.length > 0 && body.every(l => /^\s*#/.test(l));
+      const ind = body.length ? Math.min(...body.map(l => /^ */.exec(l)[0].length)) : 0;
+      let first = 0, total = 0;
+      const out = lines.map((ln, i) => {
+        let d = 0;
+        if (allCmt) { const m = /^(\s*)# ?/.exec(ln); if (m) { d = -(m[0].length - m[1].length); ln = m[1] + ln.slice(m[0].length); } }
+        else if (ln.trim()) { ln = ln.slice(0, ind) + "# " + ln.slice(ind); d = 2; }
+        if (i === 0) first = d; total += d; return ln;
+      });
+      replaceRange(a, b, out.join("\n"));
+      const ns = Math.max(a, s + first); ta.setSelectionRange(ns, Math.max(ns, en + total));
+    }
+    bCmt.addEventListener("click", toggleComment);
     let tabFree = false;                       // Esc 를 누르면 다음 Tab 은 들여쓰기 대신 포커스를 옮긴다(키보드 사용자 탈출구)
     ta.addEventListener("blur", () => { tabFree = false; });
     ta.addEventListener("keydown", e => {
@@ -237,7 +258,8 @@ const PyRun = (function () {
         const s = ta.selectionStart, en = ta.selectionEnd, multi = ta.value.slice(s, en).includes("\n");
         if (e.shiftKey || multi) shiftLines(e.shiftKey);
         else replaceRange(s, en, "    ");
-      } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); }
+      } else if (e.key === "/" && (e.ctrlKey || e.metaKey) && !e.altKey) { e.preventDefault(); toggleComment(); }
+      else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); }
       else if (e.key === "Enter" && !e.shiftKey && !e.altKey) {   // 자동 들여쓰기
         const s = ta.selectionStart, line = ta.value.slice(ta.value.lastIndexOf("\n", s - 1) + 1, s);
         let ind = (/^ */.exec(line) || [""])[0]; if (/:\s*$/.test(line)) ind += "    ";
