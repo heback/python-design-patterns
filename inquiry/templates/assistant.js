@@ -112,7 +112,7 @@ const Assistant = (() => {
     if (busy) return;
     const q = cp.input.value.trim(); if (!q && !cp.image) return;
     if (!StudentAuth.get()) { addMsg("err", "먼저 아래 버튼으로 학교 Google 계정에 로그인해 주세요."); return; }
-    if (!StudentAuth.aiOk()) { addMsg("err", "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 쓸 수 없어요. 쓰고 싶다면 선생님께 말씀드려 주세요."); return; }
+    if (!StudentAuth.aiOk()) { addMsg("err", "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 쓸 수 없어요. 쓰려면 아래 [AI 도우미 이용에 동의하기]를 눌러 주세요."); return; }
     const ctx = getContext() || {}, im = cp.image;
     addMsg("me", q || "(사진)", im && im.url); cp.input.value = ""; cp.grow(); cp.setImage(null);
     const wait = addMsg("bot wait", "생각하는 중…"); setBusy(true);
@@ -140,7 +140,8 @@ const Assistant = (() => {
     const login = el("div", { class: "ai-login", hidden: true }, "학교 Google 계정으로 로그인하면 쓸 수 있어요. ",
       el("button", { type: "button", class: "qbtn", onclick: async () => { const m = await StudentAuth.login(); if (m) addMsg("err", m); } }, ico("login"), "로그인"));
     /* 개인정보 동의 때 ‘AI 도우미 이용(선택)’에 동의하지 않은 학생에게는 쓸 수 없는 이유를 안내한다(바꾸려면 교사가 동의를 초기화한다) */
-    const needAi = el("div", { class: "ai-login", hidden: true }, "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 AI 도우미를 쓸 수 없어요. 쓰고 싶다면 선생님께 말씀드려 주세요.");
+    const needAi = el("div", { class: "ai-login", hidden: true }, "개인정보 동의에서 ‘AI 도우미 이용(선택)’에 동의하지 않아 AI 도우미를 쓸 수 없어요. 쓰고 싶다면 직접 동의할 수 있어요. ",
+      el("button", { type: "button", class: "qbtn", onclick: () => StudentAuth.optInAi() }, ico("verified_user"), "AI 도우미 이용에 동의하기"));
     const syncLogin = () => { login.hidden = !!StudentAuth.get(); needAi.hidden = !(StudentAuth.get() && !StudentAuth.aiOk()); };
     StudentAuth.onChange(() => { syncLogin(); quotaFor = null; if (panel && !panel.hidden) loadQuota(true); }); syncLogin();
     panel = el("section", { class: "ai-panel", role: "dialog", "aria-label": "AI 도우미", hidden: true },

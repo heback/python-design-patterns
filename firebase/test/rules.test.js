@@ -305,7 +305,9 @@ test("동의: 학생은 한번 한 동의를 스스로 지우거나(철회) 고�
   const a = pupil("a");
   await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a")));
   await assertFails(deleteDoc(doc(a, "consents/a")));                                      // 학생 철회 불가
-  await assertFails(setDoc(doc(a, "consents/a"), cdoc("a", { ai: true })));                // 선택 항목 변경 불가(현재 버전 기록은 덮어쓸 수 없다)
+  await assertFails(setDoc(doc(a, "consents/a"), cdoc("a", { ai: false })));               // 같은 내용으로 덮어쓸 수 없다(현재 버전 기록)
+  await assertSucceeds(setDoc(doc(a, "consents/a"), cdoc("a", { ai: true })));             // 선택 항목에 동의하지 않았던 학생은 나중에 동의(false → true)만 할 수 있다
+  await assertFails(setDoc(doc(a, "consents/a"), cdoc("a", { ai: false })));               // 철회(true → false) 불가
   await assertSucceeds(setDoc(doc(a, "progress/a"), prog("a", { activeMs: 2000 })));       // 그대로 계속 쓸 수 있다
   await assertSucceeds(deleteDoc(doc(teacher(), "consents/a")));                           // 교사 초기화
   await assertFails(setDoc(doc(a, "progress/a"), prog("a", { activeMs: 9999 })));          // 다시 동의하기 전까지 막힘
@@ -326,7 +328,9 @@ test("동의: 본인 uid·서버 시각·허용된 필드·본인 이메일만 �
   const noAi = cdoc("c"); delete noAi.ai;
   await assertFails(setDoc(doc(c, "consents/c"), noAi));
   await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c", { ai: false })));            // 필수만 동의(첫 동의)
-  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { ai: true })));                // 한번 동의한 뒤 선택 항목 변경은 불가
+  await assertSucceeds(setDoc(doc(c, "consents/c"), cdoc("c", { ai: true })));             // 선택 항목에 동의하지 않았던 학생은 나중에 동의(false → true)할 수 있다
+  await assertFails(setDoc(doc(c, "consents/c"), cdoc("c", { ai: false })));               // 동의한 선택 항목의 철회(true → false)는 학생이 못 한다
+  await assertFails(deleteDoc(doc(c, "consents/c")));                                      // 지우기도 불가
 });
 test("동의: 익명·학교 밖 계정은 동의 문서를 쓸 수 없다", async () => {
   await assertFails(setDoc(doc(student("c"), "consents/c"), cdoc("c")));

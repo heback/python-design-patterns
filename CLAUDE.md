@@ -85,3 +85,4 @@ open textbook/00-intro.html
 | 2026-11-06 | 학생 '선생님께 질문' 추가: AI 아이콘 위 아이콘(같은 입력 방식·글/사진, 개수 제한 없음), 교사 [학생 질문] 메뉴(새 질문 배지·직접 답변·AI 추천 답변), 대화 askThreads·함수 4개·규칙·테스트. 오른쪽 아래 아이콘을 묶음(fab-dock)으로 바꾸고 대화창은 묶음 왼쪽에 표시 | inquiry/templates/ask-teacher.js·assistant.js·fb.js·teacher.js, firebase/functions·firestore.rules·test | 학생이 선생님께 직접 질문하고 교사가 한곳에서 답하도록 |
 | 2026-11-06 | 교사 메뉴 이름 변경: 대화기록→AI 대화기록, 토큰 사용량→AI 사용량, 질문 한도→AI 질문한도 | inquiry/templates/teacher.js | AI 도우미 관련 메뉴임을 구분 |
 | 2026-11-06 | AI 추천 답변의 토큰·횟수를 [AI 사용량]에 합산(학생별 chatUsage·반 전체 stats/assistant의 sug* 필드, 추천 답변 열 추가) | firebase/functions/index.js, inquiry/templates/teacher.js | 추천 답변 비용도 사용량에 반영 |
+| 2026-11-06 | 개인정보 동의의 ‘AI 도우미 이용(선택)’에 동의하지 않은 학생이 AI 도우미 창의 [AI 도우미 이용에 동의하기]로 나중에 직접 동의(false→true)할 수 있게 함. 철회(true→false)는 여전히 교사만 | firebase/firestore.rules·test, inquiry/templates/student-auth.js·assistant.js | 선택 항목을 거절한 학생의 재동의 요청 |

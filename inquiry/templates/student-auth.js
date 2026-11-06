@@ -31,6 +31,13 @@ const Consent = (() => {
       el("h3", { id: "cs-title" }, ico(k === "login" ? "lock" : "hourglass_top", "fill"), k === "login" ? "로그인이 필요해요" : "잠시만 기다려 주세요"), ...body);
   }
 
+  const AI_LABEL = "AI 도우미를 쓸 때 질문·답이 기록되고 질문·사진·화면의 글이 Google(Gemini)에 전달되는 데 동의해요.";
+  const aiSection = note => sec("3. AI 도우미 이용 — 선택",
+    el("ul", {},
+      li("질문, 사진을 보냈는지(사진 파일은 저장하지 않아요), AI의 답, 질문할 때 보던 화면의 글. 주고받은 내용은 ", el("b", {}, "담당 교사가 볼 수 있게 기록"), "돼요."),
+      li("질문·사진·화면의 글은 답을 만들기 위해 ", el("b", {}, "Google(Gemini API, Google LLC, 미국)에 전달"), "돼요(국외 이전). 이름·학번·연락처 같은 개인정보는 질문에 쓰지 마세요.")),
+    el("p", { class: "cs-dim" }, note));
+
   /* 동의 창: 필수 항목에 체크해야 시작할 수 있다. 동의하지 않으면 로그아웃되고 화면은 계속 막혀 있다. 한 번 동의하면 다시 나타나지 않는다. */
   function agreeBox() {
     const acct = StudentAuth.account(), msg = el("div", { class: "cs-msg", role: "alert" });
@@ -55,11 +62,7 @@ const Consent = (() => {
             li(el("b", {}, "학습 이력 정보"), " — 교재에서 읽은 장·절, 학습지에서 마친 문항과 지금 있던 곳, 장·절별 체류 시간, 활동 시간(입력·스크롤이 있던 시간), 마지막 활동 시각, 이 화면을 보고 있는지(다른 탭·창으로 옮겼는지)와 벗어난 횟수·시간")),
           el("p", {}, "위 정보는 ", el("b", {}, "수업 담당 교사에게 제공"), "되어 교사 화면에 표시돼요. 그 밖의 사람이나 기관에는 제공하지 않아요."),
           el("p", { class: "cs-dim" }, "수집하지 않는 것: 학습지에 쓴 글의 내용, 키 입력, 화면 내용, 보고 있는 주소.")),
-        sec("3. AI 도우미 이용 — 선택",
-          el("ul", {},
-            li("질문, 사진을 보냈는지(사진 파일은 저장하지 않아요), AI의 답, 질문할 때 보던 화면의 글. 주고받은 내용은 ", el("b", {}, "담당 교사가 볼 수 있게 기록"), "돼요."),
-            li("질문·사진·화면의 글은 답을 만들기 위해 ", el("b", {}, "Google(Gemini API, Google LLC, 미국)에 전달"), "돼요(국외 이전). 이름·학번·연락처 같은 개인정보는 질문에 쓰지 마세요.")),
-          el("p", { class: "cs-dim" }, "선택 항목에 동의하지 않아도 필수 항목에 동의하면 이 화면을 볼 수 있어요. 다만 선택은 나중에 직접 바꿀 수 없고, 바꾸려면 담당 교사에게 요청해야 해요.")),
+        aiSection("선택 항목에 동의하지 않아도 필수 항목에 동의하면 이 화면을 볼 수 있어요. 지금 동의하지 않아도 나중에 AI 도우미 창에서 [AI 도우미 이용에 동의하기]로 직접 동의할 수 있어요. 한 번 동의한 선택 항목을 철회하려면 담당 교사에게 요청해야 해요."),
         sec("4. 보유·이용 기간", el("p", {}, "이 과목의 수업이 끝나면 담당 교사가 지체 없이 삭제해요.")),
         sec("5. 동의하지 않을 권리와 철회",
           el("ul", {},
@@ -67,7 +70,7 @@ const Consent = (() => {
             li("동의한 뒤에 철회하거나 삭제를 원하면 담당 교사에게 요청해요. 교사가 동의를 초기화하면 새로 모으는 것이 멈추고 다시 동의해야 해요."))),
         el("p", { class: "cs-dim" }, `문구 버전 ${VERSION}`)),
       el("label", { class: "cs-ck", for: "cs-req" }, req, el("span", {}, el("b", { class: "cs-tag" }, "필수"), " 위 개인정보(학번, 성명, 이메일, 학습 이력 정보)를 수집·이용하고 수업 담당 교사에게 제공하는 데 동의해요.")),
-      el("label", { class: "cs-ck", for: "cs-ai" }, ai, el("span", {}, el("b", { class: "cs-tag opt" }, "선택"), " AI 도우미를 쓸 때 질문·답이 기록되고 질문·사진·화면의 글이 Google(Gemini)에 전달되는 데 동의해요.")),
+      el("label", { class: "cs-ck", for: "cs-ai" }, ai, el("span", {}, el("b", { class: "cs-tag opt" }, "선택"), " " + AI_LABEL)),
       msg,
       el("div", { class: "cs-btns" }, go, el("span", { class: "grow" }),
         el("button", { type: "button", class: "qbtn small", onclick: () => StudentAuth.logout() }, "동의하지 않아요(로그아웃)")));
@@ -81,7 +84,29 @@ const Consent = (() => {
     ov.replaceChildren(box); kind = k;
     const f = box.querySelector ? box.querySelector("input,button") : null; if (f && f.focus) f.focus();
   }
-  return { VERSION, show, hide, kind: () => kind };
+
+  /* 필수 동의만 한 학생이 나중에 AI 도우미(선택 항목)에만 따로 동의하는 창. 동의(false → true)만 학생이 직접 할 수 있고, 철회는 교사만 한다(서버 규칙). 화면을 막지 않으며 [취소]·ESC·바깥 클릭으로 닫는다. */
+  let opt = null;
+  const closeOpt = () => { if (opt) { document.removeEventListener("keydown", opt.esc); opt.ov.remove(); opt = null; } };
+  function optIn() {
+    if (opt || !StudentAuth.get() || StudentAuth.aiOk()) return;
+    const msg = el("div", { class: "cs-msg", role: "alert" }), ck = el("input", { type: "checkbox", id: "cs-opt-ai" });
+    const go = el("button", { type: "button", class: "qbtn primary cs-go", disabled: true }, ico("task_alt"), "동의하기");
+    ck.addEventListener("change", () => { go.disabled = !ck.checked; });
+    go.addEventListener("click", async () => {
+      msg.textContent = ""; go.disabled = true;
+      try { await FB.saveConsent(VERSION, true); closeOpt(); }                       // 저장되면 구독이 알려 주어 AI 도우미 안내가 바뀐다
+      catch (e) { msg.textContent = "저장하지 못했어요: " + FB.fbErr(e); go.disabled = !ck.checked; }
+    });
+    const box = el("div", { class: "cs-box", role: "dialog", "aria-modal": "true", "aria-labelledby": "cs-opt-title", onclick: e => e.stopPropagation() },
+      el("h3", { id: "cs-opt-title" }, ico("verified_user", "fill"), "AI 도우미 이용 동의(선택)"),
+      el("div", { class: "cs-scroll", tabindex: "0" }, aiSection("동의하지 않아도 교재·학습지는 계속 볼 수 있어요. 한 번 동의한 뒤에 철회하려면 담당 교사에게 요청해야 해요.")),
+      el("label", { class: "cs-ck", for: "cs-opt-ai" }, ck, el("span", {}, el("b", { class: "cs-tag opt" }, "선택"), " " + AI_LABEL)),
+      msg, el("div", { class: "cs-btns" }, go, el("span", { class: "grow" }), el("button", { type: "button", class: "qbtn small", onclick: closeOpt }, "취소")));
+    const ov2 = el("div", { class: "cs-overlay", onclick: closeOpt }, box), esc = e => { if (e.key === "Escape") closeOpt(); };
+    opt = { ov: ov2, esc }; document.addEventListener("keydown", esc); document.body.append(ov2); ck.focus();
+  }
+  return { VERSION, show, hide, kind: () => kind, optIn };
 })();
 
 const StudentAuth = (() => {
@@ -133,7 +158,8 @@ const StudentAuth = (() => {
   const key = base => base + "-" + (acct ? acct.uid : "anon");
   return { init, login, logout: () => FB.signOut(), get: effective, key, onChange: f => subs.push(f),
            account: () => acct,                                         // 로그인한 계정(동의 전이어도)
-           aiOk: () => !!(effective() && consent && consent.ai === true) };   // AI 도우미(선택 항목)에 동의했는가
+           aiOk: () => !!(effective() && consent && consent.ai === true),
+           optInAi: () => Consent.optIn() };                              // AI 도우미(선택 항목)에만 나중에 동의하는 창   // AI 도우미(선택 항목)에 동의했는가
 })();
 
 /* 이 화면을 보고 있는지(탭 가림·창 포커스). 브라우저가 알려 주는 두 신호만 쓴다:
