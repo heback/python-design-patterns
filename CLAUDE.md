@@ -84,3 +84,4 @@ open textbook/00-intro.html
 | 2026-11-06 | 절 제목 옆 [?] 아이콘: 클릭하면 그 절을 읽으며 생각할 질문을 팝업으로 표시(ESC·바깥 클릭·✕로 닫기). 01~15장 여섯 절 × 3~4개, 질문은 chapters/focus-questions.json, 서론에 사용법 안내 | assets/focus-questions.js·style.css·base.html, scripts/build_textbook.py, chapters/focus-questions.json, 00-intro | 읽을 때 무엇에 집중할지 학생이 잡도록 |
 | 2026-11-06 | 학생 '선생님께 질문' 추가: AI 아이콘 위 아이콘(같은 입력 방식·글/사진, 개수 제한 없음), 교사 [학생 질문] 메뉴(새 질문 배지·직접 답변·AI 추천 답변), 대화 askThreads·함수 4개·규칙·테스트. 오른쪽 아래 아이콘을 묶음(fab-dock)으로 바꾸고 대화창은 묶음 왼쪽에 표시 | inquiry/templates/ask-teacher.js·assistant.js·fb.js·teacher.js, firebase/functions·firestore.rules·test | 학생이 선생님께 직접 질문하고 교사가 한곳에서 답하도록 |
 | 2026-11-06 | 교사 메뉴 이름 변경: 대화기록→AI 대화기록, 토큰 사용량→AI 사용량, 질문 한도→AI 질문한도 | inquiry/templates/teacher.js | AI 도우미 관련 메뉴임을 구분 |
+| 2026-11-06 | AI 추천 답변의 토큰·횟수를 [AI 사용량]에 합산(학생별 chatUsage·반 전체 stats/assistant의 sug* 필드, 추천 답변 열 추가) | firebase/functions/index.js, inquiry/templates/teacher.js | 추천 답변 비용도 사용량에 반영 |

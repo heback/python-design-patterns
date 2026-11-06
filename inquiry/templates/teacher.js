@@ -210,7 +210,9 @@ function renderMonitor(main) {
   };
 
   /* --- AI 사용량 화면: 기간(오늘·주간·월간·전체·직접 지정)별 반 전체·날짜별·학생별 --- */
-  const SUM_KEYS = ["count", "refused", "errors", "images", "promptTokens", "outputTokens", "thoughtTokens", "totalTokens"];
+  const SUM_KEYS = ["count", "refused", "errors", "images", "promptTokens", "outputTokens", "thoughtTokens", "totalTokens", "sugCount", "sugPrompt", "sugOutput", "sugThought", "sugTotal"];
+  /* 토큰은 AI 도우미 질문(promptTokens…)과 교사의 AI 추천 답변(sug*)을 합쳐 보여 준다. count 는 질문 수, sugCount 는 추천 답변 수. */
+  const fold = v => Object.assign({}, v, { promptTokens: v.promptTokens + v.sugPrompt, outputTokens: v.outputTokens + v.sugOutput, thoughtTokens: v.thoughtTokens + v.sugThought, totalTokens: v.totalTokens + v.sugTotal });
   const addDays = (d, n) => new Date(Date.parse(d + "T00:00:00Z") + n * 86400e3).toISOString().slice(0, 10);       // YYYY-MM-DD(한국 날짜 문자열)에 일수를 더한다
   const emptySum = () => Object.fromEntries(SUM_KEYS.map(k => [k, 0]));
   const sumDays = (byDay, from, to) => { const t = emptySum(); for (const [d, v] of Object.entries(byDay || {})) if (d >= from && d <= to) SUM_KEYS.forEach(k => { t[k] += Number(v[k]) || 0; }); return t; };
@@ -231,39 +233,41 @@ function renderMonitor(main) {
   const money = x => `${usd(x)} (약 ${nf(Math.round(x * PRICE.krwPerUsd))}원)`;
   const paintTok = () => {
     const st = M.stats || {}, today = todayKst(), R = tokRange();
-    const tot = R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(st[k]) || 0])) : sumDays(st.byDay, R.from, R.to);
-    const days = Object.entries(st.byDay || {}).filter(([d]) => d >= R.from && d <= R.to).sort((a, b) => b[0].localeCompare(a[0]));
-    const rows = (M.usage || []).map(u => { const v = R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(u["total_" + k]) || 0])) : sumDays(u.byDay, R.from, R.to); return { u, v }; })
-      .filter(r => r.v.count > 0).sort((a, b) => b.v.totalTokens - a.v.totalTokens);
+    const tot = fold(R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(st[k]) || 0])) : sumDays(st.byDay, R.from, R.to));
+    const days = Object.entries(st.byDay || {}).filter(([d]) => d >= R.from && d <= R.to).map(([d, v]) => [d, fold(Object.fromEntries(SUM_KEYS.map(k => [k, Number(v[k]) || 0])))]).sort((a, b) => b[0].localeCompare(a[0]));
+    const rows = (M.usage || []).map(u => { const v = fold(R.all ? Object.fromEntries(SUM_KEYS.map(k => [k, Number(u["total_" + k]) || 0])) : sumDays(u.byDay, R.from, R.to)); return { u, v }; })
+      .filter(r => r.v.count + r.v.sugCount > 0).sort((a, b) => b.v.totalTokens - a.v.totalTokens);
     // 학생별 날짜 집계는 이 기능을 넣은 뒤부터 쌓인다. 반 전체 합계와의 차이는 '날짜별 학생 집계가 없는 이전 사용량'으로 따로 보여 준다.
     const sumStu = rows.reduce((t, r) => { SUM_KEYS.forEach(k => { t[k] += r.v[k]; }); return t; }, emptySum());
     const older = R.all ? null : Object.fromEntries(SUM_KEYS.map(k => [k, Math.max(0, tot[k] - sumStu[k])]));
+    const calls = v => v.count + v.sugCount;
     const seg = [["today", "오늘"], ["week", "주간"], ["month", "월간"], ["all", "전체"], ["custom", "기간 지정"]];
     const setRange = k => { M.tokRange = k; if (k === "custom") { M.tokFrom = M.tokFrom || addDays(today, -6); M.tokTo = M.tokTo || today; } paintTok(); };
     const dateIn = (key, val) => el("input", { type: "date", value: val, max: today, "aria-label": key === "tokFrom" ? "시작 날짜" : "끝 날짜", onchange: e => { if (e.target.value) { M[key] = e.target.value; paintTok(); } } });
     fill(vTok, el("h3", {}, "AI 사용량"),
-      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 날짜는 한국 시간 기준입니다."),
+      el("p", { class: "lead" }, "Gemini가 응답마다 알려 주는 입력·출력·생각 토큰 수를 학생별·날짜별로 쌓은 값입니다. 학생의 AI 도우미 질문과, 교사가 [학생 질문]에서 쓴 AI 추천 답변(그 학생 몫으로 집계)을 합친 값입니다. 날짜는 한국 시간 기준입니다."),
       el("p", { class: "lead", style: "font-size:13px" }, `예상 비용은 ${PRICE.model} 요금(100만 토큰당 입력 $${PRICE.inUsd.toFixed(2)} · 출력과 생각 토큰 $${PRICE.outUsd.toFixed(2)}, 2026년 11월 Google 공시 기준)으로 계산한 추정치이고 원화는 1달러=${nf(PRICE.krwPerUsd)}원으로 가정했습니다. 실제 청구액과 다를 수 있으니 Google AI Studio의 결제 화면으로 확인하세요.`),
       M.logErr ? el("div", { class: "err-box" }, el("b", {}, ico("error", "fill"), "집계를 읽지 못했습니다."), el("div", {}, M.logErr)) : null,
       el("div", { class: "seg", role: "group", "aria-label": "기간 선택" }, seg.map(([k, l]) => el("button", { type: "button", class: "seg-b", "aria-pressed": String((M.tokRange || "today") === k), onclick: () => setRange(k) }, l))),
       (M.tokRange || "today") === "custom" ? el("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0" }, dateIn("tokFrom", R.from), "부터", dateIn("tokTo", R.to), "까지") : null,
       el("p", { class: "lead", style: "margin:8px 0" }, R.all ? "기간: 전체 (지금까지 쌓인 모든 사용량)" : R.from === R.to ? `기간: ${R.label} (${R.from})` : `기간: ${R.label} — ${R.from} ~ ${R.to}`),
       el("div", { class: "dlg-sum" },
-        el("div", {}, el("b", {}, "질문"), `${nf(tot.count)}건 (거절 ${nf(tot.refused)} · 오류 ${nf(tot.errors)} · 사진 ${nf(tot.images)})`),
+        el("div", {}, el("b", {}, "AI 도우미 질문"), `${nf(tot.count)}건 (거절 ${nf(tot.refused)} · 오류 ${nf(tot.errors)} · 사진 ${nf(tot.images)})`),
+        el("div", {}, el("b", {}, "AI 추천 답변"), `${nf(tot.sugCount)}건 (토큰 ${nf(tot.sugTotal)})`),
         el("div", {}, el("b", {}, "토큰 합계"), `${nf(tot.totalTokens)} (입력 ${nf(tot.promptTokens)} · 출력 ${nf(tot.outputTokens)} · 생각 ${nf(tot.thoughtTokens)})`),
-        el("div", {}, el("b", {}, "질문한 학생"), R.all ? `${nf(rows.length)}명` : `${nf(rows.length)}명${older && older.count ? " 이상" : ""}`),
-        el("div", {}, el("b", {}, "질문 1건당 토큰"), tot.count ? nf(Math.round(tot.totalTokens / tot.count)) : "—"),
+        el("div", {}, el("b", {}, "AI를 쓴 학생"), R.all ? `${nf(rows.length)}명` : `${nf(rows.length)}명${older && calls(older) ? " 이상" : ""}`),
+        el("div", {}, el("b", {}, "AI 호출 1건당 토큰"), calls(tot) ? nf(Math.round(tot.totalTokens / calls(tot))) : "—"),
         el("div", {}, el("b", {}, "예상 비용"), money(costUsd(tot))),
-        el("div", {}, el("b", {}, "질문 1건당 예상 비용"), tot.count ? money(costUsd(tot) / tot.count) : "—")),
+        el("div", {}, el("b", {}, "AI 호출 1건당 예상 비용"), calls(tot) ? money(costUsd(tot) / calls(tot)) : "—")),
       el("h4", {}, "날짜별"),
-      days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용"].map(h => el("th", {}, h)))),
-        el("tbody", {}, days.slice(0, 120).map(([d, v]) => el("tr", {}, el("td", {}, d + (d === today ? " (오늘)" : "")), el("td", {}, nf(v.count)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, usd(costUsd(v)))))))) : el("p", { class: "lead" }, "이 기간의 기록이 없습니다."),
+      days.length ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["날짜", "질문", "추천 답변", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용"].map(h => el("th", {}, h)))),
+        el("tbody", {}, days.slice(0, 120).map(([d, v]) => el("tr", {}, el("td", {}, d + (d === today ? " (오늘)" : "")), el("td", {}, nf(v.count)), el("td", {}, nf(v.sugCount)), el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, usd(costUsd(v)))))))) : el("p", { class: "lead" }, "이 기간의 기록이 없습니다."),
       days.length > 120 ? el("p", { class: "lead" }, "최근 120일만 표시합니다.") : null,
       el("h4", {}, "학생별"),
-      rows.length || (older && older.count) ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용", "마지막 사용"].map(h => el("th", {}, h)))),
-        el("tbody", {}, rows.map(({ u, v }) => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(v.count)), el("td", {}, nf(v.refused)),
+      rows.length || (older && calls(older)) ? el("div", { style: "overflow-x:auto" }, el("table", { class: "ro" }, el("thead", {}, el("tr", {}, ["학생", "질문", "추천 답변", "거절", "입력 토큰", "출력 토큰", "합계 토큰", "예상 비용", "마지막 사용"].map(h => el("th", {}, h)))),
+        el("tbody", {}, rows.map(({ u, v }) => el("tr", {}, el("td", {}, `${(u.student || {}).name || u.id}${(u.student || {}).email ? " · " + u.student.email.split("@")[0] : ""}`), el("td", {}, nf(v.count)), el("td", {}, nf(v.sugCount)), el("td", {}, nf(v.refused)),
           el("td", {}, nf(v.promptTokens)), el("td", {}, nf(v.outputTokens)), el("td", {}, nf(v.totalTokens)), el("td", {}, usd(costUsd(v))), el("td", {}, ago(tsMs(u.lastAt))))),
-          older && older.count ? el("tr", { class: "tok-older" }, el("td", {}, "날짜별 학생 집계가 없는 이전 사용량"), el("td", {}, nf(older.count)), el("td", {}, nf(older.refused)), el("td", {}, nf(older.promptTokens)), el("td", {}, nf(older.outputTokens)), el("td", {}, nf(older.totalTokens)), el("td", {}, usd(costUsd(older))), el("td", {}, "—")) : null))) : el("p", { class: "lead" }, R.all ? "아직 AI 도우미를 쓴 학생이 없습니다." : "이 기간에 AI 도우미를 쓴 학생이 없습니다."),
+          older && calls(older) ? el("tr", { class: "tok-older" }, el("td", {}, "날짜별 학생 집계가 없는 이전 사용량"), el("td", {}, nf(older.count)), el("td", {}, nf(older.sugCount)), el("td", {}, nf(older.refused)), el("td", {}, nf(older.promptTokens)), el("td", {}, nf(older.outputTokens)), el("td", {}, nf(older.totalTokens)), el("td", {}, usd(costUsd(older))), el("td", {}, "—")) : null))) : el("p", { class: "lead" }, R.all ? "아직 AI 도우미를 쓴 학생이 없습니다." : "이 기간에 AI 도우미를 쓴 학생이 없습니다."),
       !R.all ? el("p", { class: "lead", style: "font-size:13px" }, "학생별 날짜 집계는 2026-11-04 이후의 사용량부터 쌓입니다. 그 전의 사용량은 반 전체 날짜별 집계에만 있어 위 표에 한 줄로 따로 나타나며, 학생별로는 [전체]에서만 볼 수 있습니다.") : null);
   };
 
@@ -294,7 +298,7 @@ function renderMonitor(main) {
       el("button", { class: "btn small", disabled: lg.busy || !lg.more, onclick: () => goPage(lg.page + 1) }, "다음", ico("chevron_right")));
   };
   const paintLog = () => {
-    const rows = lg.rows || [], usage = (M.usage || []).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
+    const rows = lg.rows || [], usage = (M.usage || []).filter(u => u.total_count > 0).slice().sort((a, b) => (b.total_totalTokens || 0) - (a.total_totalTokens || 0));
     const stuSel = el("select", { onchange: e => { lg.uid = e.target.value; resetLogs(); } }, el("option", { value: "" }, "전체 학생"),
       usage.map(u => el("option", { value: u.id, ...(u.id === lg.uid ? { selected: "" } : {}) }, `${(u.student || {}).name || u.id} (${u.total_count || 0}건)`)));
     const fltSel = el("select", { onchange: e => { lg.kind = e.target.value; resetLogs(); } }, [["all", "전체"], ["refused", "범위 밖(거절)만"], ["error", "오류만"], ["image", "사진 포함만"]].map(([v, l]) => el("option", { value: v, ...(v === lg.kind ? { selected: "" } : {}) }, l)));

@@ -315,7 +315,13 @@ exports.suggestReply = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
   }
   const u = r.usage, inc = FieldValue.increment, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const sums = { suggestions: inc(1), failed: inc(r.ok ? 0 : 1), promptTokens: inc(u.prompt), outputTokens: inc(u.output), thoughtTokens: inc(u.thoughts), totalTokens: inc(u.total) };
-  await db.doc("stats/askTeacher").set(Object.assign({ updatedAt: Timestamp.now() }, sums, { byDay: { [day]: sums } }), { merge: true }).catch(err => console.error("추천 답변 집계 실패:", err && err.message));
+  const sug = { sugCount: inc(1), sugPrompt: inc(u.prompt), sugOutput: inc(u.output), sugThought: inc(u.thoughts), sugTotal: inc(u.total) };      // [AI 사용량] 화면용: AI 도우미 질문과 같은 문서에 sug* 로 따로 쌓아 합산해 보여 준다(질문 수 count 와 섞이지 않게)
+  const stu = ((await threadRef(uid).get()).data() || {}).student || null;
+  const batch = db.batch(), now = Timestamp.now();
+  batch.set(db.doc("stats/askTeacher"), Object.assign({ updatedAt: now }, sums, { byDay: { [day]: sums } }), { merge: true });
+  batch.set(db.doc(`chatUsage/${uid}`), Object.assign({ lastAt: now }, stu ? { student: stu } : {}, Object.fromEntries(Object.entries(sug).map(([k, f]) => ["total_" + k, f])), { byDay: { [day]: sug } }), { merge: true });
+  batch.set(db.doc("stats/assistant"), Object.assign({ updatedAt: now }, sug, { byDay: { [day]: sug } }), { merge: true });
+  await batch.commit().catch(err => console.error("추천 답변 집계 실패:", err && err.message));
   if (!r.ok) throw new HttpsError("internal", "AI 응답을 해석하지 못했습니다. 잠시 뒤 다시 시도해 주세요.");
   return { draft: r.draft, caution: r.caution };
 });
