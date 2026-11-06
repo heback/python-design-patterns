@@ -537,6 +537,24 @@ body.qz-lock { overflow: hidden; }
 .qz-pips i.on { background: var(--accent, #1f4f78); }
 @media print { .qz-overlay, .qz-pill { display: none !important; } }
 
+/* 돌발퀴즈 피드백 다시 보기(quiz-ui.js): 결과 본문, 목차 메뉴 */
+.qz-ans { margin: 6px 0; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; font: inherit; line-height: 1.6; background: var(--surface-2, var(--panel-sunk, #f1eee7)); border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 8px; }
+.qz-ans.empty { color: var(--muted, var(--dim, #5a6372)); }
+.qz-crit { list-style: none; margin: 4px 0 6px; padding: 0; font-size: 13.5px; }
+.qz-crit li { display: flex; gap: 6px; align-items: flex-start; margin: 2px 0; }
+.qz-crit li.y .ms { color: var(--ok, #2f6b3c); } .qz-crit li.n .ms { color: var(--bad, #b3352b); }
+.qz-item { border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 12px; padding: 6px 14px 10px; margin: 0 0 10px; }
+.qz-item > summary { cursor: pointer; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
+.qz-when { color: var(--muted, var(--dim, #5a6372)); font-size: 12.5px; }
+.qz-chip { margin-left: auto; padding: 1px 10px; border-radius: 999px; background: var(--accent-soft, #e8eff5); color: var(--accent, #1f4f78); font-weight: 700; font-size: 13px; }
+.qz-menu, .side-toc a.qz-menu { display: flex; align-items: center; gap: 6px; cursor: pointer; flex-wrap: wrap; }
+.qz-menu .ms { font-size: 18px; }
+.qz-menu-li { margin-top: 10px; border-top: 1px solid var(--border, var(--line, #dcd5c6)); padding-top: 6px; }
+.qz-cnt { min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--muted, #5f6368); color: #fff; font-size: 11.5px; line-height: 18px; text-align: center; }
+.qz-cnt.new { background: var(--bad, #b3352b); }
+.qz-menu-top { display: none; text-decoration: none; font-size: .82em; color: var(--accent, #1f4f78); white-space: nowrap; }
+@media (max-width: 900px) { .qz-menu-top { display: inline-flex; } .qz-menu-li { display: none; } }
+
 /* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
 .ai-fab { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
 .ai-fab:hover { transform: scale(1.06); }

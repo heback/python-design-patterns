@@ -438,11 +438,14 @@ exports.releaseQuiz = onCall({ region: REGION }, async req => {
   if (!ss.exists) throw new HttpsError("not-found", "퀴즈를 찾을 수 없습니다.");
   const s = ss.data(), want = Array.isArray((req.data || {}).uids) ? new Set(req.data.uids.map(uidOf)) : null;
   const gs = await quizRef(sid).collection("grades").get(), qText = new Map(s.questions.map(q => [q.id, q.q]));
+  const ansBy = new Map((await quizRef(sid).collection("answers").get()).docs.map(d => [d.id, d.data().answers || {}]));       // 학생이 다시 볼 수 있도록 본인의 답안과 채점 기준별 충족 여부도 담는다(교사 화면과 같은 내용, 모범 답안은 제외)
+  const bankKeys = id => (((loadContent().quiz || {})[s.slug] || []).find(x => x.id === id) || {}).key || [];
   const docs = gs.docs.filter(d => !want || want.has(d.id)), now = Timestamp.now();
   for (let i = 0; i < docs.length; i += 400) {
     const b = db.batch();
     docs.slice(i, i + 400).forEach(d => { const g = d.data();
-      b.set(db.doc(`quizResults/${sid}__${d.id}`), { uid: d.id, sid, title: s.title, slug: s.slug, items: g.items.map(x => ({ id: x.id, q: qText.get(x.id) || "", score: x.score, feedback: x.feedback })), summary: g.summary || "", total: g.total, max: g.max, releasedAt: now });
+      b.set(db.doc(`quizResults/${sid}__${d.id}`), { uid: d.id, sid, title: s.title, slug: s.slug, items: g.items.map(x => ({ id: x.id, q: qText.get(x.id) || "", answer: String((ansBy.get(d.id) || {})[x.id] || "").slice(0, quizLib.LIMITS.answer),
+        criteria: bankKeys(x.id).map((t, j) => ({ t, ok: Array.isArray(x.hits) ? x.hits[j] === true : null })), score: x.score, feedback: x.feedback })), summary: g.summary || "", total: g.total, max: g.max, releasedAt: now });
       b.set(d.ref, { releasedAt: now }, { merge: true }); });
     await b.commit();
   }
