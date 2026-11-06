@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require("@firebase/rules-unit-testing");
-const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, writeBatch, Timestamp, serverTimestamp } = require("firebase/firestore");
+const { doc, setDoc, updateDoc, getDoc, getDocs, collection, deleteDoc, writeBatch, query, where, Timestamp, serverTimestamp } = require("firebase/firestore");
 
 let env;
 const T = { email: "teacher@ts.hs.kr", email_verified: true, firebase: { sign_in_provider: "google.com" } };
@@ -374,6 +374,42 @@ test("학생 코드: 교사는 모두 읽고 지우고, 다른 학생은 읽지�
   await assertSucceeds(deleteDoc(doc(teacher(), "codeNotes/c/blocks/p__c0")));
   await assertSucceeds(deleteDoc(doc(teacher(), "codeNotes/c")));
 });
+/* ---------- 돌발 퀴즈 ---------- */
+test("돌발 퀴즈: 누구나 현재 퀴즈 정보를 읽되 쓰기는 불가, 답안·채점은 교사만, 결과는 본인만", async () => {
+  await env.withSecurityRulesDisabled(async c => {
+    const f = c.firestore();
+    await setDoc(doc(f, "config/quiz"), { sid: "s1", state: "open", questions: [{ id: "q1", q: "?" }] });
+    await setDoc(doc(f, "quizSessions/s1"), { slug: "x", state: "open" });
+    await setDoc(doc(f, "quizSessions/s1/answers/a"), { uid: "a", answers: { q1: "답" } });
+    await setDoc(doc(f, "quizSessions/s1/answers/b"), { uid: "b", answers: { q1: "답" } });
+    await setDoc(doc(f, "quizSessions/s1/grades/a"), { uid: "a", total: 3 });
+    await setDoc(doc(f, "quizResults/s1__a"), { uid: "a", total: 3 });
+    await setDoc(doc(f, "quizResults/s1__b"), { uid: "b", total: 1 });
+  });
+  const a = pupil("a");
+  await assertSucceeds(getDoc(doc(a, "config/quiz")));
+  await assertFails(setDoc(doc(a, "config/quiz"), { state: "closed" }));
+  await assertFails(setDoc(doc(teacher(), "config/quiz"), { state: "closed" }));           // 교사도 직접 못 쓴다(함수만)
+  await assertFails(getDoc(doc(a, "quizSessions/s1")));
+  await assertSucceeds(getDoc(doc(a, "quizSessions/s1/answers/a")));                       // 본인 답안
+  await assertFails(getDoc(doc(a, "quizSessions/s1/answers/b")));
+  await assertFails(getDocs(collection(a, "quizSessions/s1/answers")));
+  await assertFails(setDoc(doc(a, "quizSessions/s1/answers/a"), { uid: "a", answers: { q1: "고침" } }));   // 답안은 함수로만
+  await assertFails(getDoc(doc(a, "quizSessions/s1/grades/a")));                            // 채점 초안은 교사만
+  await assertSucceeds(getDoc(doc(a, "quizResults/s1__a")));
+  await assertFails(getDoc(doc(a, "quizResults/s1__b")));
+  await assertSucceeds(getDocs(query(collection(a, "quizResults"), where("uid", "==", "a"))));
+  await assertFails(getDocs(collection(a, "quizResults")));                                  // 남의 결과까지 훑는 조회는 불가
+  await assertFails(setDoc(doc(a, "quizResults/s1__a"), { uid: "a", total: 99 }));
+  const t = teacher();
+  await assertSucceeds(getDoc(doc(t, "quizSessions/s1")));
+  await assertSucceeds(getDocs(collection(t, "quizSessions/s1/answers")));
+  await assertSucceeds(getDoc(doc(t, "quizSessions/s1/grades/a")));
+  await assertSucceeds(getDocs(collection(t, "quizResults")));
+  await assertFails(setDoc(doc(t, "quizSessions/s1/grades/a"), { total: 9 }));              // 교사도 직접 쓰지 못한다
+  await assertSucceeds(deleteDoc(doc(t, "quizResults/s1__a")));
+});
+
 test("동의: 익명·학교 밖 계정은 동의 문서를 쓸 수 없다", async () => {
   await assertFails(setDoc(doc(student("c"), "consents/c"), cdoc("c")));
   const gmail = env.authenticatedContext("g", { email: "g@gmail.com", email_verified: true, firebase: { sign_in_provider: "google.com" } }).firestore();

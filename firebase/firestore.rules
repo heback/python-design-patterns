@@ -137,6 +137,19 @@ service cloud.firestore {
                         && hasConsent() && monitorOn() && progressOk(request.resource.data));
     }
 
+    // 돌발 퀴즈(패턴별 서술형). config/quiz = 가장 최근 퀴즈의 학생용 정보(문항 글·마감 시각·상태, 채점 기준 없음): 누구나 읽고 쓰기는 함수만.
+    // quizSessions(기록·답안·채점 초안)는 교사만 읽고, 학생은 자기 답안 문서만 읽는다. 학생에게 보낸 결과 quizResults/{sid}__{uid}는 본인(uid 필드)과 교사만 읽는다. 모든 쓰기는 함수(startQuiz·submitQuiz·gradeQuizAnswer·saveQuizGrade·releaseQuiz)만 한다.
+    match /config/quiz { allow read: if true; allow write: if false; }
+    match /quizSessions/{sid} {
+      allow read, delete: if isTeacher();
+      match /answers/{uid} { allow get: if isTeacher() || (isSchoolAccount() && uid == request.auth.uid); allow list, delete: if isTeacher(); }
+      match /grades/{uid} { allow read, delete: if isTeacher(); }
+    }
+    match /quizResults/{rid} {
+      allow get, list: if isTeacher() || (isSchoolAccount() && resource.data.uid == request.auth.uid);
+      allow delete: if isTeacher();
+    }
+
     // 교재 코드 편집기에서 학생이 주석을 달거나 고친 코드(codeNotes). 학생 한 명당 codeNotes/{uid}(이름·이메일·마지막 저장 시각)와
     // 그 아래 blocks/{블록 id}(코드 블록 하나: 쪽·번호·제목·원본 코드의 해시·학생이 고친 코드·추가한 줄). 학생은 본인 것만 읽고 쓰고 지울 수 있다(처음 코드로 되돌리면 지운다).
     // 교사는 모두 읽는다. 동의(현재 문구)가 있어야 쓸 수 있고, 저장 시각은 서버 시각이어야 한다.

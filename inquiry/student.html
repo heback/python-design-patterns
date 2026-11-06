@@ -411,6 +411,42 @@ pre.code-added { border-color: var(--accent-line); background: var(--accent-soft
 .code-full { margin-top: 8px; }
 .code-full > summary { cursor: pointer; font-size: 13.5px; color: var(--ink-soft); }
 
+/* 돌발퀴즈 화면 */
+.qzt-active { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; margin: 8px 0; border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; }
+.qzt-clock { font-size: 20px; font-variant-numeric: tabular-nums; }
+.qzt-groups { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.qzt-grp { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qzt-grp > b { min-width: 80px; }
+.qzt-pats { display: flex; gap: 6px; flex-wrap: wrap; }
+.qzt-bank { margin: 10px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.qzt-q { padding: 8px 0; border-top: 1px dashed var(--line); }
+.qzt-qhead { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; cursor: pointer; }
+.qzt-qhead input { margin-top: 5px; width: 17px; height: 17px; }
+.qzt-qtext { flex-basis: 100%; white-space: pre-wrap; padding-left: 26px; }
+.qzt-key { margin: 4px 0 0 26px; font-size: 13.5px; color: var(--ink-soft); }
+.qzt-key summary { cursor: pointer; }
+.qzt-key ol { margin: 4px 0; padding-left: 20px; }
+.qzt-go { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.qzt-cols { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 10px; }
+.qzt-hist { display: flex; flex-direction: column; gap: 4px; max-height: 60vh; overflow-y: auto; }
+.qzt-dhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qzt-dhead h4 { margin: 0; }
+.qzt-stat, .qzt-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.qzt-stu { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); margin-bottom: 6px; }
+.qzt-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; text-align: left; border: 0; background: none; color: inherit; font: inherit; padding: 8px 10px; cursor: pointer; }
+.qzt-detail { padding: 4px 14px 12px 34px; }
+.qzt-qa { margin: 10px 0 14px; }
+.qzt-qq { white-space: pre-wrap; }
+pre.qzt-ans { margin: 6px 0; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; background: var(--panel-sunk); border: 1px solid var(--line); border-radius: 8px; font: inherit; line-height: 1.6; }
+pre.qzt-ans.empty { color: var(--dim); }
+.qzt-hits { list-style: none; margin: 4px 0; padding: 0; font-size: 13.5px; }
+.qzt-hits li { display: flex; gap: 6px; align-items: flex-start; }
+.qzt-hits li.y .ms { color: var(--ok, #2f6b3c); } .qzt-hits li.n .ms { color: var(--bad, #b3352b); }
+.qzt-score { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+textarea.qzt-fb { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: inherit; margin-top: 4px; }
+.qzt-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+@media (max-width: 860px) { .qzt-cols { grid-template-columns: 1fr; } }
+
 /* 아이콘(Google Material Symbols)·진도 전달 고지·로그인 버튼. 학습지와 호스팅된 교재 페이지가 함께 쓴다.
    색은 두 곳이 공통으로 가진 변수(--surface, --text, --muted, --border, --accent, --ok …)만 쓰고, 없을 때를 위한 기본값을 둔다. */
 .ms {
@@ -468,6 +504,38 @@ body.cs-lock { overflow: hidden; }
 .cs-btns .grow { flex: 1; }
 .cs-go .ms { margin-right: 6px; }
 @media print { .cs-overlay { display: none !important; } }
+
+/* 돌발 퀴즈 팝업·피드백(quiz-ui.js). 퀴즈가 떠 있는 동안 화면 스크롤을 잠근다. */
+body.qz-lock { overflow: hidden; }
+.qz-overlay { position: fixed; inset: 0; z-index: 2800; background: rgba(22, 32, 46, .72); display: grid; place-items: center; padding: 12px; }
+.qz-overlay[hidden], .qz-pill[hidden] { display: none; }
+.qz-box { background: var(--surface, var(--panel, #fff)); color: var(--text, var(--ink, #1a2332)); border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 16px; width: min(760px, 100%); max-height: calc(100vh - 24px); display: flex; flex-direction: column; padding: 16px 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, .4); font-size: 14.5px; line-height: 1.7; overflow: hidden; }
+.qz-head { display: flex; align-items: center; gap: 10px; }
+.qz-head h3 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.qz-head h3 .ms { color: var(--accent, #1f4f78); }
+.qz-grow { flex: 1; }
+.qz-timewrap { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 18px; }
+.qz-warn .qz-timewrap { color: var(--bad, #b3352b); }
+.qz-bar { height: 6px; border-radius: 999px; background: var(--border, var(--line, #dcd5c6)); margin: 8px 0; overflow: hidden; }
+.qz-bar > i { display: block; height: 100%; width: 100%; background: var(--accent, #1f4f78); transition: width .5s linear; }
+.qz-warn .qz-bar > i { background: var(--bad, #b3352b); }
+.qz-note { margin: 0 0 8px; font-size: 13px; color: var(--muted, var(--dim, #5a6372)); }
+.qz-body { overflow: auto; flex: 1 1 auto; padding: 2px 2px 6px; }
+.qz-q { margin: 10px 0 14px; }
+.qz-qt { white-space: pre-wrap; margin-bottom: 6px; }
+.qz-ta { display: block; width: 100%; box-sizing: border-box; font: inherit; line-height: 1.6; padding: 8px 10px; border: 1px solid var(--border, var(--line, #dcd5c6)); border-radius: 10px; background: var(--surface, #fff); color: inherit; resize: vertical; min-height: 92px; }
+.qz-ta:focus { outline: 2px solid var(--accent, #1f4f78); outline-offset: 1px; }
+.qz-ta[readonly] { opacity: .75; }
+.qz-status { min-height: 22px; color: var(--accent, #1f4f78); font-weight: 600; font-size: 13.5px; margin-top: 4px; }
+.qz-btns { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.qz-pill { position: fixed; left: 16px; bottom: 16px; z-index: 2700; display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 999px; padding: 10px 16px; background: var(--accent, #1f4f78); color: var(--on-accent, #fff); font: inherit; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, .3); }
+.qz-fb .qz-score { font-size: 17px; margin: 6px 0 2px; }
+.qz-sum { margin: 4px 0 8px; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft, #e8eff5); }
+.qz-fbtxt { padding: 8px 12px; border-left: 3px solid var(--accent, #1f4f78); background: var(--surface-2, var(--panel-sunk, #f6f4ef)); border-radius: 0 8px 8px 0; white-space: pre-wrap; }
+.qz-pips { display: inline-flex; gap: 3px; margin-left: 8px; vertical-align: middle; }
+.qz-pips i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent, #1f4f78); box-sizing: border-box; }
+.qz-pips i.on { background: var(--accent, #1f4f78); }
+@media print { .qz-overlay, .qz-pill { display: none !important; } }
 
 /* 학생 AI 도우미(학습지·교재 공용). 두 곳이 공통으로 가진 색 변수를 쓰고, 없을 때의 기본값을 둔다. */
 .ai-fab { position: relative; width: 56px; height: 56px; border-radius: 50%; border: 2px solid var(--gold, #d4ae55); background: var(--navy, #16202e); color: var(--on-navy, #f3efe6); cursor: pointer; display: grid; place-items: center; font-size: 26px; box-shadow: 0 8px 20px -8px rgba(10, 16, 28, .6); transition: transform .15s; }
@@ -1173,6 +1241,36 @@ const FB = (() => {
     await m.fs.deleteDoc(doc(m.db, "codeNotes", uid));
   }
 
+  /* ---------- 돌발 퀴즈(패턴별 서술형) ----------
+     학생: 현재 퀴즈(watchQuiz = config/quiz), 서버 시각(quizNow), 답안 제출(submitQuiz), 나에게 보낸 결과(watchMyQuizResults).
+     교사: 제시·마감(startQuiz·closeQuiz), 퀴즈 기록·답안·채점 구독, AI 채점(gradeQuizAnswer)·점수 저장(saveQuizGrade)·학생에게 보내기(releaseQuiz), 기록 삭제. 쓰기는 모두 함수가 한다. */
+  const watchQuiz = cb => watchDoc("config", "quiz", cb);
+  const quizNow = () => call("quizNow", {});
+  const submitQuiz = (sid, answers) => call("submitQuiz", { sid, answers });
+  async function watchMyQuizResults(uid, cb) {
+    const m = await load(), { collection, query, where, onSnapshot } = m.fs;
+    return onSnapshot(query(collection(m.db, "quizResults"), where("uid", "==", uid)), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), () => cb(null));
+  }
+  const startQuiz = p => call("startQuiz", p);
+  const closeQuiz = sid => call("closeQuiz", { sid });
+  const watchQuizSessions = cb => live("quizSessions", cb, m => m.fs.query(m.fs.collection(m.db, "quizSessions"), m.fs.orderBy("startedAt", "desc"), m.fs.limit(30)));
+  async function watchQuizSub(sid, sub, cb) {
+    const m = await load();
+    return m.fs.onSnapshot(m.fs.collection(m.db, "quizSessions", sid, sub), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
+  }
+  const watchQuizAnswers = (sid, cb) => watchQuizSub(sid, "answers", cb);
+  const watchQuizGrades = (sid, cb) => watchQuizSub(sid, "grades", cb);
+  const gradeQuizAnswer = (sid, uid) => call("gradeQuizAnswer", { sid, uid });
+  const saveQuizGrade = (sid, uid, scores, summary) => call("saveQuizGrade", { sid, uid, scores, summary });
+  const releaseQuiz = (sid, uids) => call("releaseQuiz", uids ? { sid, uids } : { sid });
+  async function deleteQuizSession(sid) {
+    const m = await load(), { collection, getDocs, writeBatch, doc, query, where } = m.fs;
+    const kill = async q => { for (;;) { const snap = await getDocs(q); if (snap.empty) break; const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit(); } };
+    await kill(collection(m.db, "quizSessions", sid, "answers")); await kill(collection(m.db, "quizSessions", sid, "grades"));
+    await kill(query(collection(m.db, "quizResults"), where("sid", "==", sid)));
+    await m.fs.deleteDoc(doc(m.db, "quizSessions", sid));
+  }
+
   /* ---------- 개인정보 수집·이용 동의 ---------- */
   /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
   const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
@@ -1291,6 +1389,7 @@ const FB = (() => {
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            loadMyCode, saveCodeBlock, deleteCodeBlock, watchCodeStudents, loadStudentCode, deleteStudentCode,
+           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

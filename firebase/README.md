@@ -90,3 +90,15 @@ cd firebase/test && npm install && cd .. && \
 - **교사 화면 [학생 코드]**: 코드를 저장한 학생 목록 → 그 학생의 블록(원본과 다른 줄은 따로 강조, 코드 전체는 펼쳐 보기). [코드 기록 삭제]는 그 학생의 `codeNotes`를 모두 지운다(수업이 끝난 뒤 개인정보 삭제용).
 - **동의 문구**: 이 항목은 2026-11-06판 동의 문구의 필수 항목에 적혀 있다(문구를 올렸으므로 학생은 다시 동의한다).
 - **배포**: 규칙·함수(`CONSENT_VERSION`)·호스팅을 함께 올린다(`firebase deploy --only firestore:rules,functions,hosting`). 시험: `test/rules.test.js`의 "학생 코드" 3개.
+
+## 돌발퀴즈 (패턴별 서술형)
+
+교사가 수업 중 한 패턴을 학습하는 학생들에게 서술형 문제를 팝업으로 내고, 답안을 보고 AI(또는 직접) 채점해 피드백을 학생에게 보낸다.
+- **문항 은행**: `inquiry/content/popquiz_create.py`·`popquiz_struct.py`·`popquiz_behave.py`의 `QUIZ = {slug: [{id, kind, minutes, q, key[], model}]}`(패턴마다 6문항). `build.py`가 합쳐 `functions/teacher-content.json`의 `quiz`에 넣고(교사만 `getTeacherContent`로 받음), 패턴마다 5문항 이상·id 중복·필드·문제 문장의 파일 이름을 검사한다. 학생 빌드·학생 화면에는 `q`(질문 글)만 간다.
+- **제시**: 교사 화면 [돌발퀴즈] → 패턴 → 문항 선택(기본 전부)·제한 시간(1~30분, 기본은 권장 시간 합) → [제시하기] → 함수 `startQuiz`가 `quizSessions/{sid}`(기록)와 `config/quiz`(가장 최근 퀴즈의 학생용 정보: 문항 글·마감 시각 ms·상태; 누구나 읽기, 쓰기는 함수만)를 쓴다. 진행 중인 퀴즈가 있으면 거절한다. [지금 마감]은 `closeQuiz`.
+- **학생 팝업**(`templates/quiz-ui.js`, 호스팅된 교재 사본에만 주입): `config/quiz`가 열려 있고 `slug`가 지금 장(요약 판·긴 버전 모두)과 같을 때만 뜬다. 다른 장을 보던 학생은 그 장으로 가면 남은 시간만큼 뜬다. 남은 시간은 `quizNow`(서버 시각)로 어림해 기기 시계 오차를 줄인다. 시간 안에는 고쳐서 다시 제출할 수 있고(함수 `submitQuiz`: 학교 계정 + 현재 문구 동의, 세션의 문항 id만, 문항당 1500자, 마감+10초까지), 시간이 끝나면 쓴 글이 자동 제출된다. 쓰던 글은 localStorage `dp-quiz-draft:{sid}`에 남는다.
+- **채점**: `gradeQuizAnswer`(교사만)가 학생 한 명의 답안을 Gemini로 채점해 `quizSessions/{sid}/grades/{uid}`에 초안을 둔다(문항당 0~3점, 채점 기준별 충족 `hits`, 학생용 피드백, 총평). 답안은 `<answer>` 안에 넣어 지시문으로 따르지 않게 하고 이름·이메일은 보내지 않는다. **그 학생이 개인정보 동의의 ‘AI 도우미 이용(선택)’에 동의하지 않았으면 서버가 거부**하고 교사는 직접 채점한다. 화면의 [AI 채점]은 3명씩 동시에 부른다. 토큰은 학생별 `chatUsage/{uid}`(`total_qz*`, `byDay.{날짜}.qz*`)와 반 전체 `stats/assistant`(`qz*`)에 쌓여 [AI 사용량]에 합산된다.
+- **피드백 전송**: 교사가 점수·피드백을 고쳐 `saveQuizGrade`로 저장하고 `releaseQuiz`(학생 지정 또는 채점된 전원)로 보내면 `quizResults/{sid}__{uid}`(문항 글·점수·피드백·총평)가 생기고 학생 화면 어느 장에서든 피드백 팝업이 한 번 뜬다(본 것은 localStorage `dp-quiz-seen`).
+- **규칙**: `config/quiz` 읽기 모두·쓰기 함수만. `quizSessions`(+`answers`·`grades`)는 교사만 읽고(학생은 자기 `answers/{uid}` 한 건), `quizResults`는 본인(`uid` 필드)과 교사만 읽는다. 모든 쓰기는 함수만(교사도 직접 못 씀). 시험: `functions/quiz.test.js`(검증·프롬프트·결과 정리), `test/rules.test.js`("돌발 퀴즈"), 에뮬레이터 전체 흐름(제시→제출→AI 채점→수정→전송→마감)은 로컬에서 확인했다.
+- **동의 문구**: 퀴즈 답안 저장·교사 열람과 AI 채점 시 Gemini 전달은 2026-11-06판 동의 문구에 적혀 있지 않다. 이 기능을 배포하기 전에 문구를 고치고 `Consent.VERSION`·`consentVersion()`·`CONSENT_VERSION`을 함께 올릴지 정한다(올리면 모든 학생이 다시 동의한다).
+- **배포**: `python3 inquiry/build.py` 뒤 `firebase deploy --only firestore:rules,functions,hosting`을 함께(함수 없이 호스팅만 올리면 제시·제출이 실패한다).

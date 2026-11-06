@@ -95,6 +95,36 @@ const FB = (() => {
     await m.fs.deleteDoc(doc(m.db, "codeNotes", uid));
   }
 
+  /* ---------- 돌발 퀴즈(패턴별 서술형) ----------
+     학생: 현재 퀴즈(watchQuiz = config/quiz), 서버 시각(quizNow), 답안 제출(submitQuiz), 나에게 보낸 결과(watchMyQuizResults).
+     교사: 제시·마감(startQuiz·closeQuiz), 퀴즈 기록·답안·채점 구독, AI 채점(gradeQuizAnswer)·점수 저장(saveQuizGrade)·학생에게 보내기(releaseQuiz), 기록 삭제. 쓰기는 모두 함수가 한다. */
+  const watchQuiz = cb => watchDoc("config", "quiz", cb);
+  const quizNow = () => call("quizNow", {});
+  const submitQuiz = (sid, answers) => call("submitQuiz", { sid, answers });
+  async function watchMyQuizResults(uid, cb) {
+    const m = await load(), { collection, query, where, onSnapshot } = m.fs;
+    return onSnapshot(query(collection(m.db, "quizResults"), where("uid", "==", uid)), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), () => cb(null));
+  }
+  const startQuiz = p => call("startQuiz", p);
+  const closeQuiz = sid => call("closeQuiz", { sid });
+  const watchQuizSessions = cb => live("quizSessions", cb, m => m.fs.query(m.fs.collection(m.db, "quizSessions"), m.fs.orderBy("startedAt", "desc"), m.fs.limit(30)));
+  async function watchQuizSub(sid, sub, cb) {
+    const m = await load();
+    return m.fs.onSnapshot(m.fs.collection(m.db, "quizSessions", sid, sub), snap => cb(snap.docs.map(d => Object.assign({ id: d.id }, d.data()))), e => cb(null, e));
+  }
+  const watchQuizAnswers = (sid, cb) => watchQuizSub(sid, "answers", cb);
+  const watchQuizGrades = (sid, cb) => watchQuizSub(sid, "grades", cb);
+  const gradeQuizAnswer = (sid, uid) => call("gradeQuizAnswer", { sid, uid });
+  const saveQuizGrade = (sid, uid, scores, summary) => call("saveQuizGrade", { sid, uid, scores, summary });
+  const releaseQuiz = (sid, uids) => call("releaseQuiz", uids ? { sid, uids } : { sid });
+  async function deleteQuizSession(sid) {
+    const m = await load(), { collection, getDocs, writeBatch, doc, query, where } = m.fs;
+    const kill = async q => { for (;;) { const snap = await getDocs(q); if (snap.empty) break; const b = writeBatch(m.db); snap.docs.forEach(d => b.delete(d.ref)); await b.commit(); } };
+    await kill(collection(m.db, "quizSessions", sid, "answers")); await kill(collection(m.db, "quizSessions", sid, "grades"));
+    await kill(query(collection(m.db, "quizResults"), where("sid", "==", sid)));
+    await m.fs.deleteDoc(doc(m.db, "quizSessions", sid));
+  }
+
   /* ---------- 개인정보 수집·이용 동의 ---------- */
   /* 내 동의 문서 구독: 문서가 없으면 null(동의한 적 없음·철회), 읽기에 실패하면 undefined(모름). 문서 모양은 firestore.rules 의 consentOk 가 강제한다. */
   const watchMyConsent = (uid, cb) => watchDoc("consents", uid, cb);
@@ -213,6 +243,7 @@ const FB = (() => {
            watchMonitor, reportProgress, readMyProgress, watchAssistant, askAssistant, assistantQuota, saveAssistant, saveAssistantLimit, setAssistantQuota, watchChatUsage, watchChatQuota, watchChatLogs, chatLogsPage, chatLogsCount, watchStats, clearChatLogs,
            askTeacher, markAskRead, watchMyThread, watchAskMsgs, watchAskThreads, replyToStudent, suggestReply, deleteAskThread, watchAskStats,
            loadMyCode, saveCodeBlock, deleteCodeBlock, watchCodeStudents, loadStudentCode, deleteStudentCode,
+           watchQuiz, quizNow, submitQuiz, watchMyQuizResults, startQuiz, closeQuiz, watchQuizSessions, watchQuizAnswers, watchQuizGrades, gradeQuizAnswer, saveQuizGrade, releaseQuiz, deleteQuizSession,
            watchProgress, saveMonitor, watchMonitorEvents, clearProgress,
            signIn, onAuth, signOut, teacherContent };
 })();

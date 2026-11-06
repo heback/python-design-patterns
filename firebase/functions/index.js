@@ -326,4 +326,127 @@ exports.suggestReply = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxIn
   return { draft: r.draft, caution: r.caution };
 });
 
+/* ===================== 돌발 퀴즈 (패턴별 서술형) =====================
+   교사가 [제시]하면 그 패턴 장을 보고 있는 학생 화면에 팝업이 뜨고, 제한 시간 안에 서술형으로 답한다. 마감 뒤 교사가 답안을 보고 AI 로 채점하고(학생이 AI 선택 동의를 한 경우) 피드백을 학생에게 보낸다.
+   config/quiz = 가장 최근 퀴즈의 학생용 정보(문항 글·마감 시각·상태; 모두 읽을 수 있다, 채점 기준은 없다). 기록은 quizSessions/{sid}(+answers·grades, 교사만 읽음).
+   학생에게 보낸 결과는 quizResults/{sid}__{uid}(본인만 읽음). 쓰기는 모두 아래 함수만 한다. 문항 은행·채점 기준은 teacher-content.json 의 quiz[slug]. */
+const quizLib = require("./quiz");
+const quizRef = sid => db.doc(`quizSessions/${sid}`);
+const sidOf = v => { if (typeof v !== "string" || !/^[A-Za-z0-9]{1,40}$/.test(v)) throw new HttpsError("invalid-argument", "퀴즈 번호가 올바르지 않습니다."); return v; };
+const uidOf = v => { if (typeof v !== "string" || !v || v.includes("/") || v.length > 128) throw new HttpsError("invalid-argument", "학생(uid)이 필요합니다."); return v; };
+const tokenName = auth => ((auth.token.name || "").trim() || (auth.token.email || "").split("@")[0]).slice(0, 80);
+
+exports.quizNow = onCall({ region: REGION }, async req => {            // 학생 화면의 남은 시간을 서버 시각에 맞추려고 부른다(기기 시계가 틀려도 되도록)
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", "학교 계정으로 로그인해야 합니다.");
+  return { now: Date.now() };
+});
+
+exports.startQuiz = onCall({ region: REGION }, async req => {
+  await assertTeacher(req.auth);
+  const content = loadContent(), slug = String((req.data || {}).slug || "");
+  const chap = (content.chapters || []).find(c => c.slug === slug);
+  if (!chap) throw new HttpsError("invalid-argument", "알 수 없는 패턴입니다.");
+  const v = quizLib.validateStart(req.data, (content.quiz || {})[slug]);
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+  const cfgRef = db.doc("config/quiz"), cur = (await cfgRef.get()).data();
+  if (cur && cur.state === "open" && cur.endsAt > Date.now()) throw new HttpsError("failed-precondition", `이미 진행 중인 퀴즈가 있습니다(${cur.title}). 마감한 뒤 다시 제시하세요.`);
+  if (cur && cur.state === "open") await quizRef(cur.sid).set({ state: "closed", closedAt: Timestamp.now() }, { merge: true });      // 시간이 지났는데 닫지 않은 퀴즈 정리
+  const now = Date.now(), ref = db.collection("quizSessions").doc(), endsAt = now + v.value.seconds * 1000;
+  const info = { sid: ref.id, slug, title: chap.title, group: chap.group, questions: v.value.questions, seconds: v.value.seconds, startedAt: now, endsAt, state: "open" };
+  await ref.set(Object.assign({}, info, { startedAt: Timestamp.fromMillis(now), endsAt: Timestamp.fromMillis(endsAt), startedBy: req.auth.token.email, released: 0 }));
+  await cfgRef.set(info);
+  return { sid: ref.id, endsAt };
+});
+
+exports.closeQuiz = onCall({ region: REGION }, async req => {
+  await assertTeacher(req.auth);
+  const sid = sidOf((req.data || {}).sid);
+  await quizRef(sid).set({ state: "closed", closedAt: Timestamp.now() }, { merge: true });
+  const cfgRef = db.doc("config/quiz"), cur = (await cfgRef.get()).data();
+  if (cur && cur.sid === sid) await cfgRef.set({ state: "closed", endsAt: Math.min(cur.endsAt, Date.now()) }, { merge: true });
+  return { ok: true };
+});
+
+exports.submitQuiz = onCall({ region: REGION, maxInstances: 20 }, async req => {
+  if (!isSchoolAccount(req.auth)) throw new HttpsError("permission-denied", "학교 Google 계정으로 로그인해야 합니다.");
+  const noConsent = askTeacher.consentGate((await db.doc(`consents/${req.auth.uid}`).get()).data(), CONSENT_VERSION);
+  if (noConsent) throw new HttpsError("failed-precondition", noConsent);
+  const sid = sidOf((req.data || {}).sid), snap = await quizRef(sid).get();
+  if (!snap.exists) throw new HttpsError("not-found", "퀴즈를 찾을 수 없습니다.");
+  const s = snap.data(), now = Date.now();
+  if (!quizLib.canSubmit(s.state, s.endsAt.toMillis(), now)) throw new HttpsError("failed-precondition", "제출 시간이 끝났어요.");
+  const v = quizLib.validateSubmit(req.data, s);
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+  await quizRef(sid).collection("answers").doc(req.auth.uid).set({ uid: req.auth.uid, student: { name: tokenName(req.auth), email: req.auth.token.email.toLowerCase() },
+    answers: v.value, submittedAt: Timestamp.fromMillis(now), late: now > s.endsAt.toMillis(), count: FieldValue.increment(1) }, { merge: true });
+  return { ok: true };
+});
+
+/** 한 학생의 답안을 AI 로 채점해 grades/{uid} 에 초안으로 둔다. 학생이 개인정보 동의의 AI(선택)에 동의하지 않았으면 거절한다(답안이 Gemini 로 가므로). */
+exports.gradeQuizAnswer = onCall({ region: REGION, secrets: [GEMINI_API_KEY], maxInstances: 5, timeoutSeconds: 120 }, async req => {
+  await assertTeacher(req.auth);
+  const sid = sidOf((req.data || {}).sid), uid = uidOf((req.data || {}).uid);
+  const noAi = askTeacher.aiConsentGate((await db.doc(`consents/${uid}`).get()).data(), CONSENT_VERSION);
+  if (noAi) throw new HttpsError("failed-precondition", noAi);
+  const [ss, as] = await Promise.all([quizRef(sid).get(), quizRef(sid).collection("answers").doc(uid).get()]);
+  if (!ss.exists || !as.exists) throw new HttpsError("not-found", "퀴즈 또는 학생 답안을 찾을 수 없습니다.");
+  const s = ss.data(), a = as.data(), bank = ((loadContent().quiz || {})[s.slug]) || [];
+  const questions = s.questions.map(q => { const b = bank.find(x => x.id === q.id) || {}; return { id: q.id, q: q.q, key: b.key || [], model: b.model || "" }; });
+  let r;
+  try { r = await quizModel(GEMINI_API_KEY.value(), s.title, questions, a.answers || {}); }
+  catch (e) {
+    console.error("gradeQuizAnswer 실패:", e && e.message);
+    const exhausted = /credit|billing|prepay|quota|RESOURCE_EXHAUSTED|"code":\s*(402|429)/i.test(String(e && e.message || e));
+    throw new HttpsError("unavailable", exhausted ? "AI의 사용량(크레딧)이 모두 소진되어 채점할 수 없습니다. Google AI Studio의 결제 설정을 확인하세요." : "AI 채점에 실패했습니다. 잠시 뒤에 다시 시도하세요.");
+  }
+  const u = r.usage, inc = FieldValue.increment, day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), now = Timestamp.now();
+  const qz = { qzCount: inc(1), qzPrompt: inc(u.prompt), qzOutput: inc(u.output), qzThought: inc(u.thoughts), qzTotal: inc(u.total) };       // [AI 사용량] 에 합산된다
+  const batch = db.batch();
+  batch.set(db.doc(`chatUsage/${uid}`), Object.assign({ lastAt: now }, a.student ? { student: a.student } : {}, Object.fromEntries(Object.entries(qz).map(([k, f]) => ["total_" + k, f])), { byDay: { [day]: qz } }), { merge: true });
+  batch.set(db.doc("stats/assistant"), Object.assign({ updatedAt: now }, qz, { byDay: { [day]: qz } }), { merge: true });
+  if (r.ok) batch.set(quizRef(sid).collection("grades").doc(uid), { uid, items: r.items, summary: r.summary, total: r.total, max: r.max, source: "ai", model: MODEL, gradedAt: now });
+  await batch.commit().catch(err => console.error("채점 집계 실패:", err && err.message));
+  if (!r.ok) throw new HttpsError("internal", "AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.");
+  return { ok: true, total: r.total, max: r.max };
+});
+async function quizModel(apiKey, title, questions, answers) {
+  if (!apiKey && process.env.FUNCTIONS_EMULATOR) {            // 에뮬레이터에는 키가 없다: 시험용 채점
+    const items = questions.map(q => ({ id: q.id, hits: (q.key || []).map((_, i) => i === 0), score: (answers[q.id] || "").trim() ? 2 : 0, feedback: "(에뮬레이터 시험 채점)" }));
+    return { ok: true, items, summary: "시험용 총평입니다.", total: items.reduce((x, y) => x + y.score, 0), max: items.length * quizLib.MAX_SCORE, usage: { prompt: 10, output: 10, thoughts: 0, total: 20 } };
+  }
+  return require("./quiz-model").grade(apiKey, title, questions, answers);
+}
+
+/** 교사가 점수·피드백을 직접 쓰거나 AI 초안을 고쳐 저장한다. */
+exports.saveQuizGrade = onCall({ region: REGION }, async req => {
+  await assertTeacher(req.auth);
+  const sid = sidOf((req.data || {}).sid), uid = uidOf((req.data || {}).uid), ss = await quizRef(sid).get();
+  if (!ss.exists) throw new HttpsError("not-found", "퀴즈를 찾을 수 없습니다.");
+  const v = quizLib.validateGrade(req.data, ss.data());
+  if (v.error) throw new HttpsError("invalid-argument", v.error);
+  const gref = quizRef(sid).collection("grades").doc(uid), old = (await gref.get()).data();
+  const hits = new Map(((old && old.items) || []).map(i => [i.id, i.hits]));
+  await gref.set({ uid, items: v.value.items.map(i => Object.assign({}, i, hits.get(i.id) ? { hits: hits.get(i.id) } : {})), summary: v.value.summary, total: v.value.total, max: v.value.max,
+    source: old && old.source === "ai" ? "ai+teacher" : (old && old.source) || "teacher", editedAt: Timestamp.now() }, { merge: true });
+  return { ok: true };
+});
+
+/** grades 를 학생에게 보낸다(quizResults/{sid}__{uid}). uids 를 주면 그 학생만, 없으면 점수가 있는 모든 학생. */
+exports.releaseQuiz = onCall({ region: REGION }, async req => {
+  await assertTeacher(req.auth);
+  const sid = sidOf((req.data || {}).sid), ss = await quizRef(sid).get();
+  if (!ss.exists) throw new HttpsError("not-found", "퀴즈를 찾을 수 없습니다.");
+  const s = ss.data(), want = Array.isArray((req.data || {}).uids) ? new Set(req.data.uids.map(uidOf)) : null;
+  const gs = await quizRef(sid).collection("grades").get(), qText = new Map(s.questions.map(q => [q.id, q.q]));
+  const docs = gs.docs.filter(d => !want || want.has(d.id)), now = Timestamp.now();
+  for (let i = 0; i < docs.length; i += 400) {
+    const b = db.batch();
+    docs.slice(i, i + 400).forEach(d => { const g = d.data();
+      b.set(db.doc(`quizResults/${sid}__${d.id}`), { uid: d.id, sid, title: s.title, slug: s.slug, items: g.items.map(x => ({ id: x.id, q: qText.get(x.id) || "", score: x.score, feedback: x.feedback })), summary: g.summary || "", total: g.total, max: g.max, releasedAt: now });
+      b.set(d.ref, { releasedAt: now }, { merge: true }); });
+    await b.commit();
+  }
+  return { released: docs.length };
+});
+
 exports._test = { sanitize, isSchoolAccount };

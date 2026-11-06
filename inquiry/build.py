@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "content"))
 
 import week1, week2, week3, week4, week5  # noqa: E401
+import popquiz_create, popquiz_struct, popquiz_behave  # noqa: E401  돌발 퀴즈 문항 은행(패턴별 서술형)
+
+QUIZ = {**popquiz_create.QUIZ, **popquiz_struct.QUIZ, **popquiz_behave.QUIZ}       # {패턴 slug: [{id, kind, minutes, q, key[], model}]}. 학생에게는 q 만 간다(채점 기준·모범 답안은 teacher-content.json 으로만)
 
 WEEKS = [m.WEEK for m in (week1, week2, week3, week4, week5)]
 PART_KEY = {"": "intro", "생성 패턴": "create", "구조 패턴": "struct", "행위 패턴": "behave"}   # 교재 chapters 의 part → 분류 키(진도 표의 분류 머리줄)
@@ -55,6 +58,18 @@ CHAPTERS = load_chapters()
 def validate():
     """문항 id 중복, 정답의 모양, 선택지 범위를 검사한다."""
     seen, errs = set(), []
+    for slug, bank in QUIZ.items():
+        ids = [q["id"] for q in bank]
+        if len(ids) < 5 or len(set(ids)) != len(ids):
+            errs.append(f"돌발 퀴즈 {slug}: 문항이 5개 미만이거나 id 중복")
+        for q in bank:
+            if not q.get("q") or not q.get("key") or not q.get("model") or q.get("kind") not in ("개념", "상황", "비교", "코드읽기"):
+                errs.append(f"돌발 퀴즈 {slug}/{q.get('id')}: q·key·model·kind 오류")
+            if re.search(r"\.py\b|src/", q.get("q", "")):
+                errs.append(f"돌발 퀴즈 {slug}/{q.get('id')}: 문제 문장에 파일 이름이 있음(학생에게 저장소를 드러내지 않는다)")
+    for c in CHAPTERS:
+        if c["group"] != "intro" and c["slug"] not in QUIZ:
+            errs.append(f"돌발 퀴즈 없음: {c['slug']}")
     for w in WEEKS:
         for st in w["stages"]:
             for it in st["items"]:
@@ -134,7 +149,7 @@ def render(tpl_name, content_js, app_js):
                 .replace("/*@STUDENTAUTH@*/", (t / "student-auth.js").read_text(encoding="utf-8") if tpl_name.startswith("student") else "")
                 .replace("/*@CONTENT@*/", content_js)
                 .replace("/*@CORE@*/", (t / "core.js").read_text(encoding="utf-8"))
-                .replace("/*@APP@*/", (t / app_js).read_text(encoding="utf-8")))
+                .replace("/*@APP@*/", (((t / "teacher-quiz.js").read_text(encoding="utf-8") + "\n") if tpl_name.startswith("teacher") else "") + (t / app_js).read_text(encoding="utf-8")))
 
 
 GF_ICONS = ('<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -182,7 +197,8 @@ def inject_textbook_monitor(dest):
             "<script>" + (t / "assistant.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "ask-teacher.js").read_text(encoding="utf-8") + "</script>\n"
             "<script>" + (t / "textbook-monitor.js").read_text(encoding="utf-8") + "</script>\n"
-            "<script>" + (t / "code-sync.js").read_text(encoding="utf-8") + "</script>\n")
+            "<script>" + (t / "code-sync.js").read_text(encoding="utf-8") + "</script>\n"
+            "<script>" + (t / "quiz-ui.js").read_text(encoding="utf-8") + "</script>\n")
     n = 0
     (dest / "index.html").write_text(render_textbook_index(), encoding="utf-8")
     for f in sorted(dest.glob("[0-9][0-9]-*.html")) + [dest / "glossary.html"]:
@@ -221,7 +237,7 @@ def main():
         shutil.copytree(ROOT.parent / "textbook", FB_DIR / "public" / "textbook")
         print(f"교재 사본 {inject_textbook_monitor(FB_DIR / 'public' / 'textbook')}개 장에 읽기 진도 모니터를 넣었다")
     (FB_DIR / "functions").mkdir(parents=True, exist_ok=True)
-    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "chapters": CHAPTERS}, ensure_ascii=False), encoding="utf-8")
+    (FB_DIR / "functions" / "teacher-content.json").write_text(json.dumps({"weeks": WEEKS, "chapters": CHAPTERS, "quiz": QUIZ}, ensure_ascii=False), encoding="utf-8")
     (ROOT / "student.html").write_text(student, encoding="utf-8")
     (ROOT / "teacher.html").write_text(teacher, encoding="utf-8")
     n_items = sum(1 for w in WEEKS for st in w["stages"] for it in st["items"] if it["type"] != "info")
