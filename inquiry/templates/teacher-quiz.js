@@ -3,7 +3,7 @@
    문항 은행(질문·채점 기준·모범 답안)은 로그인 뒤 getTeacherContent 가 내려주는 CONTENT.quiz[패턴 slug] 에 있다(학생 빌드에는 없다).
    teacher.js 보다 먼저 실려 있어야 한다(teacher.js 맨 끝에서 화면을 시작하므로). 필요한 전역: el, ico, fill, ago, tsMs, stamp, toast, errText, nf, liveState, GROUP_NAME, T, FB, CONTENT. */
 const TeacherQuiz = (() => {
-  const Q = { sel: "", picked: null, min: 0, cfg: undefined, sessions: null, sid: "", answers: null, grades: null, err: "", draft: {}, open: new Set(), ai: null, unA: null, unG: null };
+  const Q = { tab: "present", sel: "", picked: null, min: 0, cfg: undefined, sessions: null, sid: "", answers: null, grades: null, err: "", draft: {}, open: new Set(), ai: null, unA: null, unG: null };
   let root = null, tok = null, ctx = null, timeEl = null, dirty = false;
   const bank = slug => ((typeof CONTENT !== "undefined" && CONTENT.quiz) || {})[slug] || [];
   const MIN_CHOICES = [1, 2, 3, 5, 7, 10, 15, 20, 25, 30];
@@ -44,6 +44,7 @@ const TeacherQuiz = (() => {
 
   /* ---------- 기록 선택·구독 ---------- */
   function select(sid) {
+    if (sid) Q.tab = "results";
     if (Q.sid === sid) { paint(); return; }
     [Q.unA, Q.unG].forEach(f => { try { f && f(); } catch (e) {} }); Q.unA = Q.unG = null;
     Q.sid = sid; Q.answers = null; Q.grades = null; Q.draft = {}; Q.open = new Set(); Q.ai = null; Q.err = "";
@@ -92,13 +93,11 @@ const TeacherQuiz = (() => {
     const groups = ["create", "struct", "behave"].map(g => [g, chs.filter(c => c.group === g)]).filter(x => x[1].length);
     const bk = bank(Q.sel), ch = chs.find(c => c.slug === Q.sel);
     return [
-      active ? el("div", { class: "qzt-active" }, el("b", {}, ico("timer", "fill"), `진행 중 · ${Q.cfg.title}`), el("span", { class: "qzt-clock" }, timeEl = el("b", {}, mmss(Q.cfg.endsAt - Date.now()))),
-        el("span", {}, `제출 ${nf(Q.sid === Q.cfg.sid ? (Q.answers || []).length : 0)}명 · 이 장을 보는 학생 ${nf(viewers(Q.cfg.title))}명`),
-        el("button", { type: "button", class: "btn small", onclick: () => select(Q.cfg.sid) }, "답안 보기"), el("button", { type: "button", class: "btn small", onclick: closeNow }, ico("stop"), "지금 마감")) : null,
       el("div", { class: "qzt-groups" }, groups.map(([g, list]) => el("div", { class: "qzt-grp" }, el("b", {}, GROUP_NAME[g]),
-        el("div", { class: "qzt-pats" }, list.map(c => el("button", { type: "button", class: "btn small" + (Q.sel === c.slug ? " primary" : ""), onclick: () => { Q.sel = c.slug; Q.picked = new Set(bank(c.slug).map(q => q.id)); Q.min = nearest(bank(c.slug).reduce((a, q) => a + (q.minutes || 2), 0)); paint(); } }, c.title)))))),
+        el("div", { class: "qzt-pats" }, list.map(c => el("button", { type: "button", class: "btn small" + (Q.sel === c.slug ? " primary" : ""), onclick: () => { if (Q.sel === c.slug) { Q.sel = ""; paint(); return; } Q.sel = c.slug; Q.picked = new Set(bank(c.slug).map(q => q.id)); Q.min = nearest(bank(c.slug).reduce((a, q) => a + (q.minutes || 2), 0)); paint(); } }, c.title)))))),
       ch ? el("div", { class: "qzt-bank" },
-        el("h4", {}, `${ch.title} — 서술형 ${bk.length}문항`),
+        el("div", { class: "qzt-bhead" }, el("h4", {}, `${ch.title} — 서술형 ${bk.length}문항`), el("span", { style: "flex:1" }),
+          el("button", { type: "button", class: "btn small", title: "문항 목록을 닫습니다", onclick: () => { Q.sel = ""; paint(); } }, ico("close"), "닫기")),
         el("p", { class: "lead", style: "font-size:13px" }, "제시할 문항을 고르세요. 채점 기준과 모범 답안은 학생에게 보이지 않습니다(AI 채점과 교사 확인용)."),
         bk.map((q, i) => el("div", { class: "qzt-q" },
           el("label", { class: "qzt-qhead" }, el("input", { type: "checkbox", ...(Q.picked.has(q.id) ? { checked: "" } : {}), onchange: e => { e.target.checked ? Q.picked.add(q.id) : Q.picked.delete(q.id); dirty = true; Q.min = nearest(bk.filter(x => Q.picked.has(x.id)).reduce((a, x) => a + (x.minutes || 2), 0)); paint(); } }),
@@ -108,6 +107,11 @@ const TeacherQuiz = (() => {
           el("label", {}, "제한 시간 ", el("select", { onchange: e => { Q.min = Number(e.target.value); dirty = true; } }, MIN_CHOICES.map(m => el("option", { value: m, ...(m === Q.min ? { selected: "" } : {}) }, `${m}분`)))),
           el("span", { class: "lead", style: "margin:0" }, `이 장을 지금 보는 학생 ${nf(viewers(ch.title))}명 · 고른 문항 ${Q.picked.size}개`),
           el("button", { type: "button", class: "btn primary", disabled: active || !Q.picked.size, title: active ? "진행 중인 퀴즈를 마감한 뒤 제시할 수 있어요." : "", onclick: present }, ico("campaign"), "제시하기"))) : el("p", { class: "lead" }, "패턴을 고르면 문항이 나옵니다.")];
+  }
+  function renderActive() {
+    return isActive() ? el("div", { class: "qzt-active" }, el("b", {}, ico("timer", "fill"), `진행 중 · ${Q.cfg.title}`), el("span", { class: "qzt-clock" }, timeEl = el("b", {}, mmss(Q.cfg.endsAt - Date.now()))),
+        el("span", {}, `제출 ${nf(Q.sid === Q.cfg.sid ? (Q.answers || []).length : 0)}명 · 이 장을 보는 학생 ${nf(viewers(Q.cfg.title))}명`),
+        el("button", { type: "button", class: "btn small", onclick: () => select(Q.cfg.sid) }, "답안 보기"), el("button", { type: "button", class: "btn small", onclick: closeNow }, ico("stop"), "지금 마감")) : null;
   }
   function renderHistory() {
     const list = Q.sessions;
@@ -155,10 +159,16 @@ const TeacherQuiz = (() => {
         Q.ai ? el("span", { class: "lead", style: "margin:0" }, Q.ai.running ? `AI 채점 중… ${Q.ai.done}/${Q.ai.total}` : `AI 채점 ${Q.ai.done - Q.ai.fails.length}/${Q.ai.total}명 완료` + (Q.ai.skipped ? ` · AI 동의 없는 ${Q.ai.skipped}명은 직접 채점` : "") + (Q.ai.fails.length ? ` · 실패 ${Q.ai.fails.length}명(${Q.ai.fails[0].msg})` : "")) : null),
       Q.answers === null ? el("p", { class: "lead" }, "불러오는 중…") : !ans.length ? el("p", { class: "lead" }, "아직 제출한 학생이 없어요.") : el("div", { class: "qzt-list" }, ans.map(a => renderStudent(a, s)))];
   }
+  /* 탭: [문제 출제·제시] (패턴·문항 고르기, 제시) / [결과] (제시한 퀴즈 기록, 답안, 채점, 피드백 보내기) */
+  function renderTabs() {
+    const n = (Q.sessions || []).length, tabs = [["present", "문제 출제·제시"], ["results", `결과${n ? ` (${n})` : ""}`]];
+    return el("div", { class: "seg qzt-tabs", role: "tablist", "aria-label": "돌발퀴즈 화면" }, tabs.map(([k, l]) => el("button", { type: "button", role: "tab", class: "seg-b", "aria-selected": String(Q.tab === k), "aria-pressed": String(Q.tab === k), onclick: () => { Q.tab = k; paint(); } }, l)));
+  }
   function render() {
     fill(root, el("h3", {}, "돌발퀴즈"),
       el("p", { class: "lead" }, "패턴을 고르고 [제시하기]를 누르면 그 패턴 장(요약 판·긴 버전)을 보고 있는 학생 화면에 팝업으로 서술형 문제가 나타나고, 학생은 제한 시간 안에 답합니다(시간이 끝나면 쓴 글이 자동 제출). 마감 뒤 이 화면에서 답안을 보고 AI 로 채점한 다음 피드백을 학생에게 보냅니다. AI 채점에는 학생의 답안(이름·이메일 제외)이 Google Gemini 로 전달되므로 개인정보 동의의 ‘AI 도우미 이용(선택)’에 동의한 학생만 AI 채점이 되고, 그렇지 않은 학생은 직접 채점합니다."),
-      ...renderPresent(), el("div", { class: "qzt-cols" }, el("div", {}, ...renderHistory()), el("div", {}, ...renderDetail())));
+      renderActive(), renderTabs(),
+      ...(Q.tab === "present" ? renderPresent() : [el("div", { class: "qzt-cols" }, el("div", {}, ...renderHistory()), el("div", {}, ...renderDetail()))]));
   }
 
   /* c = {prog: () => 진도 행들, consents: () => 동의 행들}. root 는 이 메뉴의 패널. */

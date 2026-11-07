@@ -436,3 +436,7 @@ pre.qzt-ans.empty { color: var(--dim); }
 textarea.qzt-fb { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: inherit; margin-top: 4px; }
 .qzt-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
 @media (max-width: 860px) { .qzt-cols { grid-template-columns: 1fr; } }
+
+.qzt-tabs { margin: 10px 0 12px; }
+.qzt-bhead { display: flex; align-items: center; gap: 8px; }
+.qzt-bhead h4 { margin: 0; }
